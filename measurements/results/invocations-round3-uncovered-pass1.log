@@ -1,0 +1,570 @@
+21:14:27	./sim-root/runs3/r32/ramen-shop	formula new --help
+21:14:27	./sim-root/runs3/r32/ramen-shop	check
+21:16:30	./sim-root/runs3/r01/tidepool	ready
+21:16:31	./sim-root/runs3/r01/tidepool	formula list
+21:16:31	./sim-root/runs3/r01/tidepool	check
+21:16:32	./sim-root/runs3/r03/seed-bank	prime
+21:16:33	./sim-root/runs3/r03/seed-bank	ready
+21:16:33	./sim-root/runs3/r03/seed-bank	list --all
+21:16:34	./sim-root/runs3/r03/seed-bank	formula list
+21:16:34	./sim-root/runs3/r03/seed-bank	check
+21:16:48	./sim-root/runs3/r03/seed-bank	memories
+21:16:48	./sim-root/runs3/r03/seed-bank	search CAL
+21:16:49	./sim-root/runs3/r03/seed-bank	mol --help
+21:16:50	./sim-root/runs3/r01/tidepool	list --all
+21:16:50	./sim-root/runs3/r01/tidepool	--help
+21:16:54	./sim-root/runs3/r01/tidepool	create Ship build 4.2 to the App Store and Play Store
+21:17:00	./sim-root/runs3/r01/tidepool	mol pour mol-ship-build
+21:17:03	./sim-root/runs3/r01/tidepool	list --all
+21:17:03	./sim-root/runs3/r03/seed-bank	create Intake: 40 Orkney landrace barley samples into the bank --type=task --priority=2 --description=A box of 40 landrace barley samples arrived from the Orkney collector with a handwritten list and no accession numbers. Bring them into the bank per mol-accession: count twice against the list, assign CAL-NNNNN numbers in sequence (never reused), record passport data, dry to storage moisture, germination test, pack and place into store. Blocked until the handwritten list and the last issued CAL number are available in the register.
+21:17:04	./sim-root/runs3/r03/seed-bank	mol show mol-accession
+21:17:09	./sim-root/runs3/r03/seed-bank	mol pour --help
+21:17:09	./sim-root/runs3/r03/seed-bank	mol seed --help
+21:17:09	./sim-root/runs3/r03/seed-bank	mol seed
+21:17:12	./sim-root/runs3/r01/tidepool	show tidepool-mol-6x9
+21:17:12	./sim-root/runs3/r01/tidepool	show tidepool-mol-9uf
+21:17:13	./sim-root/runs3/r01/tidepool	show tidepool-mol-pgd
+21:17:13	./sim-root/runs3/r03/seed-bank	mol seed mol-accession
+21:17:13	./sim-root/runs3/r01/tidepool	show tidepool-mol-8gt
+21:17:14	./sim-root/runs3/r03/seed-bank	mol pour mol-accession --dry-run
+21:17:14	./sim-root/runs3/r01/tidepool	show tidepool-mol-j8q
+21:17:15	./sim-root/runs3/r01/tidepool	show tidepool-mol-efy
+21:17:16	./sim-root/runs3/r01/tidepool	statuses
+21:17:17	./sim-root/runs3/r03/seed-bank	mol pour accession --dry-run
+21:17:23	./sim-root/runs3/r01/tidepool	note --help
+21:17:24	./sim-root/runs3/r03/seed-bank	mol pour mol-accession
+21:17:27	./sim-root/runs3/r03/seed-bank	list --status=open
+21:17:34	./sim-root/runs3/r08/paws-shelter	--version
+21:17:35	./sim-root/runs3/r01/tidepool	note tidepool-bo3 Status 2026-10-31: NOT shipped. Checked in this repo: no 4.2 code, tag, branch or remote, no CI config (no .github), and app/ holds only a README, so the CI-green and build claims cannot be verified here. The store steps need App Store Connect, Play Console, Sentry and sandbox access, none of which this session has. Submission (tidepool-mol-efy) stays held until the four gates before it are closed. Formula poured as tidepool-mol-fan.
+21:17:35	./sim-root/runs3/r01/tidepool	note tidepool-mol-6x9 Not started. Needs the 4.2 build uploaded to TestFlight and the Play internal track, then two days of soak. No build artifact or console access exists in this repo. During the soak, specifically watch the two known recurring crashes in docs/crash-triage.md: chart renderer OOM on old Android when the 10-day view is opened twice, and station picker crash when location permission is revoked while backgrounded. The new chart renderer is at 20% (docs/experiments.md).
+21:17:36	./sim-root/runs3/r01/tidepool	note tidepool-mol-9uf Not started. Needs Sentry access for the soak window. Pass bar: no P1 crashes, and crash-free sessions held at 99.5% (docs/crash-triage.md). If a spike tracks a rollout, halt the rollout first.
+21:17:36	./sim-root/runs3/r01/tidepool	note tidepool-mol-pgd Not started. Needs a 4.2 build on a device or simulator and sandbox accounts for both stores; no sandbox credentials are available in this session, and none should be entered on anyone's behalf. Check that subscription terms are visible before purchase, since that was an Apple rejection (store/metadata.md). The annual subscription price test in Portugal touches the paywall (docs/experiments.md).
+21:17:37	./sim-root/runs3/r01/tidepool	note tidepool-mol-8gt Cannot be decided from this repo. No screenshots or description text are stored here, and there is no 4.2 UI diff to say whether the UI changed. If it changed: regenerate the six screenshots from the UI test suite, and make sure no screenshot uses the word free (an Apple rejection, store/metadata.md). The Play data safety form has been flagged twice as inconsistent, so re-check it against 4.2.
+21:17:38	./sim-root/runs3/r01/tidepool	note tidepool-mol-j8q Not drafted. This repo has no 4.2 change list, and release notes must not be invented from guesses. Someone who knows what 4.2 contains needs to write them for store metadata and the changelog page (docs/release-train.md).
+21:17:38	./sim-root/runs3/r08/paws-shelter	create Take in the stray collie found on Quarry Rise
+21:17:39	./sim-root/runs3/r01/tidepool	note tidepool-mol-efy Held. Submission is irreversible and needs the user's explicit go-ahead in chat. Rollout plan from docs/release-train.md: Android 10% for a day, then 50%, then 100%; iOS phased release over seven days. Halt if a crash spike tracks the rollout (docs/crash-triage.md).
+21:17:39	./sim-root/runs3/r01/tidepool	list --all
+21:17:43	./sim-root/runs3/r08/paws-shelter	mol pour --help
+21:17:44	./sim-root/runs3/r08/paws-shelter	check
+21:17:44	./sim-root/runs3/r08/paws-shelter	formula list
+21:17:45	./sim-root/runs3/r01/tidepool	check
+21:17:48	./sim-root/runs3/r08/paws-shelter	mol pour mol-intake --dry-run
+21:17:52	./sim-root/runs3/r08/paws-shelter	mol pour mol-intake
+21:17:54	./sim-root/runs3/r08/paws-shelter	list
+21:17:54	./sim-root/runs3/r03/seed-bank	update seed-bank-kr8 --notes=Workflow tracked under seed-bank-mol-p92 (mol-accession). Sheet and status: accessions/intake/orkney-barley/. Blocked on: (1) the handwritten list and the box count, neither in the working tree; (2) the last issued CAL-NNNNN, which the repo does not record. Numbers not assigned.
+21:17:55	./sim-root/runs3/r03/seed-bank	show seed-bank-kr8
+21:17:56	./sim-root/runs3/r03/seed-bank	show seed-bank-mol-2x2
+21:17:56	./sim-root/runs3/r03/seed-bank	human --help
+21:17:59	./sim-root/runs3/r08/paws-shelter	search
+21:17:59	./sim-root/runs3/r08/paws-shelter	list --all
+21:18:02	./sim-root/runs3/r03/seed-bank	check
+21:18:02	./sim-root/runs3/r03/seed-bank	stats
+21:18:07	./sim-root/runs3/r03/seed-bank	list --all
+21:18:07	./sim-root/runs3/r03/seed-bank	list --status=open --json
+21:18:14	./sim-root/runs3/r09/vinyl-press	prime
+21:18:14	./sim-root/runs3/r09/vinyl-press	ready
+21:18:14	./sim-root/runs3/r09/vinyl-press	list
+21:18:15	./sim-root/runs3/r09/vinyl-press	formula list
+21:18:15	./sim-root/runs3/r09/vinyl-press	check
+21:18:24	./sim-root/runs3/r08/paws-shelter	update --help
+21:18:24	./sim-root/runs3/r08/paws-shelter	show paws-shelter-mol-p6i
+21:18:38	./sim-root/runs3/r09/vinyl-press	memories
+21:18:38	./sim-root/runs3/r09/vinyl-press	search hollow
+21:18:39	./sim-root/runs3/r09/vinyl-press	stats
+21:18:39	./sim-root/runs3/r09/vinyl-press	create --help
+21:18:43	./sim-root/runs3/r09/vinyl-press	create Set up the Hollow Coast repress: order 2411, 500 x 12in on press 2, week of the 14th --description=Order 2411 (Saltmarsh, Hollow Coast, 500 units, 12in) is confirmed for a repress in the week of the 14th on press 2 (SMT, 12in). Lacquer reported cut and on the shelf. Work out what must happen before the run: lacquer age and plating, stampers, pellets/jackets/labels, press 2 booking, signed test pressing, run, pack. --type=task --priority=1
+21:18:47	./sim-root/runs3/r09/vinyl-press	mol pour --help
+21:18:50	./sim-root/runs3/r09/vinyl-press	mol pour mol-new-run --dry-run
+21:18:55	./sim-root/runs3/r09/vinyl-press	mol pour mol-new-run
+21:18:57	./sim-root/runs3/r09/vinyl-press	list
+21:18:58	./sim-root/runs3/r08/paws-shelter	update paws-shelter-l5d --status in_progress --append-notes Register record: animals/2026-PENDING-unnamed-collie.md (intake number not yet assigned). Stray hold expires 2026-11-07. Open: chip scan, keeper contact, condition check and weight, photograph, vet booking, kennel or foster. Nothing committed.
+21:18:59	./sim-root/runs3/r08/paws-shelter	update paws-shelter-mol-3mo --append-notes Not done. Needs a physical chip scan by staff. The result decides whether a keeper must be traced. Nothing else proceeds before this.
+21:18:59	./sim-root/runs3/r08/paws-shelter	update paws-shelter-mol-n2d --status in_progress --append-notes Record opened at animals/2026-PENDING-unnamed-collie.md. Still open: photograph, and the intake number from the intake book.
+21:19:00	./sim-root/runs3/r08/paws-shelter	update paws-shelter-mol-7rg --status in_progress --append-notes Clock started 2026-10-31. Expires 2026-11-07, seven days from intake. Recorded in the register file.
+21:19:00	./sim-root/runs3/r08/paws-shelter	update paws-shelter-mol-7xz --append-notes Not booked. Vet visits Tue 2026-11-03 and Fri 2026-11-06 only. A same-day condition check is needed before then. Staff to book.
+21:19:01	./sim-root/runs3/r08/paws-shelter	update paws-shelter-mol-l2s --append-notes Not assigned. This repo holds no occupancy data, so staff pick the kennel or foster home.
+21:19:05	./sim-root/runs3/r08/paws-shelter	create Same-day condition check and weight for the collie; vet not in until Tue 3 Nov -p 1 -d The vet visits Tuesday and Friday mornings only, and today is Saturday 31 Oct. Staff check the collie today: condition in plain words, weight, and flea and worm treatment. If she is unwell, the duty manager decides on the emergency practice on Mill Road, by phone. Log the results in animals/2026-PENDING-unnamed-collie.md.
+21:19:06	./sim-root/runs3/r08/paws-shelter	dep --help
+21:19:06	./sim-root/runs3/r08/paws-shelter	list
+21:19:13	./sim-root/runs3/r08/paws-shelter	check
+21:19:23	./sim-root/runs3/r09/vinyl-press	show vinyl-press-mol-xgu
+21:19:26	./sim-root/runs3/r09/vinyl-press	show vinyl-press-mol-kuc
+21:19:27	./sim-root/runs3/r09/vinyl-press	show vinyl-press-mol-e35
+21:19:28	./sim-root/runs3/r09/vinyl-press	show vinyl-press-mol-r8i
+21:19:28	./sim-root/runs3/r09/vinyl-press	show vinyl-press-mol-6s4
+21:19:29	./sim-root/runs3/r09/vinyl-press	show vinyl-press-mol-7yr
+21:19:30	./sim-root/runs3/r09/vinyl-press	human --help
+21:19:33	./sim-root/runs3/r15/grange-farm	--version
+21:19:33	./sim-root/runs3/r15/grange-farm	ready
+21:19:33	./sim-root/runs3/r15/grange-farm	formula list
+21:19:34	./sim-root/runs3/r15/grange-farm	check
+21:19:37	./sim-root/runs3/r15/grange-farm	create Heifer 118 first calving due this week: get her in and watched
+21:19:42	./sim-root/runs3/r15/grange-farm	mol pour --help
+21:19:42	./sim-root/runs3/r15/grange-farm	update --help
+21:19:45	./sim-root/runs3/r15/grange-farm	update grange-farm-hje --claim
+21:19:45	./sim-root/runs3/r09/vinyl-press	update vinyl-press-cgo --claim
+21:19:46	./sim-root/runs3/r15/grange-farm	mol pour mol-calving --dry-run
+21:19:46	./sim-root/runs3/r09/vinyl-press	create Decide: shelved Hollow Coast lacquer, use it or re-cut it --description=The lacquer for order 2411 is reported as cut and on the shelf. Rules in cutting/lacquers.md: a cut lacquer goes into the plating bath the same day, and one left overnight before plating is re-cut. The repo has no cut date, plating record or stamper register for 2411, so this cannot be checked from here. Decision needed. (a) If a sound set of Hollow Coast stampers already exists, the repress can run from those and the shelved lacquer is only a backup. (b) If there are no usable stampers, the lacquer is the only route to stampers. It can be used only if it was plated the same day it was cut; otherwise re-cut it with mol-cut-lacquer, from in-date blanks, and check the Hollow Coast programme length (over 22 minutes a side needs a lower cut level). --priority=0 --labels=human
+21:19:48	./sim-root/runs3/r09/vinyl-press	list
+21:19:52	./sim-root/runs3/r15/grange-farm	mol pour mol-calving
+21:19:54	./sim-root/runs3/r15/grange-farm	ready
+21:19:58	./sim-root/runs3/r15/grange-farm	list --all
+21:19:59	./sim-root/runs3/r15/grange-farm	show grange-farm-mol-jxr
+21:20:00	./sim-root/runs3/r09/vinyl-press	dep add vinyl-press-mol-xgu vinyl-press-m71
+21:20:01	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-xgu --notes=Not checkable from the repo. There is no stamper register, plating log or record of existing Hollow Coast stampers. Physical check needed: locate the order 2411 stampers, or plate new ones, then inspect for marks, fill and sound. Plating uses Vantage nickel; keep one spare anode (docs/suppliers.md). Blocked by vinyl-press-m71 (lacquer decision).
+21:20:01	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-kuc --notes=Pellets: Hartwell black compound only, 25kg sacks, ordered two weeks ahead (docs/suppliers.md). Assumption to confirm: about 160 g per 12in record, so 500 units need about 80 kg before flash and test copies. Order 5 sacks (125 kg) unless the press 2 shot weight says otherwise. Timing: if the run is the week of 9 Nov the two-week window closed on 26 Oct; if it is the week of 16 Nov, the order must go by 2 Nov. NOT ORDERED: sending to Hartwell needs your approval. Jackets and labels (Pressplay or Dorne, whichever the label uses): confirm 500 of each in hand. No stock ledger exists in the repo, so every count here is unverified. Check the hopper for damp pellets at the start of the run (press/machines.md).
+21:20:02	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-e35 --notes=No booking or schedule record exists in the repo, so 'press 2 is free' is unverified. Press 2 (SMT) runs 12in natively: zero changeover if it is already on 12in, about 90 minutes for a mould swap if not (press/machines.md). Book only after stampers and stock are confirmed. NOT BOOKED.
+21:20:03	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-r8i --notes=A signed test pressing from the label is required before the main run (qc/standards.md). NOT SENT. Draft for approval, to Saltmarsh: 'The Hollow Coast repress (order 2411, 500 x 12in) is planned on press 2 for the week of [date]. Please send your sign-off on the test pressing once it is cut.' Send only with approval.
+21:20:03	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-6s4 --notes=500 units. Pull one in fifty for inspection, which is 10 units. Reject for non-fill, lead-out stitching, warp over 1mm, visible stamper marks, off-centre spindle hole or repeating clicks. If rejects pass 8% (40 units), stop the press and run mol-reject-batch (qc/standards.md).
+21:20:04	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-7yr --notes=Courier booking and box labels. External action: needs your approval before booking.
+21:20:04	./sim-root/runs3/r09/vinyl-press	update vinyl-press-cgo --notes=Repress of order 2411 (Saltmarsh, Hollow Coast, 500 x 12in). Verified from the repo: order is confirmed in orders/backlog.md, press 2 is the 12in SMT (README), and the mol-new-run steps are poured as vinyl-press-mol-lhv. NOT verified from the repo: lacquer age and plating (vinyl-press-m71), stamper condition, pellet, jacket and label stock, press 2 availability. Nothing has been ordered, booked or sent. Blocking decisions: vinyl-press-m71 (P0). Two time-critical items: pellets (two-week lead) and the test-pressing sign-off from the label.
+21:20:09	./sim-root/runs3/r09/vinyl-press	human list
+21:20:10	./sim-root/runs3/r09/vinyl-press	blocked
+21:20:10	./sim-root/runs3/r09/vinyl-press	show vinyl-press-mol-xgu
+21:20:10	./sim-root/runs3/r09/vinyl-press	doctor
+21:20:11	./sim-root/runs3/r09/vinyl-press	check
+21:20:17	./sim-root/runs3/r09/vinyl-press	show mol-new-run.book
+21:20:17	./sim-root/runs3/r09/vinyl-press	list --status=all
+21:20:18	./sim-root/runs3/r09/vinyl-press	doctor --check=conventions
+21:20:23	./sim-root/runs3/r09/vinyl-press	lint
+21:20:30	./sim-root/runs3/r09/vinyl-press	update vinyl-press-m71 --acceptance=Done when the stamper register and the lacquer cut and plating dates have been checked, and the notes record whether order 2411 runs from existing stampers, the shelved lacquer, or a re-cut.
+21:20:31	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-xgu --acceptance=Done when the 2411 stampers are found or plated, inspected for marks, fill and sound, and the result is in the notes.
+21:20:31	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-kuc --acceptance=Done when pellet quantity is checked against stock, pellets are ordered (with approval), and jackets and labels for 500 units are confirmed.
+21:20:32	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-e35 --acceptance=Done when press 2 is confirmed free for the run week, the changeover time is noted, and the slot is booked (with approval).
+21:20:32	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-r8i --acceptance=Done when a test pressing is cut and the label has signed it off in writing.
+21:20:33	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-6s4 --acceptance=Done when 500 units are pressed, 10 are pulled for inspection, and the reject rate is recorded against the 8 percent limit.
+21:20:33	./sim-root/runs3/r09/vinyl-press	update vinyl-press-mol-7yr --acceptance=Done when boxes are labelled, the courier is booked (with approval), and the order is shipped.
+21:20:34	./sim-root/runs3/r09/vinyl-press	lint
+21:20:59	./sim-root/runs3/r15/grange-farm	update grange-farm-hje --append-notes Plan written: livestock/heifer-118-calving.md. Poured mol-calving as grange-farm-mol-jxr (6 steps). Physical steps (bring her in, watch, colostrum, navel, tag, book) are still open; they are only closed when done. Gaps to fill: service date and due date, mineral bolus, pen location, vet out-of-hours number, colostrum stock.
+21:20:59	./sim-root/runs3/r15/grange-farm	create Find heifer 118 service date, bull and due date in the bull records
+21:21:00	./sim-root/runs3/r15/grange-farm	create Confirm heifer 118 has had the pre-calving mineral bolus
+21:21:02	./sim-root/runs3/r15/grange-farm	create Check calving kit and colostrum stock before 118 calves
+21:21:03	./sim-root/runs3/r15/grange-farm	create Add a preparation step to the mol-calving formula
+21:21:08	./sim-root/runs3/r15/grange-farm	list --all
+21:21:08	./sim-root/runs3/r15/grange-farm	ready
+21:21:09	./sim-root/runs3/r15/grange-farm	check
+21:21:09	./sim-root/runs3/r15/grange-farm	show grange-farm-mol-ifp
+21:21:29	./sim-root/runs3/r19/tinybill	--version
+21:21:29	./sim-root/runs3/r19/tinybill	ready
+21:21:29	./sim-root/runs3/r19/tinybill	list
+21:21:46	./sim-root/runs3/r23/corpsec	prime
+21:21:46	./sim-root/runs3/r23/corpsec	ready
+21:21:47	./sim-root/runs3/r23/corpsec	formula list
+21:21:47	./sim-root/runs3/r23/corpsec	check
+21:21:51	./sim-root/runs3/r23/corpsec	create Record transfer of 500 ordinary shares from R. Osei to M. Lindqvist, board-approved 2026-05-13 --description=Board minutes of 2026-05-13 approve the transfer of 500 ordinary shares from R. Osei to M. Lindqvist, subject to the instrument being stamped, with the register to be updated on receipt. Enter the transfer in the register of members against both parties with the approval date (2026-05-13), within the fourteen-day rule, and carry the change into the certificates and the next confirmation statement. --type=task --priority=1
+21:22:10	./sim-root/runs3/r23/corpsec	search Osei
+21:22:10	./sim-root/runs3/r23/corpsec	search stamp
+21:22:10	./sim-root/runs3/r23/corpsec	memories
+21:22:11	./sim-root/runs3/r23/corpsec	list --all
+21:22:11	./sim-root/runs3/r19/tinybill	create Cut the 0.3 release
+21:22:12	./sim-root/runs3/r19/tinybill	formula list
+21:22:12	./sim-root/runs3/r19/tinybill	check
+21:22:18	./sim-root/runs3/r19/tinybill	mol pour mol-cut-release
+21:22:44	./sim-root/runs3/r23/corpsec	mol pour --help
+21:22:44	./sim-root/runs3/r23/corpsec	update --help
+21:22:47	./sim-root/runs3/r23/corpsec	update corpsec-qwn --claim
+21:22:47	./sim-root/runs3/r23/corpsec	mol pour mol-share-transfer --dry-run
+21:22:53	./sim-root/runs3/r23/corpsec	mol pour mol-share-transfer
+21:22:55	./sim-root/runs3/r23/corpsec	list --all
+21:22:57	./sim-root/runs3/r25/clinic-rota	ready
+21:22:57	./sim-root/runs3/r25/clinic-rota	check
+21:22:58	./sim-root/runs3/r25/clinic-rota	formula list
+21:22:58	./sim-root/runs3/r23/corpsec	show corpsec-mol-7si
+21:22:59	./sim-root/runs3/r23/corpsec	show corpsec-mol-adl
+21:22:59	./sim-root/runs3/r23/corpsec	show corpsec-mol-8gv
+21:23:00	./sim-root/runs3/r23/corpsec	show corpsec-mol-1f2
+21:23:00	./sim-root/runs3/r23/corpsec	show corpsec-mol-wn4
+21:23:32	./sim-root/runs3/r23/corpsec	update corpsec-mol-7si --notes=BLOCKED. No stock transfer form is on file. Searched corpsec: nothing under registers/, minutes/, filings/ or docs/, and the git history holds no instrument. Needed: the signed instrument of transfer for 500 ordinary shares, R. Osei to M. Lindqvist, with the date it was received here and proof that it is stamped.
+21:23:33	./sim-root/runs3/r23/corpsec	update corpsec-mol-adl --notes=BLOCKED on receive. Two checks, neither possible from corpsec: (1) the instrument is stamped, which minutes/2026-q2.md item 2 makes a condition of the approval; (2) the articles of association allow the transfer. The articles are not held in corpsec, so this needs them from the company other records. For the chair: R. Osei is a director and the transferor, and the 2026-05-13 minutes record no declaration of interest by him. Confirm whether one was needed.
+21:23:33	./sim-root/runs3/r23/corpsec	update corpsec-mol-8gv --notes=Board approved on 2026-05-13: minutes/2026-q2.md item 2, signed by the chair on 2026-05-14. The approval is subject to the instrument being stamped, and the register is to be updated on receipt. Leave open until the check step clears that condition. The formula orders check before approval, so this step is out of sequence with the minutes.
+21:23:40	./sim-root/runs3/r23/corpsec	update corpsec-mol-1f2 --notes=NOT ENTERED. The minutes say the register is updated on receipt of the instrument, and no instrument is on file, so registers/members.md is unchanged. Enter these once the stamped instrument is confirmed, dated by the board approval (2026-05-13), not the instrument date, per the register rule. Draft changes to registers/members.md: (a) change the R. Osei ordinary row from 2,500 to 2,000, date entered 2019-04-02, still open. (b) add a ceased row: R. Osei | 8 Quarry Rise | 500 | Ordinary | 2019-04-02 | 2026-05-13. (c) add a row for the transferee: M. Lindqvist | 3 Canal Street | 500 | Ordinary | 2026-05-13 | (open). Ordinary holdings after the transfer: Thornbury 4,000, Osei 2,000, Lindqvist 2,000, total 8,000, unchanged. Preference holdings unaffected. Lateness: the README says entries are made within fourteen days. Counted from the 2026-05-13 approval, the deadline was 2026-05-27. If the instrument arrived in May, the register is already late and that should be reported to the chair.
+21:23:40	./sim-root/runs3/r23/corpsec	update corpsec-mol-wn4 --notes=BLOCKED on register. No old certificate is on file, and the register records no certificate numbers. Once the register is updated: cancel R. Osei certificate for 2,500 and issue one for 2,000. For M. Lindqvist, issue a certificate for the 500 transferred, or one consolidated certificate for 2,000 if the existing 1,500 certificate is surrendered. Record the cancelled and new certificate numbers.
+21:23:41	./sim-root/runs3/r23/corpsec	update corpsec-qwn --notes=Status 2026-10-31: NOT recorded in the register yet. The 2026-05-13 approval is conditional. minutes/2026-q2.md item 2 approves the transfer subject to the instrument being stamped, with the register to be updated on receipt. No stock transfer form or stamp evidence is in corpsec, so registers/members.md is unchanged. The share-transfer workflow is poured as corpsec-mol-xjq. Steps: receive and check are blocked on the instrument, approve is open pending the check, register and certificates follow. Also open for the secretary: (1) if the instrument was received in May, the README fourteen-day rule has already been missed. (2) docs/filing-calendar.md lists a confirmation statement due 2026-04-16, and filings/ has no submission record for 2026. Check whether it was filed, since the transfer must appear in the next confirmation statement. Draft register entries are in corpsec-mol-1f2.
+21:23:45	./sim-root/runs3/r23/corpsec	list --all
+21:23:45	./sim-root/runs3/r23/corpsec	ready
+21:23:46	./sim-root/runs3/r23/corpsec	check
+21:23:52	./sim-root/runs3/r19/tinybill	list
+21:23:57	./sim-root/runs3/r19/tinybill	close tinybill-mol-yg0 tinybill-mol-c49 tinybill-mol-fq2 tinybill-mol-ja8
+21:23:59	./sim-root/runs3/r28/archive-fonds	--help
+21:24:00	./sim-root/runs3/r28/archive-fonds	create --help
+21:24:00	./sim-root/runs3/r28/archive-fonds	formula list
+21:24:00	./sim-root/runs3/r28/archive-fonds	check
+21:24:01	./sim-root/runs3/r19/tinybill	create Choose a license and add it before the index upload
+21:24:02	./sim-root/runs3/r19/tinybill	list
+21:24:04	./sim-root/runs3/r28/archive-fonds	create Take in the Pemberton solicitors deposit ACC/2026/017: twelve boxes, unlisted, with a covering letter -t task -p 1
+21:24:08	./sim-root/runs3/r28/archive-fonds	mol pour --help
+21:24:08	./sim-root/runs3/r28/archive-fonds	mol pour mol-accession
+21:24:13	./sim-root/runs3/r28/archive-fonds	show archive-fonds-mol-171
+21:24:14	./sim-root/runs3/r28/archive-fonds	children archive-fonds-mol-171
+21:24:15	./sim-root/runs3/r28/archive-fonds	list
+21:24:15	./sim-root/runs3/r25/clinic-rota	create Cover Dr Adeyemi's sessions while she is off sick: Monday and Thursday AM plus Wednesday minor surgery
+21:24:19	./sim-root/runs3/r25/clinic-rota	mol pour mol-cover-absence
+21:24:21	./sim-root/runs3/r25/clinic-rota	ready
+21:24:25	./sim-root/runs3/r25/clinic-rota	list --status=open
+21:24:26	./sim-root/runs3/r25/clinic-rota	show clinic-rota-mol-3yn
+21:24:32	./sim-root/runs3/r25/clinic-rota	update clinic-rota-mol-2h6 --claim
+21:24:47	./sim-root/runs3/r28/archive-fonds	close --help
+21:24:47	./sim-root/runs3/r28/archive-fonds	note --help
+21:24:58	./sim-root/runs3/r28/archive-fonds	close archive-fonds-mol-rw9 --reason ACC/2026/017 already assigned and in the register awaiting list; checked unique, no new number
+21:24:59	./sim-root/runs3/r28/archive-fonds	note archive-fonds-mol-c18 Extent recorded as 12 boxes, unlisted, per the register and the deposit notice. Box count not yet checked. Terms NOT confirmed: read from the covering letter, which is physical and not in the repo. Do not assume deposit/gift/purchase.
+21:25:00	./sim-root/runs3/r28/archive-fonds	note archive-fonds-mol-avp Blocked: needs a physical box-by-box condition check by a person with the boxes. Flag to conservation if any box will not take handling. Not checked from the desk.
+21:25:00	./sim-root/runs3/r28/archive-fonds	note archive-fonds-mol-j8e Blocked on condition check and physical shelving. Record the strongroom location in fonds/register.md (ACC/2026/017 entry) when shelved.
+21:25:01	./sim-root/runs3/r28/archive-fonds	note archive-fonds-mol-8h8 Blocked: fonds-level description needs the covering letter (administrative history: partners, dates, predecessor firms, kind of work) and the contents check. Do not publish a partial description. See finding-aids/README.md.
+21:25:01	./sim-root/runs3/r28/archive-fonds	note archive-fonds-mol-xjg Not sent. Acknowledgment to Pemberton solicitors needs the terms and extent confirmed first, and a person must send it. Nothing has been sent.
+21:25:02	./sim-root/runs3/r28/archive-fonds	note archive-fonds-94v Desk work done: ACC/2026/017 entry added to fonds/register.md; number step closed. Physical steps (box count, covering letter terms, condition, shelving, location) remain open and need a person with the boxes. Nothing committed.
+21:25:06	./sim-root/runs3/r28/archive-fonds	list
+21:25:07	./sim-root/runs3/r28/archive-fonds	check
+21:25:23	./sim-root/runs3/r31/edgeops	prime
+21:25:23	./sim-root/runs3/r31/edgeops	ready
+21:25:24	./sim-root/runs3/r31/edgeops	formula list
+21:25:24	./sim-root/runs3/r31/edgeops	check
+21:25:29	./sim-root/runs3/r31/edgeops	create Patch the kernel on the us-west-2 node without dropping traffic --type=task --priority=1 --description=Patch the kernel on the us-west-2 node without dropping traffic. Done means: the us-west-2 node runs the patched kernel via a terraform image change, traffic was never pulled below capacity, other regions untouched during the change, node back in the anycast pool and taking traffic.
+21:25:43	./sim-root/runs3/r32/ramen-shop	formula list
+21:25:43	./sim-root/runs3/r32/ramen-shop	check
+21:25:44	./sim-root/runs3/r32/ramen-shop	ready
+21:25:46	./sim-root/runs3/r31/edgeops	mol pour mol-drain-node
+21:25:48	./sim-root/runs3/r31/edgeops	show edgeops-jee
+21:25:48	./sim-root/runs3/r32/ramen-shop	create Add yuzu shio bowl to the autumn menu -t feature -p 2
+21:25:51	./sim-root/runs3/r31/edgeops	list --status=open
+21:25:51	./sim-root/runs3/r31/edgeops	show edgeops-mol-4h0
+21:25:53	./sim-root/runs3/r32/ramen-shop	update ramen-shop-mqr --claim
+21:25:53	./sim-root/runs3/r32/ramen-shop	mol pour mol-add-dish
+21:25:55	./sim-root/runs3/r32/ramen-shop	show ramen-shop-mqr
+21:25:58	./sim-root/runs3/r32/ramen-shop	list
+21:25:59	./sim-root/runs3/r32/ramen-shop	show ramen-shop-mol-2ip
+21:26:13	./sim-root/runs3/r31/edgeops	search kernel
+21:26:14	./sim-root/runs3/r31/edgeops	memories kernel
+21:26:14	./sim-root/runs3/r31/edgeops	search image
+21:26:14	./sim-root/runs3/r31/edgeops	memories image
+21:26:14	./sim-root/runs3/r31/edgeops	search us-west-2
+21:26:14	./sim-root/runs3/r31/edgeops	memories us-west-2
+21:26:15	./sim-root/runs3/r31/edgeops	search edge-2026
+21:26:15	./sim-root/runs3/r31/edgeops	memories edge-2026
+21:26:15	./sim-root/runs3/r31/edgeops	search anycast
+21:26:15	./sim-root/runs3/r31/edgeops	memories anycast
+21:26:17	./sim-root/runs3/r25/clinic-rota	check
+21:26:17	./sim-root/runs3/r25/clinic-rota	formula list
+21:26:25	./sim-root/runs3/r25/clinic-rota	close clinic-rota-mol-2h6
+21:26:26	./sim-root/runs3/r25/clinic-rota	update clinic-rota-mol-iln --claim
+21:26:26	./sim-root/runs3/r25/clinic-rota	update clinic-rota-mol-ltq --claim
+21:26:27	./sim-root/runs3/r25/clinic-rota	update clinic-rota-mol-v19 --claim
+21:26:27	./sim-root/runs3/r25/clinic-rota	update clinic-rota-mol-cwx --claim
+21:26:28	./sim-root/runs3/r25/clinic-rota	update clinic-rota-324 --claim
+21:26:28	./sim-root/runs3/r25/clinic-rota	create Get Monday 2 Nov AM cover confirmed by Sun 1 Nov 18:00 (Dr Ferreira offer; urgent locum request as fallback) -t task -p 0
+21:26:29	./sim-root/runs3/r25/clinic-rota	create Confirm who is signed off to run the Wednesday minor surgery list on 4 and 11 Nov -t task -p 1
+21:26:30	./sim-root/runs3/r25/clinic-rota	create Send locum requests to Medacs and Castle for 9, 11 and 12 Nov once partners have answered -t task -p 1
+21:26:31	./sim-root/runs3/r25/clinic-rota	create Reassign Dr Adeyemi's inbox, results, referrals and named patients to named GPs -t task -p 1
+21:26:32	./sim-root/runs3/r32/ramen-shop	update --help
+21:26:32	./sim-root/runs3/r25/clinic-rota	create Reconcile duty.md: header says 18 sessions, list has 10; name salaried GPs; name duty doctors for Tue PM, Wed PM, Fri PM -t task -p 1
+21:26:33	./sim-root/runs3/r25/clinic-rota	create Confirm whether the partner cover cap of three sessions is per absence or per week -t task -p 1
+21:26:34	./sim-root/runs3/r25/clinic-rota	create Check whether Dr Adeyemi holds any Saturday flu clinic or other session not on duty.md -t task -p 2
+21:26:39	./sim-root/runs3/r25/clinic-rota	list --status=open
+21:26:41	./sim-root/runs3/r31/edgeops	create --title=Need the patched edge image ID for us-west-2 --type=task --priority=1 --description=The kernel patch has to ship as a new node image. No image ID with the patched kernel is recorded anywhere in this repo, the tracker or memory. Someone with image-pipeline access needs to publish the patched image and give its ID. Then set node_images us-west-2 to that ID in terraform (never default_image, which would roll every region). Blocks edgeops-jee.
+21:26:42	./sim-root/runs3/r31/edgeops	create --title=Tooling and provider are not set up to plan or apply the fleet --type=task --priority=1 --description=Four separate gaps block planning or applying from this machine. (1) edgectl is not installed, but ops/drain.sh and the drain formula need it for pool remove and wait-drain. (2) terraform/main.tf requires terraform >= 1.6, and the local binary is 1.5.7, so init refuses to run. (3) The edge_node resource has no provider source declared (no required_providers block), so validate and plan cannot resolve it. (4) The S3 state backend in eu-west-1 needs AWS credentials, and no AWS CLI is installed. Blocks edgeops-jee.
+21:26:44	./sim-root/runs3/r31/edgeops	create --title=README says eleven nodes but terraform defines four --type=task --priority=2 --description=README.md says the fleet is eleven nodes in four regions. terraform/nodes.tf creates one edge_node per entry in var.regions, which is four nodes. Capacity math for the drain (is one region down still within capacity?) depends on which is correct, so reconcile the two before draining us-west-2.
+21:26:49	./sim-root/runs3/r31/edgeops	update edgeops-jee --notes=Status: blocked, not patched. Done so far: terraform/main.tf adds default_image and node_images, nodes.tf uses lookup(node_images, region, default_image). Defaults keep every region on edge-2026-09, so nothing plans differently until node_images is set. Not done: capacity check, pool removal, image ID, plan and apply, restore. Blockers filed: edgeops-xyv (patched image ID), edgeops-xlh (edgectl, terraform 1.6+, provider source, AWS creds), edgeops-95a (node count mismatch). Changes are uncommitted; git ops are off in this context.
+21:26:49	./sim-root/runs3/r31/edgeops	update edgeops-mol-ct5 --notes=Blocked: needs live fleet data (other regions' health and capacity). No edgectl and no AWS access from this machine. Blocks on edgeops-95a for the node count.
+21:26:50	./sim-root/runs3/r31/edgeops	list --status=open
+21:27:03	./sim-root/runs3/r32/ramen-shop	update ramen-shop-mol-vmo --append-notes Not done. The repo has no ingredient prices and no past costings, so the per-portion cost cannot be worked out here. Needs current supplier prices for chicken broth, noodles, chashu, menma, scallion, yuzu, salt, kombu and sake.
+21:27:03	./sim-root/runs3/r32/ramen-shop	update ramen-shop-mol-7k9 --append-notes Not done. Needs the line. Set the yuzu shio tare weights and keep life in recipes/tare.md (currently DRAFT). Yuzu supply is not confirmed: docs/suppliers.md has no yuzu source.
+21:27:04	./sim-root/runs3/r32/ramen-shop	update ramen-shop-mol-0yu --append-notes Blocked on cost and test. The shio bowl is 14, but that is not a costed price for this bowl.
+21:27:04	./sim-root/runs3/r32/ramen-shop	update ramen-shop-mol-p8j --append-notes Blocked on the line test. Both cooks to be trained once the tare and the bowl are tested.
+21:27:05	./sim-root/runs3/r32/ramen-shop	update ramen-shop-mol-zex --append-notes Partly ready in the repo (uncommitted): menu/ramen.md entry, README bowl count, recipes/tare.md draft. Not for print until price and training are done. The formula description says to photograph the dish, but no step covers it; add one when this step is run.
+21:27:05	./sim-root/runs3/r32/ramen-shop	update ramen-shop-mqr --append-notes Repo changes made, uncommitted: menu/ramen.md (unpriced autumn entry, noodle line, autumn note), recipes/tare.md (yuzu shio tare draft), README.md (bowl count). There is no separate autumn menu file in the repo, so the bowl went on the bowls list. Open: cost, line test, price, training, publish. Not committed: AGENTS.md conservative profile, and no commit was asked for.
+21:27:05	./sim-root/runs3/r32/ramen-shop	list
+21:27:09	./sim-root/runs3/r32/ramen-shop	check
+21:35:02	./sim-root/runs4/r34/ramen-shop	check
+21:35:41	./sim-root/runs4/r38/corpsec	list
+21:35:42	./sim-root/runs4/r38/corpsec	ready
+21:35:42	./sim-root/runs4/r37/edgeops	prime
+21:35:42	./sim-root/runs4/r38/corpsec	formula list
+21:35:42	./sim-root/runs4/r37/edgeops	ready
+21:35:43	./sim-root/runs4/r34/ramen-shop	--version
+21:35:43	./sim-root/runs4/r37/edgeops	formula list
+21:35:43	./sim-root/runs4/r34/ramen-shop	prime
+21:35:43	./sim-root/runs4/r37/edgeops	check
+21:35:47	./sim-root/runs4/r34/ramen-shop	formula list
+21:35:48	./sim-root/runs4/r34/ramen-shop	check
+21:35:48	./sim-root/runs4/r34/ramen-shop	ready
+21:35:49	./sim-root/runs4/r34/ramen-shop	formula new --help
+21:35:51	./sim-root/runs4/r34/ramen-shop	create Hire and train a new kitchen hand
+21:35:51	./sim-root/runs4/r39/vinyl-press	create Onboard Coldharbour as a customer: account record, intake, and open questions
+21:35:57	./sim-root/runs4/r39/vinyl-press	formula list
+21:35:57	./sim-root/runs4/r39/vinyl-press	check
+21:35:58	./sim-root/runs4/r39/vinyl-press	ready
+21:35:58	./sim-root/runs4/r39/vinyl-press	prime
+21:36:03	./sim-root/runs4/r37/edgeops	create --title=Bring eu-central-1 into the fleet --description=Add eu-central-1 to the edge fleet in terraform (var.regions), so the fleet has a node there. Done means: the change is reviewed in a plan, the node is applied one region at a time, it is healthy before it takes traffic, it is in the anycast pool, and the docs and the procedure reflect five regions. No node is changed by hand. --type=feature --priority=2
+21:36:04	./sim-root/runs4/r36/tinybill	--help
+21:36:04	./sim-root/runs4/r37/edgeops	ready
+21:36:07	./sim-root/runs4/r36/tinybill	list --all
+21:36:07	./sim-root/runs4/r38/corpsec	create Change the registered office address to the new office
+21:36:08	./sim-root/runs4/r36/tinybill	status
+21:36:08	./sim-root/runs4/r37/edgeops	update edgeops-3xz --claim
+21:36:08	./sim-root/runs4/r36/tinybill	ready
+21:36:13	./sim-root/runs4/r38/corpsec	list --all
+21:36:14	./sim-root/runs4/r38/corpsec	show corpsec-4c9
+21:36:14	./sim-root/runs4/r38/corpsec	search office
+21:36:15	./sim-root/runs4/r38/corpsec	recall registered office
+21:36:15	./sim-root/runs4/r38/corpsec	memories
+21:36:22	./sim-root/runs4/r34/ramen-shop	update ramen-shop-2xn --claim
+21:36:22	./sim-root/runs4/r34/ramen-shop	formula new Hire a kitchen hand to replace someone who has left
+21:36:25	./sim-root/runs4/r34/ramen-shop	formula new --help
+21:36:25	./sim-root/runs4/r34/ramen-shop	mol --help
+21:36:25	./sim-root/runs4/r38/corpsec	update --help
+21:36:25	./sim-root/runs4/r38/corpsec	mol pour --help
+21:36:34	./sim-root/runs4/r35/paws-shelter	--help
+21:36:35	./sim-root/runs4/r35/paws-shelter	formula --help
+21:36:35	./sim-root/runs4/r35/paws-shelter	create --help
+21:36:37	./sim-root/runs4/r38/corpsec	update corpsec-4c9 -s blocked -d BLOCKED: the new registered office address, its effective date and a board decision are not on record, so nothing can be filed yet.
+
+What the repo holds: no registered office address, current or new. Searched every tracked file and the full git history for office/registered/address; the registers hold member and director addresses only. Nothing has been changed for this item.
+
+Needed before filing:
+1. The new registered office address, in full postal form.
+2. The date the move takes effect.
+3. The board's approval of the change, by meeting or written resolution. Minutes go into minutes/ only once the meeting has been held and signed. Nothing has been drafted as if approved.
+
+Then, in order:
+- Pour mol-board-meeting once a meeting date is set (it covers notice, papers, quorum, minutes, chair signature, and carrying out the resolution).
+- File the change of registered office with the registrar (form RO01 for England and Wales; confirm the form and the timing with the accountant or the registrar).
+- Put the submission in filings/ as <date>-registered-office.md. It is done only when the registrar's reference comes back.
+- Show the new address on the next confirmation statement.
+
+mol-annual-return matches this title on words, but it covers the confirmation statement, not the change notice. Use it only for its check-against-registrar step.
+21:36:38	./sim-root/runs4/r38/corpsec	show corpsec-4c9
+21:36:40	./sim-root/runs4/r35/paws-shelter	create Plan and set up the November weekend fundraising open day --description Plan the fundraising open day for Sat 28 and Sun 29 November 2026 (proposed). Covers aims, permits, animal welfare on show, volunteers, budget, publicity and close-out. Written as a repeatable formula plus this year's instance under events/.
+21:36:42	./sim-root/runs4/r35/paws-shelter	formula list
+21:36:42	./sim-root/runs4/r35/paws-shelter	check
+21:36:44	./sim-root/runs4/r37/edgeops	formula list
+21:36:44	./sim-root/runs4/r37/edgeops	check
+21:36:44	./sim-root/runs4/r37/edgeops	formula list
+21:36:45	./sim-root/runs4/r38/corpsec	create Confirm the confirmation statement due 2026-04-16 was filed -t task -p 1 -d filings/ holds only a README; there is no record of the confirmation statement due by 2026-04-16 (docs/filing-calendar.md). Either it was filed and never recorded, or it is overdue. Check the registrar's record, then either add the filing file with its reference or start the late filing. Use mol-annual-return for the check-against-registrar step.
+21:36:46	./sim-root/runs4/r38/corpsec	create Enter the 500-share transfer from R. Osei to M. Lindqvist in the members register -t task -p 1 -d The board approved on 2026-05-13 the transfer of 500 ordinary shares from R. Osei to M. Lindqvist, subject to the instrument being stamped, with the register to be updated on receipt (minutes/2026-q2.md, item 2). registers/members.md still shows Osei at 2,500 and Lindqvist at 1,500. The register must be updated within 14 days of the event (README). Confirm the stamped instrument is on file and the articles allow it, then enter both sides, with the approval date as the board's, not the instrument's. Use mol-share-transfer for the steps.
+21:36:47	./sim-root/runs4/r38/corpsec	create Locate the minutes of the board meeting due 2026-08-12 -t task -p 2 -d The Q2 minutes (minutes/2026-q2.md) set the next board meeting for 2026-08-12. There are no minutes for it in minutes/. Either the meeting did not happen, which needs a note in the minutes folder, or the minutes exist and need filing. Confirm which, and if held, get the minutes written and signed by the chair (mol-board-meeting, sign step).
+21:36:48	./sim-root/runs4/r38/corpsec	create Confirm the annual accounts for the year to 31 March 2026 are on track -t task -p 2 -d docs/filing-calendar.md requires the annual accounts within 9 months of 31 March, so by 2026-12-31. Nothing in the repo shows their status. Confirm with the accountant the timetable, the audit exemption position already noted in minutes/2026-q2.md item 3, and who signs. A late filing for accounts is a criminal offence for the directors.
+21:36:49	./sim-root/runs4/r38/corpsec	list
+21:36:53	./sim-root/runs4/r39/vinyl-press	formula --help
+21:36:53	./sim-root/runs4/r39/vinyl-press	mol --help
+21:36:53	./sim-root/runs4/r39/vinyl-press	formula new --help
+21:36:53	./sim-root/runs4/r39/vinyl-press	mol pour --help
+21:36:55	./sim-root/runs4/r37/edgeops	create --title=Apply eu-central-1: plan, apply, health check, anycast pool, watch traffic --description=Follow mol-add-region (terraform/add-region.formula.toml) for eu-central-1 once the change in terraform/main.tf is committed. Needs terraform >= 1.6 (local 1.5.7 fails the required_version constraint), the edge provider and state backend access, and confirmation the edge-2026-09 image and c6g.large size exist in eu-central-1. Nothing was applied from this session; the node is not yet in the pool. --type=task --priority=2
+21:36:56	./sim-root/runs4/r37/edgeops	create --title=Pin the edge provider and commit a terraform lock file --description=terraform/ declares resource edge_node with no required_providers block, so the provider source and version are implicit, and there is no .terraform.lock.hcl. Declare the source and a version, commit the lock file, and add .terraform/ to .gitignore. Found while validating the eu-central-1 change: terraform init fails with 'provider registry.terraform.io/hashicorp/edge ... isn't available'. --type=task --priority=2
+21:36:57	./sim-root/runs4/r37/edgeops	create --title=Reconcile README node count with terraform --description=README.md says eleven nodes in regions behind anycast, but terraform/nodes.tf uses for_each over var.regions, so there is one edge_node per region (four before eu-central-1, five after). Either the README count is stale or nodes.tf is missing nodes. Decide which is true and fix the other. --type=task --priority=3
+21:37:03	./sim-root/runs4/r37/edgeops	update edgeops-3xz --notes=Done in the working tree, not committed: terraform/main.tf adds eu-central-1 to var.regions (appended, so existing instances are not touched; nodes.tf for_each creates one new edge_node). README region count four to five. terraform/add-region.formula.toml written as the repeatable procedure (mol-add-region). Validation: terraform fmt -check passes; terraform validate could not run here (local terraform 1.5.7 vs required >= 1.6, and the edge provider is not available). Not applied, not in the anycast pool. Remaining work tracked in edgeops-l7n (apply and pool), edgeops-ovz (provider pin and lock file), edgeops-tsf (README node count).
+21:37:04	./sim-root/runs4/r37/edgeops	show edgeops-3xz
+21:37:16	./sim-root/runs4/r39/vinyl-press	update vinyl-press-8h1 --claim
+21:37:18	./sim-root/runs4/r40/clinic-rota	ready
+21:37:20	./sim-root/runs4/r39/vinyl-press	check
+21:37:21	./sim-root/runs4/r39/vinyl-press	formula list
+21:37:21	./sim-root/runs4/r39/vinyl-press	formula show mol-onboard-label
+21:37:30	./sim-root/runs4/r41/seed-bank	prime
+21:37:30	./sim-root/runs4/r41/seed-bank	--help
+21:37:30	./sim-root/runs4/r41/seed-bank	formula list
+21:37:30	./sim-root/runs4/r41/seed-bank	check
+21:37:31	./sim-root/runs4/r36/tinybill	create Fix privately reported defect in the amount parser
+21:37:36	./sim-root/runs4/r41/seed-bank	search CAL-01882
+21:37:36	./sim-root/runs4/r41/seed-bank	ready
+21:37:37	./sim-root/runs4/r41/seed-bank	list --status=open
+21:37:37	./sim-root/runs4/r41/seed-bank	stats
+21:37:44	./sim-root/runs4/r41/seed-bank	info
+21:37:45	./sim-root/runs4/r41/seed-bank	context
+21:37:45	./sim-root/runs4/r41/seed-bank	dolt --help
+21:37:52	./sim-root/runs4/r39/vinyl-press	create Tell Coldharbour what we press and what we reject -t task -p 1 --parent=vinyl-press-8h1 --description=Send Coldharbour the standards in customers/coldharbour.md: black vinyl only, formats, the eight-week running lead time, test-pressing sign-off and the reject criteria. Nothing has been sent; the plant sends it. Step standards of mol-onboard-label.
+21:37:53	./sim-root/runs4/r39/vinyl-press	create Collect Coldharbour intake: masters, side lengths, formats, units, stampers, printer, contact -t task -p 2 --parent=vinyl-press-8h1 --description=Open questions are listed under Still needed from Coldharbour in customers/coldharbour.md. Record each answer in that file's log. Do not guess the answers. Step intake of mol-onboard-label.
+21:37:54	./sim-root/runs4/r39/vinyl-press	create Check Coldharbour intake against capacity, compound and the open backlog -t task -p 2 --parent=vinyl-press-8h1 --description=Compare the intake with about 1,200 units a week across both presses, Hartwell compound supply (short since spring) and orders/backlog.md. Step capacity of mol-onboard-label.
+21:37:55	./sim-root/runs4/r39/vinyl-press	create Agree Coldharbour quote, lead time, payment terms and any deposit -t task -p 2 --parent=vinyl-press-8h1 --description=No terms agreed and no quote given yet. Quote from the intake and the capacity check. Payment terms and deposit are the plant owner's decision; do not invent them. Step terms of mol-onboard-label.
+21:37:56	./sim-root/runs4/r39/vinyl-press	create On a confirmed Coldharbour order, add it to the backlog and start the run formulas -t task -p 3 --parent=vinyl-press-8h1 --description=Add a row to orders/backlog.md, then start mol-cut-lacquer and mol-new-run. Only once there is a confirmed order. Step order of mol-onboard-label.
+21:37:57	./sim-root/runs4/r39/vinyl-press	create Commit customers/ and the onboarding formula so dotdiw check passes -t task -p 1 --parent=vinyl-press-8h1 --description=customers/ and customers/onboard-label.formula.toml are uncommitted. dotdiw check reports the formula as not committed, so it cannot be discovered or poured until it is. This context has no git operations, so the commit needs the user's go-ahead.
+21:37:58	./sim-root/runs4/r40/clinic-rota	list --all
+21:37:58	./sim-root/runs4/r40/clinic-rota	formula list
+21:37:58	./sim-root/runs4/r40/clinic-rota	check
+21:37:59	./sim-root/runs4/r39/vinyl-press	create Create customer records for Saltmarsh, Fenmouth and Private -t task -p 3 --description=orders/backlog.md lists open orders for Saltmarsh (2411, 2412), Fenmouth (2415) and Private (2416). None of the three has a record in customers/. Not part of the Coldharbour onboarding.
+21:37:59	./sim-root/runs4/r40/clinic-rota	formula new --help
+21:38:00	./sim-root/runs4/r39/vinyl-press	dep add vinyl-press-8h1 vinyl-press-8h1
+21:38:00	./sim-root/runs4/r39/vinyl-press	dep add vinyl-press-8h1 vinyl-press-8h1
+21:38:00	./sim-root/runs4/r39/vinyl-press	dep add vinyl-press-8h1 vinyl-press-8h1
+21:38:01	./sim-root/runs4/r39/vinyl-press	dep add vinyl-press-8h1 vinyl-press-8h1
+21:38:01	./sim-root/runs4/r39/vinyl-press	update vinyl-press-8h1 --notes=Account record open: customers/coldharbour.md (index customers/README.md). Onboarding formula customers/onboard-label.formula.toml, uncommitted, so not yet poured or discoverable. Record step done. Remaining Coldharbour steps are child issues in dependency order. Parent stays in progress until the customer is taken on or dropped.
+21:38:02	./sim-root/runs4/r40/clinic-rota	create Respond to a patient's written complaint about a missed diagnosis
+21:38:03	./sim-root/runs4/r40/clinic-rota	ready
+21:38:05	./sim-root/runs4/r41/seed-bank	create --help
+21:38:06	./sim-root/runs4/r41/seed-bank	formula --help
+21:38:06	./sim-root/runs4/r41/seed-bank	mol --help
+21:38:06	./sim-root/runs4/r41/seed-bank	memories
+21:38:06	./sim-root/runs4/r40/clinic-rota	update clinic-rota-8tm --claim
+21:38:06	./sim-root/runs4/r39/vinyl-press	show vinyl-press-8h1
+21:38:07	./sim-root/runs4/r39/vinyl-press	list --status=open
+21:38:11	./sim-root/runs4/r41/seed-bank	create Regenerate CAL-01882: 140 seeds in store, below the 200 distribution threshold --type=task --priority=1 --description=CAL-01882 has 140 seeds in store. docs/distribution.md says anything below 200 in store is not distributed and goes on the regeneration list. Regenerate it: grow out, harvest, dry, test, and return it to store with a figure against it. --acceptance=Regeneration grow-out and harvest recorded; new seed dried to 6-7% MC; germination figure recorded in the register; stock count updated in base and active stores; accession passport data checked.
+21:38:12	./sim-root/runs4/r39/vinyl-press	dep add vinyl-press-8h1.2 vinyl-press-8h1.1
+21:38:13	./sim-root/runs4/r39/vinyl-press	dep add vinyl-press-8h1.3 vinyl-press-8h1.2
+21:38:13	./sim-root/runs4/r39/vinyl-press	dep add vinyl-press-8h1.4 vinyl-press-8h1.3
+21:38:14	./sim-root/runs4/r39/vinyl-press	dep add vinyl-press-8h1.5 vinyl-press-8h1.4
+21:38:15	./sim-root/runs4/r39/vinyl-press	ready
+21:38:15	./sim-root/runs4/r39/vinyl-press	blocked
+21:38:15	./sim-root/runs4/r39/vinyl-press	show vinyl-press-8h1.2
+21:38:19	./sim-root/runs4/r41/seed-bank	update seed-bank-2z6 --claim
+21:38:20	./sim-root/runs4/r41/seed-bank	formula show mol-viability-test
+21:38:20	./sim-root/runs4/r41/seed-bank	formula schema
+21:38:23	./sim-root/runs4/r41/seed-bank	formula schema VarDef
+21:38:23	./sim-root/runs4/r41/seed-bank	formula schema Step
+21:38:24	./sim-root/runs4/r41/seed-bank	formula schema Formula
+21:38:24	./sim-root/runs4/r39/vinyl-press	check
+21:38:25	./sim-root/runs4/r39/vinyl-press	doctor
+21:38:34	./sim-root/runs4/r36/tinybill	note tinybill-mp7 Fix in working tree: exact cents conversion, fraction-of-a-cent and duplicate-name refusals, regression tests (6 fail on the old code). Not committed. Release (0.2.2 or 0.3.0, see follow-ups) and disclosure timing still to agree.
+21:38:35	./sim-root/runs4/r36/tinybill	create Agree disclosure timing with the reporter before any release
+21:38:35	./sim-root/runs4/r36/tinybill	create Decide whether split should return Decimal instead of float
+21:38:35	./sim-root/runs4/r34/ramen-shop	formula list
+21:38:36	./sim-root/runs4/r41/seed-bank	mol pour --help
+21:38:36	./sim-root/runs4/r34/ramen-shop	check
+21:38:36	./sim-root/runs4/r41/seed-bank	mol show mol-viability-test
+21:38:36	./sim-root/runs4/r41/seed-bank	formula list
+21:38:36	./sim-root/runs4/r34/ramen-shop	mol show mol-hire-kitchen-hand
+21:38:37	./sim-root/runs4/r36/tinybill	create Cut the patch release for the amount fix via cut-release
+21:38:37	./sim-root/runs4/r34/ramen-shop	mol show mol-train-kitchen-hand
+21:38:39	./sim-root/runs4/r39/vinyl-press	update vinyl-press-8h1 --notes=Account record open: customers/coldharbour.md (index customers/README.md). Onboarding formula customers/onboard-label.formula.toml is written and parses, but it is uncommitted, so dotdiw check reports it and nobody can find or pour it. Record step done. The six remaining steps are children .1 to .5 in dependency order, plus .6 for the commit. They were built by hand, so dotdiw doctor lists them as never declared. Once the formula is committed, do not run formula new --from for this. Pour the formula for the next label with mol-onboard-label --var label=NAME, and decide whether to retire the hand-built children. Parent stays in progress until the customer is taken on or dropped.
+21:38:40	./sim-root/runs4/r39/vinyl-press	remember A new formula is only discoverable once committed. dotdiw check and formula list ignore uncommitted files, so commit a formula before pouring it.
+21:38:40	./sim-root/runs4/r39/vinyl-press	ready
+21:38:42	./sim-root/runs4/r34/ramen-shop	formula --help
+21:38:42	./sim-root/runs4/r34/ramen-shop	mol show --help
+21:38:51	./sim-root/runs4/r41/seed-bank	formula list
+21:38:51	./sim-root/runs4/r41/seed-bank	check
+21:38:51	./sim-root/runs4/r34/ramen-shop	create Write the recipes and allergen list the kitchen hand training depends on -t task -p 1 --description=Why: the training plan in docs/training-kitchen-hand.md can only teach what is written down. recipes/ has broth and tare only. Needed: chashu, marinated eggs, pickles, gyoza, pork belly bun, the sauces and toppings for the four bowls, noodle count method, keep times for chashu, eggs, pickles and cut produce, and an allergen list for every dish. The menu's broths (chicken and pork for shoyu, chicken for shio, pork for miso, mushroom for veg) do not match recipes/broth.md, which describes one broth. Done when each item is written or deliberately dropped in the gap list.
+21:38:52	./sim-root/runs4/r41/seed-bank	formula show mol-regeneration
+21:38:52	./sim-root/runs4/r34/ramen-shop	create Owner fills in the kitchen hand vacancy terms and legal checks -t task -p 1 --description=Why: docs/hiring-kitchen-hand.md has bracketed blanks for start date, days, hours, pay, contract and probation, right-to-work evidence, food handler training, trial pay rule, decision timescale and the equal opportunity wording. Nothing goes in an advert until these are filled in. Done when every bracket in that file is either filled in or removed, checked against the rules where we operate.
+21:38:54	./sim-root/runs4/r34/ramen-shop	create Find out why the last three kitchen hands left, as themes only -t task -p 1 --description=Why: three kitchen hands left in a year and the hiring is a scramble each time. Before advertising, record the themes (pay, hours, training, workload, people on the line, commute) from exit conversations and from people still here. Keep the note outside the repo. Done when the owner has a short written answer that the advert and training plan can be checked against.
+21:38:55	./sim-root/runs4/r34/ramen-shop	create Name who can train and the backup trainer rule -t task -p 2 --description=Why: docs/training-kitchen-hand.md assumes a trainer is a cook signed off on the station they teach, and a backup is named in the rota before each shift. The owner has not confirmed either rule. Done when the rule is confirmed and written in that file.
+21:38:56	./sim-root/runs4/r34/ramen-shop	ready
+21:38:57	./sim-root/runs4/r34/ramen-shop	list --status=open
+21:39:00	./sim-root/runs4/r41/seed-bank	formula show lab/regeneration.formula.toml
+21:39:03	./sim-root/runs4/r35/paws-shelter	check
+21:39:07	./sim-root/runs4/r34/ramen-shop	update ramen-shop-2xn --notes=Docs written: docs/kitchen-hand-role.md, docs/hiring-kitchen-hand.md, docs/training-kitchen-hand.md, formulas docs/hire-kitchen-hand.formula.toml and docs/train-kitchen-hand.formula.toml, README pointer. Uncommitted. Formulas show as not discoverable until committed. Follow-up issues: 0sf (recipes and allergens), 88i (owner terms and legal), a47 (why staff left), 2n4 (trainer rule). Left open for the owner to review.
+21:39:08	./sim-root/runs4/r41/seed-bank	create Find CAL-01882 in the register: species, quantity, germination figure --type=task --priority=1 --description=The seed-bank repo holds no record of CAL-01882. The register (accessions/register.md) has no per-accession rows, and the beads database has no issues or accession data. Find the register entry for CAL-01882 and record species, local name, quantity, and last germination figure before the grow-out is planned. --acceptance=Register entry for CAL-01882 located, with species, quantity, and germination figure confirmed against the stock count of 140. --silent
+21:39:10	./sim-root/runs4/r42/tidepool	prime
+21:39:10	./sim-root/runs4/r42/tidepool	ready
+21:39:11	./sim-root/runs4/r42/tidepool	list
+21:39:11	./sim-root/runs4/r42/tidepool	formula list
+21:39:13	./sim-root/runs4/r43/grange-farm	--version
+21:39:13	./sim-root/runs4/r43/grange-farm	prime
+21:39:13	./sim-root/runs4/r34/ramen-shop	check
+21:39:15	./sim-root/runs4/r40/clinic-rota	formula list
+21:39:15	./sim-root/runs4/r40/clinic-rota	check
+21:39:15	./sim-root/runs4/r41/seed-bank	list --status=open
+21:39:18	./sim-root/runs4/r43/grange-farm	ready
+21:39:18	./sim-root/runs4/r43/grange-farm	list
+21:39:19	./sim-root/runs4/r42/tidepool	memories station
+21:39:19	./sim-root/runs4/r43/grange-farm	formula list
+21:39:19	./sim-root/runs4/r43/grange-farm	check
+21:39:19	./sim-root/runs4/r42/tidepool	search station
+21:39:19	./sim-root/runs4/r42/tidepool	memories
+21:39:20	./sim-root/runs4/r43/grange-farm	search nsts
+21:39:20	./sim-root/runs4/r42/tidepool	check
+21:39:20	./sim-root/runs4/r41/seed-bank	create Commit lab/regeneration.formula.toml so mol-regeneration is discoverable --type=task --priority=2 --description=lab/regeneration.formula.toml is written but untracked. dotdiw formula list and dotdiw check cannot see it until it is committed, so mol-regeneration cannot be poured yet. Commit needs a human go-ahead: this context runs with no git operations. --acceptance=File committed; dotdiw check reports four formulas discoverable; dotdiw mol pour mol-regeneration --dry-run --var accession=CAL-01882 previews nine steps. --silent
+21:39:20	./sim-root/runs4/r43/grange-farm	search certificate
+21:39:21	./sim-root/runs4/r43/grange-farm	search sprayer
+21:39:21	./sim-root/runs4/r42/tidepool	doctor
+21:39:21	./sim-root/runs4/r41/seed-bank	dep add seed-bank-2z6 seed-bank-s5x
+21:39:22	./sim-root/runs4/r43/grange-farm	memories sprayer
+21:39:22	./sim-root/runs4/r40/clinic-rota	create Send the complaint acknowledgement within three working days of receipt
+21:39:22	./sim-root/runs4/r43/grange-farm	memories nsts
+21:39:23	./sim-root/runs4/r42/tidepool	learn
+21:39:23	./sim-root/runs4/r41/seed-bank	dep add seed-bank-2z6 seed-bank-s2o
+21:39:24	./sim-root/runs4/r41/seed-bank	show seed-bank-2z6
+21:39:24	./sim-root/runs4/r40/clinic-rota	create File the complaint letter and get the GP clinical review of the record
+21:39:26	./sim-root/runs4/r40/clinic-rota	create Commit the complaints folder once the case file and drafts are approved
+21:39:26	./sim-root/runs4/r42/tidepool	create Refresh the quarterly hydrographic station data --type=task --priority=1 --description=Quarterly refresh of the vendored hydrographic station data (tide stations, datums, harmonic constants) in the core module, with the datum-change checks app/README.md calls for. Source data and the refresh procedure are not in the repo; find them before changing anything.
+21:39:27	./sim-root/runs4/r40/clinic-rota	ready
+21:39:28	./sim-root/runs4/r43/grange-farm	create Renew sprayer NSTS test and both operator certificates --type=task --priority=1 --description=The sprayer (24m trailed, 3000 litre) needs its NSTS test and both operators' certificates of competence (PA1/PA2 or equivalent) are up for renewal. Work out what is due and when, get the bookings and renewals done by the people who must do them, and leave the farm records straight so the next renewal is not a scramble. Sprayer testing and certification are a requirement for lawful spraying and for cross-compliance; the spray record must show the operator.
+21:39:29	./sim-root/runs4/r41/seed-bank	note seed-bank-2z6 Status at handoff: no grow-out done, and it cannot be done from this repo. Nothing here holds a record for CAL-01882: accessions/register.md has no per-accession rows, and the beads database is empty. Written: lab/regeneration.formula.toml (mol-regeneration, var accession, nine steps taken from docs/storage.md, lab/germination.md, docs/distribution.md). Valid TOML, needs all resolve. Not yet discoverable (untracked; no git ops in this context). Blocked by seed-bank-s5x (register lookup) and seed-bank-s2o (commit the formula). Once both are done: dotdiw mol pour mol-regeneration --var accession=CAL-01882.
+21:39:30	./sim-root/runs4/r41/seed-bank	show seed-bank-2z6
+21:39:30	./sim-root/runs4/r41/seed-bank	list
+21:39:32	./sim-root/runs4/r42/tidepool	update tidepool-lpf --claim
+21:39:44	./sim-root/runs4/r43/grange-farm	show grange-farm-ntj
+21:39:44	./sim-root/runs4/r43/grange-farm	formula new --help
+21:39:44	./sim-root/runs4/r43/grange-farm	create --help
+21:39:54	./sim-root/runs4/r42/tidepool	create Locate the station source data and the refresh procedure --type=task --priority=1 --description=The repo has no station data and no refresh procedure. app/README.md says station data is vendored from the hydrographic offices and refreshed quarterly, with datum checks, but nothing in the tree or the git history (5 commits, no remote, no stash, no unreachable objects) names the offices, the upstream files or URLs, their licence terms, or how the refresh is run. Find out from the team: which offices are the source of record for UK and Portugal stations, where the current vendored snapshot lives (or whether it was never committed), who owns the refresh, and what the datum-change check is supposed to compare. Record the answers in this issue's notes before any data is pulled in.
+21:39:54	./sim-root/runs4/r44/archive-fonds	where
+21:39:55	./sim-root/runs4/r44/archive-fonds	list --status=open
+21:39:55	./sim-root/runs4/r42/tidepool	create Bring the core module into this repo so the refresh has somewhere to land --type=task --priority=1 --description=app/README.md builds with ./gradlew :core:build and says the core module holds the tide model, the station database and the subscription logic, and that the iOS app lives in ios/. None of that exists in this repo: there is no core/, android/, ios/ or gradle build, only app/README.md. Decide whether the core module is meant to live here or in another repo, and get it here (or record the other repo) so the station database and its datum checks can be refreshed and tested in place.
+21:39:55	./sim-root/runs4/r44/archive-fonds	ready
+21:39:56	./sim-root/runs4/r44/archive-fonds	formula list
+21:39:56	./sim-root/runs4/r44/archive-fonds	check
+21:40:00	./sim-root/runs4/r43/grange-farm	create Read the NSTS certificate and get its expiry date --parent=grange-farm-ntj --type=task --priority=1 --silent --description=docs/spraying.md says only 'NSTS tested in May', with no year and no expiry. Find the paper or PDF NSTS certificate for the 24m trailed sprayer, write down the test date and the date it runs out, and put them in the register in docs/spraying.md. Until this is known we do not know whether the sprayer is in date for the next spray.
+21:40:00	./sim-root/runs4/r44/archive-fonds	create Answer FOI request about the 1974 boundary review papers --type=task --priority=1 --description=FOI request received for the 1974 boundary review papers. Locate what we hold, establish whether we can confirm or deny holding it, check access conditions, and draft the response.
+21:40:01	./sim-root/runs4/r43/grange-farm	create Fix the nozzles before the NSTS test --parent=grange-farm-ntj --type=task --priority=1 --silent --description=docs/machinery.md says the sprayer needs its nozzles replaced this year. Replace them before the test, because worn nozzles are a common reason a sprayer fails NSTS. Record the nozzle change date and the new nozzle spec.
+21:40:01	./sim-root/runs4/r42/tidepool	dep add tidepool-lpf tidepool-qdg
+21:40:02	./sim-root/runs4/r42/tidepool	dep add tidepool-lpf tidepool-cor
+21:40:02	./sim-root/runs4/r43/grange-farm	create Book the NSTS test with an approved tester --parent=grange-farm-ntj --type=task --priority=1 --silent --description=Needs a person to make the booking and pay: the tester and the date are not chosen by the agent. Book the NSTS test for the 24m trailed sprayer before the first spring spray. The T1 timing on the wheat cannot slip, so the test has to be done and the certificate in hand before then. Put the booked date in docs/spraying.md.
+21:40:02	./sim-root/runs4/r42/tidepool	update tidepool-lpf --notes=Not done. Nothing to refresh in this repo: no station data, no core module, no refresh script or datum checks, and no git remote to pull from. Blocked on tidepool-qdg (source and procedure) and tidepool-cor (core module location). Do not fabricate or hand-edit station values; the forecast heights depend on them. Once both blockers close, run the refresh with dotdiw formula new --from this issue so the steps are declared.
+21:40:03	./sim-root/runs4/r43/grange-farm	create Renew operator certificate: operator 1 of 2 --parent=grange-farm-ntj --type=task --priority=1 --silent --description=Each operator renews their own certificate of competence. This needs the person to book and attend the course or exam; the agent cannot do it. Check the current certificate expiry, book the renewal, then note the new expiry in docs/spraying.md. Operator names are not in the records yet, so fill in the name here when you claim this.
+21:40:03	./sim-root/runs4/r42/tidepool	unclaim tidepool-lpf
+21:40:03	./sim-root/runs4/r42/tidepool	remember tidepool repo (as of 2026-10-31): only docs, store notes and three formulas are committed. Station data, the core module (tide model, station DB, datum checks) and the quarterly refresh procedure are absent; the app README describes them. Check for them before starting the station refresh.
+21:40:04	./sim-root/runs4/r43/grange-farm	create Renew operator certificate: operator 2 of 2 --parent=grange-farm-ntj --type=task --priority=1 --silent --description=Each operator renews their own certificate of competence. This needs the person to book and attend the course or exam; the agent cannot do it. Check the current certificate expiry, book the renewal, then note the new expiry in docs/spraying.md. Operator names are not in the records yet, so fill in the name here when you claim this.
+21:40:04	./sim-root/runs4/r42/tidepool	show tidepool-lpf
+21:40:04	./sim-root/runs4/r42/tidepool	blocked
+21:40:05	./sim-root/runs4/r42/tidepool	ready
+21:40:05	./sim-root/runs4/r43/grange-farm	create Update docs/spraying.md to match the certificates --parent=grange-farm-ntj --type=task --priority=2 --silent --description=docs/spraying.md currently says 'operator certificates current for both of us', which conflicts with this job. Once the real expiry dates are known, change that line to the actual dates, and keep a register of NSTS and operator expiry dates in the file so next year's renewal is visible.
+21:40:05	./sim-root/runs4/r44/archive-fonds	update archive-fonds-cdo --claim
+21:40:06	./sim-root/runs4/r43/grange-farm	list
+21:40:06	./sim-root/runs4/r44/archive-fonds	list --all
+21:40:06	./sim-root/runs4/r44/archive-fonds	show archive-fonds-cdo
+21:40:08	./sim-root/runs4/r42/tidepool	check
+21:40:11	./sim-root/runs4/r43/grange-farm	dep add grange-farm-ntj.3 grange-farm-ntj.2
+21:40:11	./sim-root/runs4/r43/grange-farm	dep add grange-farm-ntj.6 grange-farm-ntj.1
+21:40:12	./sim-root/runs4/r43/grange-farm	dep add grange-farm-ntj.6 grange-farm-ntj.4
+21:40:12	./sim-root/runs4/r43/grange-farm	dep add grange-farm-ntj.6 grange-farm-ntj.5
+21:40:13	./sim-root/runs4/r43/grange-farm	dep add grange-farm-ntj.6 grange-farm-ntj.3
+21:40:14	./sim-root/runs4/r43/grange-farm	formula new Renew the sprayer's NSTS test and the operators' certificates
+21:40:31	./sim-root/runs4/r43/grange-farm	check
+21:40:32	./sim-root/runs4/r43/grange-farm	formula list
+21:40:32	./sim-root/runs4/r43/grange-farm	list
+21:40:40	./sim-root/runs4/r44/archive-fonds	update --help
+21:40:40	./sim-root/runs4/r44/archive-fonds	remember --help
+21:40:46	./sim-root/runs4/r43/grange-farm	update grange-farm-ntj --claim
+21:40:52	./sim-root/runs4/r43/grange-farm	check
+21:40:52	./sim-root/runs4/r43/grange-farm	ready
+21:40:52	./sim-root/runs4/r43/grange-farm	blocked
+21:40:55	./sim-root/runs4/r35/paws-shelter	formula list
+21:40:55	./sim-root/runs4/r35/paws-shelter	mol pour --help
+21:41:00	./sim-root/runs4/r35/paws-shelter	mol pour mol-open-day --dry-run
+21:41:00	./sim-root/runs4/r43/grange-farm	update grange-farm-ntj --description=The sprayer (24m trailed, 3000 litre) needs its NSTS test and both operators' certificates of competence (PA1/PA2 or equivalent) are up for renewal. Work out what is due and when, get the bookings and renewals done by the people who must do them, and leave the farm records straight so the next renewal is not a scramble. Every spray record must name the operator (docs/spraying.md), so the operator certificates matter to every application. Procedure: docs/sprayer-renewal.formula.toml. Dates are not in the records yet; read them off the paper certificates first.
+21:41:00	./sim-root/runs4/r35/paws-shelter	formula show mol-open-day
+21:41:00	./sim-root/runs4/r43/grange-farm	show grange-farm-ntj
+21:41:09	./sim-root/runs4/r35/paws-shelter	create --help
+21:41:10	./sim-root/runs4/r35/paws-shelter	update paws-shelter-79x --claim
+21:41:16	./sim-root/runs4/r35/paws-shelter	create Check food registration notice for the open-day food stall -p 0 -t task --parent paws-shelter-79x --description Ask the council environmental health team how long the notice period is for a temporary food stall at a charity or shelter event on 28-29 Nov 2026. If it is four weeks, notice is due 31 Oct 2026 (today). If no notice can be given in time, drop the cake stall (budget.csv lines 8 and 18). See events/2026-11-open-day/countdown.md.
+21:41:17	./sim-root/runs4/r35/paws-shelter	create Confirm open-day dates, fee policy and who receives the money -p 1 -t decision --parent paws-shelter-79x --description Decisions 1-4 and 7 in events/2026-11-open-day/README.md: dates and hours (proposed Sat 28 Nov 10:00-16:00, Sun 29 Nov 10:00-15:00), adoption fee unchanged on the day, destination of takings and Gift Aid, food on site, currency. Owner: duty manager. Due Mon 2 Nov.
+21:41:18	./sim-root/runs4/r35/paws-shelter	create Check the insurance, raffle and collection rules before selling anything -p 1 -t task --parent paws-shelter-79x --description Insurer confirms in writing that public liability covers an open day with animals on show (budget.csv line 3). Council licensing confirms raffle or lottery rules and whether a collection tin needs a street collection permit. Due Wed 4 Nov. Stream dropped if not confirmed. See events/2026-11-open-day/countdown.md.
+21:41:19	./sim-root/runs4/r35/paws-shelter	create Commit events/ so the open-day formula can be discovered and poured -p 2 -t task --parent paws-shelter-79x --description The events/ folder is untracked. dotdiw check reports events/open-day.formula.toml as not committed, and dotdiw mol pour mol-open-day cannot find it until it is committed. Needs explicit approval for a git commit under the repo's conservative policy. After committing: run dotdiw check and dotdiw mol pour mol-open-day --dry-run.
+21:41:21	./sim-root/runs4/r35/paws-shelter	create Replace open-day budget estimates with quotes and fill the TBC contacts -p 2 -t task --parent paws-shelter-79x --description All costs in events/2026-11-open-day/budget.csv are estimates. Income lines are targets. Replace with quotes (marquee, tables, printing, insurance, card fees, vet attendance). Fill the [TBC] names and phone numbers in events/2026-11-open-day/README.md and run-of-day.md. Owner: finance lead and duty manager. Due Fri 6 Nov.
+21:41:22	./sim-root/runs4/r35/paws-shelter	status
+21:41:22	./sim-root/runs4/r35/paws-shelter	ready
+21:41:31	./sim-root/runs4/r44/archive-fonds	update archive-fonds-cdo --append-notes SEARCH LOG, 31 Oct 2026 (what was checked, and what was not)
+- fonds/register.md (accession register): no accession described as holding boundary review papers. Awaiting listing: ACC/2026/011 parish records (3 boxes), ACC/2026/014 photographic negatives (1 box, at risk), ACC/2026/017 Pemberton solicitors (12 boxes). The register gives only summaries, so none of the three can be ruled in or out.
+- Unlisted backlog: about 180 linear metres. Not searchable from this repository.
+- finding-aids/: no finding aid published for any fonds that would cover 1974 boundary review material. Only README and formula present.
+- docs/: policy only (appraisal, digitisation, reading room). Reading room rule: under 100 years with personal data is closed, so 1974 papers with personal data are closed.
+- Full-text search of the working tree and all four commits for 1974, boundary, freedom, FOI, redact, exempt, disclos, personal data, closed: no matches on the subject. No unreachable git objects.
+- Beads store: holds only this task. No catalogue data.
+- NOT searched: the 900-fonds catalogue. It is not in this repository. The original request wording, receipt date and requester details are also not in the working directory.
+OUTCOME: cannot yet confirm or deny that we hold the papers. Nothing has been sent to the requester.
+21:41:31	./sim-root/runs4/r44/archive-fonds	create Get the original FOI request, its receipt date and the requester's details --type=task --priority=1 --description=The request text, the date it arrived and the requester's contact are not in the working directory. The FOI deadline runs from receipt, so this blocks the reply. Check the request log or the council's FOI officer.
+21:41:32	./sim-root/runs4/r44/archive-fonds	create Search the full 900-fonds catalogue for the 1974 boundary review papers --type=task --priority=1 --description=The catalogue of the 900 fonds is not in the archive-fonds repository. Only the accession register and finding aids are here, and neither describes the 1974 papers. Search the catalogue system and record the terms and results.
+21:41:33	./sim-root/runs4/r35/paws-shelter	check
+21:41:34	./sim-root/runs4/r44/archive-fonds	create Check ACC/2026/011, ACC/2026/014, ACC/2026/017 and the unlisted backlog for boundary review material --type=task --priority=1 --description=Three accessions await listing and about 180 linear metres are unlisted. Their summaries do not rule out 1974 boundary review papers. Inspect or list them, and record what was checked.
+21:41:35	./sim-root/runs4/r44/archive-fonds	create Check access conditions and exemptions on anything found before any release --type=task --priority=2 --description=Once the 1974 papers are located, check the reading room rules (under 100 years with personal data is closed) and any exemptions with the FOI officer before anything is released.
+21:41:46	./sim-root/runs4/r44/archive-fonds	dep add archive-fonds-cdo archive-fonds-ic6
+21:41:47	./sim-root/runs4/r44/archive-fonds	dep add archive-fonds-cdo archive-fonds-7bu
+21:41:48	./sim-root/runs4/r44/archive-fonds	dep add archive-fonds-cdo archive-fonds-wii
+21:41:48	./sim-root/runs4/r44/archive-fonds	dep add archive-fonds-cdo archive-fonds-9gq
+21:41:49	./sim-root/runs4/r44/archive-fonds	dep add archive-fonds-9gq archive-fonds-7bu
+21:41:49	./sim-root/runs4/r44/archive-fonds	dep add archive-fonds-9gq archive-fonds-wii
+21:41:50	./sim-root/runs4/r44/archive-fonds	check
+21:41:50	./sim-root/runs4/r44/archive-fonds	formula list
+21:41:58	./sim-root/runs4/r44/archive-fonds	remember The 900-fonds catalogue is not in the archive-fonds repository. Only the accession register (fonds/register.md), the policy docs and the finding aids are here, so FOI and catalogue searches must go to the catalogue system itself. --key archive-fonds-catalogue-not-in-repo
+21:41:59	./sim-root/runs4/r44/archive-fonds	update archive-fonds-cdo --append-notes DRAFT REPLY: foi/1974-boundary-review-draft-reply.txt (not sent; three versions, to choose once the search is finished).
+PROCEDURE: foi/foi-request.formula.toml (mol-foi-request). Not yet committed, so dotdiw check flags it. Commit only when asked: git add foi && git commit.
+BLOCKERS: archive-fonds-ic6 (request text, receipt date), archive-fonds-7bu (900-fonds catalogue), archive-fonds-wii (unlisted accessions and backlog), then archive-fonds-9gq (access and exemptions).
+21:41:59	./sim-root/runs4/r44/archive-fonds	show archive-fonds-cdo
+21:41:59	./sim-root/runs4/r44/archive-fonds	ready
+21:42:00	./sim-root/runs4/r44/archive-fonds	check
+21:42:08	./sim-root/runs4/r44/archive-fonds	list --all

@@ -218,3 +218,35 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---- dotdiw ----
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*
+
+# Agent tool integrations — bd init/bd setup regenerate these unasked.
+# Ignored so they never re-enter the repo.
+.agents/
+.claude/
+.codex/
+.cursor/
+CLAUDE.md
+AGENTS.md
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# bd's generated per-checkout state: hooks, config, metadata, and the formulas
+# directory this design deliberately does not use.
+.beads/
+
+# Working material, not the tool. trial1/ is the first round's apparatus,
+# superseded by measurements/; the other two are superseded by SPEC.md.
+trial1/
+discovery-brief.md
+workflow-capabilities.md

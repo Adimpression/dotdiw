@@ -1,0 +1,225 @@
+16:25:44	./sim-root/runs/r03/ramen-shop	check
+16:25:44	./sim-root/runs/r06/paws-shelter	check
+16:25:45	./sim-root/runs/r09/tinybill	check
+16:25:45	./sim-root/runs/r12/edgeops	check
+16:25:46	./sim-root/runs/r15/corpsec	check
+16:27:07	./sim-root/runs/r03/ramen-shop	--version
+16:27:20	./sim-root/runs/r06/paws-shelter	--version
+16:27:21	./sim-root/runs/r06/paws-shelter	prime
+16:27:22	./sim-root/runs/r06/paws-shelter	--help
+16:27:23	./sim-root/runs/r03/ramen-shop	prime
+16:27:24	./sim-root/runs/r03/ramen-shop	--help
+16:27:27	./sim-root/runs/r06/paws-shelter	formula list
+16:27:27	./sim-root/runs/r06/paws-shelter	mol --help
+16:27:28	./sim-root/runs/r06/paws-shelter	ready
+16:27:29	./sim-root/runs/r06/paws-shelter	list
+16:27:30	./sim-root/runs/r06/paws-shelter	where
+16:27:30	./sim-root/runs/r03/ramen-shop	formula list
+16:27:31	./sim-root/runs/r03/ramen-shop	formula --help
+16:27:31	./sim-root/runs/r03/ramen-shop	mol --help
+16:27:32	./sim-root/runs/r03/ramen-shop	mol pour --help
+16:27:32	./sim-root/runs/r03/ramen-shop	ready
+16:27:33	./sim-root/runs/r03/ramen-shop	list --status=open
+16:27:34	./sim-root/runs/r03/ramen-shop	where
+16:27:34	./sim-root/runs/r03/ramen-shop	doctor
+16:27:37	./sim-root/runs/r06/paws-shelter	formula --help
+16:27:37	./sim-root/runs/r06/paws-shelter	mol seed --help
+16:27:37	./sim-root/runs/r06/paws-shelter	mol pour --help
+16:27:38	./sim-root/runs/r06/paws-shelter	doctor
+16:27:38	./sim-root/runs/r06/paws-shelter	doctor --check=conventions
+16:27:39	./sim-root/runs/r06/paws-shelter	setup --help
+16:27:41	./sim-root/runs/r03/ramen-shop	doctor --check=conventions
+16:27:42	./sim-root/runs/r03/ramen-shop	doctor --check=pollution
+16:27:42	./sim-root/runs/r03/ramen-shop	doctor --check=artifacts
+16:27:43	./sim-root/runs/r03/ramen-shop	formula show ./menu/add-dish.formula.toml
+16:27:43	./sim-root/runs/r03/ramen-shop	formula schema
+16:27:58	./sim-root/runs/r06/paws-shelter	formula show animals/intake.formula.toml
+16:27:58	./sim-root/runs/r06/paws-shelter	formula show mol-intake
+16:27:58	./sim-root/runs/r06/paws-shelter	mol seed mol-intake
+16:28:10	./sim-root/runs/r03/ramen-shop	config --help
+16:28:10	./sim-root/runs/r03/ramen-shop	config list
+16:28:11	./sim-root/runs/r03/ramen-shop	formula list --help
+16:28:23	./sim-root/runs/r03/ramen-shop	formula list
+16:28:23	./sim-root/runs/r03/ramen-shop	formula show mol-add-dish
+16:28:25	./sim-root/runs/r06/paws-shelter	formula schema
+16:28:25	./sim-root/runs/r06/paws-shelter	formula schema step
+16:28:25	./sim-root/runs/r03/ramen-shop	formula show add-dish
+16:28:26	./sim-root/runs/r03/ramen-shop	mol pour add-dish --dry-run
+16:28:30	./sim-root/runs/r03/ramen-shop	mol pour add-dish --json
+16:28:30	./sim-root/runs/r03/ramen-shop	list --status=open
+16:28:34	./sim-root/runs/r03/ramen-shop	show ramen-shop-mol-b0o
+16:28:34	./sim-root/runs/r03/ramen-shop	show ramen-shop-mol-u66
+16:28:35	./sim-root/runs/r03/ramen-shop	show ramen-shop-mol-5ez
+16:28:57	./sim-root/runs/r06/paws-shelter	formula list
+16:28:57	./sim-root/runs/r06/paws-shelter	mol seed mol-intake
+16:28:58	./sim-root/runs/r06/paws-shelter	mol pour mol-intake --dry-run
+16:29:02	./sim-root/runs/r06/paws-shelter	--help
+16:29:03	./sim-root/runs/r06/paws-shelter	mol show mol-intake
+16:29:03	./sim-root/runs/r06/paws-shelter	formula show mol-intake
+16:29:03	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-5ez --title=Yuzu shio bowl for autumn --description=Autumn yuzu shio bowl: the shio bowl (chicken broth, salt tare, chashu, menma, scallion, 140g thin wavy noodles) with yuzu added to the tare. Poured from the add-dish formula at menu/add-dish.formula.toml, which is linked into .beads/formulas so dotdiw can find it. Recipe draft: recipes/tare.md, Yuzu shio tare. Nothing is costed, tested or priced yet; cost and the line test come first.
+16:29:04	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-9kz --description=Cost one portion of the yuzu shio bowl. ramen.md requires every bowl to be costed at the start of the season. Inputs not in the repo yet: yuzu (not listed in docs/suppliers.md, so confirm whether Green Line can supply it and in what form) and current prices for chicken (Fielding Bros), noodles (Yamato, 140g thin wavy as for shio), menma, scallion, and the shio tare dry goods (salt, kombu, sake via Nishimoto). Write the per-portion cost into this issue notes.
+16:29:05	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-65w --description=Test the yuzu shio tare on the line at service volume. Starting point is the draft in recipes/tare.md under Yuzu shio tare. Settle the yuzu amount, when it goes in, and shelf life, then replace the draft with the tested method. Needs a person on the line; the repo cannot do this step.
+16:29:05	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-u66 --description=Set the price from the cost step, not by matching the shio bowl. Existing bowls for reference from menu/ramen.md: shoyu 14, shio 14, miso 15, veg 13. Do not set a price until the per-portion cost is written down.
+16:29:06	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-abh --description=Train both cooks on the yuzu shio tare and the bowl build. Do this after the line test has settled the method.
+16:29:06	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-b0o --description=Add the bowl to menu/ramen.md and update the board, once price and training are done. Draft line, price still open: **Yuzu shio** -- chicken broth, yuzu shio tare, chashu, menma, scallion. [price]. Decide whether it is a fifth bowl or replaces one: README.md says four bowls and the Bowls heading in menu/ramen.md lists four. Photograph the bowl: the formula description asks for a photo but no step covers it.
+16:29:07	./sim-root/runs/r06/paws-shelter	formula show mol-intake
+16:29:07	./sim-root/runs/r06/paws-shelter	mol seed mol-intake
+16:29:08	./sim-root/runs/r06/paws-shelter	cook --help
+16:29:11	./sim-root/runs/r06/paws-shelter	mol pour mol-intake --dry-run
+16:29:12	./sim-root/runs/r06/paws-shelter	cook mol-intake --dry-run
+16:29:12	./sim-root/runs/r03/ramen-shop	remember Adding or bringing back a dish: run 'dotdiw mol pour add-dish' from the repo root. The formula is menu/add-dish.formula.toml, linked into .beads/formulas/ because dotdiw only searches .beads/formulas and ~/.beads/formulas (it does not look in menu/ or docs/). Recipes go in recipes/ (tare, broth, or a new file), menu lines go in menu/ramen.md for bowls and menu/sides.md for sides. Per-portion costing is required for every bowl at the start of the season (menu/ramen.md). docs/supplier-shortage and docs/stock-take formulas are NOT linked yet, so dotdiw formula list does not show them.
+16:29:12	./sim-root/runs/r03/ramen-shop	memories add-dish
+16:29:13	./sim-root/runs/r03/ramen-shop	doctor --check=conventions
+16:29:13	./sim-root/runs/r03/ramen-shop	lint
+16:29:16	./sim-root/runs/r06/paws-shelter	formula schema Formula
+16:29:16	./sim-root/runs/r06/paws-shelter	formula schema VarDef
+16:29:19	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-9kz --acceptance=Per-portion cost for the yuzu shio bowl is written in this issue's notes, with the price source and date for each ingredient, including yuzu.
+16:29:20	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-65w --acceptance=Yuzu amount, timing and shelf life are settled on the line at service volume, and the draft in recipes/tare.md is replaced with the tested method.
+16:29:21	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-u66 --acceptance=Price is set from the written cost and recorded in this issue and in the publish step.
+16:29:21	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-abh --acceptance=Both cooks have made the yuzu shio bowl to the tested method with the tested tare.
+16:29:22	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-b0o --acceptance=menu/ramen.md has the yuzu shio line with its price, the bowl count in README.md and the Bowls heading is right, the board is updated, and a photo of the bowl is on file.
+16:29:22	./sim-root/runs/r03/ramen-shop	lint
+16:29:23	./sim-root/runs/r03/ramen-shop	doctor --check=conventions
+16:29:28	./sim-root/runs/r03/ramen-shop	ready
+16:29:29	./sim-root/runs/r03/ramen-shop	formula list
+16:29:38	./sim-root/runs/r06/paws-shelter	formula show mol-intake
+16:29:38	./sim-root/runs/r06/paws-shelter	mol pour mol-intake --var animal=stray collie, Quarry Rise --dry-run
+16:29:42	./sim-root/runs/r06/paws-shelter	mol pour mol-intake --var animal=stray collie, Quarry Rise
+16:29:43	./sim-root/runs/r06/paws-shelter	list --json
+16:29:57	./sim-root/runs/r06/paws-shelter	children paws-shelter-mol-1ae
+16:29:58	./sim-root/runs/r06/paws-shelter	children paws-shelter-mol-1ae --json
+16:29:59	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-1ae
+16:30:14	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-1ae --title=Intake: stray collie, Quarry Rise (2026-10-31)
+16:30:14	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-2op --claim
+16:30:15	./sim-root/runs/r06/paws-shelter	close paws-shelter-mol-wps --reason=Stray hold expiry 2026-11-07 written into animals/2026-PENDING-collie.md on the intake day.
+16:30:15	./sim-root/runs/r06/paws-shelter	note paws-shelter-mol-n8x Do first. Nothing else happens until the chip is checked (forms/intake.md). Record the number or none found in animals/2026-PENDING-collie.md.
+16:30:16	./sim-root/runs/r06/paws-shelter	note paws-shelter-mol-pqr Next vet days: Tue 2026-11-03 and Fri 2026-11-06, mornings. Vaccination due by 2026-11-07 unless too young or too sick (docs/vet-protocol.md). Urgent cases go to the Mill Road emergency practice only after the duty manager agrees by phone.
+16:30:16	./sim-root/runs/r06/paws-shelter	note paws-shelter-mol-ack Not assigned. Check kennel availability, and for a foster home check docs/foster-roster.md. Wait for chip and arrival health check before placing.
+16:30:17	./sim-root/runs/r06/paws-shelter	children paws-shelter-mol-1ae
+16:30:18	./sim-root/runs/r06/paws-shelter	ready
+16:30:25	./sim-root/runs/r06/paws-shelter	note paws-shelter-mol-wps Expiry 2026-11-07 is already written in animals/2026-PENDING-collie.md. Close this step once the record step is closed.
+16:30:26	./sim-root/runs/r06/paws-shelter	lint
+16:30:26	./sim-root/runs/r06/paws-shelter	mol seed mol-intake --var animal=x
+16:30:34	./sim-root/runs/r06/paws-shelter	update --help
+16:30:34	./sim-root/runs/r06/paws-shelter	lint --help
+16:30:42	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-n8x --acceptance=Chip number, or none found, is written in animals/2026-PENDING-collie.md before any other step is done. If a chip is found, the keeper is traced or the failed trace is noted.
+16:30:42	./sim-root/runs/r06/paws-shelter	lint paws-shelter-mol-n8x
+16:30:45	./sim-root/runs/r09/tinybill	prime
+16:30:46	./sim-root/runs/r09/tinybill	where
+16:30:46	./sim-root/runs/r06/paws-shelter	formula schema step
+16:30:47	./sim-root/runs/r06/paws-shelter	formula schema Step
+16:30:53	./sim-root/runs/r09/tinybill	formula list
+16:30:53	./sim-root/runs/r09/tinybill	formula show cut-release
+16:30:53	./sim-root/runs/r09/tinybill	mol --help
+16:30:54	./sim-root/runs/r09/tinybill	config list
+16:30:54	./sim-root/runs/r09/tinybill	context
+16:30:55	./sim-root/runs/r09/tinybill	doctor
+16:30:59	./sim-root/runs/r06/paws-shelter	formula show mol-intake
+16:30:59	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-2op --acceptance=The register record exists in animals/, named by the intake number, or as 2026-PENDING-<name>.md until a number is given. Every field on forms/intake.md is filled in, or written as not yet known. The photograph is taken, and the record says photograph taken yes.
+16:31:00	./sim-root/runs/r09/tinybill	formula --help
+16:31:00	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-pqr --acceptance=The arrival health check is booked for a Tuesday or Friday morning, and the visit is a dated line in the record. Flea and worm treatment and the weight are dated lines in the record. The vaccination due date, within seven days of arrival, is written in the record.
+16:31:01	./sim-root/runs/r09/tinybill	mol seed --help
+16:31:02	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-ack --acceptance=A kennel or a foster home is named in the register record. For a foster home, the placement is logged in the roster, and the home's limits were checked against the animal.
+16:31:03	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-wps --acceptance=The stray hold expiry is written in the register record: seven days from the intake date.
+16:31:04	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-n8x --acceptance=The chip number, or none found, is written in the register record. If a chip is found, the keeper has been traced, or the failed trace is noted.
+16:31:06	./sim-root/runs/r06/paws-shelter	lint
+16:31:12	./sim-root/runs/r06/paws-shelter	ready
+16:31:13	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-n8x
+16:31:14	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-wps
+16:31:37	./sim-root/runs/r09/tinybill	ready
+16:31:38	./sim-root/runs/r09/tinybill	list --status=open
+16:32:01	./sim-root/runs/r09/tinybill	formula list
+16:32:05	./sim-root/runs/r09/tinybill	formula list
+16:32:05	./sim-root/runs/r09/tinybill	mol seed cut-release
+16:33:03	./sim-root/runs/r09/tinybill	create --title=Upload tinybill 0.3.0 to the package index --description=Release 0.3.0 is tagged (v0.3.0) and built into dist/. Upload with uv publish dist/* once the maintainer approves; the upload is public and cannot be undone. No index credentials are configured in this repo. --type=task --priority=1
+16:33:25	./sim-root/runs/r12/edgeops	--help
+16:33:25	./sim-root/runs/r12/edgeops	where
+16:33:28	./sim-root/runs/r12/edgeops	ready
+16:33:29	./sim-root/runs/r12/edgeops	list --status=open
+16:33:30	./sim-root/runs/r12/edgeops	list --status=in_progress
+16:33:30	./sim-root/runs/r12/edgeops	--help
+16:33:34	./sim-root/runs/r12/edgeops	formula --help
+16:33:34	./sim-root/runs/r12/edgeops	formula list
+16:33:34	./sim-root/runs/r09/tinybill	show tinybill-4ae
+16:33:34	./sim-root/runs/r12/edgeops	mol --help
+16:34:34	./sim-root/runs/r12/edgeops	prime
+16:34:41	./sim-root/runs/r12/edgeops	formula list
+16:34:42	./sim-root/runs/r12/edgeops	formula show mol-drain-node
+16:35:28	./sim-root/runs/r12/edgeops	create --help
+16:35:29	./sim-root/runs/r12/edgeops	mol pour --help
+16:35:35	./sim-root/runs/r12/edgeops	create Kernel patch us-west-2 edge node without dropping traffic --type=task --priority=1 --silent --description=The us-west-2 node needs its kernel patched with no dropped traffic. Nothing is changed by hand (README), so the patch is a per-region image override in terraform, applied only after the node is drained from the anycast pool (drain-node formula: capacity, pull, wait, work, restore). Repo parts: terraform/node-images.auto.tfvars and nodes.tf image override, ops/patch-node.sh, ops/restore.sh, docs/patching.md, offline tests in ops/test. The fleet is simulated here, so the fleet run is recorded in docs/patching.md and not executed. Blocked on the patched image id from the image pipeline.
+16:35:38	./sim-root/runs/r12/edgeops	update edgeops-r4q --claim
+16:35:38	./sim-root/runs/r12/edgeops	show edgeops-r4q
+16:35:39	./sim-root/runs/r12/edgeops	mol pour mol-drain-node --dry-run
+16:35:43	./sim-root/runs/r12/edgeops	mol pour mol-drain-node
+16:35:44	./sim-root/runs/r12/edgeops	list --status=open
+16:37:16	./sim-root/runs/r15/corpsec	prime
+16:37:17	./sim-root/runs/r15/corpsec	list --status=open
+16:37:17	./sim-root/runs/r15/corpsec	list
+16:37:18	./sim-root/runs/r15/corpsec	ready
+16:37:24	./sim-root/runs/r15/corpsec	formula list
+16:37:25	./sim-root/runs/r15/corpsec	mol --help
+16:37:25	./sim-root/runs/r15/corpsec	formula --help
+16:37:25	./sim-root/runs/r15/corpsec	memories
+16:37:26	./sim-root/runs/r15/corpsec	remember --help
+16:37:26	./sim-root/runs/r15/corpsec	create --help
+16:37:26	./sim-root/runs/r15/corpsec	doctor
+16:37:46	./sim-root/runs/r15/corpsec	formula show registers/share-transfer.formula.toml
+16:37:46	./sim-root/runs/r15/corpsec	formula show mol-share-transfer
+16:37:47	./sim-root/runs/r15/corpsec	mol pour --help
+16:38:09	./sim-root/runs/r15/corpsec	formula schema
+16:38:10	./sim-root/runs/r15/corpsec	stats
+16:38:15	./sim-root/runs/r15/corpsec	formula list
+16:38:16	./sim-root/runs/r15/corpsec	formula show mol-share-transfer
+16:38:20	./sim-root/runs/r15/corpsec	formula show share-transfer
+16:38:20	./sim-root/runs/r15/corpsec	formula show --help
+16:38:20	./sim-root/runs/r15/corpsec	formula list --json
+16:38:24	./sim-root/runs/r15/corpsec	mol pour share-transfer --dry-run
+16:38:24	./sim-root/runs/r15/corpsec	mol pour mol-share-transfer --dry-run
+16:38:45	./sim-root/runs/r15/corpsec	mol pour share-transfer --var dummy=unused
+16:38:48	./sim-root/runs/r15/corpsec	mol pour share-transfer
+16:38:56	./sim-root/runs/r15/corpsec	list --json
+16:39:00	./sim-root/runs/r15/corpsec	list --json
+16:39:01	./sim-root/runs/r15/corpsec	list --all
+16:39:19	./sim-root/runs/r15/corpsec	close corpsec-mol-ci2 corpsec-mol-3mr corpsec-mol-40w corpsec-mol-57d corpsec-mol-ev5 corpsec-mol-x3f --reason=Poured twice by mistake during setup; the live molecule is corpsec-mol-dzf
+16:39:24	./sim-root/runs/r15/corpsec	update corpsec-mol-dzf --title=Share transfer: 500 ordinary shares, R. Osei to M. Lindqvist --description=Board approved on 2026-05-13 (minutes/2026-q2.md, item 2), subject to the instrument being stamped. The minute says the register is to be updated on receipt. Open: confirm the stamped stock transfer form is in hand, then enter the register change. Nothing has been entered in registers/members.md yet. Poured from the share-transfer formula (registers/share-transfer.formula.toml, linked into .beads/formulas). The next confirmation statement must reflect the holdings after the transfer.
+16:39:25	./sim-root/runs/r15/corpsec	update corpsec-mol-c7i --title=Take in the stock transfer form (500 ordinary, Osei to Lindqvist) --notes=Nothing in the repo shows the form has been received. Confirm it is in hand, and record where the original is kept.
+16:39:26	./sim-root/runs/r15/corpsec	update corpsec-mol-1jv --title=Check the form is stamped and the articles allow the transfer --notes=The board approval is conditional on the instrument being stamped (minutes/2026-q2.md, item 2). There is no stamp evidence in the repo. The articles are not in the repo, so check them directly. Do not enter the register until this step is confirmed.
+16:39:27	./sim-root/runs/r15/corpsec	close corpsec-mol-b23 --reason=Board approved 2026-05-13 (minutes/2026-q2.md, item 2), subject to stamping. Stamping is the open item under the check step.
+16:39:34	./sim-root/runs/r12/edgeops	heartbeat edgeops-r4q
+16:39:35	./sim-root/runs/r12/edgeops	create Get the patched edge image id for the us-west-2 kernel fix --type=task --priority=1 --silent --description=The repo does not build node images. Find the patched image id from the image pipeline and commit it as the us-west-2 entry in terraform/node-images.auto.tfvars. Blocks the us-west-2 patch run (edgeops-r4q).
+16:39:35	./sim-root/runs/r12/edgeops	create Confirm edgectl pool add and the node id mapping before the us-west-2 run --type=task --priority=1 --silent --description=Only edgectl pool remove and wait-drain are used by the repo today. ops/restore.sh assumes edgectl pool add exists. Also confirm the edgectl node id equals the terraform id attribute of edge_node.fleet[us-west-2], and that the provider does not add the replacement to the pool by itself. See docs/patching.md, Assumptions.
+16:39:36	./sim-root/runs/r12/edgeops	create Declare the provider source for edge_node in terraform/main.tf --type=task --priority=1 --silent --description=main.tf has no required_providers block, so terraform init cannot find the edge provider (it looks for hashicorp/edge). The source is not in this repo and was not guessed. Needed before any plan or apply.
+16:39:37	./sim-root/runs/r15/corpsec	close corpsec-mol-3mr corpsec-mol-40w corpsec-mol-ci2 --reason=Poured twice by mistake during setup; the live molecule is corpsec-mol-dzf
+16:39:38	./sim-root/runs/r12/edgeops	create Install terraform 1.6 or later on operator machines --type=chore --priority=2 --silent --description=terraform/main.tf requires >= 1.6. The machine this was checked on has 1.5.7, which refuses the configuration outright.
+16:39:38	./sim-root/runs/r15/corpsec	update corpsec-mol-b23 --notes=Approved 2026-05-13 (minutes/2026-q2.md, item 2), conditional on the instrument being stamped. Close this once the check step confirms the stamp. Note the formula order (receive, check, then approve) does not match the history: the board approved before the form was checked.
+16:39:39	./sim-root/runs/r12/edgeops	create Roll the fleet image region by region, not with one var.image change --type=task --priority=2 --silent --description=Changing var.image replaces every node in one apply, which breaks the region-by-region rule in docs/runbook.md. Use per-region overrides through ops/patch-node.sh, then clear the overrides once var.image carries the change. See docs/patching.md, After the fleet catches up.
+16:39:39	./sim-root/runs/r15/corpsec	update corpsec-mol-7qg --notes=Not entered yet. This waits for the check step. Convention (registers/members.md): a transfer is entered against both the transferor and the transferee, dated by the board approval (2026-05-13), not the instrument date. The 14-day entry rule (registers/README and README.md) ran out on 2026-05-27 if the approval is the event. Proposed entry once confirmed: R. Osei row 2,500 -> 2,000 Ordinary; M. Lindqvist keep the 1,500 row and add a row for 500 Ordinary dated 2026-05-13. The members table has no field for a partial transfer date, so confirm this layout with the secretary before editing.
+16:39:40	./sim-root/runs/r12/edgeops	dep add edgeops-r4q edgeops-xzm
+16:39:40	./sim-root/runs/r15/corpsec	update corpsec-mol-906 --notes=Open until the register is entered. Cancel the old certificates and issue new ones for the post-transfer holdings: R. Osei 2,000 Ordinary, M. Lindqvist 2,000 Ordinary (1,500 plus 500). Certificate numbers are not in this repo.
+16:39:41	./sim-root/runs/r15/corpsec	list
+16:39:42	./sim-root/runs/r12/edgeops	dep add edgeops-r4q edgeops-t6k
+16:39:43	./sim-root/runs/r12/edgeops	dep add edgeops-r4q edgeops-eks
+16:39:44	./sim-root/runs/r12/edgeops	dep add edgeops-r4q edgeops-ixo
+16:39:45	./sim-root/runs/r12/edgeops	dep add edgeops-r4q edgeops-r4q
+16:39:46	./sim-root/runs/r12/edgeops	show edgeops-r4q
+16:39:52	./sim-root/runs/r12/edgeops	show edgeops-r4q
+16:39:53	./sim-root/runs/r12/edgeops	dep --help
+16:39:53	./sim-root/runs/r15/corpsec	update corpsec-mol-7qg --notes=Not entered yet. This waits for the check step. Convention (registers/members.md): a transfer is entered against both the transferor and the transferee, dated by the board approval (2026-05-13), not the instrument date. The 14-day entry rule (README.md) ran out on 2026-05-27 if the approval is the event. Proposed entry once confirmed: R. Osei row 2,500 -> 2,000 Ordinary; M. Lindqvist keep the 1,500 row and add a row for 500 Ordinary dated 2026-05-13. The members table has no field for a partial transfer date, so confirm this layout with the secretary before editing.
+16:39:54	./sim-root/runs/r15/corpsec	remember Formulas live beside the records they drive: registers/share-transfer.formula.toml, minutes/board-meeting.formula.toml, filings/annual-return.formula.toml. They are symlinked into .beads/formulas/ so dotdiw can find them. Start a run with: dotdiw mol pour share-transfer (or board-meeting, annual-return). Run dotdiw list first and pour once per transaction; a second pour makes duplicate issues. --key corpsec-formulas
+16:39:55	./sim-root/runs/r15/corpsec	remember Register rules (README.md): entries are made within 14 days of the event. Members are entered against both parties, dated by the board approval date, not the instrument date (registers/members.md). Directors are entered the day the change is notified (registers/directors.md). A transfer approved subject to stamping is entered only after the stamped instrument is received (minutes/2026-q2.md, item 2). --key corpsec-register-rules
+16:39:55	./sim-root/runs/r15/corpsec	create --title=Confirm the 2026 confirmation statement was filed (calendar date 2026-04-16) --type=task --priority=1 --description=docs/filing-calendar.md lists the confirmation statement as due by 2026-04-16. filings/ has no record of it. filings/README.md says a filing is done only when the registrar's reference comes back. Check whether it was filed and get the reference into filings/. If it was not filed, it is overdue: start it with dotdiw mol pour annual-return. Also check that its shareholdings match the register once the R. Osei to M. Lindqvist transfer is entered.
+16:40:00	./sim-root/runs/r12/edgeops	dep cycles
+16:40:00	./sim-root/runs/r12/edgeops	heartbeat edgeops-r4q
+16:40:00	./sim-root/runs/r12/edgeops	update edgeops-r4q --append-notes=Repo parts done, not committed (stealth mode). Changed: terraform/main.tf (var.image, var.image_overrides, precondition in nodes.tf), terraform/nodes.tf, terraform/node-images.auto.tfvars (new, empty), .gitignore (*.tfplan), docs/runbook.md (pointer), docs/patching.md (new), ops/patch-node.sh and ops/restore.sh (new), ops/test/ (new: stubs, fixtures, patch-node_test.sh; 23 offline checks pass), .beads/formulas/ (new symlinks so dotdiw formula list finds the ops and terraform formulas). Molecule poured from mol-drain-node: root edgeops-mol-e7w; steps qg7 capacity, h9i pull, lxm wait, mgj work, 726 restore. Fleet run recorded in docs/patching.md, not executed. Blocked on xzm, t6k, eks, ixo.
+16:40:00	./sim-root/runs/r15/corpsec	list
+16:40:01	./sim-root/runs/r12/edgeops	remember Formulas for dotdiw live in .beads/formulas/. Ours sit beside the things they operate on (ops/*.formula.toml, terraform/drain-node.formula.toml), so .beads/formulas/ holds symlinks to them. Without the links, dotdiw formula list shows none and mol pour fails.
+16:40:01	./sim-root/runs/r15/corpsec	list --status=open --json
+16:40:02	./sim-root/runs/r15/corpsec	memories
+16:40:13	./sim-root/runs/r15/corpsec	ready
+16:40:14	./sim-root/runs/r15/corpsec	formula list
+16:40:23	./sim-root/runs/r12/edgeops	formula list
+16:40:58	./sim-root/runs/r12/edgeops	unclaim edgeops-r4q
+16:40:59	./sim-root/runs/r12/edgeops	show edgeops-r4q
+16:41:01	./sim-root/runs/r12/edgeops	ready
+16:41:02	./sim-root/runs/r12/edgeops	list --status=open
