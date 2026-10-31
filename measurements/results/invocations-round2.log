@@ -1,0 +1,338 @@
+17:17:59	./sim-root/runs/r06/paws-shelter	--version
+17:18:05	./sim-root/runs/r06/paws-shelter	prime
+17:18:05	./sim-root/runs/r06/paws-shelter	formula list
+17:18:06	./sim-root/runs/r06/paws-shelter	check
+17:18:06	./sim-root/runs/r06/paws-shelter	ready
+17:18:12	./sim-root/runs/r03/ramen-shop	prime
+17:18:12	./sim-root/runs/r03/ramen-shop	formula list
+17:18:12	./sim-root/runs/r03/ramen-shop	check
+17:18:13	./sim-root/runs/r03/ramen-shop	ready
+17:18:13	./sim-root/runs/r03/ramen-shop	list
+17:18:14	./sim-root/runs/r03/ramen-shop	where
+17:18:17	./sim-root/runs/r06/paws-shelter	create --help
+17:18:17	./sim-root/runs/r06/paws-shelter	mol --help
+17:18:17	./sim-root/runs/r06/paws-shelter	memories
+17:18:18	./sim-root/runs/r06/paws-shelter	learn
+17:18:25	./sim-root/runs/r06/paws-shelter	create Intake a stray collie found on Quarry Rise and brought in this morning --type=task --priority=1
+17:18:27	./sim-root/runs/r03/ramen-shop	create Add yuzu shio bowl to the autumn menu
+17:18:27	./sim-root/runs/r06/paws-shelter	mol pour --help
+17:18:27	./sim-root/runs/r06/paws-shelter	show paws-shelter-6hy
+17:18:30	./sim-root/runs/r03/ramen-shop	mol --help
+17:18:30	./sim-root/runs/r06/paws-shelter	mol pour mol-intake --dry-run
+17:18:30	./sim-root/runs/r03/ramen-shop	mol pour --help
+17:18:30	./sim-root/runs/r03/ramen-shop	learn
+17:18:35	./sim-root/runs/r06/paws-shelter	mol pour mol-intake
+17:18:36	./sim-root/runs/r06/paws-shelter	list
+17:18:44	./sim-root/runs/r03/ramen-shop	memories yuzu
+17:18:45	./sim-root/runs/r03/ramen-shop	memories shio
+17:18:45	./sim-root/runs/r03/ramen-shop	memories price
+17:18:45	./sim-root/runs/r03/ramen-shop	search yuzu
+17:18:49	./sim-root/runs/r03/ramen-shop	mol pour mol-add-dish --dry-run
+17:18:51	./sim-root/runs/r03/ramen-shop	show ramen-shop-ory
+17:18:55	./sim-root/runs/r03/ramen-shop	mol pour mol-add-dish
+17:18:56	./sim-root/runs/r03/ramen-shop	list
+17:19:00	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-fc5
+17:19:00	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-ejz
+17:19:00	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-0px
+17:19:01	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-sd0
+17:19:01	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-yke
+17:19:02	./sim-root/runs/r06/paws-shelter	show paws-shelter-mol-cng
+17:19:13	./sim-root/runs/r03/ramen-shop	supersede ramen-shop-ory --with=ramen-shop-mol-9bj
+17:19:14	./sim-root/runs/r03/ramen-shop	ready
+17:19:14	./sim-root/runs/r03/ramen-shop	blocked
+17:19:14	./sim-root/runs/r03/ramen-shop	show ramen-shop-mol-ayq
+17:19:15	./sim-root/runs/r03/ramen-shop	show ramen-shop-mol-9bj
+17:19:34	./sim-root/runs/r03/ramen-shop	show mol-add-dish.cost
+17:19:34	./sim-root/runs/r03/ramen-shop	human --help
+17:19:34	./sim-root/runs/r03/ramen-shop	update --help
+17:19:35	./sim-root/runs/r06/paws-shelter	update paws-shelter-6hy --claim --description=Stray collie found on Quarry Rise, brought in the morning of 2026-10-31. Procedure: mol-intake, poured as paws-shelter-mol-fc5. Register draft: animals/2026-pending-collie-quarry-rise.md, intake number not yet assigned. Stray hold expires 2026-11-07. Still open: chip scan and keeper trace; photograph; brought-in-by name and contact; sex, age, weight, colour; arrival health check with flea and worm treatment and weight (vet visits Tue 2026-11-03 or Fri 2026-11-06, mornings); vaccination by 2026-11-07 unless too young or too sick; kennel or foster home.
+17:19:36	./sim-root/runs/r06/paws-shelter	remember Register records are named by intake number (2026-NNNN-name.md) but the repo keeps no number sequence, so whoever issues the number must supply it. Draft records use a pending- prefix until then (see animals/2026-pending-collie-quarry-rise.md).
+17:19:36	./sim-root/runs/r06/paws-shelter	show paws-shelter-6hy
+17:19:40	./sim-root/runs/r06/paws-shelter	check
+17:19:40	./sim-root/runs/r06/paws-shelter	doctor
+17:19:40	./sim-root/runs/r06/paws-shelter	ready
+17:19:41	./sim-root/runs/r06/paws-shelter	list
+17:19:45	./sim-root/runs/r06/paws-shelter	show mol-intake.chip
+17:19:45	./sim-root/runs/r06/paws-shelter	ready --json
+17:19:46	./sim-root/runs/r06/paws-shelter	list --all
+17:19:54	./sim-root/runs/r06/paws-shelter	ready --help
+17:19:54	./sim-root/runs/r06/paws-shelter	doctor --check=pollution
+17:19:55	./sim-root/runs/r06/paws-shelter	doctor --check=artifacts
+17:19:55	./sim-root/runs/r06/paws-shelter	doctor --check=conventions
+17:20:00	./sim-root/runs/r06/paws-shelter	show mol-intake --json
+17:20:00	./sim-root/runs/r06/paws-shelter	ready --exclude-label template
+17:20:00	./sim-root/runs/r06/paws-shelter	lint
+17:20:02	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-dxu --add-label human --notes Needs ingredient prices, which are not in this repo. Cost per portion of the yuzu shio bowl, components:
+- Broth: chicken broth. recipes/broth.md is a chicken-and-pork recipe; no chicken-only broth is written down. The chef confirms which broth.
+- Noodles: 140g thin wavy (Yamato, backup Sun Noodle, per docs/suppliers.md).
+- Shio tare: portion TBC (recipes/tare.md).
+- Chashu: weight TBC; no recipe file yet.
+- Menma: supplier not listed in docs/suppliers.md.
+- Scallion: produce, Green Line.
+- Yuzu: new. Supplier and price not known; not in docs/suppliers.md.
+Draft recipe: recipes/yuzu-shio.md. Costing is done at the start of the season (menu/ramen.md).
+17:20:02	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-aw0 --add-label human --notes Physical step: test on the line at service volume. Needs the cost step first.
+Before the test, the chef decides the two open points in recipes/yuzu-shio.md: which broth this bowl uses, and the yuzu form and weight (juice in the tare, zest over the bowl, or both).
+At the test, record the chashu, menma and yuzu weights in recipes/yuzu-shio.md and remove the DRAFT line once the recipe is final. A juice-in-tare batch is tasted against the last batch before it goes on the line.
+17:20:02	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-ce9 --add-label human --notes Set after the cost and test steps. Not set yet: there is no costing data in the repo, so no price has been chosen.
+For reference, the printed bowls are 13 to 15 (menu/ramen.md); shio is 14.
+If an ingredient price moves more than ten per cent once the bowl is live, re-cost it before the price changes (menu/ramen.md).
+17:20:03	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-6y1 --add-label human --notes Train both cooks once the test recipe in recipes/yuzu-shio.md is final. Two people on the line (README.md).
+17:20:03	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-ayq --add-label human --notes Do not publish before the price and train steps are done.
+Proposed menu line for menu/ramen.md, under Bowls, once priced:
+**Yuzu shio** -- chicken broth, salt tare, yuzu, chashu, menma, scallion. [price].
+Also to change at publish: README.md says the menu is four bowls. With the autumn yuzu shio it is five for the season, so that sentence needs a change.
+Update the printed menu and the board. The formula description says photograph the dish, but no step covers it; decide whether the board gets a photo.
+17:20:03	./sim-root/runs/r03/ramen-shop	human list
+17:20:12	./sim-root/runs/r03/ramen-shop	update ramen-shop-mol-ayq --append-notes Season end: when the autumn season is over, take the bowl off menu/ramen.md and the board. mol-add-dish has no step for taking a seasonal dish off, so this is the reminder. Bringing it back next year is a new mol-add-dish run (re-cost, re-test, re-price, re-train).
+17:20:12	./sim-root/runs/r03/ramen-shop	check
+17:20:12	./sim-root/runs/r03/ramen-shop	doctor
+17:20:12	./sim-root/runs/r03/ramen-shop	ready
+17:20:13	./sim-root/runs/r03/ramen-shop	mol show ramen-shop-mol-9bj
+17:20:13	./sim-root/runs/r03/ramen-shop	stats
+17:20:14	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-ejz --description=Scan the collie for a chip before anything else. If there is one, trace the keeper and write the chip number into animals/2026-pending-collie-quarry-rise.md. If there is none, write 'none found'. Not done yet: needs someone at the desk with a scanner.
+17:20:14	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-0px --description=Finish the register record. animals/2026-pending-collie-quarry-rise.md is drafted. Still needed: intake number (rename the file to 2026-NNNN-collie.md), brought-in-by name and contact, sex, rough age, weight, colour and markings, condition on arrival, and a photograph. Waits on the chip scan.
+17:20:14	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-sd0 --description=Arrival check, per docs/vet-protocol.md: health check, chip scan, flea and worm treatment, weight. Vet visits are Tuesday and Friday mornings: Tue 2026-11-03 or Fri 2026-11-06. Vaccination within seven days (by 2026-11-07) unless too young or too sick; the batch number goes in the record. Urgent cases go to the emergency practice on Mill Road, which needs the duty manager's go-ahead by phone.
+17:20:15	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-cng --description=Stray hold: seven days from intake (2026-10-31), so it expires 2026-11-07. This is a legal obligation, not a policy. Confirm the expiry is written into the register record.
+17:20:15	./sim-root/runs/r06/paws-shelter	update paws-shelter-mol-yke --description=Assign a kennel or a foster home. Foster homes and what each can take are in docs/foster-roster.md. Log the placement in the register record and in the roster. Not assigned yet.
+17:20:15	./sim-root/runs/r06/paws-shelter	remember dotdiw ready lists the mol-intake.* template steps next to the live paws-shelter-mol-* steps. Only the paws-shelter-mol-* ones are work; the mol-intake.* ones are the formula's template, so ignore them when picking up intake work.
+17:20:16	./sim-root/runs/r06/paws-shelter	ready
+17:20:20	./sim-root/runs/r06/paws-shelter	check
+17:20:20	./sim-root/runs/r06/paws-shelter	list
+17:20:21	./sim-root/runs/r03/ramen-shop	show mol-add-dish
+17:20:22	./sim-root/runs/r03/ramen-shop	list --status=open
+17:21:42	./sim-root/runs/r09/tinybill	create Cut the 0.3 release
+17:21:46	./sim-root/runs/r09/tinybill	formula list
+17:21:46	./sim-root/runs/r09/tinybill	check
+17:21:54	./sim-root/runs/r09/tinybill	mol pour mol-cut-release
+17:22:03	./sim-root/runs/r09/tinybill	ready
+17:22:05	./sim-root/runs/r09/tinybill	show tinybill-1ys
+17:22:12	./sim-root/runs/r09/tinybill	list --all
+17:22:14	./sim-root/runs/r09/tinybill	show tinybill-mol-5x5
+17:22:16	./sim-root/runs/r09/tinybill	show mol-cut-release.bump
+17:22:18	./sim-root/runs/r09/tinybill	show tinybill-mol-s7t
+17:22:51	./sim-root/runs/r09/tinybill	update tinybill-mol-s7t --claim
+17:23:36	./sim-root/runs/r09/tinybill	update tinybill-mol-s7t --claim
+17:23:50	./sim-root/runs/r09/tinybill	close tinybill-mol-s7t
+17:23:51	./sim-root/runs/r09/tinybill	close tinybill-mol-t3d
+17:23:52	./sim-root/runs/r09/tinybill	close tinybill-mol-rr0
+17:23:54	./sim-root/runs/r09/tinybill	close tinybill-mol-19a
+17:23:55	./sim-root/runs/r09/tinybill	list --all
+17:24:03	./sim-root/runs/r09/tinybill	check
+17:24:49	./sim-root/runs/r12/edgeops	prime
+17:24:49	./sim-root/runs/r12/edgeops	learn
+17:24:49	./sim-root/runs/r12/edgeops	formula list
+17:24:50	./sim-root/runs/r12/edgeops	check
+17:24:50	./sim-root/runs/r12/edgeops	ready
+17:25:17	./sim-root/runs/r12/edgeops	create Patch the kernel on the us-west-2 node without dropping traffic
+17:25:53	./sim-root/runs/r12/edgeops	mol --help
+17:25:53	./sim-root/runs/r12/edgeops	formula --help
+17:25:53	./sim-root/runs/r12/edgeops	cook --help
+17:25:54	./sim-root/runs/r12/edgeops	mol pour --help
+17:25:54	./sim-root/runs/r12/edgeops	show edgeops-011
+17:26:00	./sim-root/runs/r12/edgeops	formula schema
+17:26:00	./sim-root/runs/r12/edgeops	formula schema Step
+17:26:00	./sim-root/runs/r12/edgeops	formula show mol-drain-node
+17:26:01	./sim-root/runs/r12/edgeops	mol show mol-drain-node
+17:26:35	./sim-root/runs/r12/edgeops	formula schema VarDef
+17:26:35	./sim-root/runs/r12/edgeops	formula schema Formula
+17:26:36	./sim-root/runs/r12/edgeops	doctor --check=conventions
+17:26:36	./sim-root/runs/r12/edgeops	ls --help
+17:26:36	./sim-root/runs/r12/edgeops	list
+17:28:10	./sim-root/runs/r12/edgeops	check
+17:28:10	./sim-root/runs/r12/edgeops	formula list
+17:28:10	./sim-root/runs/r12/edgeops	formula show mol-drain-node
+17:28:15	./sim-root/runs/r12/edgeops	mol pour mol-drain-node --dry-run
+17:28:17	./sim-root/runs/r12/edgeops	mol pour mol-drain-node --var region=us-west-2 --var node=UNRESOLVED-us-west-2-node --var image=UNRESOLVED-patched-kernel-image --dry-run
+17:28:26	./sim-root/runs/r12/edgeops	mol pour mol-drain-node --var region=eu-west-1 --var node=UNRESOLVED-eu-west-1-node --var image= --dry-run
+17:28:27	./sim-root/runs/r12/edgeops	mol pour mol-drain-node --var region=us-west-2 --var node=UNRESOLVED-us-west-2-node --var image=UNRESOLVED-patched-kernel-image
+17:28:32	./sim-root/runs/r12/edgeops	list
+17:28:33	./sim-root/runs/r12/edgeops	show edgeops-mol-5d5
+17:28:33	./sim-root/runs/r12/edgeops	ready
+17:28:39	./sim-root/runs/r12/edgeops	show mol-drain-node.capacity
+17:28:39	./sim-root/runs/r12/edgeops	list --all
+17:28:40	./sim-root/runs/r12/edgeops	show mol-drain-node
+17:28:56	./sim-root/runs/r12/edgeops	show mol-drain-node.capacity --json
+17:28:56	./sim-root/runs/r12/edgeops	mol seed --help
+17:28:56	./sim-root/runs/r12/edgeops	check --help
+17:29:06	./sim-root/runs/r12/edgeops	show edgeops-011 --json
+17:29:06	./sim-root/runs/r12/edgeops	show edgeops-mol-5d5 --json
+17:29:07	./sim-root/runs/r12/edgeops	show edgeops-mol-h7z --json
+17:29:07	./sim-root/runs/r12/edgeops	show mol-drain-node --json
+17:29:08	./sim-root/runs/r12/edgeops	show mol-drain-node.capacity --json
+17:29:08	./sim-root/runs/r12/edgeops	list --json
+17:29:09	./sim-root/runs/r12/edgeops	config --help
+17:29:28	./sim-root/runs/r12/edgeops	mol progress edgeops-mol-5d5
+17:29:28	./sim-root/runs/r12/edgeops	mol show edgeops-mol-5d5
+17:29:29	./sim-root/runs/r12/edgeops	lint
+17:29:36	./sim-root/runs/r12/edgeops	lint
+17:29:36	./sim-root/runs/r12/edgeops	lint --help
+17:29:36	./sim-root/runs/r12/edgeops	create --help
+17:29:53	./sim-root/runs/r12/edgeops	check
+17:29:54	./sim-root/runs/r12/edgeops	show mol-drain-node.capacity --json
+17:29:54	./sim-root/runs/r12/edgeops	lint
+17:30:02	./sim-root/runs/r12/edgeops	cook terraform/drain-node.formula.toml --persist --force --dry-run
+17:30:02	./sim-root/runs/r12/edgeops	cook terraform/drain-node.formula.toml --mode=runtime --var region=us-west-2 --var node=UNRESOLVED-us-west-2-node --var image=UNRESOLVED-patched-kernel-image
+17:30:10	./sim-root/runs/r12/edgeops	cook terraform/drain-node.formula.toml --persist --force
+17:30:12	./sim-root/runs/r12/edgeops	show mol-drain-node.work --json
+17:30:12	./sim-root/runs/r12/edgeops	lint
+17:30:13	./sim-root/runs/r12/edgeops	ready
+17:30:23	./sim-root/runs/r12/edgeops	cook terraform/drain-node.formula.toml --mode=runtime --var region=us-west-2 --var node=UNRESOLVED-us-west-2-node --var image=UNRESOLVED-patched-kernel-image
+17:30:23	./sim-root/runs/r12/edgeops	cook terraform/drain-node.formula.toml --mode=runtime --var region=us-west-2 --var node=UNRESOLVED-us-west-2-node --var image=UNRESOLVED-patched-kernel-image
+17:30:23	./sim-root/runs/r12/edgeops	update edgeops-mol-h7z --description The runbook sizes capacity for one region gone, not two. Before anything is pulled from us-west-2:
+
+- No other region has a node out of the pool, in maintenance, or in an open incident. docs/oncall.md defines the severities.
+- Record the error rate and connection count for us-west-2 now. The restore step is judged against this baseline.
+- Count the nodes in us-west-2. README.md says eleven nodes in four regions, but terraform/nodes.tf declares one node per region. If us-west-2 has more than one, drain them one at a time and check capacity after each.
+
+## Acceptance Criteria
+- No other region is drained, in maintenance, or in an open incident, checked on the day of the work.
+- The baseline error rate and connection count for us-west-2 are written on this step.
+- The node count in us-west-2 is known. If it does not match terraform/nodes.tf, that is filed as its own issue.
+
+17:30:24	./sim-root/runs/r12/edgeops	update edgeops-mol-1yt --description Run once, from the repo root, after the capacity step is done:
+
+    ops/drain.sh UNRESOLVED-us-west-2-node
+
+drain.sh runs `edgectl pool remove UNRESOLVED-us-west-2-node`, then `edgectl wait-drain UNRESOLVED-us-west-2-node --timeout 300`, and prints "drained UNRESOLVED-us-west-2-node" on success. edgectl is the fleet's control CLI and is not in this repo.
+
+## Acceptance Criteria
+- ops/drain.sh UNRESOLVED-us-west-2-node exited zero and printed "drained UNRESOLVED-us-west-2-node".
+- UNRESOLVED-us-west-2-node is out of the anycast pool.
+
+17:30:24	./sim-root/runs/r12/edgeops	update edgeops-mol-1cy --description drain.sh waits up to 300 seconds and exits non-zero on timeout (set -e), so nothing after it runs. Continue only if it printed "drained UNRESOLVED-us-west-2-node" and exited zero.
+
+If it fails, stop. The node is out of the pool but still holds connections, and replacing it now drops them. Get the on-call to decide whether to wait longer.
+
+## Acceptance Criteria
+- Connections on UNRESOLVED-us-west-2-node reached zero inside the 300 second timeout.
+- If they did not, the on-call decision is written on this step and no replacement was started.
+
+17:30:25	./sim-root/runs/r12/edgeops	update edgeops-mol-41h --description A kernel patch is an image roll. Nothing is changed by hand on a node (README.md): the node is replaced by one built on the patched image.
+
+1. Confirm the patched image UNRESOLVED-patched-kernel-image exists in the image build. The repo does not hold the id. If UNRESOLVED-patched-kernel-image is empty, this is a reboot or a resize, not an image roll.
+2. Find out whether the edge provider adds a new node to the anycast pool when it is created. create_before_destroy makes the replacement exist before the drained node is destroyed. If the pool takes it at create, stop: it would take traffic before the verify step.
+3. Plan from terraform/, with the replacement forced to this node only:
+
+    cd terraform
+    terraform plan -out=patch-us-west-2.tfplan -var='image_overrides={"us-west-2"="UNRESOLVED-patched-kernel-image"}' -replace='edge_node.fleet["us-west-2"]'
+
+4. Read the plan. It must replace edge_node.fleet["us-west-2"] and change nothing else. If it touches another region, or shows an in-place update instead of a replacement, stop.
+5. Apply the saved plan and nothing else: terraform apply patch-us-west-2.tfplan. Then delete the plan file.
+
+-var replaces the whole map, so list every region that has an override, not only this one. terraform 1.6 or newer is required (terraform/main.tf). The s3 state backend credentials come from the secret manager (docs/secrets.md), not from the repo.
+
+## Acceptance Criteria
+- The plan replaced only edge_node.fleet["us-west-2"] and nothing else.
+- The applied image is UNRESOLVED-patched-kernel-image, or the image is unchanged for a reboot or a resize.
+- The saved plan file is deleted.
+
+17:30:25	./sim-root/runs/r12/edgeops	update edgeops-mol-pnz --description Before the node takes traffic, check that the replacement is on the patched kernel and healthy. The repo has no command for this yet. Confirm the edgectl subcommand with `edgectl --help` first, then record the kernel version and the health result on this step.
+
+If either is wrong, do not return the node to the pool. Remove us-west-2 from image_overrides, plan and replace again the same way, and see docs/runbook.md for rollback.
+
+## Acceptance Criteria
+- The replacement reports the patched kernel version, written on this step.
+- Its health check passes.
+- UNRESOLVED-us-west-2-node is still out of the anycast pool.
+
+17:30:26	./sim-root/runs/r12/edgeops	update edgeops-mol-zx7 --description Put UNRESOLVED-us-west-2-node back in the pool. drain.sh only removes nodes, and the repo has no script that adds them back. Confirm the edgectl pool subcommand with `edgectl pool --help`, then run it for UNRESOLVED-us-west-2-node.
+
+Watch the error rate and connection count in us-west-2 against the baseline from the capacity step. Wait fifteen minutes and check again before any other region has maintenance (docs/runbook.md: fifteen minutes between regions).
+
+## Acceptance Criteria
+- UNRESOLVED-us-west-2-node is back in the anycast pool and taking traffic.
+- Error rate and connection count in us-west-2 stayed within the baseline for fifteen minutes.
+- No other region had maintenance in those fifteen minutes.
+
+17:30:26	./sim-root/runs/r12/edgeops	lint
+17:30:39	./sim-root/runs/r15/corpsec	--version
+17:30:42	./sim-root/runs/r12/edgeops	update edgeops-011 --claim
+17:30:43	./sim-root/runs/r12/edgeops	update edgeops-011 --description The us-west-2 node needs its kernel patched without dropping traffic. This is a simulated fleet: edgectl is not in the repo or on this machine, so no fleet step has run.
+
+Done in the repo (uncommitted): per-region image override in terraform (main.tf, nodes.tf; the default changes nothing), mol-drain-node formula steps now carry commands, gates, variables and a verify step, .gitignore entries for plans and .terraform.
+
+Not done: the fleet steps, poured as edgeops-mol-5d5. The patched image id and the us-west-2 node id are not in the repo.
+
+## Acceptance Criteria
+- The us-west-2 node runs the patched kernel, reached by an image roll and not by hand.
+- No other region was drained during the work, and connections were drained to zero before the node was replaced.
+- The node is back in the anycast pool and the error rate stayed within the baseline for fifteen minutes.
+- The fleet steps of edgeops-mol-5d5 record the node id, image id and kernel version used.
+17:30:43	./sim-root/runs/r12/edgeops	update edgeops-011 --notes Would run against the fleet, in order (none run here):
+1. Capacity check on us-west-2 (edgeops-mol-h7z).
+2. ops/drain.sh <us-west-2 node id>  (edgectl pool remove, then edgectl wait-drain --timeout 300).
+3. cd terraform && terraform plan -out=patch-us-west-2.tfplan -var='image_overrides={"us-west-2"="<patched image id>"}' -replace='edge_node.fleet["us-west-2"]'   (needs terraform 1.6 or newer; this machine has 1.5.7).
+4. Read the plan: only edge_node.fleet["us-west-2"] is replaced.
+5. terraform apply patch-us-west-2.tfplan, then delete the plan file.
+6. Confirm the new node runs the patched kernel and is healthy (edgectl subcommand to confirm first).
+7. Return the node to the pool (edgectl pool add: not in the repo, confirm the subcommand first).
+8. Watch the error rate for fifteen minutes before any other region has maintenance.
+If verify fails: do not return the node to the pool. Remove us-west-2 from image_overrides and replace again.
+After this region is verified: set var.image to the patched image, roll the other regions one at a time, then clear image_overrides.
+
+Gotchas found: README.md says eleven nodes in four regions, but terraform declares one node per region. The local terraform is 1.5.7 and main.tf requires 1.6 or newer. dotdiw check persists formula templates, and dotdiw ready lists their unblocked steps (mol-drain-node.capacity); ignore those.
+17:30:44	./sim-root/runs/r12/edgeops	create Roll the patched image to the other three regions and clear image_overrides --description=Follow-up to edgeops-011. Only after us-west-2 is verified on the patched kernel: set var.image to the patched image id, roll eu-west-1, us-east-1 and ap-southeast-1 one region at a time using mol-drain-node, then clear image_overrides in terraform/main.tf.
+
+## Acceptance Criteria
+- Every region runs the patched image, one region at a time, with the error rate checked between regions.
+- image_overrides is empty and var.image is the patched image id.
+17:30:44	./sim-root/runs/r15/corpsec	formula list
+17:30:44	./sim-root/runs/r15/corpsec	check
+17:30:44	./sim-root/runs/r15/corpsec	ready
+17:30:44	./sim-root/runs/r12/edgeops	create Reconcile the node count: README says eleven nodes, terraform declares four --description=README.md says eleven nodes in four regions. terraform/nodes.tf declares one edge_node per region, so four. Find out which nodes exist, whether terraform state matches, and whether the others are declared somewhere else. Drain and patch depend on knowing this.
+
+## Acceptance Criteria
+- The number of live nodes per region is known and matches terraform state, or the gap is written up as a bug.
+- README.md and terraform agree on the node count.
+17:30:45	./sim-root/runs/r15/corpsec	list
+17:30:45	./sim-root/runs/r12/edgeops	lint
+17:30:45	./sim-root/runs/r15/corpsec	learn
+17:30:50	./sim-root/runs/r15/corpsec	create Record the transfer of 500 ordinary shares from R. Osei to M. Lindqvist, approved by the board on 2026-05-13
+17:30:51	./sim-root/runs/r12/edgeops	show edgeops-011
+17:30:51	./sim-root/runs/r15/corpsec	prime
+17:30:51	./sim-root/runs/r12/edgeops	check
+17:31:02	./sim-root/runs/r12/edgeops	remember Node patches here: terraform/main.tf needs terraform 1.6 or newer but the local binary is 1.5.7. README says eleven nodes in four regions while terraform declares one node per region (edgeops-5ic). dotdiw check persists formula templates, and dotdiw ready lists their unblocked steps: ignore mol-drain-node.* templates.
+17:31:59	./sim-root/runs/r15/corpsec	mol --help
+17:31:59	./sim-root/runs/r15/corpsec	mol pour --help
+17:31:59	./sim-root/runs/r15/corpsec	formula --help
+17:32:02	./sim-root/runs/r15/corpsec	formula show mol-share-transfer
+17:32:02	./sim-root/runs/r15/corpsec	mol pour mol-share-transfer --dry-run
+17:32:30	./sim-root/runs/r15/corpsec	check
+17:32:30	./sim-root/runs/r15/corpsec	formula list
+17:32:30	./sim-root/runs/r15/corpsec	mol pour mol-share-transfer --dry-run
+17:32:35	./sim-root/runs/r15/corpsec	formula show mol-share-transfer
+17:32:35	./sim-root/runs/r15/corpsec	mol show mol-share-transfer
+17:32:36	./sim-root/runs/r15/corpsec	cook --help
+17:32:41	./sim-root/runs/r15/corpsec	cook registers/share-transfer.formula.toml
+17:32:45	./sim-root/runs/r15/corpsec	cook registers/share-transfer.formula.toml --persist
+17:32:45	./sim-root/runs/r15/corpsec	mol pour mol-share-transfer --dry-run
+17:32:49	./sim-root/runs/r15/corpsec	cook registers/share-transfer.formula.toml --persist --force
+17:32:51	./sim-root/runs/r15/corpsec	mol pour mol-share-transfer --dry-run
+17:32:56	./sim-root/runs/r15/corpsec	mol pour mol-share-transfer
+17:32:58	./sim-root/runs/r15/corpsec	list
+17:33:13	./sim-root/runs/r15/corpsec	update corpsec-mol-w2l --notes=Stock transfer form for 500 ordinary shares, R. Osei to M. Lindqvist, is not in this repo. Needed to show receipt. Minutes of 2026-05-13 item 2 say the register is to be updated on receipt of the instrument.
+17:33:13	./sim-root/runs/r15/corpsec	update corpsec-mol-zw7 --notes=Board condition (minutes 2026-05-13 item 2): approval is subject to the instrument being stamped. No evidence of stamping in the repo. Articles of association are not in the repo either, so the articles check is unverified. Confirm both before the register entry is treated as final.
+17:33:14	./sim-root/runs/r15/corpsec	update corpsec-mol-7l0 --notes=Ordinary shares total 8,000 (9,000 with the Fenwick preference shares). R. Osei goes from 2,500 (31.25% of ordinary) to 2,000 (25.0%). 25% is not more than 25%, so R. Osei appears to cease to be a PSC if the more-than-25% test applies and the preference shares carry no votes. M. Lindqvist is at 25.0% after, so does not appear to qualify either. Check the voting basis. There is no PSC register in this repo. The 14-day notice from the change appears to have passed already.
+17:33:14	./sim-root/runs/r15/corpsec	update corpsec-mol-dbw --notes=No certificate record is in the repo. Cancel R. Osei's certificate for 2,500 ordinary shares and issue for the new holdings: R. Osei 2,000 ordinary, M. Lindqvist 500 ordinary (or a single 2,000 certificate, per the company's practice). Record the certificate numbers here once issued.
+17:33:15	./sim-root/runs/r15/corpsec	update corpsec-mol-cmg --notes=No confirmation statement filing is recorded in filings/ (calendar: due by 2026-04-16). Check whether it was filed. The next statement must show the holdings after this transfer: R. Osei 2,000, M. Lindqvist 2,000 ordinary.
+17:33:19	./sim-root/runs/r15/corpsec	close corpsec-mol-d17 --reason=Board approved on 2026-05-13 (minutes item 2), subject to the instrument being stamped. The stamping condition is open under the check step.
+17:33:20	./sim-root/runs/r15/corpsec	close corpsec-mol-6qu --reason=Entered in registers/members.md on 2026-10-31: R. Osei 2,500 to 2,000 held, 500 line ceased 2026-05-13; M. Lindqvist new 500 line dated 2026-05-13. Entered after the 14-day period from approval had passed. Entered before stamping and receipt were evidenced in the repo.
+17:33:20	./sim-root/runs/r15/corpsec	update corpsec-9cw --notes=Umbrella for the transfer. Procedure is mol-share-transfer, root corpsec-mol-40f. Done: board approval recorded (minutes 2026-05-13 item 2); register entered (registers/members.md, uncommitted); share-transfer formula updated to version 2 with psc and statement steps. Open: receive, check (stamping and articles), certificates, psc, statement. See the notes on each step. Not committed or pushed.
+17:33:20	./sim-root/runs/r15/corpsec	dep add corpsec-9cw corpsec-mol-40f
+17:33:21	./sim-root/runs/r15/corpsec	list
+17:33:27	./sim-root/runs/r15/corpsec	close corpsec-mol-d17 --force --reason=Board approved on 2026-05-13 (minutes item 2), before this procedure was run here, subject to the instrument being stamped. The stamping condition is still open under the check step. Closed out of formula order because the approval already happened.
+17:33:29	./sim-root/runs/r15/corpsec	close corpsec-mol-6qu --force --reason=Entered in registers/members.md on 2026-10-31 (uncommitted): R. Osei 2,500 to 2,000 held, 500 line ceased 2026-05-13; M. Lindqvist new 500 line dated 2026-05-13. Entered after the 14-day period from approval had passed, and before stamping and receipt were evidenced in the repo. Closed out of formula order.
+17:33:30	./sim-root/runs/r15/corpsec	list
+17:33:31	./sim-root/runs/r15/corpsec	ready
+17:33:41	./sim-root/runs/r15/corpsec	show mol-share-transfer.receive
+17:33:41	./sim-root/runs/r15/corpsec	list --all
+17:33:52	./sim-root/runs/r15/corpsec	close mol-share-transfer.receive mol-share-transfer.check mol-share-transfer.approve mol-share-transfer.register mol-share-transfer.certificates mol-share-transfer.psc mol-share-transfer.statement --reason=Persisted formula template (proto), not work. Closed so dotdiw ready shows real work only.
+17:33:53	./sim-root/runs/r15/corpsec	close mol-share-transfer --reason=Persisted formula template (proto), not work. Closed so dotdiw ready shows real work only.
+17:33:53	./sim-root/runs/r15/corpsec	ready
+17:33:54	./sim-root/runs/r15/corpsec	mol pour mol-share-transfer --dry-run
+17:34:04	./sim-root/runs/r15/corpsec	check
+17:34:04	./sim-root/runs/r15/corpsec	create Record the 500 share transfer from Osei to Lindqvist approved in May
+17:34:08	./sim-root/runs/r15/corpsec	list
+17:34:10	./sim-root/runs/r15/corpsec	close corpsec-bmt --reason=Duplicate created by mistake while checking formula discovery. corpsec-9cw is the tracking issue.
+17:34:11	./sim-root/runs/r15/corpsec	ready

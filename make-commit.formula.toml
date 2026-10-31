@@ -1,0 +1,43 @@
+formula = "mol-make-commit"
+description = "Make a commit in this project: decide what belongs in it, sweep the staged change for credentials and personal data, check the conventions still hold, then write a message that says what is now true and what measurement supports it. Use when you are about to commit, when you have changes to land, or when you are writing a commit message."
+examples = [
+  "Make a commit",
+  "Commit what I just changed",
+  "Write the commit message for this change",
+  "Land the fix",
+]
+version = 2
+type = "workflow"
+
+# Reading the diff was the first step in version 1, and using the formula showed
+# it is never outstanding: this surfaces on `create`, and by the time you have
+# named the work you have already looked. What is still open at that moment is
+# the decision about what belongs in this commit, which is not the same thing.
+[[steps]]
+id = "scope"
+title = "Decide what belongs in this commit and what stays out of it"
+
+[[steps]]
+id = "sweep"
+title = "Sweep the staged change for credentials and personal data: keys, tokens, emails, account names, absolute paths from your own machine"
+needs = ["scope"]
+
+[[steps]]
+id = "conventions"
+title = "Run `dotdiw check` and fix anything it reports"
+needs = ["scope"]
+
+[[steps]]
+id = "message"
+title = "Write the message: what is now true, why, and the number behind any claim it makes"
+needs = ["scope"]
+
+[[steps]]
+id = "commit"
+title = "Stage only what belongs and commit"
+needs = ["sweep", "conventions", "message"]
+
+[[steps]]
+id = "verify"
+title = "Confirm the tree is clean and read the commit back, to see what actually went in"
+needs = ["commit"]
