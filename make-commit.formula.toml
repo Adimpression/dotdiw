@@ -1,12 +1,13 @@
 formula = "mol-make-commit"
-description = "Make a commit in this project: decide what belongs in it, sweep the staged change for credentials and personal data, check the conventions still hold, then write a message that says what is now true and what measurement supports it. Use when you are about to commit, when you have changes to land, or when you are writing a commit message."
+description = "Commit and push in this project: decide what belongs in the commit, sweep the staged change for credentials and personal data, check the conventions still hold, write a message that says what is now true, then commit — and get it onto the remote only once somebody has asked for a push and named where it goes. Use when you are about to commit, when you have changes to land, when you are writing a commit message, or when something needs pushing."
 examples = [
-  "Make a commit",
   "Commit what I just changed",
   "Write the commit message for this change",
   "Land the fix",
+  "Push this up",
+  "Get this onto the remote",
 ]
-version = 2
+version = 4
 type = "workflow"
 
 # Reading the diff was the first step in version 1, and using the formula showed
@@ -41,3 +42,39 @@ needs = ["sweep", "conventions", "message"]
 id = "verify"
 title = "Confirm the tree is clean and read the commit back, to see what actually went in"
 needs = ["commit"]
+
+# Version 2 ended at the commit, so pushing had no procedure and happened twice
+# without one. A commit is yours to make. A push publishes, and publishing is
+# not yours to decide.
+[[steps]]
+id = "asked"
+title = "Stop unless a push was actually asked for. Having just committed is not a request to push, and neither is permission to commit"
+needs = ["verify"]
+
+[[steps]]
+id = "where"
+title = "Get the destination named: which remote, which branch. A branch unless main was named out loud"
+needs = ["asked"]
+
+[[steps]]
+id = "irreversible"
+title = "Before a public remote, sweep once more and accept it is final -- a force-push does not remove a commit from a public repository, it stays reachable by SHA"
+needs = ["where"]
+
+[[steps]]
+id = "push"
+title = "Push, to the destination that was named and nowhere else"
+needs = ["irreversible"]
+
+[[steps]]
+id = "landed"
+title = "Read back what actually landed on the remote, and say so"
+needs = ["push"]
+
+# A push to a branch prints the pull request link and it was buried in the
+# report every time. The link is the next action; it goes at the top of what
+# you say, on its own line, not in a closing paragraph.
+[[steps]]
+id = "present"
+title = "If the push was to a branch, give the pull request link first and on its own line, before anything else you report"
+needs = ["landed"]
