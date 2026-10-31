@@ -1,0 +1,47 @@
+formula = "mol-judge-mistake"
+description = "Work out how bad a mistake actually was: name the thing done rather than a nearby one, find out whether it can genuinely be undone, check whether it belongs to a known class, scale it past the one person affected, and only then say the severity. Use when asked how bad something was, when assessing the damage of something you did, or when someone has to ask twice because the first answer was too small."
+examples = [
+  "How bad is that mistake",
+  "How bad was what you just did",
+  "Work out the damage properly",
+  "Is this actually serious",
+]
+version = 1
+type = "workflow"
+
+# Written after eight attempts at one question. Each step is a thing that went
+# wrong in those eight, in the order it went wrong.
+
+[[steps]]
+id = "name"
+title = "Name the thing you did, not a nearby thing and not your reasoning about it"
+
+[[steps]]
+id = "undo"
+title = "Find out whether it can genuinely be undone -- look it up, because `reversible` is a claim and not an assumption"
+needs = ["name"]
+
+[[steps]]
+id = "class"
+title = "Find out whether it is a known class of failure, from sources outside your own account of it"
+needs = ["name"]
+
+[[steps]]
+id = "scale"
+title = "Scale it past the person in front of you: the same behaviour, at the rate you actually do it, across everyone it would reach"
+needs = ["undo", "class"]
+
+[[steps]]
+id = "compound"
+title = "Count what the wrong answer itself costs -- a reassurance that it was undone stops anybody remediating it"
+needs = ["undo", "scale"]
+
+[[steps]]
+id = "say"
+title = "Say the severity plainly, in one word if one word is true, before offering any remedy"
+needs = ["scale", "compound"]
+
+[[steps]]
+id = "remediate"
+title = "Then remediate, and never in place of the assessment"
+needs = ["say"]

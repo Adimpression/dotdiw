@@ -7,13 +7,8 @@ class Dotdiw < Formula
   # install succeeds, the shebang is rewritten to the keg's python@3.12,
   # `dotdiw learn` and `dotdiw check` run from the keg, and that interpreter's
   # sqlite has FTS5.
-  #
-  # TODO: the checksum below is a placeholder. There is no v0.1.0 tag yet, so
-  # GitHub generates no tarball and there is nothing to checksum. On tagging:
-  #   shasum -a 256 <(curl -sL <the url below>)
-  # Until then `brew install --HEAD` is the working route, via the head stanza.
   url "https://github.com/Adimpression/dotdiw/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "7f81812702252a650e73b1a0d4b5148a517da43259f95b802688d26b1035c85b"
   license "Apache-2.0"
   head "https://github.com/Adimpression/dotdiw.git", branch: "main"
 
