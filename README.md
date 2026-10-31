@@ -356,10 +356,10 @@ which do not.
 Once per machine, the way git is installed:
 
 ```bash
-brew install adimpression/dotdiw/dotdiw
+brew install --HEAD adimpression/dotdiw/dotdiw
 ```
 
-That pulls `beads`, `git` and
+`--HEAD` until there is a tagged release. That pulls `beads`, `git` and
 `python@3.12`. **Nothing is installed or configured per project, and nothing is
 left for a newcomer to install later.** `dotdiw` is a single Python file
 depending only on the standard library; putting it on `PATH` works just as well.
