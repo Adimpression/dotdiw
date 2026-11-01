@@ -370,7 +370,7 @@ owns only what is its own.
   to a duty, a step and a lawful lifecycle transition. `poa/finish-idl.py`
   finishes every derivation from `poa/idl-additions.json` and
   `poa/idl-patches.json`: the real command-line bindings, the calls between
-  operations, the beads and git calls that cross the boundary.
+  operations, the tracker and git calls that cross the boundary.
 - `promise_bindings.py` -- every operation bound to its one body in `dotdiw`,
   under the IDL's name. `dotdiw` is shaped by it: one function per operation,
   nothing shared between them but infrastructure, and `main()` only routes.
@@ -390,59 +390,37 @@ Once per machine, the way git is installed:
 brew install adimpression/tap/dotdiw
 ```
 
-That pulls `beads`, `git` and `python@3.12`. `dotdiw` is a single Python file
-depending only on the standard library; putting it on `PATH` works just as well.
+The formula installs dotdiw and the tracker it runs on. `dotdiw` itself is a
+single Python file depending only on the standard library; on `PATH` it works
+just as well.
 The Homebrew formula lives in
 [Adimpression/homebrew-tap](https://github.com/Adimpression/homebrew-tap), not
 in this repository.
 
-### What `dotdiw init` changes in a repository
+### What `dotdiw init` does
 
-v0.1.0 said nothing is configured per project. That was wrong, and worth stating
-plainly rather than quietly correcting. `init` calls `bd init`, and bd:
-
-- created `.beads/`, its issue database, and committed its own files;
-- set `core.hooksPath` to `<repo>/.beads/hooks`. bd copies the hooks that were
-  already in `.git/hooks` into that directory and appends its own block, so
-  hooks present at adoption keep running. **Hooks added to `.git/hooks`
-  afterwards do not**: git reads one hook directory, and from then on it is
-  bd's snapshot;
-- configured a Dolt remote aimed at the repository's git remote, so the issue
-  database was pushed into the repository, keeping its full history;
-- left bd's telemetry enabled, which ships on by default.
-
-From v0.2.0 `init` declines the hooks, removes the Dolt remote, and says what it
-did. Any invocation in a repository adopted by v0.1.0 also puts both back and
-prints what it undid. Nothing was deleted and no history was rewritten, and
-hooks that existed at adoption went on running; a hook added after adoption was
-skipped until the repair, so commits made in between did not see it.
-
-From v0.2.1 every run also turns bd's anonymous usage metrics off before it
-runs any bd command: `bd metrics off`, which writes `metrics.disabled: true`
-to `~/.config/bd/config.yaml`. That is per machine, not per repository, and
-it is the one thing dotdiw changes outside the repository. It says so the
-first time, and does it again on every run, so `bd metrics on` does not hold.
-
-From v0.3.0 `init` ran bd in its stealth mode, which commits nothing and
-configures no remote, but still kept `.beads/` in the working tree. From
-v0.4.0 the tracker's state leaves the repository altogether. `init` writes one
-line into the checkout's own `.git/config`, `dotdiw.workspace`, a random key,
-and runs `bd init --stealth --skip-hooks --skip-agents` under
-`~/.dotdiw/<key>/`, telling bd where through `BEADS_DIR`. Every dotdiw command
-does the same, so bd never sees the repository. What is left in the
-repository is dotdiw's declaration of where work starts, in `CLAUDE.md` and
-`AGENTS.md`, named as yours to commit; the command it prints leaves the tree
-clean. The key survives a move, worktrees share it, and a fresh clone has
-none, so every clone runs `dotdiw init` once and `create` says so until it
-has. A plain `bd` typed in the repository finds no tracker; everything goes
-through dotdiw, which is the point. A `BEADS_DIR` of your own is overridden
-for the bd that dotdiw runs. Outside a git repository `init` refuses.
+`init` writes one line into the checkout's own `.git/config`,
+`dotdiw.workspace`, a random key, and makes the tracker under
+`~/.dotdiw/<key>/`. Every dotdiw command finds it there, so nothing of the
+tracker's is in the repository: no files, no hooks, no remote, no commit.
+What is left in the repository is dotdiw's declaration of where work starts,
+in `CLAUDE.md` and `AGENTS.md`, named as yours to commit; the command it
+prints leaves the tree clean. The key survives a move and worktrees share
+it. A fresh clone has none, so every clone runs `dotdiw init` once, and
+`create` says so until it has. A `BEADS_DIR` of your own is overridden for
+the tracker dotdiw runs. Outside a git repository `init` refuses.
 
 A repository adopted by an earlier version is upgraded by its first dotdiw
 command: the key is written, a tracker is made under the home with the same
 prefix, and the command runs. Earlier tasks are not carried over; dotdiw says
 so once, and names the one command that removes the unused `.beads/` from the
-tree. It never runs that command and never edits the old copy.
+tree. It never runs that command and never edits the old copy. What `init`
+did in each earlier version is in [IMPLEMENTATION.md](IMPLEMENTATION.md).
+
+Every run also turns the tracker's anonymous usage metrics off before
+anything else runs: `metrics.disabled: true` in `~/.config/bd/config.yaml`.
+That is per machine, not per repository, and the one thing dotdiw changes
+outside `~/.dotdiw`. It says so the first time.
 
 The one file dotdiw writes that is opt-in is the witness log,
 `~/.dotdiw/<key>/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that
@@ -450,8 +428,8 @@ file exists, every create, pour and close that goes through dotdiw appends one
 JSON line -- the work id, the formula that surfaced or the silence, the
 molecule and its steps -- and the contract in `contracts/` decides whether
 those lines may be read as the promise kept. It is local, append-only, never
-transmitted, and never in the repository. A step closed with `bd` directly
-never reaches it, and the contract says so. Off, it writes nothing.
+transmitted, and never in the repository. A step closed outside dotdiw never
+reaches it, and the contract says so. Off, it writes nothing.
 
 ## Commands
 
@@ -466,8 +444,8 @@ dotdiw check                                 # whether every formula here can be
 dotdiw learn                                 # all of it, for whoever found the command
 ```
 
-Everything else forwards to [beads](https://github.com/gastownhall/beads)
-unchanged, so no task ever requires typing anything else.
+Everything else is a tracker command and runs unchanged; `dotdiw --help`
+lists them. No task ever requires typing anything else.
 
 ## The name
 

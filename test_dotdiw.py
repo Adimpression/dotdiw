@@ -578,7 +578,7 @@ class Metrics(unittest.TestCase):
     config of the machine running the suite.
     """
 
-    OFF = "turned bd's anonymous usage metrics off"
+    OFF = "turned the tracker's anonymous usage metrics off"
 
     def setUp(self):
         self.home = tempfile.mkdtemp(prefix="dotdiw-home-")
@@ -643,6 +643,40 @@ class Version(unittest.TestCase):
                            capture_output=True, text=True)
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertTrue(p.stdout.startswith("dotdiw "), p.stdout)
+
+
+@unittest.skipUnless(have_bd(), "bd is not installed")
+class TheName(unittest.TestCase):
+    """What dotdiw says names the tracker and never bd (invariant.one-name-for-all-four)."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+
+    def test_version_reports_the_trackers_number_only(self):
+        p = subprocess.run([sys.executable, "-I", DOTDIW, "--version"], cwd=self.repo.path,
+                           env=self.repo.env, capture_output=True, text=True)
+        lines = p.stdout.strip().split("\n")
+        self.assertEqual(len(lines), 2, p.stdout)
+        self.assertRegex(lines[1], r"^  tracker \d+(\.\d+)+$")
+
+    def test_without_the_tracker_the_message_is_the_install_command(self):
+        """Nothing on PATH but the system: one line, Day 0's command, exit 127."""
+        self.repo.dotdiw("init", "--prefix", "t")
+        code, out = self.repo.dotdiw("list", env=dict(self.repo.env, PATH="/usr/bin:/bin"))
+        self.assertEqual(code, 127, out)
+        self.assertIn("dotdiw is not fully installed. Run: brew install adimpression/tap/dotdiw", out)
+        self.assertNotRegex(out, r"(?<![\w./-])(bd|beads)(?![\w-])")
+
+    def test_the_rename_says_what_is_now_true(self):
+        """A file an earlier version's tracker wrote for agents names dotdiw afterwards, and the line says how many."""
+        self.repo.write(".cursor/rules/beads.mdc", "Use bd create first.\n")
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        self.assertIn("1 agent instruction file now names dotdiw", out)
+        self.assertNotIn("Renamed bd", out)
+        with open(os.path.join(self.repo.path, ".cursor", "rules", "beads.mdc"), encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), "Use dotdiw create first.\n")
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ import importlib.util
 import inspect
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -336,6 +337,45 @@ needs = ["install"]
 
 
 @unittest.skipUnless(have_bd(), "bd is not installed")
+class TheName(unittest.TestCase):
+    """bd's name is in nothing dotdiw says (invariant.one-name-for-all-four).
+
+    It may appear in the source only as the name of one of bd's own things:
+    the executables, bd's config file, its formula directory, its state
+    directory and the files it writes for agents. Every other string literal
+    that carries the word is a sentence a worker would read, and fails here
+    with the line it is on. Docstrings are the maintainers' and are not read.
+    """
+
+    WORD = re.compile(r"(?i)(?<![a-z0-9_])(bd|beads)(?![a-z0-9_])")
+    NAMES = {"bd", "beads"}
+    PATHS = ("~/.config/bd/config.yaml", "~/.beads/formulas",
+             ".cursor/rules/beads.mdc", ".beads")
+
+    def test_bd_is_named_only_as_a_thing_of_its_own(self):
+        with open(SCRIPT, encoding="utf-8") as fh:
+            tree = ast.parse(fh.read(), SCRIPT)
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                first = node.body[0] if node.body else None
+                if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                        and isinstance(first.value.value, str)):
+                    docstrings.add(id(first.value))
+        said = []
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            if id(node) in docstrings or node.value in self.NAMES:
+                continue
+            text = node.value
+            for path in self.PATHS:
+                text = text.replace(path, " ")
+            if self.WORD.search(text):
+                said.append("line %d: %r" % (node.lineno, node.value))
+        self.assertEqual(said, [], "\n".join(["dotdiw names bd where a worker reads it:"] + said))
+
+
 class TheWitnessLog(unittest.TestCase):
     """The events the contract watches come from a real run, and only when asked."""
 

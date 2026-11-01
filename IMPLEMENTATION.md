@@ -479,6 +479,37 @@ suggestion costs, which is a question about a project and not about a ranker.
 - [x] Update SPEC.md, which still said `bd create`. Rewritten as a spec: it
       names no tool at all.
 
+## What `init` changed in a repository, by version
+
+Kept here from the README, where it stood until 0.4.1: an adopter wants what
+`init` does now, and this is what it did.
+
+- v0.1.0 said nothing is configured per project; in fact `init` called `bd
+  init`, and bd created `.beads/`, its issue database, and committed its own
+  files; set `core.hooksPath` to `<repo>/.beads/hooks`, copying the hooks
+  already in `.git/hooks` into that directory and appending its own block, so
+  hooks present at adoption kept running and hooks added to `.git/hooks`
+  afterwards did not, since git reads one hook directory; configured a Dolt
+  remote aimed at the repository's git remote, so the issue database was
+  pushed into the repository with its full history; and left bd's telemetry
+  enabled, which ships on by default.
+- v0.2.0 declined the hooks, removed the Dolt remote, and said what it did.
+  Any invocation in a repository adopted by v0.1.0 also put both back and
+  printed what it undid. Nothing was deleted and no history was rewritten;
+  hooks that existed at adoption went on running, and a hook added after
+  adoption was skipped until the repair, so commits made in between did not
+  see it.
+- v0.2.1 turned bd's anonymous usage metrics off before running any bd
+  command: `bd metrics off`, which writes `metrics.disabled: true` to
+  `~/.config/bd/config.yaml`, per machine, on every run, so `bd metrics on`
+  does not hold.
+- v0.3.0 ran bd in its stealth mode, which commits nothing and configures no
+  remote, but still kept `.beads/` in the working tree.
+- v0.4.0 moved the tracker's state under the home: one key in the checkout's
+  `.git/config`, `bd init --stealth --skip-hooks --skip-agents` under
+  `~/.dotdiw/<key>/`, told where through `BEADS_DIR`. The dated entries below
+  have the detail.
+
 ## 2026-11-01: init in bd's stealth mode
 
 - [x] `bd init --stealth` commits nothing, writes nothing for agents,
@@ -525,3 +556,23 @@ suggestion costs, which is a question about a project and not about a ranker.
 - [x] Measured: a create under the home costs what it cost in the tree,
       0.40 s for bd's part. Whether agents do as well without bd's agent files
       is the question of the next round.
+
+## 2026-11-01: the tracker is not named
+
+- [x] Nothing dotdiw prints names bd or beads. The install line when the
+      tracker is missing is Day 0's command; the metrics notice names the
+      tracker and the file; `--version` reports `tracker <number>`, the
+      number taken from bd's own version string; the rename lines say how many
+      files now name dotdiw; the formula problem line says the tracker finds
+      it. The name survives only inside the paths of bd's own files on the
+      machine, `~/.config/bd/config.yaml` and `.beads/`.
+- [x] The `--version` line had breached `invariant.one-name-for-all-four`,
+      which says bd's name is not in the version reported, and nothing checked
+      it. `test_promise.py` now reads every string literal in `dotdiw` and
+      allows the word only inside those paths and as the executables' names;
+      `test_dotdiw.py` runs the three messages that changed shape.
+- [x] The README says what `init` does now and names no dependency; the
+      history by version is above. The dependency is declared where
+      declarations belong: `carrier.beads` in `product.yaml`,
+      `boundary.dotdiw-to-beads` in the model, `depends_on "beads"` in the
+      tap's formula.

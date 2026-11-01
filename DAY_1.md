@@ -11,7 +11,7 @@ your checkout, so a fresh clone runs `dotdiw init` once first; `create` says
 so if it was not done, and init commits nothing.
 
 **An existing project without dotdiw.** Someone runs `dotdiw init` once. It
-keys the checkout, initialises beads under their home, writes the declaration
+keys the checkout, makes the tracker under their home, writes the declaration
 into the project's instruction files and names them as yours to commit. The
 repository gains those two files and nothing else. From then on everyone else
 arrives into the situation above.
