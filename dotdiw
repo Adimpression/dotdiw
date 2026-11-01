@@ -37,7 +37,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 TOP_N = 3
 
@@ -249,6 +249,132 @@ def permit_formula_commit(root):
             continue
         changed.append(rel)
     return changed
+
+
+# ------------------------------------------------- undoing what adoption did
+
+# `init` hands this tool's name to `bd init`, and v0.1.0 passed on three things
+# bd does to a repository without saying so. Two of them are destructive.
+#
+#   core.hooksPath -> <repo>/.beads/hooks
+#       bd copies the repository's existing hooks into that directory and
+#       appends its own block, so hooks that were already there keep running.
+#       What does not keep running is anything added to .git/hooks afterwards:
+#       git reads one hook directory, and from adoption onward that is bd's
+#       snapshot. A hook the team adds next week is silently ignored. The value
+#       is also an absolute path, so it is wrong in any other checkout.
+#
+#   a Dolt remote, in .beads/config.yaml and in the database's own state,
+#       aimed at the repository's git remote. The issue database is pushed into
+#       the repository and grows there, keeping its full history.
+#
+# Neither is anything this tool needs or ever used. Because v0.1.0 shipped them,
+# the repair runs on every invocation instead of waiting to be asked for: a
+# repository is unprotected for as long as the setting stands, and nobody who
+# was never told about it will think to look.
+HOOKS_KEY = "core.hooksPath"
+
+
+def hooks_replaced(root):
+    """bd's hook directory standing in for the repository's own, or ""."""
+    got = git(["config", "--get", HOOKS_KEY], root).strip()
+    if not got:
+        return ""
+    # realpath, not normpath: on macOS a checkout under /var or /tmp is
+    # reached through a symlink, and `git rev-parse` hands back the resolved
+    # path while the configured value keeps whichever form it was written in.
+    # Comparing the two unresolved left the override in place and said nothing
+    # -- the worst of both. Found by the test, not by hand.
+    mine = os.path.realpath(os.path.join(root, ".beads", "hooks"))
+    return got if os.path.realpath(os.path.join(root, got)) == mine else ""
+
+
+def dolt_remotes(root):
+    """(state file, remote names) for each local database carrying a remote."""
+    out = []
+    base = os.path.join(root, ".beads", "embeddeddolt")
+    try:
+        dbs = sorted(os.listdir(base))
+    except OSError:
+        return out
+    for db in dbs:
+        path = os.path.join(base, db, ".dolt", "repo_state.json")
+        try:
+            with open(path, encoding="utf-8") as fh:
+                state = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if state.get("remotes"):
+            out.append((path, sorted(state["remotes"])))
+    return out
+
+
+def repair(root):
+    """Undo it, and return a line for each thing undone."""
+    done = []
+
+    got = hooks_replaced(root)
+    if got:
+        git(["config", "--unset", HOOKS_KEY], root)
+        if not hooks_replaced(root):
+            done.append("%s is unset. It pointed at %s, a snapshot of this "
+                        "repository's hooks taken when it was adopted, so any "
+                        "hook added since was being skipped; .git/hooks is read "
+                        "again." % (HOOKS_KEY, got))
+
+    cfg = os.path.join(root, ".beads", "config.yaml")
+    try:
+        with open(cfg, encoding="utf-8") as fh:
+            before = fh.read()
+    except OSError:
+        before = ""
+    if before:
+        # A top-level `sync:` key and the indented block under it.
+        after = re.sub(r"(?m)^sync:\n(?:[ \t]+.*\n)*", "", before)
+        if after != before:
+            try:
+                with open(cfg, "w", encoding="utf-8") as fh:
+                    fh.write(after)
+                done.append("the Dolt remote is out of .beads/config.yaml.")
+            except OSError:
+                pass
+
+    for path, names in dolt_remotes(root):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                state = json.load(fh)
+            state["remotes"] = {}
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(state, fh, indent=2)
+        except (OSError, ValueError):
+            continue
+        done.append("the Dolt remote %s is out of %s."
+                    % (", ".join(names), os.path.relpath(path, root)))
+
+    return done
+
+
+def left_uncommitted(root, rels):
+    """Those of `rels` that git tracks and that now differ from the index."""
+    if not rels:
+        return []
+    out = git(["diff", "--name-only", "--"] + list(rels), root)
+    return [r for r in out.split("\n") if r.strip()]
+
+
+def announce_repair(root):
+    """Say what was undone. Silence when there was nothing to undo."""
+    done = repair(root)
+    if not done:
+        return
+    out = sys.stderr
+    out.write("\n%s undid what an earlier version of it did here:\n" % PROG)
+    for line in done:
+        out.write("    %s\n" % line)
+    out.write("\n    Nothing was deleted and no history was rewritten. Hooks\n"
+              "    that existed when this repository was adopted went on\n"
+              "    running. Any hook added after that was skipped until now,\n"
+              "    so commits made in between did not see it.\n\n")
 
 
 def undeclared(root):
@@ -1224,12 +1350,24 @@ def main():
         if bdv.strip():
             print("  on %s" % " ".join(bdv.split()))
         return 0
+    # Before anything else: a repository adopted by v0.1.0 is running with
+    # its own hooks replaced, and it cannot be left that way while this
+    # tool is in a position to put it back.
+    announce_repair(repo_root())
+
     if argv[0] == "check":
         return cmd_check()
 
     if argv[0] == "init":
+        # bd installs its hooks by pointing core.hooksPath at its own
+        # directory, which replaces this repository's. Decline that: nothing
+        # here needs bd's hooks, and the repository needs its own.
+        argv = list(argv)
+        if "--skip-hooks" not in argv:
+            argv.insert(1, "--skip-hooks")
         code = run_bd(argv)
         root = repo_root()
+        announce_repair(root)
         renamed = rename_in_agent_files(root)
         declared = write_conventions(root)
         if renamed:
@@ -1241,6 +1379,22 @@ def main():
             print("\n\u2713 Declared where work starts, in %s."
                   % " and ".join(declared))
             print("    Whoever shows up reads it there, human or agent.")
+
+        # bd commits its own files during init, and the two steps above then
+        # edit some of them. That left the repository dirty and the committed
+        # copies stale -- naming bd, and carrying no declaration -- so a clone
+        # at that commit got neither. Say so; committing is not this tool's
+        # to do.
+        dirty = left_uncommitted(root, set(renamed) | set(declared))
+        if dirty:
+            print("\n\u26a0 Edited after bd committed them, so they are "
+                  "uncommitted here:")
+            for rel in dirty:
+                print("    %s" % rel)
+            print("\n  The committed copies still name bd and do not say where"
+                  " work starts.\n  To fix that:\n")
+            print("    git add %s && git commit -m \"Declare where work "
+                  "starts\"" % " ".join(dirty))
         return code
 
     root = repo_root()
