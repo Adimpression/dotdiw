@@ -38,7 +38,7 @@ BINDINGS = {
     "AdoptARepository": "adopt_a_repository",
     "AdoptRepository": "adopt_repository",
     "DeclareConventions": "declare_conventions",
-    "ReportWhatWasLeftUncommitted": "report_what_was_left_uncommitted",
+    "ReportWhatIsYoursToCommit": "report_what_is_yours_to_commit",
     "UndoEarlierAdoption": "undo_earlier_adoption",
     "TurnMetricsOff": "turn_metrics_off",
     "RunATrackerCommand": "run_a_tracker_command",

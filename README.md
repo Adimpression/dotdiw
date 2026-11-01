@@ -423,20 +423,37 @@ to `~/.config/bd/config.yaml`. That is per machine, not per repository, and
 it is the one thing dotdiw changes outside the repository. It says so the
 first time, and does it again on every run, so `bd metrics on` does not hold.
 
-From v0.3.0 there is one file dotdiw writes that is opt-in: the witness log,
-`.beads/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that file exists,
-every create, pour and close that goes through dotdiw appends one JSON line --
-the work id, the formula that surfaced or the silence, the molecule and its
-steps -- and the contract in `contracts/` decides whether those lines may be
-read as the promise kept. It is local, append-only, never transmitted, and
-`init` and `create` keep it out of git through `.beads/.gitignore`. A step
+From v0.3.0 `init` runs bd in its stealth mode, `bd init --stealth
+--skip-hooks`. bd then commits nothing, writes nothing for agents, configures
+no remote, and keeps `.beads/` local to the checkout through
+`.git/info/exclude`. What init leaves behind is dotdiw's own declaration of
+where work starts, written into `CLAUDE.md` and `AGENTS.md`; it names those
+two files as yours to commit, and the command it prints leaves the tree clean.
+Nothing of bd's enters git. That mode existed all along; 0.2.0 and 0.2.1 were
+built around bd's default instead, repairing what bd had committed and
+reporting the result wrongly. A repository adopted by those versions is told
+the one command that does the same for it, on `init`, `check`, `doctor` and
+`lint`; dotdiw never runs it. Outside a git repository `init` refuses, since
+formulas are found with git. And because the tracker is local to each
+checkout, every clone runs `dotdiw init` once; `create` says so when it finds
+no database. That was always true -- bd's database was never in git -- and
+nothing said it.
+
+Also from v0.3.0 there is one file dotdiw writes that is opt-in: the witness
+log, `.beads/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that file
+exists, every create, pour and close that goes through dotdiw appends one JSON
+line -- the work id, the formula that surfaced or the silence, the molecule
+and its steps -- and the contract in `contracts/` decides whether those lines
+may be read as the promise kept. It is local, append-only, never transmitted,
+and stays out of git because `.beads/` does; in a repository adopted before
+0.3.0, `init` and `create` keep it out through `.beads/.gitignore`. A step
 closed with `bd` directly never reaches it, and the contract says so. Off, it
 writes nothing.
 
 ## Commands
 
 ```bash
-dotdiw init                                  # adopt it: tracking and the conventions
+dotdiw init                                  # adopt it: tracking local to this checkout, the conventions declared
 dotdiw create "<what you're about to do>"    # where all work starts
 dotdiw formula new "<what it's for>"         # write a procedure down
 dotdiw formula new "..." --from <id>         # ...with steps from work already done
