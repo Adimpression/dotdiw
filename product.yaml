@@ -1,0 +1,202 @@
+schemaVersion: 3.0.0
+productId: product.dotdiw
+name: dotdiw
+status: active
+signal: >
+  A project's instructions open with one line -- start every task with
+  `dotdiw create "<what you are about to do>"` -- and the command answers a
+  title with the procedures the project holds that apply to it.
+promise: >
+  When work starts by being named, the procedure that applies to it surfaces
+  to whoever is starting, person or agent, before the work begins. They did
+  not search for it and did not need to know it existed.
+reliedUponBy:
+  - subjectId: subject.worker
+    name: Whoever starts a piece of work in the project
+    reliance: >
+      Starts by naming the work and trusts that what applies will be shown,
+      rather than reading every runbook first.
+  - subjectId: subject.procedure-author
+    name: Whoever wrote a procedure down
+    reliance: >
+      Writes the procedure once, as a formula next to what it is about, and
+      trusts it will reach everyone who later does that work -- including the
+      people and agents who were not there when it was written.
+conditions:
+  - conditionId: condition.work-is-named
+    statement: >
+      Work begins with `dotdiw create "<title>"`, the single declared moment,
+      and the title is in the words the worker uses for the work.
+  - conditionId: condition.formula-is-committed
+    statement: >
+      The procedure is a `*.formula.toml` file tracked by git. Uncommitted, it
+      is one person's, and the project does not hold it.
+  - conditionId: condition.described-to-be-found
+    statement: >
+      The formula's description and examples name the situation in the words
+      people use for the work, so `dotdiw check` finds it from them.
+  - conditionId: condition.day-0-happened
+    statement: >
+      dotdiw and beads are on the machine, once, the way git is; the repository
+      was adopted once with `dotdiw init`.
+boundaries:
+  - boundaryId: boundary.shows-does-not-enforce
+    statement: >
+      dotdiw shows the procedure. It does not make anyone follow it and it does
+      not block work.
+    whyItMatters: >
+      Whether a surfaced procedure is followed belongs to the bearer's praxis,
+      not to the tool; a tool that blocked work would be bypassed.
+  - boundaryId: boundary.only-the-declared-moment
+    statement: >
+      Nothing surfaces for work that begins any other way -- by editing a file,
+      cutting a branch, or typing `bd create` directly.
+    whyItMatters: >
+      The declared moment is the mechanism, not a note about one. Where work
+      may begin elsewhere, the discipline was skipped, not the mechanism broken.
+  - boundaryId: boundary.formulas-not-prose
+    statement: >
+      Only formula files are matched. A runbook in prose is never surfaced,
+      however well written.
+    whyItMatters: >
+      Prose cannot be matched against a title or instantiated as steps. The
+      product promises discovery over a set the project can state.
+  - boundaryId: boundary.a-coincidence-costs-a-glance
+    statement: >
+      At the chosen threshold roughly two in five titles that no formula covers
+      still surface something. Silence is not promised.
+    whyItMatters: >
+      Every step towards silence loses real retrievals. The trade is a glance
+      at a wrong match against losing the mechanism.
+  - boundaryId: boundary.nothing-outside-the-repository
+    statement: >
+      Adoption and use change nothing outside the repository, except that bd's
+      anonymous usage metrics are turned off on the machine, and that is said
+      aloud the first time.
+    whyItMatters: >
+      v0.1.0 inherited a hook override and a Dolt remote from bd without saying
+      so. What a tool does to a repository on somebody's behalf must be stated.
+possibleCarriers:
+  - carrierId: carrier.dotdiw-cli
+    name: The dotdiw command
+    carrierKind: software
+    howEncountered: >
+      Typed in a terminal, called from a script, or spawned as a subprocess by
+      an agent -- one file on PATH, the same for all three.
+  - carrierId: carrier.project-instructions
+    name: The project's own instruction files
+    carrierKind: hybrid
+    howEncountered: >
+      CLAUDE.md and AGENTS.md state the convention, so an agent reads where
+      work starts before it starts anything.
+  - carrierId: carrier.beads
+    name: beads, the issue tracker underneath
+    carrierKind: software
+    howEncountered: >
+      Holds the created work item and the poured steps. dotdiw forwards every
+      other command to it under its own name.
+evidenceOrProof:
+  - evidenceId: evidence.formula-named-at-create
+    statement: >
+      The output of `dotdiw create` lists the applying formulas by name and
+      path, with the command that pours one.
+  - evidenceId: evidence.check-finds-every-formula
+    statement: >
+      `dotdiw check` reports every committed formula reachable from its own
+      examples, each example taken out of the index while it is searched for.
+  - evidenceId: evidence.steps-tracked-in-order
+    statement: >
+      A poured formula is visible as tracked issues whose dependencies refuse
+      to close a step before the ones it needs.
+  - evidenceId: evidence.the-log-not-the-agent
+    statement: >
+      In measurement, the log of every dotdiw invocation and the repository
+      diff -- never what an agent said it did -- show the create and what it
+      surfaced.
+  - evidenceId: evidence.the-witnessed-story
+    statement: >
+      With the witness log on, the contract in contracts/ reads the events
+      dotdiw itself wrote -- named, surfaced or silent, poured, closed -- and
+      calls the story valid, or says in which way it is not. A claim that
+      discovery fired answers to that contract and to nothing read by hand.
+falseSuccessRisks:
+  - riskId: risk.silence-read-as-nothing-applies
+    statement: >
+      `dotdiw create` prints nothing although a committed formula applies,
+      because its description does not use the worker's words.
+    whatItWouldCounterfeit: >
+      The absence of a procedure, when the project holds one it could not
+      reach.
+  - riskId: risk.a-formula-only-one-person-holds
+    statement: >
+      A formula is written and used locally but never committed. Its author
+      believes the project has a procedure.
+    whatItWouldCounterfeit: >
+      Sharing. The procedure looks held by the project while one checkout has
+      it.
+  - riskId: risk.work-begun-elsewhere
+    statement: >
+      An agent reads the task and edits a file first. `dotdiw create` never
+      runs and nothing surfaces.
+    whatItWouldCounterfeit: >
+      Discovery having fired and found nothing, when it never fired.
+  - riskId: risk.a-coincidence-surfaces
+    statement: >
+      A title reaches a formula about different work that happens to share its
+      words, and the worker pours it.
+    whatItWouldCounterfeit: >
+      The right procedure, when it is a coincidence of vocabulary.
+pressureNotes:
+  - >
+    Urgency pulls towards starting by doing. A one-second act that names the
+    work is the one most likely to be skipped under it.
+  - >
+    A tool that wraps another inherits what that tool does to a repository.
+    The pressure is to not look.
+promiseChanges:
+  - changeId: change.adoption-declines-bd-hooks-and-remote
+    summary: >
+      From 0.2.0, `init` declines bd's core.hooksPath override and its Dolt
+      remote, undoes both where an earlier version left them, and names the
+      files it left uncommitted.
+    compatibility: corrective
+    rationale: >
+      v0.1.0 claimed nothing was configured per project. That was false, and
+      two of the inherited things were harmful.
+  - changeId: change.metrics-off-on-every-run
+    summary: >
+      From 0.2.1, every run turns bd's anonymous usage metrics off before any
+      bd command, and says so the first time.
+    compatibility: strengthening
+    rationale: >
+      A tool that runs another on the user's behalf was deciding the question
+      for them by staying silent.
+  - changeId: change.witness-log-opt-in
+    summary: >
+      From 0.3.0, with DOTDIW_WITNESS=1 or once .beads/witness.jsonl exists,
+      every create, pour and close through dotdiw appends one local line, and
+      the witness contract decides what those lines may be read as. Off by
+      default; nothing is transmitted; init and create keep the file out of
+      git.
+    compatibility: additive
+    rationale: >
+      The promise claimed evidence it could not produce: an invocation log
+      read by hand. The evidence now comes from the bodies that do the work,
+      and a contract says when it counts.
+openQuestions:
+  - questionId: question.hundreds-of-formulas
+    question: >
+      The threshold of 0.15 was calibrated on three to fifty-six formulas. What
+      do retrieval and silence look like at the hundreds this is for?
+    neededFrom: measurement
+  - questionId: question.enforcing-the-declared-moment
+    question: >
+      Should a project be able to tell, per piece of work, that it began
+      unnamed -- a commit with no named work behind it -- or does that cross
+      from showing into enforcing?
+    neededFrom: product-owner
+sourceRefs:
+  - SPEC.md
+  - DAY_0.md
+  - DAY_1.md
+  - README.md

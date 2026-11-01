@@ -1,0 +1,3 @@
+{"observedEventId": "sas-01", "label": "work_named", "workId": "trials-sas", "title": "Release v0.3.0 through the tap", "occurredAt": "2026-11-01T06:50:00Z", "observedAt": "2026-11-01T06:50:00Z", "source": "dotdiwInvocations"}
+{"observedEventId": "sas-02", "label": "formula_surfaced", "workId": "trials-sas", "formulaId": "mol-release-through-tap", "path": "release-through-tap.formula.toml", "occurredAt": "2026-11-01T06:50:00Z", "observedAt": "2026-11-01T06:50:00Z", "source": "dotdiwInvocations"}
+{"observedEventId": "sas-03", "label": "nothing_surfaced", "workId": "trials-sas", "title": "Release v0.3.0 through the tap", "occurredAt": "2026-11-01T06:50:00Z", "observedAt": "2026-11-01T06:50:00Z", "source": "dotdiwInvocations"}

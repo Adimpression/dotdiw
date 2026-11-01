@@ -1,0 +1,37 @@
+schemaVersion: 0.1.0
+representationId: carrier.dotdiw-on-path
+productPosition:
+  promise: The procedure that applies surfaces when work is named.
+  primaryDuty: >
+    Answer a title with the project's applying formulas, in the same
+    invocation, for a person at a terminal and an agent spawning a subprocess
+    alike.
+carriers:
+  - carrierId: dotdiwCli
+    carrierKind: software
+    carries: [workNaming, formulaSurfacing, procedurePouring]
+    strengths:
+      - one file on PATH, reached by terminal, script and subprocess by the same path
+      - nothing installed or configured per project
+    limits:
+      - cannot make anyone follow what it surfaced
+      - cannot match prose
+      - cannot see a formula that is not committed
+  - carrierId: projectInstructions
+    carrierKind: hybrid
+    carries: [workNaming]
+    strengths:
+      - binds whoever shows up, human or agent, including those who were not there when it was written
+    limits:
+      - only as good as the first line being read before the first act
+substitutionEnvelope:
+  maySubstituteWhen:
+    - any carrier runs the same dotdiw file against the same committed formulas
+  equivalentFor:
+    - which formulas surface for a title
+  notEquivalentFor:
+    - whether the worker reads what surfaced
+  counterfeitEquivalenceRisk:
+    - >
+      `bd create` typed directly: the work item exists and looks named, but
+      nothing was matched

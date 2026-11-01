@@ -1,0 +1,4 @@
+{"observedEventId": "x1-01", "label": "procedure_poured", "workId": "trials-x1", "formulaId": "mol-make-commit", "moleculeId": "trials-mol-x1a", "occurredAt": "2026-11-01T05:00:00Z", "observedAt": "2026-11-01T05:00:00Z", "source": "dotdiwInvocations"}
+{"observedEventId": "x1-02", "label": "step_closed", "workId": "trials-x1", "moleculeId": "trials-mol-x1a", "stepId": "trials-mol-x1b", "occurredAt": "2026-11-01T05:02:00Z", "observedAt": "2026-11-01T05:02:01Z", "source": "beadsIssues"}
+{"observedEventId": "x1-03", "label": "step_closed", "workId": "trials-x1", "moleculeId": "trials-mol-x1a", "stepId": "trials-mol-x1c", "occurredAt": "2026-11-01T05:03:00Z", "observedAt": "2026-11-01T05:03:01Z", "source": "beadsIssues"}
+{"observedEventId": "x1-04", "label": "molecule_closed", "workId": "trials-x1", "moleculeId": "trials-mol-x1a", "occurredAt": "2026-11-01T05:04:00Z", "observedAt": "2026-11-01T05:04:01Z", "source": "beadsIssues"}

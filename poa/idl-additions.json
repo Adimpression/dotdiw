@@ -1,0 +1,259 @@
+{
+  "updates": [
+    {
+      "changeId": "change.bind-the-named-work-story",
+      "changeType": "add-causal-event-structure-contract",
+      "targetRefs": [
+        "idl.dotdiw",
+        "cesc.named-work-found-its-procedure"
+      ],
+      "summary": "Reference the contract that witnesses a named piece of work finding its procedure, bind the observed labels to the operations that emit them, and make any report or summary of discovery firing answer to it.",
+      "reason": "A claim that discovery fired must be backed by a witness contract, not by an invocation log read by hand.",
+      "compatibility": "additive",
+      "createdAt": "2026-11-01T00:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.bind-dotdiw-to-its-algebra",
+      "changeType": "bind-implementation-and-interfaces",
+      "targetRefs": [
+        "idl.dotdiw"
+      ],
+      "summary": "Replace the generated poa invoke bindings with dotdiw's real command line, bind every operation to one inline body in dotdiw through promise_bindings.py, declare beads and git as the products dotdiw calls and name the calls, correct the kinds the step-id heuristic got wrong, and give the request and response types the fields the bodies use.",
+      "reason": "Until the bindings are real, POA checks the artifacts against each other and never against the program. These are the facts that let it check the program.",
+      "compatibility": "additive",
+      "createdAt": "2026-11-01T12:00:00+08:00",
+      "approvalStatus": "draft"
+    }
+  ],
+  "eventStructureContracts": [
+    {
+      "contractId": "cesc.named-work-found-its-procedure",
+      "name": "Named work found its procedure",
+      "status": "draft",
+      "sourceUri": "contracts/named-work-found-its-procedure.cesc.yaml",
+      "semanticSources": {
+        "productIds": [
+          "product.dotdiw"
+        ],
+        "carrierIds": [
+          "carrier.dotdiw-on-path"
+        ],
+        "praxisIds": [
+          "praxis.where-work-starts"
+        ],
+        "reliantEnactmentIds": [
+          "reliant-enactment.release-relied-on-the-surfaced-procedure"
+        ],
+        "operationIds": [
+          "operation.name-the-work",
+          "operation.match-formulas",
+          "operation.pour-procedure"
+        ],
+        "invariantIds": [
+          "invariant.work-starts-named"
+        ],
+        "goldenTraceIds": [
+          "trace.release-found-its-procedure",
+          "trace.recorded-run-found-its-procedure"
+        ],
+        "antiGoldenTraceIds": [
+          "antitrace.procedure-poured-unnamed",
+          "antitrace.poured-what-never-surfaced",
+          "antitrace.create-both-surfaced-and-silent"
+        ],
+        "objectIds": [
+          "object.work",
+          "object.formula",
+          "object.molecule"
+        ],
+        "boundaryIds": [
+          "boundary.create-to-match"
+        ]
+      },
+      "projectionKind": "story-matcher"
+    }
+  ],
+  "observabilityBindings": [
+    {
+      "bindingId": "binding.obs.work-named",
+      "operationId": "operation.name-the-work",
+      "eventClassId": "event.work-named",
+      "observedLabels": [
+        "work_named"
+      ],
+      "requiredFields": [
+        "workId",
+        "title",
+        "occurredAt",
+        "observedAt"
+      ],
+      "objectPassage": {
+        "produces": [
+          {
+            "objectId": "object.work",
+            "state": "named",
+            "keyField": "workId"
+          }
+        ]
+      },
+      "source": "dotdiwInvocations"
+    },
+    {
+      "bindingId": "binding.obs.formula-surfaced",
+      "operationId": "operation.match-formulas",
+      "eventClassId": "event.formula-surfaced",
+      "observedLabels": [
+        "formula_surfaced"
+      ],
+      "requiredFields": [
+        "workId",
+        "formulaId",
+        "occurredAt",
+        "observedAt"
+      ],
+      "objectPassage": {
+        "produces": [
+          {
+            "objectId": "object.formula",
+            "state": "surfaced",
+            "keyField": "formulaId"
+          }
+        ]
+      },
+      "source": "dotdiwInvocations"
+    },
+    {
+      "bindingId": "binding.obs.nothing-surfaced",
+      "operationId": "operation.match-formulas",
+      "eventClassId": "event.nothing-surfaced",
+      "observedLabels": [
+        "nothing_surfaced"
+      ],
+      "requiredFields": [
+        "workId",
+        "occurredAt",
+        "observedAt"
+      ],
+      "source": "dotdiwInvocations"
+    },
+    {
+      "bindingId": "binding.obs.procedure-poured",
+      "operationId": "operation.pour-procedure",
+      "eventClassId": "event.procedure-poured",
+      "observedLabels": [
+        "procedure_poured"
+      ],
+      "requiredFields": [
+        "workId",
+        "formulaId",
+        "moleculeId",
+        "occurredAt",
+        "observedAt"
+      ],
+      "objectPassage": {
+        "consumes": [
+          {
+            "objectId": "object.formula",
+            "state": "surfaced",
+            "keyField": "formulaId"
+          }
+        ],
+        "produces": [
+          {
+            "objectId": "object.molecule",
+            "state": "poured",
+            "keyField": "moleculeId"
+          }
+        ]
+      },
+      "source": "dotdiwInvocations"
+    },
+    {
+      "bindingId": "binding.obs.step-closed",
+      "operationId": "operation.forward-to-beads",
+      "eventClassId": "event.step-closed",
+      "observedLabels": [
+        "step_closed"
+      ],
+      "requiredFields": [
+        "workId",
+        "moleculeId",
+        "stepId",
+        "occurredAt",
+        "observedAt"
+      ],
+      "objectPassage": {
+        "observes": [
+          {
+            "objectId": "object.molecule",
+            "state": "poured",
+            "keyField": "moleculeId"
+          }
+        ]
+      },
+      "source": "beadsIssues"
+    },
+    {
+      "bindingId": "binding.obs.molecule-closed",
+      "operationId": "operation.forward-to-beads",
+      "eventClassId": "event.molecule-closed",
+      "observedLabels": [
+        "molecule_closed"
+      ],
+      "requiredFields": [
+        "workId",
+        "moleculeId",
+        "occurredAt",
+        "observedAt"
+      ],
+      "objectPassage": {
+        "consumes": [
+          {
+            "objectId": "object.molecule",
+            "state": "poured",
+            "keyField": "moleculeId"
+          }
+        ],
+        "produces": [
+          {
+            "objectId": "object.work",
+            "state": "done",
+            "keyField": "workId"
+          }
+        ]
+      },
+      "source": "beadsIssues"
+    }
+  ],
+  "reportBindings": [
+    {
+      "reportId": "report.discovery-fired",
+      "storyClaim": "Work was named and the procedure that applies surfaced for it before it began.",
+      "cescContractIds": [
+        "cesc.named-work-found-its-procedure"
+      ],
+      "allowedStoryStatuses": [
+        "valid",
+        "caveated"
+      ]
+    }
+  ],
+  "storySummaryBindings": [
+    {
+      "summaryId": "summary.named-work-story",
+      "storyClaim": "What happened to a piece of named work, from create to the last step closed.",
+      "cescContractIds": [
+        "cesc.named-work-found-its-procedure"
+      ],
+      "allowedStoryStatuses": [
+        "valid",
+        "caveated",
+        "incomplete",
+        "open",
+        "conflicted",
+        "invalid"
+      ]
+    }
+  ]
+}

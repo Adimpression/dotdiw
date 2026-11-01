@@ -1,0 +1,2430 @@
+schemaVersion: 2.0.1
+modelId: model.dotdiw
+modelName: dotdiw Product Model
+modelPurpose: >
+  The governed source model POA derives dotdiw's operation algebra from: the
+  duties, journeys, steps, objects, invariants, traces and timing that make
+  "the procedure that applies finds you" a set of lawful operations rather
+  than a hope. The thin promise is ../product.yaml; this file is POA's
+  internal source and mirrors the operation material that ../praxis.yaml owns.
+createdAt: "2026-11-01T00:00:00+08:00"
+updatedAt: "2026-11-01T15:00:00+08:00"
+
+product:
+  productId: product.dotdiw
+  name: dotdiw
+  description: >
+    Workflow discovery for projects worked by people and AI agents together:
+    the procedure that applies surfaces when work starts.
+  domain: Workflow discovery
+
+lexicon:
+  - termId: term.formula
+    term: Formula
+    definition: >
+      A procedure written as a TOML file named <something>.formula.toml, kept
+      next to whatever it is about and committed: a description, examples, and
+      steps with which step needs which.
+    allowedAliases:
+      - procedure
+    forbiddenAliases:
+      - runbook
+      - doc
+    examples:
+      - release-through-tap.formula.toml lives in the tap, next to the formula it releases.
+  - termId: term.molecule
+    term: Molecule
+    definition: >
+      A formula instantiated as tracked, ordered steps in the issue tracker,
+      so each step is closed in an order its needs allow.
+    allowedAliases:
+      - mol
+      - poured formula
+    forbiddenAliases:
+      - checklist
+    examples:
+      - dotdiw mol pour mol-release-through-tap created ten issues under one root.
+  - termId: term.title
+    term: Title
+    definition: >
+      What someone calls the work they are about to do, in their own words,
+      given to dotdiw create.
+    allowedAliases:
+      - the work's name
+    forbiddenAliases:
+      - ticket summary
+    examples:
+      - '"Release v0.2.1 through the tap"'
+  - termId: term.declared-moment
+    term: Declared moment
+    definition: >
+      The single act a project names as the start of every task and subtask.
+      In an adopted project it is dotdiw create.
+    allowedAliases:
+      - where work starts
+    forbiddenAliases:
+      - kickoff
+    examples:
+      - CLAUDE.md opens with the declared moment.
+  - termId: term.check
+    term: Check
+    definition: >
+      dotdiw check: whether every formula the project holds can be found from
+      its own examples, with the example removed from the index while it is
+      searched for.
+    allowedAliases:
+      - self-test
+    forbiddenAliases:
+      - lint
+    examples:
+      - "dotdiw check reports: 5 formulas, all discoverable."
+
+ambiguityPolicy:
+  principle: >
+    Where the words of a title and the words of a description disagree,
+    dotdiw shows a coincidence or stays silent; it never guesses on the
+    worker's behalf, and what it could not reach is a question for the
+    description, recorded in examples.
+  unresolvedQuestionHandling: block-change
+  requiresClarificationWhen:
+    - A formula cannot be found from one of its own examples.
+    - A change would make dotdiw enforce rather than show.
+    - A change would make dotdiw commit, push or sync anything on the worker's behalf.
+
+realWorldModel:
+  objects:
+    - objectId: object.work
+      name: Work
+      definition: A piece of work someone is about to do in the project.
+      lifecycleStates:
+        - intended
+        - named
+        - procedure-poured
+        - done
+      ownedByDutyIds:
+        - duty.surface-procedures-when-work-starts
+    - objectId: object.formula
+      name: Formula
+      definition: A procedure written as a formula file.
+      lifecycleStates:
+        - repeated
+        - written
+        - findable
+        - held
+      ownedByDutyIds:
+        - duty.keep-procedures-findable
+    - objectId: object.molecule
+      name: Molecule
+      definition: A poured formula, tracked as ordered steps.
+      lifecycleStates:
+        - poured
+        - complete
+      ownedByDutyIds:
+        - duty.surface-procedures-when-work-starts
+    - objectId: object.repository
+      name: Repository
+      definition: A git repository in which people and agents work.
+      lifecycleStates:
+        - unadopted
+        - adopted
+        - carrying-earlier-adoption
+      ownedByDutyIds:
+        - duty.adopt-without-reaching-outside
+    - objectId: object.conventions
+      name: Conventions
+      definition: >
+        The declaration in CLAUDE.md and AGENTS.md of where work starts and
+        where procedures live.
+      lifecycleStates:
+        - undeclared
+        - declared
+      ownedByDutyIds:
+        - duty.adopt-without-reaching-outside
+    - objectId: object.tracker-command
+      name: Tracker command
+      definition: >
+        A command meant for the issue tracker, given to dotdiw under its own
+        name: list, show, close, doctor, cook, remember, and everything else
+        dotdiw does not own.
+      lifecycleStates:
+        - given
+        - answered
+      ownedByDutyIds:
+        - duty.put-all-four-under-one-name
+  interactions:
+    - interactionId: interaction.start-work
+      name: Start work
+      description: >
+        Someone names the work they are about to do, and the formulas that
+        apply are shown in the same breath.
+      participantObjectIds:
+        - object.work
+        - object.formula
+      expectedRealWorldDuration:
+        class: under-1s
+        explanation: >
+          The match belongs in the same breath as the title. A procedure that
+          arrives later arrives after the work began.
+    - interactionId: interaction.pour-procedure
+      name: Pour a procedure
+      description: A surfaced formula becomes tracked, ordered steps.
+      participantObjectIds:
+        - object.work
+        - object.formula
+        - object.molecule
+      expectedRealWorldDuration:
+        class: mixed
+        explanation: >
+          The pour is acknowledged at once; the tracker creates one issue per
+          step, which can take longer than a second.
+    - interactionId: interaction.write-procedure
+      name: Write a procedure down
+      description: >
+        Someone who repeated themselves writes the procedure as a formula and
+        commits it.
+      participantObjectIds:
+        - object.formula
+      expectedRealWorldDuration:
+        class: over-or-equal-1s
+        explanation: Writing a procedure is authoring, on human time.
+    - interactionId: interaction.check-discoverability
+      name: Check discoverability
+      description: >
+        The project asks whether every formula it holds can be found from its
+        own examples.
+      participantObjectIds:
+        - object.formula
+      expectedRealWorldDuration:
+        class: under-1s
+        explanation: >
+          A local search over the project's own text, so the answer is
+          immediate.
+    - interactionId: interaction.adopt-repository
+      name: Adopt a repository
+      description: >
+        A repository is given tracking and the two conventions, once, without
+        anything reaching outside it.
+      participantObjectIds:
+        - object.repository
+        - object.conventions
+      expectedRealWorldDuration:
+        class: over-or-equal-1s
+        explanation: The tracker initialises its database, which takes seconds.
+    - interactionId: interaction.run-any-command
+      name: Run any command
+      description: >
+        The housekeeping dotdiw does on its own around whatever command it was
+        given: bd's metrics turned off, an earlier adoption undone, the
+        conventions re-declared where bd rewrote them. Each is a file read and
+        at most one small write.
+      participantObjectIds:
+        - object.repository
+        - object.conventions
+      expectedRealWorldDuration:
+        class: under-1s
+        explanation: >
+          Reads of a config file and a git setting, before the command the
+          worker actually typed; anything slower would be felt on every run.
+    - interactionId: interaction.forward-command
+      name: Forward a tracker command
+      description: >
+        Someone runs a tracker command through dotdiw. It reaches beads
+        unchanged and comes back without bd's name in it.
+      participantObjectIds:
+        - object.tracker-command
+      expectedRealWorldDuration:
+        class: mixed
+        explanation: >
+          dotdiw adds a process spawn and a stream rewrite; the rest is however
+          long the tracker takes, which for a pour or an init is seconds.
+    - interactionId: interaction.find-procedure
+      name: Find a held procedure
+      description: >
+        Someone asks what procedures the project holds, reads one, or names one
+        by its id so it can be poured or cooked from where it lives.
+      participantObjectIds:
+        - object.formula
+      expectedRealWorldDuration:
+        class: under-1s
+        explanation: A git listing and a handful of small files, read from disk.
+    - interactionId: interaction.learn
+      name: Learn how work gets done here
+      description: >
+        Someone, or an agent on its first day, reads how work gets done in this
+        project, before there is a project to read it from.
+      participantObjectIds: []
+      expectedRealWorldDuration:
+        class: under-1s
+        explanation: Text compiled into the tool, printed.
+  invariants:
+    - invariantId: invariant.work-starts-named
+      name: Work starts named
+      statement: >
+        In an adopted project every task and subtask begins with dotdiw
+        create. Nothing else is the first act.
+      rationale: >
+        The declared moment is the only hook discovery has. Where work may
+        begin elsewhere, nothing surfaces.
+      severity: critical
+      objectIds:
+        - object.work
+      interactionIds:
+        - interaction.start-work
+      enforcedByStepIds:
+        - step.name-the-work
+      guardedByAntiTraceIds:
+        - antitrace.procedure-poured-unnamed
+    - invariantId: invariant.only-committed-formulas-are-held
+      name: Only committed formulas are held
+      statement: >
+        A formula the project holds is one git tracks. Matching, listing and
+        check treat an uncommitted formula as one person's, and check says so.
+      rationale: >
+        A procedure is available to everyone by being part of the project,
+        not by anyone's local setup.
+      severity: critical
+      objectIds:
+        - object.formula
+      interactionIds:
+        - interaction.write-procedure
+        - interaction.check-discoverability
+      enforcedByStepIds:
+        - step.commit-formula
+      guardedByAntiTraceIds:
+        - antitrace.formula-held-by-one-person
+    - invariantId: invariant.every-formula-finds-itself
+      name: Every formula finds itself
+      statement: >
+        Every formula the project holds is reachable from each of its own
+        examples, with the example removed from the index while it is
+        searched for.
+      rationale: >
+        A procedure nobody can reach is not held. The examples are where a
+        project fixes the words.
+      severity: high
+      objectIds:
+        - object.formula
+      interactionIds:
+        - interaction.check-discoverability
+      enforcedByStepIds:
+        - step.describe-and-check
+      guardedByAntiTraceIds:
+        - antitrace.coincidence-surfaces
+    - invariantId: invariant.nothing-outside-the-repository
+      name: Nothing outside the repository
+      statement: >
+        Adoption and use change nothing outside the repository, except bd's
+        usage-metrics setting on the machine, which is turned off and said.
+      rationale: >
+        v0.1.0 passed on a hook override and a Dolt remote without saying so.
+        What a tool does on somebody's behalf must be stated.
+      severity: critical
+      objectIds:
+        - object.repository
+      interactionIds:
+        - interaction.adopt-repository
+      enforcedByStepIds:
+        - step.adopt-repository
+        - step.undo-earlier-adoption
+        - step.turn-metrics-off
+      guardedByAntiTraceIds:
+        - antitrace.adoption-reached-outside
+    - invariantId: invariant.tool-never-commits
+      name: The tool never commits
+      statement: >
+        dotdiw never commits, pushes or syncs. The formula commit is the
+        worker's act, which the project asks for.
+      rationale: >
+        A commit is the worker's to make and a push publishes; neither is a
+        tool's to decide.
+      severity: critical
+      objectIds:
+        - object.formula
+        - object.repository
+      interactionIds:
+        - interaction.write-procedure
+        - interaction.adopt-repository
+      enforcedByStepIds:
+        - step.report-what-was-left-uncommitted
+      guardedByAntiTraceIds:
+        - antitrace.adoption-reached-outside
+    - invariantId: invariant.one-name-for-all-four
+      name: One name for all four
+      statement: >
+        Everything the tracker does is reachable under dotdiw's name, and bd's
+        name is not in what comes back: not in the stream, not in the files
+        written for agents, not in the version reported.
+      rationale: >
+        A worker who has to know that beads is underneath has two tools to
+        learn, and the files agents read would teach them the wrong name.
+      severity: high
+      objectIds:
+        - object.tracker-command
+        - object.conventions
+      interactionIds:
+        - interaction.forward-command
+      enforcedByStepIds:
+        - step.forward-to-beads
+        - step.declare-conventions
+      guardedByAntiTraceIds:
+        - antitrace.tracker-named-itself
+    - invariantId: invariant.notice-stops-when-written
+      name: The notice stops when the procedure is written
+      statement: >
+        A procedure carried out by hand is named as undeclared until a committed
+        formula reaches its title, and from that moment it is not named again.
+      rationale: >
+        A notice that keeps firing after it was acted on teaches people to
+        ignore it; one that stops is the confirmation that writing it down
+        worked.
+      severity: medium
+      objectIds:
+        - object.formula
+      interactionIds:
+        - interaction.check-discoverability
+      enforcedByStepIds:
+        - step.notice-handmade-procedures
+      guardedByAntiTraceIds:
+        - antitrace.formulas-moved-to-the-trackers-directory
+  networkBoundaries:
+    - boundaryId: boundary.create-to-match
+      name: Create to match
+      description: >
+        The title and the formulas that apply to it are one invocation.
+      interactionId: interaction.start-work
+      realWorldProcess: Someone types what they are about to do and reads what applies.
+      realWorldLatencyClass: under-1s
+      separationAllowed: false
+      consistencyExpectation: strong
+      causalityJustification: >
+        A match printed after the work began is a runbook nobody opened. The
+        match must come back in the same breath as the title.
+      userVisibleImpact: The applying formulas appear under the created work item, immediately.
+    - boundaryId: boundary.dotdiw-to-beads
+      name: dotdiw to beads
+      description: >
+        dotdiw forwards the tracker's own commands to beads, a local
+        subprocess, and rewrites its name in what comes back.
+      interactionId: interaction.pour-procedure
+      realWorldProcess: A pour becomes one tracker issue per step.
+      realWorldLatencyClass: mixed
+      separationAllowed: true
+      consistencyExpectation: read-your-writes
+      causalityJustification: >
+        The acknowledgement is immediate; creating the issues is the
+        tracker's work and may take longer than a second.
+      userVisibleImpact: The poured steps are visible in the tracker once the pour returns.
+    - boundaryId: boundary.check-to-report
+      name: Check to report
+      description: A local search over the project's own text, reported at once.
+      interactionId: interaction.check-discoverability
+      realWorldProcess: The project asks whether its formulas can be found.
+      realWorldLatencyClass: under-1s
+      separationAllowed: false
+      consistencyExpectation: strong
+      causalityJustification: >
+        The answer is computed from files already on disk; nothing justifies
+        waiting for it.
+      userVisibleImpact: One line per formula that cannot be found, or one line saying all can.
+    - boundaryId: boundary.repository-to-remote
+      name: Repository to remote
+      description: >
+        A formula reaches other people the way every other file does: by
+        being committed, pushed and pulled.
+      interactionId: interaction.write-procedure
+      realWorldProcess: A committed formula is shared through git.
+      realWorldLatencyClass: over-or-equal-1s
+      separationAllowed: true
+      consistencyExpectation: eventual
+      causalityJustification: >
+        Sharing is git's. dotdiw adds nothing of its own, so the formula is
+        held by the project when git holds it.
+      userVisibleImpact: Everyone's next create can reach the formula once they have pulled it.
+    - boundaryId: boundary.adoption
+      name: Adoption
+      description: One command, run once, on one machine, inside one repository.
+      interactionId: interaction.adopt-repository
+      realWorldProcess: A repository is given tracking and the two conventions.
+      realWorldLatencyClass: over-or-equal-1s
+      separationAllowed: false
+      consistencyExpectation: strong
+      causalityJustification: >
+        Adoption is local and complete when the command returns; nothing of it
+        happens elsewhere or later.
+      userVisibleImpact: >
+        The repository has .beads/, the conventions in its instruction files,
+        and a list of what was left uncommitted.
+    - boundaryId: boundary.run-any-command
+      name: Run any command
+      description: >
+        The housekeeping around a command happens in the same process, before
+        or after it, on this machine.
+      interactionId: interaction.run-any-command
+      realWorldProcess: A config file and a git setting are read; one small write where something needs undoing.
+      realWorldLatencyClass: under-1s
+      separationAllowed: false
+      consistencyExpectation: strong
+      causalityJustification: >
+        Metrics must be off before the first bd command of the run, and a hook
+        override must be gone before the worker's next commit; neither can be
+        deferred past the command it precedes.
+      userVisibleImpact: Nothing, except a notice the first time something was turned off or undone.
+    - boundaryId: boundary.command-to-tracker
+      name: Command to tracker
+      description: >
+        A command the worker typed reaches beads as a local subprocess and its
+        output comes back through dotdiw's rewrite.
+      interactionId: interaction.forward-command
+      realWorldProcess: The tracker runs the command; dotdiw streams the answer back without bd's name.
+      realWorldLatencyClass: mixed
+      separationAllowed: true
+      consistencyExpectation: read-your-writes
+      causalityJustification: >
+        dotdiw owns only the spawn and the stream; the tracker's own latency
+        is whatever it is, from a list to an init.
+      userVisibleImpact: The tracker's answer, under dotdiw's name, with interactive prompts still working.
+    - boundaryId: boundary.list-to-answer
+      name: List to answer
+      description: The project's formulas are listed from git and read from disk, answered at once.
+      interactionId: interaction.find-procedure
+      realWorldProcess: Someone asks what the project holds, or names a formula by id.
+      realWorldLatencyClass: under-1s
+      separationAllowed: false
+      consistencyExpectation: strong
+      causalityJustification: >
+        The answer is a git listing and a few small files; nothing justifies
+        waiting for it or asking anything outside the repository.
+      userVisibleImpact: The formulas the project holds, with their paths, or one formula's text.
+    - boundaryId: boundary.learn-to-text
+      name: Learn to text
+      description: The teaching text is compiled into the tool and printed.
+      interactionId: interaction.learn
+      realWorldProcess: Someone reads how work gets done here.
+      realWorldLatencyClass: under-1s
+      separationAllowed: false
+      consistencyExpectation: strong
+      causalityJustification: There is nothing to wait for; the text is in the binary.
+      userVisibleImpact: The four capabilities and the two conventions, in full.
+  # Object Lifecycle Contracts. lifecycle.work and lifecycle.formula mirror
+  # ../praxis.yaml, which owns them; lifecycle.molecule and lifecycle.repository
+  # are POA-internal, for the objects the tool itself moves. Operations bind to
+  # the transitions below, and poa check refuses an operation that performs a
+  # transition no contract declares lawful.
+  objectLifecycleContracts:
+    - lifecycleContractId: lifecycle.work
+      title: A piece of work
+      objectId: object.work
+      objectName: Work
+      purpose: >
+        Govern how a piece of work may pass from intended to done: named first,
+        then the surfaced procedure poured, then its steps closed.
+      praxisDutyRefs:
+        - duty.name-the-work-first
+        - duty.read-what-surfaces
+      invariantRefs:
+        - invariant.work-starts-named
+      states:
+        - stateId: intended
+          meaning: Someone is about to do it. Nothing has been named.
+        - stateId: named
+          meaning: dotdiw create ran with a title; the work item exists and the applying formulas were printed.
+        - stateId: procedure-poured
+          meaning: A formula that surfaced was poured as tracked steps.
+        - stateId: done
+          meaning: The steps are closed and the work item with them.
+      transitions:
+        - transitionId: transition.work-intended-to-named
+          fromState: intended
+          toState: named
+          lawfulWhen: The create is the first act of the work.
+          authorizedBy:
+            - duty.name-the-work-first
+          requiredProof:
+            - The invocation log shows dotdiw create as the first dotdiw command for this work, and bd shows the issue it created.
+          betrayalRisk: The issue is created with bd create directly, so the work looks named while nothing was matched.
+        - transitionId: transition.work-named-to-procedure-poured
+          fromState: named
+          toState: procedure-poured
+          lawfulWhen: The poured formula is one the create printed.
+          authorizedBy:
+            - duty.read-what-surfaces
+          requiredProof:
+            - The molecule's formula id appears in the create's output.
+          betrayalRisk: A procedure is poured from memory that never surfaced, so the surfacing looks to have worked.
+        - transitionId: transition.work-procedure-poured-to-done
+          fromState: procedure-poured
+          toState: done
+          lawfulWhen: Every step of the molecule is closed in an order its needs allow.
+          authorizedBy:
+            - duty.read-what-surfaces
+          requiredProof:
+            - bd shows each step closed, none before the steps it needs.
+          betrayalRisk: Steps are closed in one batch at the end, so the tracking shows a procedure followed that was not.
+      forbiddenTransitions:
+        - fromState: intended
+          toState: done
+          reason: Finished work that nobody named. Discovery never had its moment.
+        - fromState: intended
+          toState: procedure-poured
+          reason: A procedure poured for work that was never named.
+      poaBindings:
+        - operationId: operation.name-the-work
+          transitionIds:
+            - transition.work-intended-to-named
+        - operationId: operation.pour-procedure
+          transitionIds:
+            - transition.work-named-to-procedure-poured
+      cescWitnessExpectations:
+        - storyRef: cesc.named-work-found-its-procedure
+          mustWitness: "One work item: named, a formula surfaced for it, that formula poured, its steps closed."
+          allowedStatuses:
+            - valid
+            - caveated
+      status: draft
+    - lifecycleContractId: lifecycle.formula
+      title: A formula
+      objectId: object.formula
+      objectName: Formula
+      purpose: >
+        Govern how a procedure passes from something done by hand to something
+        the project holds and can reach.
+      praxisDutyRefs:
+        - duty.write-it-down-when-you-repeat
+        - duty.describe-to-be-found
+        - duty.commit-the-formula
+      invariantRefs:
+        - invariant.only-committed-formulas-are-held
+        - invariant.every-formula-finds-itself
+      states:
+        - stateId: repeated
+          meaning: The procedure exists only as something done by hand, more than once.
+        - stateId: written
+          meaning: A formula file exists, next to what it is about, uncommitted.
+        - stateId: findable
+          meaning: dotdiw check finds the formula from each of its own examples.
+        - stateId: held
+          meaning: The formula is committed. The project holds it.
+      transitions:
+        - transitionId: transition.formula-repeated-to-written
+          fromState: repeated
+          toState: written
+          lawfulWhen: The bearer noticed the repetition and wrote steps and needs, not prose.
+          authorizedBy:
+            - duty.write-it-down-when-you-repeat
+          requiredProof:
+            - A formula file exists next to what it is about, with a description, examples and steps.
+          betrayalRisk: The procedure is written as a runbook in prose, which nothing can match or pour.
+        - transitionId: transition.formula-written-to-findable
+          fromState: written
+          toState: findable
+          lawfulWhen: The description and examples use the words people use for the work.
+          authorizedBy:
+            - duty.describe-to-be-found
+          requiredProof:
+            - dotdiw check reports the formula found by each of its examples.
+          betrayalRisk: Examples that restate the formula's name find it in the test and fail every real title.
+        - transitionId: transition.formula-findable-to-held
+          fromState: findable
+          toState: held
+          lawfulWhen: The formula file is committed, on its own, as the last step of writing it.
+          authorizedBy:
+            - duty.commit-the-formula
+          requiredProof:
+            - git lists the formula, and dotdiw check no longer reports it as uncommitted.
+          betrayalRisk: The formula is used from one checkout and believed shared.
+      forbiddenTransitions:
+        - fromState: repeated
+          toState: held
+          reason: Nothing was written. There is nothing to commit.
+        - fromState: written
+          toState: held
+          reason: Committed before it found itself. The project holds a procedure nobody can reach, whatever git says.
+      poaBindings:
+        - operationId: operation.write-formula
+          transitionIds:
+            - transition.formula-repeated-to-written
+        - operationId: operation.describe-and-check
+          transitionIds:
+            - transition.formula-written-to-findable
+        - operationId: operation.commit-formula
+          transitionIds:
+            - transition.formula-findable-to-held
+      cescWitnessExpectations: []
+      status: draft
+    - lifecycleContractId: lifecycle.molecule
+      title: A poured procedure
+      objectId: object.molecule
+      objectName: Molecule
+      purpose: Govern how a poured formula comes to exist and completes; POA-internal.
+      praxisDutyRefs:
+        - duty.read-what-surfaces
+      states:
+        - stateId: poured
+          meaning: One tracker issue per step exists under a root that names the formula.
+        - stateId: complete
+          meaning: Every step is closed and the root with it.
+      transitions:
+        - transitionId: transition.molecule-none-to-poured
+          fromState: none
+          toState: poured
+          lawfulWhen: A formula that surfaced for named work is poured.
+          authorizedBy:
+            - duty.surface-procedures-when-work-starts
+          requiredProof:
+            - One tracker issue per step, each blocked by the steps it needs, under a root naming the formula.
+          betrayalRisk: Steps created without their needs, so nothing enforces the order.
+        - transitionId: transition.molecule-poured-to-complete
+          fromState: poured
+          toState: complete
+          lawfulWhen: Every step is closed in an order its needs allow.
+          authorizedBy:
+            - duty.surface-procedures-when-work-starts
+          requiredProof:
+            - The tracker shows each step closed after the steps it needed.
+          betrayalRisk: Steps closed in one batch at the end.
+      poaBindings:
+        - operationId: operation.pour-procedure
+          transitionIds:
+            - transition.molecule-none-to-poured
+      cescWitnessExpectations:
+        - storyRef: cesc.named-work-found-its-procedure
+          mustWitness: The poured molecule's formula is one that surfaced, and its steps close after it was poured.
+          allowedStatuses:
+            - valid
+            - caveated
+      status: draft
+    - lifecycleContractId: lifecycle.repository
+      title: A repository
+      objectId: object.repository
+      objectName: Repository
+      purpose: Govern what adoption may do to a repository, and what an earlier adoption must be put back from; POA-internal.
+      praxisDutyRefs: []
+      invariantRefs:
+        - invariant.nothing-outside-the-repository
+      states:
+        - stateId: unadopted
+          meaning: No tracking and no conventions.
+        - stateId: adopted
+          meaning: Tracking without hooks or remote, conventions declared, nothing outside the repository changed unsaid.
+        - stateId: carrying-earlier-adoption
+          meaning: Adopted by v0.1.0, with a core.hooksPath into .beads and a Dolt remote at the git remote.
+      transitions:
+        - transitionId: transition.repository-unadopted-to-adopted
+          fromState: unadopted
+          toState: adopted
+          lawfulWhen: dotdiw init runs once, on a machine where Day 0 happened.
+          authorizedBy:
+            - duty.adopt-without-reaching-outside
+          requiredProof:
+            - core.hooksPath unset, no Dolt remote, the conventions declared, the uncommitted files listed.
+          betrayalRisk: bd init passed through unchanged, as under v0.1.0.
+        - transitionId: transition.repository-carrying-earlier-adoption-to-adopted
+          fromState: carrying-earlier-adoption
+          toState: adopted
+          lawfulWhen: Any dotdiw command runs in the repository.
+          authorizedBy:
+            - duty.adopt-without-reaching-outside
+          requiredProof:
+            - What was undone is printed once; core.hooksPath is unset; sync and remotes are gone from the tracker's state.
+          betrayalRisk: The repair is silent, so nobody learns what had been there.
+      forbiddenTransitions:
+        - fromState: unadopted
+          toState: carrying-earlier-adoption
+          reason: 0.2.x never creates what it undoes.
+      poaBindings:
+        - operationId: operation.adopt-repository
+          transitionIds:
+            - transition.repository-unadopted-to-adopted
+        - operationId: operation.undo-earlier-adoption
+          transitionIds:
+            - transition.repository-carrying-earlier-adoption-to-adopted
+      cescWitnessExpectations: []
+      status: draft
+    - lifecycleContractId: lifecycle.conventions
+      title: The conventions
+      objectId: object.conventions
+      objectName: Conventions
+      purpose: >
+        Govern how the declaration of where work starts comes to be in the
+        files agents read, and comes back after the tracker rewrites them;
+        POA-internal.
+      praxisDutyRefs: []
+      invariantRefs:
+        - invariant.one-name-for-all-four
+      states:
+        - stateId: undeclared
+          meaning: CLAUDE.md or AGENTS.md does not carry the declaration, or carries bd's name, because it was never written or because bd rewrote the file.
+        - stateId: declared
+          meaning: Both files carry the declaration between its markers, name dotdiw and not bd, and let the formula commit through bd's git policy.
+      transitions:
+        - transitionId: transition.conventions-undeclared-to-declared
+          fromState: undeclared
+          toState: declared
+          lawfulWhen: dotdiw init runs, or any dotdiw create finds the files rewritten by the tracker.
+          authorizedBy:
+            - duty.adopt-without-reaching-outside
+          requiredProof:
+            - Both files carry the markers and name dotdiw; the files changed are printed.
+          betrayalRisk: The declaration is written once and bd's next rewrite removes it unnoticed, so new arrivals read a project that says nothing about where work starts.
+      forbiddenTransitions: []
+      poaBindings:
+        - operationId: operation.declare-conventions
+          transitionIds:
+            - transition.conventions-undeclared-to-declared
+      cescWitnessExpectations: []
+      status: draft
+
+objectives:
+  - objectiveId: objective.procedures-surface-when-work-starts
+    title: Procedures surface when work starts
+    description: >
+      Whoever starts a piece of work is shown the procedure that applies,
+      without searching for it or knowing it exists.
+    successMeaning: >
+      A formula written once reaches everyone who later does that work,
+      including those who were not there when it was written.
+  - objectiveId: objective.one-name-for-all-four
+    title: One name for all four
+    description: >
+      Management, declaration, sharing and discovery under one command, so no
+      task ever requires typing anything else.
+    successMeaning: A worker never has to know that beads or git are underneath.
+
+duties:
+  - dutyId: duty.surface-procedures-when-work-starts
+    title: Surface procedures when work starts
+    intent: >
+      Make the declared moment the place where the applying formulas appear,
+      and let the chosen one become tracked steps.
+    scope: >
+      Covers creating the work item, matching the title against the
+      committed formulas, printing the ones that apply, and pouring one; and
+      what rides along with every create because the tracker rewrites the
+      files agents read -- the conventions re-declared, procedures built by
+      hand noticed, the conventions check run quietly.
+    nonGoals:
+      - Enforcing that a surfaced formula is followed.
+      - Surfacing anything for work that began some other way.
+    criticality: critical
+    status: active
+    objectiveIds:
+      - objective.procedures-surface-when-work-starts
+    primaryJourneyIds:
+      - journey.start-named-work
+    usesRealWorldObjectIds:
+      - object.work
+      - object.formula
+      - object.molecule
+    usesRealWorldInteractionIds:
+      - interaction.start-work
+      - interaction.pour-procedure
+    invariantIds:
+      - invariant.work-starts-named
+    version: 0.3.0
+  - dutyId: duty.keep-procedures-findable
+    title: Keep procedures findable
+    intent: >
+      Let a procedure be written where it belongs, checked against the words
+      people use, and held by the project.
+    scope: >
+      Covers formula new, the description and examples, dotdiw check, and the
+      commit that makes the project hold it; noticing a procedure the project
+      carried out by hand and never declared, and a memory that reads like a
+      procedure; and answering about the project's formulas -- listing them,
+      showing one, resolving an id to the file it lives in -- where the tracker
+      would answer about its own directories.
+    nonGoals:
+      - Matching prose runbooks.
+      - Registering formulas anywhere; the suffix and git are the registry.
+    criticality: critical
+    status: active
+    objectiveIds:
+      - objective.procedures-surface-when-work-starts
+      - objective.one-name-for-all-four
+    primaryJourneyIds:
+      - journey.write-a-procedure-down
+      - journey.find-a-held-procedure
+    usesRealWorldObjectIds:
+      - object.formula
+    usesRealWorldInteractionIds:
+      - interaction.write-procedure
+      - interaction.check-discoverability
+      - interaction.find-procedure
+    invariantIds:
+      - invariant.only-committed-formulas-are-held
+      - invariant.every-formula-finds-itself
+      - invariant.notice-stops-when-written
+    version: 0.3.0
+  - dutyId: duty.adopt-without-reaching-outside
+    title: Adopt without reaching outside
+    intent: >
+      Give a repository tracking and the two conventions in one command, and
+      change nothing outside it that is not said.
+    scope: >
+      Covers init, the renaming of bd in the files agents read, declaring the
+      conventions, reporting what was left uncommitted, undoing what an
+      earlier version did, and turning bd's metrics off.
+    nonGoals:
+      - Installing hooks, remotes or anything per project.
+      - Committing on the worker's behalf.
+    criticality: critical
+    status: active
+    objectiveIds:
+      - objective.one-name-for-all-four
+    primaryJourneyIds:
+      - journey.adopt-a-repository
+    usesRealWorldObjectIds:
+      - object.repository
+      - object.conventions
+    usesRealWorldInteractionIds:
+      - interaction.adopt-repository
+      - interaction.run-any-command
+    invariantIds:
+      - invariant.nothing-outside-the-repository
+      - invariant.tool-never-commits
+      - invariant.one-name-for-all-four
+    version: 0.3.0
+  - dutyId: duty.put-all-four-under-one-name
+    title: Put all four under one name
+    intent: >
+      Let everything the tracker does be reached under dotdiw's name, so no
+      task ever requires typing bd, and so the tracker's own commands carry
+      what the project asks for where people actually run them.
+    scope: >
+      Covers forwarding every command dotdiw does not own to beads unchanged,
+      rewriting bd's name in what comes back, resolving a formula id to its
+      file for cook, and letting doctor, lint and remember carry the
+      conventions check, the handmade notice and the nudge towards a formula.
+    nonGoals:
+      - Changing what any tracker command does.
+      - Hiding that beads exists from anyone who asks.
+    criticality: high
+    status: active
+    objectiveIds:
+      - objective.one-name-for-all-four
+    primaryJourneyIds:
+      - journey.run-a-tracker-command
+    usesRealWorldObjectIds:
+      - object.tracker-command
+    usesRealWorldInteractionIds:
+      - interaction.forward-command
+    invariantIds:
+      - invariant.one-name-for-all-four
+    version: 0.3.0
+  - dutyId: duty.teach-without-a-project
+    title: Teach without a project
+    intent: >
+      Let whoever arrives read how work gets done here, in full, before there
+      is anything in the project to show them.
+    scope: >
+      Covers dotdiw learn and bare dotdiw: the four capabilities, the two
+      conventions, and the commands, as one text.
+    nonGoals:
+      - Teaching bd's own commands; bd's help does that.
+    criticality: medium
+    status: active
+    objectiveIds:
+      - objective.one-name-for-all-four
+    primaryJourneyIds:
+      - journey.learn-the-conventions
+    usesRealWorldObjectIds: []
+    usesRealWorldInteractionIds:
+      - interaction.learn
+    invariantIds: []
+    version: 0.3.0
+
+journeys:
+  - journeyId: journey.start-named-work
+    dutyId: duty.surface-procedures-when-work-starts
+    title: Start named work
+    description: >
+      Someone names the work, the formulas that apply appear with it, and the
+      one that fits is poured as tracked steps.
+    purpose: Discovery fires at the declared moment, every time.
+    trigger: Someone is about to do a piece of work in an adopted project.
+    preconditions:
+      - The repository is adopted.
+      - The project holds committed formulas.
+    primaryFlow:
+      - The work is named with dotdiw create.
+      - The title is matched against the committed formulas and the applying ones are printed.
+      - The one that fits is poured as ordered steps.
+      - With every create, because the tracker rewrites the files agents read, the conventions are re-declared, procedures carried out by hand are noticed, and the conventions check runs quietly.
+    completionCriteria:
+      - The work item exists.
+      - Every formula that applies to the title was printed, with its path and the command to pour it.
+      - The poured formula's steps are tracked with their dependencies.
+    variants:
+      - No formula applies, and the create prints the work item alone.
+    failureBoundaries:
+      - A title in words no formula uses surfaces nothing; the description is where that is fixed.
+    nonGoals:
+      - Deciding for the worker which formula to pour.
+    inputObjectIds:
+      - object.work
+      - object.formula
+    outputObjectIds:
+      - object.work
+      - object.molecule
+    invariantIds:
+      - invariant.work-starts-named
+    stepIds:
+      - step.name-the-work
+      - step.match-formulas
+      - step.pour-procedure
+    sliIds:
+      - sli.applicable-formula-surfaces
+      - sli.create-feedback-latency
+    sloIds:
+      - slo.applicable-formula-surfaces
+      - slo.create-feedback-under-one-second
+    goldenTraceIds:
+      - trace.release-found-its-procedure
+      - trace.recorded-run-found-its-procedure
+    antiGoldenTraceIds:
+      - antitrace.procedure-poured-unnamed
+      - antitrace.poured-what-never-surfaced
+      - antitrace.coincidence-surfaces
+      - antitrace.create-both-surfaced-and-silent
+    timing:
+      realWorldLatencyClass: mixed
+      syncExpectation: mixed
+      causalJustification: >
+        The match is in the same breath as the title; the pour's issues may
+        take the tracker longer than a second. Measured 2026-11-01 on the
+        maintainer's machine, seven runs: a create with everything that rides
+        along takes 0.79 s at the median (0.78 to 0.81), of which bd's own
+        create is 0.41 s; most of the rest is the tracker listing for the
+        handmade notice, which comes after the match. From the witness log,
+        ten creates: 464 ms at the median from the process starting to the
+        match being printed, the figure the SLO is about.
+    networkBoundaryIds:
+      - boundary.create-to-match
+      - boundary.dotdiw-to-beads
+    status: active
+    version: 0.3.0
+  - journeyId: journey.write-a-procedure-down
+    dutyId: duty.keep-procedures-findable
+    title: Write a procedure down
+    description: >
+      Someone who repeated themselves writes the procedure as a formula next
+      to what it is about, makes it findable, and commits it.
+    purpose: A procedure done twice becomes one the project holds and can reach.
+    trigger: Someone notices they are repeating themselves, or just did by hand what they will do again -- or dotdiw notices for them.
+    preconditions:
+      - The repository is adopted.
+    primaryFlow:
+      - A procedure built by hand in the tracker is named as undeclared, with the formula new --from line that turns it into steps; a memory that reads like a procedure is answered with the formula new line.
+      - dotdiw formula new writes the file next to what it is about.
+      - The description and examples are written in the words people use, and dotdiw check is run until the formula finds itself.
+      - The formula file is committed, on its own.
+    completionCriteria:
+      - The formula is tracked by git.
+      - dotdiw check finds it from each of its examples.
+    variants:
+      - The formula is written from work already done, with --from the work item.
+    failureBoundaries:
+      - A formula that cannot find itself is reported by check and not treated as held.
+    nonGoals:
+      - Committing or pushing on the worker's behalf.
+    inputObjectIds:
+      - object.formula
+    outputObjectIds:
+      - object.formula
+    invariantIds:
+      - invariant.only-committed-formulas-are-held
+      - invariant.every-formula-finds-itself
+    stepIds:
+      - step.notice-handmade-procedures
+      - step.nudge-towards-a-formula
+      - step.write-formula
+      - step.describe-and-check
+      - step.commit-formula
+    sliIds:
+      - sli.formula-finds-itself
+    sloIds:
+      - slo.every-formula-finds-itself
+    goldenTraceIds:
+      - trace.formula-written-after-repeating
+      - trace.handmade-procedure-noticed
+    antiGoldenTraceIds:
+      - antitrace.formula-held-by-one-person
+    timing:
+      realWorldLatencyClass: over-or-equal-1s
+      syncExpectation: asynchronous
+      causalJustification: Writing a procedure down is authoring, on human time.
+    networkBoundaryIds:
+      - boundary.repository-to-remote
+      - boundary.check-to-report
+    status: active
+    version: 0.3.0
+  - journeyId: journey.adopt-a-repository
+    dutyId: duty.adopt-without-reaching-outside
+    title: Adopt a repository
+    description: >
+      A repository is given tracking and the two conventions once, is told
+      what was left uncommitted, and is put right if an earlier version left
+      anything behind.
+    purpose: Day 1 in a project is one command, and nothing reaches outside the repository unsaid.
+    trigger: Someone runs dotdiw init, or runs any dotdiw command in a repository an earlier version adopted.
+    preconditions:
+      - Day 0 happened; dotdiw and beads are on the machine.
+    primaryFlow:
+      - The tracker is initialised without its hooks, and bd is renamed to dotdiw in the files agents read.
+      - The conventions are declared in the instruction files.
+      - The files edited after the tracker committed them are listed as uncommitted.
+      - A hook override or Dolt remote left by an earlier version is undone and announced.
+      - bd's usage metrics are turned off before any bd command, and announced once.
+    completionCriteria:
+      - core.hooksPath is not set to the tracker's directory.
+      - No Dolt remote points at the repository's git remote.
+      - The instruction files declare where work starts.
+      - The uncommitted files are named with the command that commits them.
+    variants:
+      - A repository already adopted by this version: nothing to undo, so nothing is said.
+    failureBoundaries:
+      - A core.hooksPath the project chose for itself is left alone.
+    nonGoals:
+      - Committing the edited files.
+      - Repairing what was already pushed into a repository's history.
+    inputObjectIds:
+      - object.repository
+    outputObjectIds:
+      - object.repository
+      - object.conventions
+    invariantIds:
+      - invariant.nothing-outside-the-repository
+      - invariant.tool-never-commits
+    stepIds:
+      - step.adopt-repository
+      - step.declare-conventions
+      - step.report-what-was-left-uncommitted
+      - step.undo-earlier-adoption
+      - step.turn-metrics-off
+    sliIds:
+      - sli.adoption-leaves-nothing-outside
+    sloIds:
+      - slo.adoption-leaves-nothing-outside
+    goldenTraceIds:
+      - trace.adoption-left-nothing-outside
+    antiGoldenTraceIds:
+      - antitrace.adoption-reached-outside
+    timing:
+      realWorldLatencyClass: over-or-equal-1s
+      syncExpectation: asynchronous
+      causalJustification: The tracker initialises its database, which takes seconds.
+    networkBoundaryIds:
+      - boundary.adoption
+      - boundary.run-any-command
+    status: active
+    version: 0.3.0
+  - journeyId: journey.run-a-tracker-command
+    dutyId: duty.put-all-four-under-one-name
+    title: Run a tracker command
+    description: >
+      Someone runs a command dotdiw does not own. It reaches beads unchanged,
+      interactive prompts included, and comes back without bd's name. Where the
+      command is one people reach for instead of check or learn, the
+      conventions check and the handmade notice ride along; where it is a
+      memory that reads like a procedure, the nudge does.
+    purpose: No task ever requires typing bd, and the project's conventions are checked where people actually look.
+    trigger: Someone runs dotdiw with a command it does not own.
+    preconditions:
+      - Day 0 happened; beads is on the machine.
+    primaryFlow:
+      - For cook, the formula id is resolved to the file it lives in, wherever that is in the tree.
+      - The command runs in beads, through a pty when the terminal is interactive, and bd's name is rewritten in the stream.
+      - For doctor and lint, the conventions check and the handmade notice follow the tracker's own report; for remember, a memory that reads like a procedure is answered with the formula new line.
+    completionCriteria:
+      - The tracker's exit code and output are the worker's, with bd's name replaced.
+      - A doctor or lint run shows the project's convention problems under the tracker's report.
+    variants:
+      - beads is not installed, and the worker is told how to install it.
+      - A close of a step of a poured molecule is written to the witness log when the log is on.
+    failureBoundaries:
+      - A word that is bd's name inside the worker's own text is rewritten too; the rewrite is on the word, not on meaning.
+    nonGoals:
+      - Interpreting the command or changing its arguments, beyond resolving a formula path for cook.
+    inputObjectIds:
+      - object.tracker-command
+    outputObjectIds:
+      - object.tracker-command
+    invariantIds:
+      - invariant.one-name-for-all-four
+    stepIds:
+      - step.forward-to-beads
+    sliIds: []
+    sloIds: []
+    goldenTraceIds:
+      - trace.doctor-carried-the-check
+    antiGoldenTraceIds:
+      - antitrace.tracker-named-itself
+    timing:
+      realWorldLatencyClass: mixed
+      syncExpectation: mixed
+      causalJustification: >
+        The spawn and the rewrite are immediate; the tracker takes however
+        long its command takes.
+    networkBoundaryIds:
+      - boundary.command-to-tracker
+    status: active
+    version: 0.3.0
+  - journeyId: journey.find-a-held-procedure
+    dutyId: duty.keep-procedures-findable
+    title: Find a held procedure
+    description: >
+      Someone asks what procedures the project holds, reads one, or names one
+      by its id to pour or cook it. The answer is about the project -- every
+      committed formula wherever it sits in the tree -- and not about the
+      tracker's own two directories.
+    purpose: A formula is found where it lives, so it never has to be moved or linked anywhere.
+    trigger: Someone runs formula list, formula show, mol pour or cook.
+    preconditions:
+      - The repository is adopted.
+    primaryFlow:
+      - The committed formulas are listed from git, parsed, and indexed with the project's own text as background.
+      - formula list answers with every formula the project holds, its description and its path.
+      - formula show prints one formula as it is written, from where it is written.
+      - A formula id, file name or path given to pour or cook resolves to the formula's file.
+    completionCriteria:
+      - Every committed formula appears, with its path, and nothing uncommitted does.
+      - An id resolves to exactly the file it names.
+    variants:
+      - The project holds no formulas yet, and the answer says how to write one.
+    failureBoundaries:
+      - An id that names no committed formula is handed to the tracker as it was typed.
+    nonGoals:
+      - Searching for formulas anywhere outside the repository.
+    inputObjectIds:
+      - object.formula
+    outputObjectIds:
+      - object.formula
+    invariantIds:
+      - invariant.only-committed-formulas-are-held
+    stepIds:
+      - step.index-the-project
+      - step.list-formulas
+      - step.show-formula
+      - step.resolve-formula
+    sliIds: []
+    sloIds: []
+    goldenTraceIds:
+      - trace.formula-list-answered-about-the-project
+    antiGoldenTraceIds:
+      - antitrace.formulas-moved-to-the-trackers-directory
+    timing:
+      realWorldLatencyClass: under-1s
+      syncExpectation: synchronous
+      causalJustification: A git listing and a few small files, read from disk.
+    networkBoundaryIds:
+      - boundary.list-to-answer
+    status: active
+    version: 0.3.0
+  - journeyId: journey.learn-the-conventions
+    dutyId: duty.teach-without-a-project
+    title: Learn the conventions
+    description: >
+      Someone types dotdiw, or dotdiw learn, and reads the four capabilities,
+      the two conventions and the commands as one text.
+    purpose: Day 1 in a project is reading one text, before anything else.
+    trigger: Someone arrives in a project, or wants the whole of it in one place.
+    preconditions:
+      - Day 0 happened; dotdiw is on the machine.
+    primaryFlow:
+      - The teaching text is printed in full.
+    completionCriteria:
+      - The text names the declared moment, the formula file, the commit, and how discovery fires.
+    variants: []
+    failureBoundaries: []
+    nonGoals:
+      - Tailoring the text to the project; it is the same everywhere.
+    inputObjectIds: []
+    outputObjectIds: []
+    invariantIds: []
+    stepIds:
+      - step.teach-the-conventions
+    sliIds: []
+    sloIds: []
+    goldenTraceIds:
+      - trace.day-one-read-learn
+    antiGoldenTraceIds: []
+    timing:
+      realWorldLatencyClass: under-1s
+      syncExpectation: synchronous
+      causalJustification: The text is compiled into the tool.
+    networkBoundaryIds:
+      - boundary.learn-to-text
+    status: active
+    version: 0.3.0
+
+steps:
+  - stepId: step.name-the-work
+    journeyId: journey.start-named-work
+    sequence: 1
+    title: Name the work
+    given: An adopted repository, and someone about to do a piece of work.
+    when: They run dotdiw create with a title in their own words.
+    then: A work item is created under that title, and it is the first thing that has happened to the work.
+    thenAssertions:
+      - The work item exists in the tracker with the title given.
+      - No branch, file or other command preceded it for this work.
+    relatedObjectIds:
+      - object.work
+    relatedInteractionIds:
+      - interaction.start-work
+    relatedInvariantIds:
+      - invariant.work-starts-named
+    expectedUserVisibleOutcome: The created work item and its id.
+    status: active
+    stateTransitions:
+      - objectId: object.work
+        fromState: intended
+        toState: named
+  - stepId: step.match-formulas
+    journeyId: journey.start-named-work
+    sequence: 2
+    title: Match formulas
+    given: The work has just been named and the project holds committed formulas.
+    when: The title is ranked against every formula's description, examples and path, with the project's own text as the background.
+    then: The formulas accounting for at least 0.15 of what is distinctive about the title are printed, best first, with their paths and the command to pour one.
+    thenAssertions:
+      - Only committed formulas can appear.
+      - Silence is printed when nothing crosses the threshold.
+      - The match is in the same invocation as the create.
+    relatedObjectIds:
+      - object.work
+      - object.formula
+    relatedInteractionIds:
+      - interaction.start-work
+    relatedInvariantIds:
+      - invariant.work-starts-named
+      - invariant.only-committed-formulas-are-held
+    expectedUserVisibleOutcome: Up to three formulas under the work item, or nothing.
+    status: active
+  - stepId: step.pour-procedure
+    journeyId: journey.start-named-work
+    sequence: 3
+    title: Pour the procedure
+    given: A formula surfaced for the named work.
+    when: The worker runs dotdiw mol pour with that formula.
+    then: One tracked issue per step is created under a root, each blocked by the steps it needs.
+    thenAssertions:
+      - A step cannot be closed before the steps it needs.
+      - The root names the formula it was poured from.
+    relatedObjectIds:
+      - object.work
+      - object.formula
+      - object.molecule
+    relatedInteractionIds:
+      - interaction.pour-procedure
+    relatedInvariantIds:
+      - invariant.work-starts-named
+    expectedUserVisibleOutcome: The root issue id and the count of steps created.
+    status: active
+    stateTransitions:
+      - objectId: object.work
+        fromState: named
+        toState: procedure-poured
+      - objectId: object.molecule
+        fromState: none
+        toState: poured
+  - stepId: step.notice-handmade-procedures
+    journeyId: journey.write-a-procedure-down
+    sequence: 1
+    title: Notice a procedure carried out by hand
+    given: The tracker holds a parent that is not a molecule, with three or more children and a blocks dependency among them -- a procedure built by hand.
+    when: dotdiw create, check, doctor or lint runs, and no committed formula reaches the parent's title.
+    then: The procedure is named as carried out here and never declared, with its ordered step count and the formula new --from line that turns the work actually done into steps.
+    thenAssertions:
+      - A parent whose title a committed formula reaches is not named.
+      - Children without any blocks edge are a checklist and are not named.
+      - Nothing is written anywhere; the notice is printed.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.check-discoverability
+    relatedInvariantIds:
+      - invariant.notice-stops-when-written
+    expectedUserVisibleOutcome: Up to three undeclared procedures, each with the command that declares it.
+    status: active
+  - stepId: step.nudge-towards-a-formula
+    journeyId: journey.write-a-procedure-down
+    sequence: 2
+    title: Nudge towards a formula
+    given: Someone keeps a procedure as a memory, with dotdiw remember.
+    when: The remembered text reads like a procedure -- two or more of the words that order steps, such as first, then, after, every time.
+    then: The memory is kept, and the worker is told that a formula can be matched against a title and poured into tracked steps where a memory can do neither, with the formula new line for this text.
+    thenAssertions:
+      - The memory is stored exactly as the tracker would have stored it.
+      - A note that reads like a fact gets no nudge.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.write-procedure
+    relatedInvariantIds:
+      - invariant.only-committed-formulas-are-held
+    expectedUserVisibleOutcome: The tracker's confirmation, then the nudge with a command to copy.
+    status: active
+  - stepId: step.write-formula
+    journeyId: journey.write-a-procedure-down
+    sequence: 3
+    title: Write the formula
+    given: Someone noticed they are repeating a procedure, or just did by hand what they will do again.
+    when: They run dotdiw formula new with what the procedure is for, optionally --from the work already done.
+    then: A formula file is written next to what it is about, with the description, examples and steps to fill in.
+    thenAssertions:
+      - The file is named <something>.formula.toml and sits in the tree, not in a formulas directory.
+      - Steps and their needs are TOML, not prose.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.write-procedure
+    relatedInvariantIds:
+      - invariant.only-committed-formulas-are-held
+    expectedUserVisibleOutcome: The path of the new formula and what to fill in.
+    status: active
+    stateTransitions:
+      - objectId: object.formula
+        fromState: repeated
+        toState: written
+  - stepId: step.describe-and-check
+    journeyId: journey.write-a-procedure-down
+    sequence: 4
+    title: Describe it to be found, and check
+    given: A written formula.
+    when: The description and examples are written in the words people use for the work, and dotdiw check is run.
+    then: check reports whether the formula is found from each of its examples, each one taken out of the index while it is searched for, together with the other convention problems -- an uncommitted formula, a formula outside the repository, a description too short to name a situation, a scaffold still carrying TODO, too few examples, instruction files that do not say where work starts.
+    thenAssertions:
+      - An example that fails is named, with the formula it should reach.
+      - An uncommitted formula is reported as not yet held.
+      - The same check runs quietly after every create, and after doctor and lint, printing only the first few problems.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.check-discoverability
+    relatedInvariantIds:
+      - invariant.every-formula-finds-itself
+    expectedUserVisibleOutcome: One line per failing example, or one line saying every formula is discoverable.
+    status: active
+    stateTransitions:
+      - objectId: object.formula
+        fromState: written
+        toState: findable
+  - stepId: step.commit-formula
+    journeyId: journey.write-a-procedure-down
+    sequence: 5
+    title: Commit the formula
+    given: A formula that finds itself.
+    when: The worker commits the formula file, on its own, as the last step of writing it.
+    then: The project holds the formula; every create in every checkout that has pulled it can reach it.
+    thenAssertions:
+      - git lists the formula.
+      - dotdiw check no longer reports it as uncommitted.
+      - dotdiw did not make the commit.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.write-procedure
+    relatedInvariantIds:
+      - invariant.only-committed-formulas-are-held
+      - invariant.tool-never-commits
+    expectedUserVisibleOutcome: The formula appears in dotdiw formula list for everyone.
+    status: active
+    stateTransitions:
+      - objectId: object.formula
+        fromState: findable
+        toState: held
+  - stepId: step.adopt-repository
+    journeyId: journey.adopt-a-repository
+    sequence: 1
+    title: Adopt the repository
+    given: A repository with no tracking, on a machine where Day 0 happened.
+    when: Someone runs dotdiw init.
+    then: The tracker is initialised with its hook installation declined, so the repository's own hook directory stays the one git reads.
+    thenAssertions:
+      - core.hooksPath is not set.
+      - No Dolt remote is configured.
+      - The tracker's own output is shown, under dotdiw's name.
+    relatedObjectIds:
+      - object.repository
+    relatedInteractionIds:
+      - interaction.adopt-repository
+    relatedInvariantIds:
+      - invariant.nothing-outside-the-repository
+    expectedUserVisibleOutcome: The repository is adopted.
+    status: active
+    stateTransitions:
+      - objectId: object.repository
+        fromState: unadopted
+        toState: adopted
+  - stepId: step.declare-conventions
+    journeyId: journey.adopt-a-repository
+    sequence: 2
+    title: Declare the conventions
+    given: The tracker has written its instruction files for agents, naming itself and saying nothing about where work starts.
+    when: init finishes, and again after every create, because the tracker writes those files again on setup, doctor --fix and upgrades.
+    then: bd is renamed to dotdiw in every file the tracker wrote for agents, the declaration of where work starts and where procedures live is written between its markers in CLAUDE.md and AGENTS.md, and bd's own git policy in those files is given the one exception the project asks for -- committing a formula.
+    thenAssertions:
+      - CLAUDE.md and AGENTS.md say where work starts, between the markers, and name dotdiw.
+      - A file that already carries the declaration is left byte-for-byte alone.
+      - The files changed are named.
+    relatedObjectIds:
+      - object.conventions
+    relatedInteractionIds:
+      - interaction.run-any-command
+    relatedInvariantIds:
+      - invariant.one-name-for-all-four
+    expectedUserVisibleOutcome: The files renamed and the files declared in, or nothing when nothing changed.
+    status: active
+    stateTransitions:
+      - objectId: object.conventions
+        fromState: undeclared
+        toState: declared
+  - stepId: step.report-what-was-left-uncommitted
+    journeyId: journey.adopt-a-repository
+    sequence: 3
+    title: Report what was left uncommitted
+    given: The tracker committed its own files and init then edited some of them.
+    when: init finishes.
+    then: The edited files are listed as uncommitted, with the one command that commits them.
+    thenAssertions:
+      - dotdiw made no commit.
+      - Every file it edited after the tracker's commit is in the list.
+    relatedObjectIds:
+      - object.repository
+    relatedInteractionIds:
+      - interaction.adopt-repository
+    relatedInvariantIds:
+      - invariant.tool-never-commits
+    expectedUserVisibleOutcome: A list of files and a git command.
+    status: active
+  - stepId: step.undo-earlier-adoption
+    journeyId: journey.adopt-a-repository
+    sequence: 4
+    title: Undo an earlier adoption
+    given: A repository adopted by v0.1.0, carrying a core.hooksPath into .beads and a Dolt remote at its git remote.
+    when: Any dotdiw command runs there.
+    then: The hook override is unset, the Dolt remote removed from the tracker's config and database state, and what was undone is printed.
+    thenAssertions:
+      - A core.hooksPath pointing anywhere but .beads is left alone.
+      - Nothing is deleted and no history is rewritten.
+      - Nothing is printed where there was nothing to undo.
+    relatedObjectIds:
+      - object.repository
+    relatedInteractionIds:
+      - interaction.run-any-command
+    relatedInvariantIds:
+      - invariant.nothing-outside-the-repository
+    expectedUserVisibleOutcome: A short account of what was undone, once.
+    status: active
+    stateTransitions:
+      - objectId: object.repository
+        fromState: carrying-earlier-adoption
+        toState: adopted
+  - stepId: step.turn-metrics-off
+    journeyId: journey.adopt-a-repository
+    sequence: 5
+    title: Turn bd's metrics off
+    given: bd ships its anonymous usage metrics on, and dotdiw is about to run a bd command.
+    when: Any dotdiw command runs, --version included.
+    then: bd's config says metrics are off before the first bd command runs, and the first time it was dotdiw that turned them off it says so.
+    thenAssertions:
+      - No event is queued by bd on the run that turns them off.
+      - Later runs are silent.
+      - bd metrics on is undone by the next run.
+    relatedObjectIds:
+      - object.repository
+    relatedInteractionIds:
+      - interaction.run-any-command
+    relatedInvariantIds:
+      - invariant.nothing-outside-the-repository
+    expectedUserVisibleOutcome: One notice, once, naming the file and the setting.
+    status: active
+  - stepId: step.forward-to-beads
+    journeyId: journey.run-a-tracker-command
+    sequence: 1
+    title: Forward to beads
+    given: A command dotdiw does not own, or one of its own that is the tracker's underneath -- create, init, mol pour, cook.
+    when: dotdiw runs it.
+    then: beads runs the command with the worker's terminal, through a pty when it is interactive, and every occurrence of bd's name in the stream is rewritten to dotdiw on the way out; the exit code is the tracker's.
+    thenAssertions:
+      - Interactive prompts still work.
+      - A word split across two reads is still rewritten.
+      - Without beads on the machine, the worker is told to install it and the exit code is 127.
+    relatedObjectIds:
+      - object.tracker-command
+    relatedInteractionIds:
+      - interaction.forward-command
+    relatedInvariantIds:
+      - invariant.one-name-for-all-four
+    expectedUserVisibleOutcome: The tracker's own answer, under dotdiw's name.
+    status: active
+  - stepId: step.index-the-project
+    journeyId: journey.find-a-held-procedure
+    sequence: 1
+    title: Index the project
+    given: A repository with committed formulas, wherever they sit in the tree.
+    when: Anything needs to know what the project holds -- a match, a check, a list, a resolve, a new formula's seed examples.
+    then: The committed formula files are listed with git, parsed, and indexed with the project's own tracked text as background, so that everyday words in this project score as everyday.
+    thenAssertions:
+      - Only git-tracked formula files are indexed; an uncommitted one is invisible here.
+      - The background is capped so that a create stays faster than the bd call it follows.
+      - A Python without tomllib, or a SQLite without FTS5, is reported and the run stops rather than answering that the project holds nothing.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.find-procedure
+    relatedInvariantIds:
+      - invariant.only-committed-formulas-are-held
+    expectedUserVisibleOutcome: Nothing; the index is what the other steps answer from.
+    status: active
+  - stepId: step.list-formulas
+    journeyId: journey.find-a-held-procedure
+    sequence: 2
+    title: List the formulas
+    given: Someone asks what procedures the project holds.
+    when: They run dotdiw formula list.
+    then: Every committed formula is listed with its id, description and path, and the command to pour one; with --json, the same as data.
+    thenAssertions:
+      - The answer is about the project, not about the tracker's own two directories.
+      - A project with no formulas is told how to write one.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.find-procedure
+    relatedInvariantIds:
+      - invariant.only-committed-formulas-are-held
+    expectedUserVisibleOutcome: One line per formula with its path, or the pointer to learn.
+    status: active
+  - stepId: step.show-formula
+    journeyId: journey.find-a-held-procedure
+    sequence: 3
+    title: Show a formula
+    given: Someone names a formula the project holds.
+    when: They run dotdiw formula show with its id, file name or path.
+    then: The formula is printed as it is written, from where it is written.
+    thenAssertions:
+      - The text is the file's, not a rendering of the tracker's cooked copy.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.find-procedure
+    relatedInvariantIds:
+      - invariant.only-committed-formulas-are-held
+    expectedUserVisibleOutcome: The formula file.
+    status: active
+  - stepId: step.resolve-formula
+    journeyId: journey.find-a-held-procedure
+    sequence: 4
+    title: Resolve a formula
+    given: An id, a file name or a path that may name a committed formula.
+    when: mol pour, cook or formula show is given it.
+    then: It resolves to that formula's file in the tree, or to nothing, in which case the command is handed to the tracker as it was typed.
+    thenAssertions:
+      - The id, the file's base name and the repository-relative path all resolve.
+      - Nothing outside the repository is searched.
+    relatedObjectIds:
+      - object.formula
+    relatedInteractionIds:
+      - interaction.find-procedure
+    relatedInvariantIds:
+      - invariant.only-committed-formulas-are-held
+    expectedUserVisibleOutcome: Nothing; the resolved file is what pour, cook and show act on.
+    status: active
+  - stepId: step.teach-the-conventions
+    journeyId: journey.learn-the-conventions
+    sequence: 1
+    title: Teach the conventions
+    given: Someone, or an agent on its first day, in any directory.
+    when: They run dotdiw with no arguments, or dotdiw learn.
+    then: The four capabilities, the two conventions and the commands are printed as one text.
+    thenAssertions:
+      - The text names dotdiw create as where work starts, the formula file and where it lives, the commit, and how a title is matched.
+      - The text is the same in every project.
+    relatedObjectIds: []
+    relatedInteractionIds:
+      - interaction.learn
+    relatedInvariantIds: []
+    expectedUserVisibleOutcome: The teaching text.
+    status: active
+
+experience:
+  slis:
+    - sliId: sli.applicable-formula-surfaces
+      name: Applicable formula surfaces
+      description: >
+        Of titles that an existing formula applies to, the share for which
+        that formula was printed by create.
+      measurementType: success-rate
+      unit: percent
+      eventSource: measurements/results invocation logs against the fixture ground truth
+      appliesToDutyIds:
+        - duty.surface-procedures-when-work-starts
+      appliesToJourneyIds:
+        - journey.start-named-work
+      status: active
+    - sliId: sli.create-feedback-latency
+      name: Create feedback latency
+      description: >
+        Time from invoking dotdiw create to the applying formulas being
+        printed. Measured from the witness log: work_named carries startedAt,
+        the process's first instruction after start-up, and the
+        formula_surfaced or nothing_surfaced event of the same case carries
+        occurredAt, written as the match was printed. First measured
+        2026-11-01, ten creates in a throwaway repository on the maintainer's
+        machine: median 464 ms, 437 to 478.
+      measurementType: latency
+      unit: milliseconds
+      eventSource: the witness log, read by measurements/harness/witness.py --log
+      appliesToDutyIds:
+        - duty.surface-procedures-when-work-starts
+      appliesToJourneyIds:
+        - journey.start-named-work
+      status: active
+    - sliId: sli.formula-finds-itself
+      name: Formula finds itself
+      description: The share of a project's committed formulas found from every one of their own examples.
+      measurementType: success-rate
+      unit: percent
+      eventSource: dotdiw check
+      appliesToDutyIds:
+        - duty.keep-procedures-findable
+      appliesToJourneyIds:
+        - journey.write-a-procedure-down
+      status: active
+    - sliId: sli.adoption-leaves-nothing-outside
+      name: Adoption leaves nothing outside
+      description: >
+        The share of adoptions after which core.hooksPath is unset, no Dolt
+        remote exists, and the only change outside the repository is the
+        announced metrics setting.
+      measurementType: correctness
+      unit: percent
+      eventSource: test_dotdiw.py
+      appliesToDutyIds:
+        - duty.adopt-without-reaching-outside
+      appliesToJourneyIds:
+        - journey.adopt-a-repository
+      status: active
+  slos:
+    - sloId: slo.applicable-formula-surfaces
+      sliId: sli.applicable-formula-surfaces
+      name: Applicable formulas surface
+      targetOperator: ">="
+      targetValue: 90
+      measurementWindow: per fixture round
+      consequenceOfViolation: >
+        Discovery stops being something a project can rely on; procedures
+        become runbooks again.
+      severity: critical
+      status: active
+    - sloId: slo.create-feedback-under-one-second
+      sliId: sli.create-feedback-latency
+      name: Create feedback under one second
+      targetOperator: "<="
+      targetValue: 1000
+      measurementWindow: per create invocation
+      consequenceOfViolation: The match arrives after the work began.
+      severity: high
+      status: active
+    - sloId: slo.every-formula-finds-itself
+      sliId: sli.formula-finds-itself
+      name: Every formula finds itself
+      targetOperator: "="
+      targetValue: 100
+      measurementWindow: per dotdiw check
+      consequenceOfViolation: The project holds a procedure nobody can reach.
+      severity: critical
+      status: active
+    - sloId: slo.adoption-leaves-nothing-outside
+      sliId: sli.adoption-leaves-nothing-outside
+      name: Adoption leaves nothing outside
+      targetOperator: "="
+      targetValue: 100
+      measurementWindow: per test run
+      consequenceOfViolation: >
+        A repository is changed in ways its owners were not told about, as
+        happened under v0.1.0.
+      severity: critical
+      status: active
+
+traces:
+  golden:
+    - traceId: trace.release-found-its-procedure
+      traceType: golden
+      title: A release found its procedure
+      description: >
+        Work named "Release v0.2.1 through the tap" surfaced the
+        release-through-tap formula, which was poured and followed.
+      dutyId: duty.surface-procedures-when-work-starts
+      journeyId: journey.start-named-work
+      scenario: A new version of dotdiw is tagged and needs to reach brew.
+      trigger: dotdiw create is run in the tap repository with that title.
+      events:
+        - sequence: 1
+          title: Named
+          event: dotdiw create "Release v0.2.1 through the tap" creates tap-r3e.
+          stateBefore: The release is intended.
+          stateAfter: The work is named.
+          observedOutcome: The work item id is printed.
+          elapsedTimeMs: 600
+          relatedStepIds:
+            - step.name-the-work
+        - sequence: 2
+          title: Surfaced
+          event: The same invocation prints release-through-tap with its path and the pour command.
+          observedOutcome: The procedure that applies is in front of the worker before any step is taken.
+          elapsedTimeMs: 50
+          relatedStepIds:
+            - step.match-formulas
+        - sequence: 3
+          title: Poured
+          event: dotdiw mol pour mol-release-through-tap creates tap-mol-gxc with nine steps.
+          stateBefore: The work is named.
+          stateAfter: The procedure is poured.
+          observedOutcome: Nine tracked steps, closed in dependency order over the next twenty minutes.
+          elapsedTimeMs: 1500
+          relatedStepIds:
+            - step.pour-procedure
+      finalState: The release shipped by the procedure, one step skipped with a recorded reason.
+      validatesStepIds:
+        - step.name-the-work
+        - step.match-formulas
+        - step.pour-procedure
+      classificationReason: The procedure surfaced at the declared moment and was followed as tracked steps.
+      status: active
+    - traceId: trace.recorded-run-found-its-procedure
+      traceType: golden
+      title: A recorded run found its procedure
+      description: >
+        2026-11-01, a throwaway repository holding one release formula, the
+        witness log on: work named "Release v0.3.0 through the tap" surfaced
+        release-through-tap, which was poured as three steps and closed in
+        order, every event written by dotdiw itself. The log is
+        events/recorded-run.jsonl, as written; the contract calls it valid.
+      dutyId: duty.surface-procedures-when-work-starts
+      journeyId: journey.start-named-work
+      scenario: The witness log's first real story, recorded rather than reconstructed.
+      trigger: DOTDIW_WITNESS=1 dotdiw create "Release v0.3.0 through the tap"
+      events:
+        - sequence: 1
+          title: Named
+          event: create makes w-hkx and writes work_named.
+          stateBefore: Intended.
+          stateAfter: Named.
+          observedOutcome: One line in the log, from the body that named the work.
+          elapsedTimeMs: 600
+          relatedStepIds:
+            - step.name-the-work
+        - sequence: 2
+          title: Surfaced
+          event: The same invocation prints release-through-tap and writes formula_surfaced.
+          observedOutcome: The surfacing and its evidence come from the same body.
+          elapsedTimeMs: 25
+          relatedStepIds:
+            - step.match-formulas
+        - sequence: 3
+          title: Poured and closed
+          event: mol pour makes w-mol-7qp with three steps and writes procedure_poured with their ids; each close through dotdiw writes step_closed, the last molecule_closed.
+          stateBefore: Named.
+          stateAfter: Done.
+          observedOutcome: Seven events, one case, which poa match cesc calls valid.
+          elapsedTimeMs: 5000
+          relatedStepIds:
+            - step.pour-procedure
+      finalState: A story the contract accepts, from a run and not from a hand.
+      validatesStepIds:
+        - step.name-the-work
+        - step.match-formulas
+        - step.pour-procedure
+      classificationReason: The first story witnessed rather than reconstructed, and the test suite records it again on every run.
+      status: active
+    - traceId: trace.formula-written-after-repeating
+      traceType: golden
+      title: A formula written after the same mistake twice
+      description: >
+        Two pushes happened without a procedure; the make-commit formula
+        gained the steps that stop before a push, and was committed.
+      dutyId: duty.keep-procedures-findable
+      journeyId: journey.write-a-procedure-down
+      scenario: A procedure that existed only as something done by hand failed the same way twice.
+      trigger: The author notices the repetition.
+      events:
+        - sequence: 1
+          title: Written
+          event: make-commit.formula.toml gains the asked, where, irreversible, push and landed steps.
+          stateBefore: The procedure is repeated by hand.
+          stateAfter: The procedure is written.
+          observedOutcome: Steps and needs in TOML, next to the work they are about.
+          relatedStepIds:
+            - step.write-formula
+        - sequence: 2
+          title: Checked
+          event: dotdiw check finds the formula from each of its examples.
+          stateBefore: Written.
+          stateAfter: Findable.
+          observedOutcome: "5 formulas, all discoverable."
+          relatedStepIds:
+            - step.describe-and-check
+        - sequence: 3
+          title: Committed
+          event: The formula is committed on its own.
+          stateBefore: Findable.
+          stateAfter: Held.
+          observedOutcome: Every later commit's create surfaces it.
+          relatedStepIds:
+            - step.commit-formula
+      finalState: The project holds a procedure for committing and pushing that it did not hold before.
+      validatesStepIds:
+        - step.write-formula
+        - step.describe-and-check
+        - step.commit-formula
+      classificationReason: The repetition was written down as a formula, made findable, and committed.
+      status: active
+    - traceId: trace.adoption-left-nothing-outside
+      traceType: golden
+      title: Adoption left nothing outside the repository
+      description: >
+        init declines the tracker's hooks and remote, reports what it left
+        uncommitted, and turns metrics off before the first bd command.
+      dutyId: duty.adopt-without-reaching-outside
+      journeyId: journey.adopt-a-repository
+      scenario: A fresh repository with a hook of its own is adopted on an empty machine.
+      trigger: dotdiw init --prefix t
+      events:
+        - sequence: 1
+          title: Adopted
+          event: bd init runs with --skip-hooks; bd is renamed in the agent files; the conventions are declared.
+          stateBefore: Unadopted.
+          stateAfter: Adopted.
+          observedOutcome: core.hooksPath is unset; the repository's own pre-commit hook still runs.
+          relatedStepIds:
+            - step.adopt-repository
+        - sequence: 2
+          title: Reported
+          event: The files edited after bd's commit are listed with the command that commits them.
+          observedOutcome: No commit was made by dotdiw.
+          relatedStepIds:
+            - step.report-what-was-left-uncommitted
+        - sequence: 3
+          title: Metrics off
+          event: bd's config says metrics are off before --version runs bd, and nothing is queued.
+          observedOutcome: One notice, naming the file and the setting.
+          relatedStepIds:
+            - step.turn-metrics-off
+      finalState: The repository is adopted and nothing outside it changed unsaid.
+      validatesStepIds:
+        - step.adopt-repository
+        - step.report-what-was-left-uncommitted
+        - step.undo-earlier-adoption
+        - step.turn-metrics-off
+      classificationReason: Every assertion is a test in test_dotdiw.py that passes.
+      status: active
+    - traceId: trace.handmade-procedure-noticed
+      traceType: golden
+      title: A procedure built by hand was noticed
+      description: >
+        In the measurement round that gave adopted projects uncovered work, two
+        runs built a six-step dependency graph by hand in the tracker; the
+        handmade notice named both as procedures never declared, with the
+        --from line.
+      dutyId: duty.keep-procedures-findable
+      journeyId: journey.write-a-procedure-down
+      scenario: Work no formula covered, done as ordered tracker issues under one parent.
+      trigger: dotdiw check in the project afterwards.
+      events:
+        - sequence: 1
+          title: Noticed
+          event: The parent with six ordered children is printed as carried out here and never declared, with dotdiw formula new "<its title>" --from <its id>.
+          observedOutcome: The procedure that existed only in the tracker is one command from being a formula.
+          relatedStepIds:
+            - step.notice-handmade-procedures
+      finalState: The repetition is visible before it happens a second time.
+      validatesStepIds:
+        - step.notice-handmade-procedures
+      classificationReason: The DAG was there, the notice fired, and it named the exact command.
+      status: active
+    - traceId: trace.doctor-carried-the-check
+      traceType: golden
+      title: doctor carried the conventions check
+      description: >
+        Nobody in the trial ran check or learn; they ran doctor and lint. Since
+        0.1.x those two print the project's convention problems under the
+        tracker's own report.
+      dutyId: duty.put-all-four-under-one-name
+      journeyId: journey.run-a-tracker-command
+      scenario: An agent checks the project's health the way it knows how.
+      trigger: dotdiw doctor
+      events:
+        - sequence: 1
+          title: Forwarded
+          event: beads runs doctor and its report comes back with bd renamed.
+          observedOutcome: The tracker's report, under dotdiw's name.
+          relatedStepIds:
+            - step.forward-to-beads
+        - sequence: 2
+          title: Checked
+          event: The convention problems and the handmade notice follow the report.
+          observedOutcome: The uncommitted formula is named where the agent was already looking.
+          relatedStepIds:
+            - step.describe-and-check
+            - step.notice-handmade-procedures
+      finalState: The conventions were checked without anyone running check.
+      validatesStepIds:
+        - step.forward-to-beads
+        - step.describe-and-check
+      classificationReason: The check reached the place people look instead of waiting to be asked.
+      status: active
+    - traceId: trace.formula-list-answered-about-the-project
+      traceType: golden
+      title: formula list answered about the project
+      description: >
+        In this repository, dotdiw formula list names six formulas with the
+        paths they live at -- the root, measurements/ -- where bd's own
+        formula list says No formulas found.
+      dutyId: duty.keep-procedures-findable
+      journeyId: journey.find-a-held-procedure
+      scenario: Someone asks what procedures the project holds.
+      trigger: dotdiw formula list
+      events:
+        - sequence: 1
+          title: Listed
+          event: Six formulas, each with its description and repository-relative path, and the pour command.
+          observedOutcome: The formulas are where they belong and are found there.
+          relatedStepIds:
+            - step.index-the-project
+            - step.list-formulas
+      finalState: Nothing was moved to make it findable.
+      validatesStepIds:
+        - step.index-the-project
+        - step.list-formulas
+      classificationReason: The question was about the project and the answer was about the project.
+      status: active
+    - traceId: trace.day-one-read-learn
+      traceType: golden
+      title: Day 1 began with learn
+      description: >
+        DAY_1.md: someone arriving in a project types dotdiw, is taught the
+        four things and the two conventions, and from then on starts work with
+        create.
+      dutyId: duty.teach-without-a-project
+      journeyId: journey.learn-the-conventions
+      scenario: A first day in an adopted project.
+      trigger: dotdiw, with no arguments.
+      events:
+        - sequence: 1
+          title: Taught
+          event: The teaching text is printed.
+          observedOutcome: The reader knows where work starts and what a formula is before touching anything.
+          relatedStepIds:
+            - step.teach-the-conventions
+      finalState: The next thing typed is dotdiw create.
+      validatesStepIds:
+        - step.teach-the-conventions
+      classificationReason: Nothing had to be installed or found; the text was the first thing.
+      status: active
+  antiGolden:
+    - traceId: antitrace.procedure-poured-unnamed
+      traceType: anti-golden
+      title: A procedure poured for work nobody named
+      description: A molecule is poured and its steps closed, but no create ever ran for the work.
+      dutyId: duty.surface-procedures-when-work-starts
+      journeyId: journey.start-named-work
+      scenario: Someone pours a formula they remember, straight from the tracker.
+      trigger: dotdiw mol pour without a preceding dotdiw create.
+      events:
+        - sequence: 1
+          title: Poured unnamed
+          event: A molecule exists for work that was never named.
+          stateBefore: The work is intended.
+          stateAfter: A procedure is poured.
+          observedOutcome: Discovery never had its moment; whatever else applied was never shown.
+          relatedStepIds:
+            - step.name-the-work
+            - step.pour-procedure
+      finalState: Work proceeds by memory under the appearance of a tracked procedure.
+      violatesStepIds:
+        - step.name-the-work
+      violatesInvariantIds:
+        - invariant.work-starts-named
+      classificationReason: The declared moment was skipped.
+      status: active
+    - traceId: antitrace.poured-what-never-surfaced
+      traceType: anti-golden
+      title: Poured what never surfaced
+      description: Work was named and one formula surfaced, but a different formula was poured.
+      dutyId: duty.surface-procedures-when-work-starts
+      journeyId: journey.start-named-work
+      scenario: The worker ignores the surfaced formula and pours one from memory.
+      trigger: dotdiw mol pour with a formula the create did not print.
+      events:
+        - sequence: 1
+          title: Named and surfaced
+          event: create prints formula A.
+          observedOutcome: A is in front of the worker.
+          relatedStepIds:
+            - step.name-the-work
+            - step.match-formulas
+        - sequence: 2
+          title: Poured B
+          event: Formula B is poured.
+          observedOutcome: The tracking shows a procedure followed; the surfaced one was not.
+          relatedStepIds:
+            - step.pour-procedure
+      finalState: The surfacing looks to have worked and did not.
+      violatesStepIds:
+        - step.pour-procedure
+      violatesInvariantIds:
+        - invariant.work-starts-named
+      classificationReason: The procedure that applied was shown and not the one followed.
+      status: active
+    - traceId: antitrace.create-both-surfaced-and-silent
+      traceType: anti-golden
+      title: One create both surfaced a formula and reported silence
+      description: >
+        The log for one work item carries both formula_surfaced and
+        nothing_surfaced from its create. No single run of match_formulas can
+        write both; a log that holds both was written by two processes for one
+        id, or by a defect. The contract refuses it as conflicted rather than
+        choosing a side.
+      dutyId: duty.surface-procedures-when-work-starts
+      journeyId: journey.start-named-work
+      scenario: A log that contradicts itself about what the worker was shown.
+      trigger: Two writers, or a defect in the one body that matches.
+      events:
+        - sequence: 1
+          title: Contradiction
+          event: formula_surfaced and nothing_surfaced for the same workId.
+          observedOutcome: Nobody can say from the log whether discovery fired.
+          relatedStepIds:
+            - step.match-formulas
+      finalState: The story is conflicted and no report may claim discovery fired for it.
+      violatesStepIds:
+        - step.match-formulas
+      violatesInvariantIds:
+        - invariant.every-formula-finds-itself
+      classificationReason: Silence and a match are each evidence; both at once is evidence of nothing.
+      status: active
+    - traceId: antitrace.coincidence-surfaces
+      traceType: anti-golden
+      title: A coincidence surfaces
+      description: >
+        A title about turning bd's metrics off surfaces the retrieval
+        threshold sweep and the add-a-domain formula, on the word metrics.
+      dutyId: duty.surface-procedures-when-work-starts
+      journeyId: journey.start-named-work
+      scenario: dotdiw create "Turn bd's usage metrics off on every run" in this repository, 2026-11-01.
+      trigger: Two measurement formulas share the title's distinctive word.
+      events:
+        - sequence: 1
+          title: Wrong match
+          event: sweep-retrieval-threshold and add-domain-trial-matrix are printed.
+          observedOutcome: A glance, then nothing poured.
+          relatedStepIds:
+            - step.match-formulas
+      finalState: Nothing was followed that did not apply, at the cost of a glance.
+      violatesStepIds:
+        - step.match-formulas
+      violatesInvariantIds:
+        - invariant.every-formula-finds-itself
+      violatesSloIds:
+        - slo.applicable-formula-surfaces
+      classificationReason: >
+        The chosen trade: a coincidence costs a glance, silence would cost
+        the mechanism. Recorded so the cost is visible.
+      status: active
+    - traceId: antitrace.formula-held-by-one-person
+      traceType: anti-golden
+      title: A formula held by one person
+      description: A formula is written and used from one checkout and never committed.
+      dutyId: duty.keep-procedures-findable
+      journeyId: journey.write-a-procedure-down
+      scenario: The author believes the project has a procedure.
+      trigger: dotdiw check in any other checkout.
+      events:
+        - sequence: 1
+          title: Not held
+          event: check in the author's checkout reports the formula as uncommitted; elsewhere it does not exist.
+          stateBefore: Findable in one checkout.
+          stateAfter: Still held by nobody but the author.
+          observedOutcome: Nobody else's create can reach it.
+          relatedStepIds:
+            - step.commit-formula
+      finalState: Sharing is counterfeited.
+      violatesStepIds:
+        - step.commit-formula
+      violatesInvariantIds:
+        - invariant.only-committed-formulas-are-held
+      violatesSloIds:
+        - slo.every-formula-finds-itself
+      classificationReason: The project does not hold what git does not hold.
+      status: active
+    - traceId: antitrace.adoption-reached-outside
+      traceType: anti-golden
+      title: Adoption reached outside the repository
+      description: >
+        v0.1.0 passed bd init through unchanged: core.hooksPath set to an
+        absolute path into .beads, a Dolt remote aimed at the git remote, and
+        telemetry left on, none of it said.
+      dutyId: duty.adopt-without-reaching-outside
+      journeyId: journey.adopt-a-repository
+      scenario: Clients ran dotdiw init in October 2026.
+      trigger: dotdiw init under v0.1.0.
+      events:
+        - sequence: 1
+          title: Hooks overridden
+          event: core.hooksPath points at .beads/hooks; hooks added later to .git/hooks are skipped.
+          observedOutcome: Commits in between did not see those hooks.
+          relatedStepIds:
+            - step.adopt-repository
+        - sequence: 2
+          title: Database aimed at the repository
+          event: A Dolt remote at the git remote; a push puts the issue database into the repository as refs/dolt/data and a branch.
+          observedOutcome: Plaintext issue content in a git repository, growing with its history.
+          relatedStepIds:
+            - step.adopt-repository
+      finalState: Repositories changed in ways their owners were not told about.
+      violatesStepIds:
+        - step.adopt-repository
+        - step.undo-earlier-adoption
+      violatesInvariantIds:
+        - invariant.nothing-outside-the-repository
+      violatesSloIds:
+        - slo.adoption-leaves-nothing-outside
+      classificationReason: What a tool does on somebody's behalf must be stated. It was not.
+      status: active
+    - traceId: antitrace.tracker-named-itself
+      traceType: anti-golden
+      title: The tracker named itself
+      description: >
+        Under 0.1.x, --version forwarded to bd and rewrote bd's name in the
+        answer, so dotdiw reported another tool's version as its own; and the
+        files bd wrote for agents kept naming bd, which the stream rewrite never
+        reached.
+      dutyId: duty.put-all-four-under-one-name
+      journeyId: journey.run-a-tracker-command
+      scenario: dotdiw --version, and an agent reading CLAUDE.md after init, under 0.1.x.
+      trigger: The rewrite was applied to the stream and nowhere else.
+      events:
+        - sequence: 1
+          title: Wrong version
+          event: dotdiw --version printed bd's version string with bd renamed.
+          observedOutcome: A tool reporting a version it does not have.
+          relatedStepIds:
+            - step.forward-to-beads
+        - sequence: 2
+          title: Wrong name in the files
+          event: AGENTS.md and CLAUDE.md, written by bd, told agents to run bd.
+          observedOutcome: Agents learned the name the project was trying not to teach.
+          relatedStepIds:
+            - step.declare-conventions
+      finalState: Two names for the same thing, in the one place that was supposed to have one.
+      violatesStepIds:
+        - step.forward-to-beads
+        - step.declare-conventions
+      violatesInvariantIds:
+        - invariant.one-name-for-all-four
+      classificationReason: Fixed in 0.2.0 by owning --version and renaming in the files; recorded as the shape of the failure.
+      status: active
+    - traceId: antitrace.formulas-moved-to-the-trackers-directory
+      traceType: anti-golden
+      title: Formulas moved to the tracker's directory
+      description: >
+        bd's own formula list answers about .beads/formulas and says No
+        formulas found in a project whose formulas sit next to what they are
+        about. Every agent in the trial believed it and moved the formulas.
+      dutyId: duty.keep-procedures-findable
+      journeyId: journey.find-a-held-procedure
+      scenario: An agent asks what the project holds and gets the tracker's answer.
+      trigger: formula list forwarded to bd unchanged.
+      events:
+        - sequence: 1
+          title: Told nothing is held
+          event: No formulas found.
+          observedOutcome: The agent moves every formula into .beads/formulas, away from what it is about.
+          relatedStepIds:
+            - step.list-formulas
+      finalState: The convention that a formula lives next to its work is undone by the tool meant to serve it.
+      violatesStepIds:
+        - step.list-formulas
+      violatesInvariantIds:
+        - invariant.only-committed-formulas-are-held
+        - invariant.notice-stops-when-written
+      classificationReason: The question was about the project and the answer was about two directories.
+      status: active
+
+updates:
+  - changeId: change.initial-dotdiw-model
+    changeType: create-product
+    targetRefs:
+      - model.dotdiw
+      - product.dotdiw
+    summary: Initial POA source model for dotdiw, at version 0.2.1.
+    reason: >
+      The thin promise, the praxis and the operations need one governed source
+      POA can derive and check against.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+        - duty.keep-procedures-findable
+        - duty.adopt-without-reaching-outside
+      affectedJourneys:
+        - journey.start-named-work
+        - journey.write-a-procedure-down
+        - journey.adopt-a-repository
+      affectedSlis:
+        - sli.applicable-formula-surfaces
+        - sli.create-feedback-latency
+        - sli.formula-finds-itself
+        - sli.adoption-leaves-nothing-outside
+      affectedSlos:
+        - slo.applicable-formula-surfaces
+        - slo.create-feedback-under-one-second
+        - slo.every-formula-finds-itself
+        - slo.adoption-leaves-nothing-outside
+      affectedTraces:
+        - trace.release-found-its-procedure
+        - trace.formula-written-after-repeating
+        - trace.adoption-left-nothing-outside
+        - antitrace.procedure-poured-unnamed
+        - antitrace.poured-what-never-surfaced
+        - antitrace.coincidence-surfaces
+        - antitrace.formula-held-by-one-person
+        - antitrace.adoption-reached-outside
+      affectedInvariants:
+        - invariant.work-starts-named
+        - invariant.only-committed-formulas-are-held
+        - invariant.every-formula-finds-itself
+        - invariant.nothing-outside-the-repository
+        - invariant.tool-never-commits
+      riskLevel: low
+      riskExplanation: A first model; nothing already relied upon is narrowed.
+    migrationPlan: null
+    rolloutPlan: Derive the IDL from this model and check it; keep both in step with dotdiw's releases.
+    approvalStatus: draft
+    createdAt: "2026-11-01T00:00:00+08:00"
+  - changeId: change.name-what-the-program-already-does
+    changeType: model-update
+    targetRefs:
+      - model.dotdiw
+      - duty.put-all-four-under-one-name
+      - duty.teach-without-a-project
+      - journey.run-a-tracker-command
+      - journey.find-a-held-procedure
+      - journey.learn-the-conventions
+    summary: >
+      Name the behaviour dotdiw 0.2.1 already has and the first model did
+      not: forwarding to beads with the name rewritten, declaring the
+      conventions on init and after every create, noticing procedures built by
+      hand, the nudge on remember, formula list and show, resolving an id to
+      its file, indexing the project, and learn.
+    reason: >
+      Every one of these was reachable from the command line and traced to
+      nothing, so the operation algebra described about half the program. The
+      single-implementation and no-private-helper laws cannot be checked
+      against behaviour the model does not name.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+        - duty.keep-procedures-findable
+        - duty.adopt-without-reaching-outside
+        - duty.put-all-four-under-one-name
+        - duty.teach-without-a-project
+      affectedJourneys:
+        - journey.start-named-work
+        - journey.write-a-procedure-down
+        - journey.adopt-a-repository
+        - journey.run-a-tracker-command
+        - journey.find-a-held-procedure
+        - journey.learn-the-conventions
+      affectedSlos: []
+      affectedTraces:
+        - trace.handmade-procedure-noticed
+        - trace.doctor-carried-the-check
+        - trace.formula-list-answered-about-the-project
+        - trace.day-one-read-learn
+        - antitrace.tracker-named-itself
+        - antitrace.formulas-moved-to-the-trackers-directory
+      affectedInvariants:
+        - invariant.one-name-for-all-four
+        - invariant.notice-stops-when-written
+      riskLevel: medium
+      riskExplanation: Nothing the program does changes; what the model says about it grows to match.
+    migrationPlan: null
+    approvalStatus: draft
+    createdAt: "2026-11-01T12:00:00+08:00"
+  - changeId: change.housekeeping-is-under-one-second
+    changeType: model-update
+    targetRefs:
+      - step.undo-earlier-adoption
+      - step.turn-metrics-off
+      - step.declare-conventions
+      - interaction.run-any-command
+      - boundary.run-any-command
+    summary: >
+      Undoing an earlier adoption and turning bd's metrics off run before every
+      command in well under a second; they inherited over-or-equal-1s from the
+      adoption interaction. They, and re-declaring the conventions, now follow
+      interaction.run-any-command, under-1s, with a boundary that forbids
+      separating them from the command they precede.
+    reason: >
+      Timing claims are measured, not argued. A step that may not be deferred
+      past the command it precedes cannot be classed as one that may run
+      asynchronously.
+    compatibility: corrective
+    impactAssessment:
+      affectedDuties:
+        - duty.adopt-without-reaching-outside
+      affectedJourneys:
+        - journey.adopt-a-repository
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.nothing-outside-the-repository
+      riskLevel: low
+      riskExplanation: A stricter timing class on steps that already meet it.
+    migrationPlan: null
+    approvalStatus: draft
+    createdAt: "2026-11-01T12:00:00+08:00"
+
+openQuestions:
+  - questionId: question.hundreds-of-formulas
+    question: >
+      The threshold of 0.15 was calibrated on three to fifty-six formulas.
+      What do retrieval and silence look like at the hundreds this is for?
+    blocksChange: false
+    neededFrom: measurement
+    targetRefs:
+      - step.match-formulas
+      - slo.applicable-formula-surfaces
+    decisionNeeded:
+      - clarify-timing
+      - other
+    candidateResolutions:
+      - Keep 0.15 and the bm25 ordering until a project with hundreds of committed formulas is measured; the witness log now records every match and every silence, so the measurement can come from use rather than from a built fixture.
+      - Raise the floor at scale if coincidences cost more than a glance there.
+      - Rank against competitors rather than a constant, which outlier.py showed does not recover silence at the sizes measured.
+    recommendedDefault: >
+      Kept open on 2026-11-01, consciously: the first candidate, until a
+      project of that size is witnessed. Not blocking.
+  - questionId: question.enforcing-the-declared-moment
+    question: >
+      Should a project be able to tell, per piece of work, that it began
+      unnamed, or does that cross from showing into enforcing?
+    blocksChange: false
+    neededFrom: product-owner
+    targetRefs:
+      - duty.surface-procedures-when-work-starts
+      - invariant.work-starts-named
+    decisionNeeded:
+      - clarify-product-boundary
+    candidateResolutions:
+      - dotdiw keeps showing and never enforces; a story the contract calls incomplete because a pour had no naming is the project's to read, in its own witness log, and nothing more.
+      - A project may opt in to a notice on pour when no create preceded it in the log, which is still showing.
+      - A project may refuse the pour, which is enforcing and is boundary.only-the-declared-moment crossed.
+    recommendedDefault: >
+      Kept open on 2026-11-01, consciously: the first candidate stands until
+      the product owner decides otherwise; the second is the furthest this
+      product's boundaries allow. Not blocking.

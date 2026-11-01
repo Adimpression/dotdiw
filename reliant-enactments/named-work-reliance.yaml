@@ -1,0 +1,20 @@
+schemaVersion: 1.0.0
+representationId: representation.named-work-reliance
+representationKind: reliantEnactment
+reliantEnactments:
+  - enactmentId: reliant-enactment.release-relied-on-the-surfaced-procedure
+    title: A release relied on the procedure that surfaced
+    promiseReliedUpon:
+      promiseStatement: >
+        When work starts by being named, the procedure that applies surfaces
+        before the work begins.
+    objectPassages:
+      - objectRef: object.work
+        stateBefore: intended
+        stateAfter: named
+      - objectRef: object.work
+        stateBefore: named
+        stateAfter: procedure-poured
+      - objectRef: object.work
+        stateBefore: procedure-poured
+        stateAfter: done
