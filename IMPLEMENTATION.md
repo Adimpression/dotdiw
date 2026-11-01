@@ -478,3 +478,35 @@ suggestion costs, which is a question about a project and not about a ranker.
       whoever found it on the machine.
 - [x] Update SPEC.md, which still said `bd create`. Rewritten as a spec: it
       names no tool at all.
+
+## 2026-11-01: bd had a mode that touches nothing, all along
+
+- [x] Found, by the maintainer, after a day spent on its consequences: `bd init
+      --stealth` commits nothing, writes nothing for agents, configures no
+      remote, and keeps `.beads/` local to the checkout through
+      `.git/info/exclude`. It has been in `bd init --help` the whole time.
+      0.2.0 and 0.2.1 were built around bd's default init instead: `--skip-
+      hooks` to decline the hooks, then a repair that stripped the sync remote
+      bd had already written and committed, then a report of what was left
+      modified -- which omitted the file the repair had changed, while the
+      notice blamed "an earlier version" for what bd had done seconds earlier
+      in the same run. Clients adopted repositories that way. The repair, the
+      report, their model steps and their tests exist because one flag was
+      never read; the lesson is recorded in the praxis: every time another
+      repair was built around bd's git behaviour, that was the moment to ask
+      whether bd could be told not to do it.
+- [x] From 0.3.0 `init` runs `bd init --stealth --skip-hooks`. bd commits
+      nothing; dotdiw writes the declaration into `CLAUDE.md` and `AGENTS.md`
+      and names them as the worker's to commit; the printed command leaves the
+      tree clean, and a test runs it. Outside a git repository init refuses
+      (bd would otherwise `git init` on the worker's behalf). A clone is told
+      to run init once -- which was always needed, since bd's database was
+      never in git, and never said.
+- [x] Repositories adopted by 0.1.x are repaired as before; those adopted by
+      0.2.x are told the one command, `git rm -r --cached .beads && git
+      commit`, on init, check, doctor and lint, with the exclude written so the
+      files stay out once gone. dotdiw never runs it.
+- [x] What stays of the repair: the hook override and the Dolt remote for
+      0.1.x adoptions, and the notice, now worded by who did what it undid.
+      The numbers above were measured with bd's agent files present, renamed;
+      whether agents do as well without them is the next round's question.

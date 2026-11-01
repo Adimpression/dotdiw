@@ -374,13 +374,13 @@ class TheWitnessLog(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("release-through-tap", out)
         self.assertIsNone(self.log(), "nothing asked for the log")
-        self.assertNotIn("witness.jsonl", self.ignore_file())
 
     def test_a_real_run_is_a_story_the_contract_calls_valid(self):
         code, out = self.dotdiw("init", "--prefix", "w", witness=True)
         self.assertEqual(code, 0, out)
-        self.assertIn("witness.jsonl", self.ignore_file().split(),
-                      "the log is this machine's and must be kept out of git")
+        p = subprocess.run(["git", "check-ignore", "-q", ".beads/witness.jsonl"],
+                           cwd=self.root, capture_output=True)
+        self.assertEqual(p.returncode, 0, "the log is this machine's and must be kept out of git")
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap", witness=True)
         self.assertEqual(code, 0, out)
@@ -414,6 +414,9 @@ class TheWitnessLog(unittest.TestCase):
         labels = [e["label"] for e in self.log()]
         self.assertEqual(labels, ["work_named", "formula_surfaced", "procedure_poured"]
                          + ["step_closed"] * 3 + ["molecule_closed"])
+        p = subprocess.run(["git", "status", "--porcelain", "--", ".beads"], cwd=self.root,
+                           capture_output=True, text=True)
+        self.assertEqual(p.stdout.strip(), "", "nothing of the tracker's is visible to git")
 
         # Every field the observability bindings require is on every event.
         idl = load_idl()

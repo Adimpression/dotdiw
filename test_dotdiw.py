@@ -8,6 +8,14 @@ claim made about one of them was itself wrong: bd copies the hooks already in
 What stops running is anything added afterwards, because `core.hooksPath` names
 one directory and from adoption onward it is bd's snapshot.
 
+0.2.x then let bd commit its own files into the repository and repaired what
+it had committed, which left one file modified and unexplained. From 0.3.0
+`init` runs bd in its stealth mode: bd commits nothing, writes nothing for
+agents, configures no remote, and keeps `.beads/` local to the checkout. What
+init leaves behind is dotdiw's own declaration, named as the worker's to
+commit, and the printed command leaves the tree clean. Repositories adopted
+earlier are told the one command that does the same for them.
+
 Every assertion here was first run by hand, which is exactly why it is now a
 file: a shell command in a transcript is not evidence anyone else can check.
 
@@ -77,6 +85,16 @@ class Repo:
         if executable:
             os.chmod(path, 0o755)
 
+    @classmethod
+    def clone_of(cls, other):
+        repo = cls.__new__(cls)
+        repo.path = tempfile.mkdtemp(prefix="dotdiw-clone-")
+        subprocess.run(["git", "clone", "-q", other.path, repo.path], capture_output=True)
+        repo.git("config", "user.email", "test@example.invalid")
+        repo.git("config", "user.name", "Test")
+        repo.git("config", "beads.role", "maintainer")
+        return repo
+
     def hook(self, name, marker):
         """Install a hook in the repository's own .git/hooks."""
         self.write(os.path.join(".git", "hooks", name), HOOK % marker,
@@ -89,6 +107,28 @@ class Repo:
 
     def ran(self, marker):
         return os.path.exists(os.path.join(self.path, marker))
+
+    def porcelain(self):
+        return [l for l in self.git("status", "--porcelain")[1].split("\n") if l.strip()]
+
+    def commits(self):
+        return len([l for l in self.git("log", "--oneline")[1].split("\n") if l.strip()])
+
+    def tracked(self, *paths):
+        return [p for p in self.git("ls-files", "--", *paths)[1].split("\n") if p.strip()]
+
+    def excluded(self):
+        try:
+            with open(os.path.join(self.path, ".git", "info", "exclude"), encoding="utf-8") as fh:
+                return [l for l in fh.read().split("\n") if l and not l.startswith("#")]
+        except OSError:
+            return []
+
+    def adopt_the_old_way(self, prefix="t"):
+        """Adopt as 0.2.x did: bd's default init, which commits its own files."""
+        p = subprocess.run([shutil.which("bd"), "init", "--skip-hooks", "--prefix", prefix],
+                           cwd=self.path, capture_output=True, text=True)
+        assert p.returncode == 0, p.stdout + p.stderr
 
     def dolt_remotes(self):
         out = []
@@ -175,23 +215,109 @@ class Adoption(unittest.TestCase):
         self.assertEqual(self.repo.dolt_remotes(), [])
         self.assertNotIn("\nsync:", self.repo.beads_config())
 
-    def test_init_says_what_it_left_uncommitted(self):
-        """bd commits its files, then init edits some of them.
+    def test_init_commits_nothing_and_names_what_is_yours(self):
+        """bd commits nothing; what is left is dotdiw's declaration, and one command.
 
-        That left the repository dirty and the committed copies stale -- naming
-        bd, carrying no declaration -- so a clone at that commit got neither.
-        Committing is not this tool's to do, but saying so is.
+        Under bd's stealth mode .beads/ is local to the checkout, so nothing of
+        bd's enters git. The two instruction files dotdiw wrote are the
+        worker's to commit, the report says so, and the command it prints
+        leaves the tree clean. Committing is not this tool's to do, but saying
+        exactly what to commit is.
         """
+        self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
         self.repo.commit("first")
         code, out = self.repo.dotdiw("init", "--prefix", "t")
         self.assertEqual(code, 0, out)
 
-        dirty = self.repo.git("diff", "--name-only")[1].split()
-        if not dirty:
-            self.skipTest("this bd did not commit its own files")
-        self.assertIn("uncommitted", out)
+        self.assertEqual(self.repo.commits(), 1, "bd must not commit")
+        self.assertEqual(sorted(l[3:] for l in self.repo.porcelain()),
+                         ["AGENTS.md", "CLAUDE.md"])
+        self.assertEqual(self.repo.tracked(".beads"), [])
+        self.assertIn(".beads/", self.repo.excluded())
+        self.assertIn("yours to commit", out)
+        self.assertIn("AGENTS.md", out)
         self.assertIn("CLAUDE.md", out)
-        self.assertIn("git add", out)
+        self.assertNotIn("an earlier version", out)
+        command = [l.strip() for l in out.split("\n") if l.strip().startswith("git add ")]
+        self.assertEqual(len(command), 1, out)
+        p = subprocess.run(command[0], shell=True, cwd=self.repo.path,
+                           capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(self.repo.porcelain(), [], "the printed command must leave the tree clean")
+
+    def test_init_refuses_outside_a_git_repository(self):
+        """bd's stealth init would run git init on the worker's behalf; dotdiw does not let it."""
+        plain = tempfile.mkdtemp(prefix="dotdiw-nogit-")
+        self.addCleanup(shutil.rmtree, plain, True)
+        p = subprocess.run([sys.executable, "-I", DOTDIW, "init", "--prefix", "n"],
+                           cwd=plain, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("needs a git repository", p.stdout + p.stderr)
+        self.assertEqual(sorted(os.listdir(plain)), [], "nothing may be created")
+
+    def test_a_clone_is_told_to_init_and_then_works(self):
+        """The tracker is local to each checkout, so a clone has none until init.
+
+        This was already true before 0.3.0 -- bd's database was never in git --
+        and nothing said so. Now create says so, and init in the clone commits
+        nothing.
+        """
+        self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
+        self.repo.commit("first")
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        self.repo.git("add", "AGENTS.md", "CLAUDE.md")
+        self.repo.git("commit", "-qm", "Declare where work starts")
+
+        clone = Repo.clone_of(self.repo)
+        self.addCleanup(clone.close)
+        code, out = clone.dotdiw("create", "In the clone")
+        self.assertNotEqual(code, 0)
+        self.assertIn("no tracker database yet", out)
+        self.assertIn("dotdiw init once", out)
+
+        code, out = clone.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(clone.commits(), 2)
+        self.assertIn(".beads/", clone.excluded())
+        self.assertEqual(clone.porcelain(), [], "the clone already carries the declaration")
+        code, out = clone.dotdiw("create", "In the clone")
+        self.assertEqual(code, 0, out)
+
+    def test_init_over_an_old_adoption_does_not_reinitialise(self):
+        """A repository where 0.2.x let bd commit: no second init, the one command instead."""
+        self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
+        self.repo.commit("first")
+        self.repo.adopt_the_old_way()
+        before = self.repo.commits()
+        self.assertEqual(len(self.repo.tracked(".beads")), 4)
+
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(self.repo.commits(), before)
+        self.assertEqual(len(self.repo.tracked(".beads")), 4, "dotdiw never changes the index")
+        self.assertTrue(os.path.exists(os.path.join(self.repo.path, ".beads", "config.yaml")))
+        self.assertIn("git rm -r --cached .beads", out)
+        self.assertIn(".beads/", self.repo.excluded())
+
+    def test_init_writes_nothing_global(self):
+        """Outside the repository: bd's three per-machine files and nothing else.
+
+        bd's help says stealth mode writes a global gitignore and
+        gitattributes. bd 1.3.2 does not. The day a bd does, this fails before
+        a release instead of after.
+        """
+        home = tempfile.mkdtemp(prefix="dotdiw-home-")
+        self.addCleanup(shutil.rmtree, home, True)
+        self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
+        self.repo.commit("first")
+        p = subprocess.run([sys.executable, "-I", DOTDIW, "init", "--prefix", "t"],
+                           cwd=self.repo.path, env=dict(os.environ, HOME=home),
+                           capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        written = sorted(os.path.relpath(os.path.join(d, f), home)
+                         for d, _, fs in os.walk(home) for f in fs)
+        allowed = {".beads/machine-id", ".dolt/config_global.json", ".config/bd/config.yaml"}
+        self.assertTrue(set(written) <= allowed, written)
 
 
 @unittest.skipUnless(have_bd(), "bd is not installed")
@@ -250,6 +376,49 @@ class Repair(unittest.TestCase):
         code, out = self.repo.dotdiw("check")
         self.assertEqual(code, 0, out)
         self.assertNotIn("undid", out)
+
+    def test_an_old_adoption_is_told_how_to_keep_the_tracker_local(self):
+        """0.2.x let bd commit its files. dotdiw names the one command and never runs it.
+
+        The exclude is written so that once the files leave the index they
+        stay out; running the printed command leaves the tree clean and the
+        files on disk.
+        """
+        old = Repo()
+        self.addCleanup(old.close)
+        old.git("remote", "add", "origin", "git@example.invalid:x/y.git")
+        old.commit("first")
+        old.adopt_the_old_way()
+        self.assertEqual(len(old.tracked(".beads")), 4)
+
+        code, out = old.dotdiw("check")
+        self.assertIn("tracked in git, from an adoption before 0.3.0", out)
+        self.assertIn("git rm -r --cached .beads", out)
+        self.assertIn(".beads/", old.excluded())
+        self.assertEqual(len(old.tracked(".beads")), 4, "dotdiw never changes the index")
+
+        p = subprocess.run("git rm -r --cached .beads && git commit -qm \"Keep the tracker local\"",
+                           shell=True, cwd=old.path, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(old.tracked(".beads"), [])
+        self.assertTrue(os.path.exists(os.path.join(old.path, ".beads", "config.yaml")))
+        self.assertEqual(old.porcelain(), [], "excluded, so not even untracked")
+        code, out = old.dotdiw("check")
+        self.assertNotIn("tracked in git", out, "the notice stops once it is done")
+
+    def test_the_notice_says_who_did_it(self):
+        """What 0.1.0 left is 'an earlier version'; a fresh init never says that."""
+        self.repo.adopt_as_v0_1_0()
+        code, out = self.repo.dotdiw("check")
+        self.assertIn("undid what an earlier version of it did here", out)
+
+        fresh = Repo()
+        self.addCleanup(fresh.close)
+        fresh.git("remote", "add", "origin", "git@example.invalid:x/y.git")
+        fresh.commit("first")
+        code, out = fresh.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("earlier version", out)
 
     def test_repair_leaves_a_hooks_path_the_user_chose(self):
         """Someone else's hooksPath is not ours to unset.

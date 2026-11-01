@@ -66,6 +66,13 @@ for the first round captured the author's own `dotdiw` calls as well as the
 simulations'; those are not simulation data. Later rounds used a shim that logs
 only from inside the matrix, and captured none.
 
+Rounds one to four were built with the init of their day, which let bd commit
+its own files into each fixture repository; the agents saw bd's agent files
+with bd renamed, plus dotdiw's declaration. From 0.3.0 init runs bd in stealth
+mode and writes no agent files, so a new round is built with that init and is
+the measurement of whether agents do as well without them. The earlier rounds
+are not rebuilt or re-scored; their numbers keep that provenance.
+
 The generated repositories are not here — about 85MB of them, rebuilt by
 `harness/build3.py` and `harness/build4.py`. Neither is the embedding model, nor
 the vectors it produced.
