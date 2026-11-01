@@ -361,6 +361,9 @@ brew install adimpression/tap/dotdiw
 
 That pulls `beads`, `git` and `python@3.12`. `dotdiw` is a single Python file
 depending only on the standard library; putting it on `PATH` works just as well.
+The Homebrew formula lives in
+[Adimpression/homebrew-tap](https://github.com/Adimpression/homebrew-tap), not
+in this repository.
 
 ### What `dotdiw init` changes in a repository
 
