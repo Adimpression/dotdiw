@@ -1743,7 +1743,7 @@
         "Nothing in the in-tree copy is read but its metadata, and nothing in it is moved, edited or deleted; a remote inside it reaches nothing, since no tracker runs there any more.",
         "The new tracker has the old prefix and no tasks.",
         "Nothing is printed where there was nothing to do, and the upgrade's notice is printed once.",
-        "The notice says an earlier version left it only when one did; on a fresh init it says the tracker configured it in this run."
+        "The notice says an earlier version left it, which is the only case there is; a fresh init leaves nothing to put right, and nothing is printed."
       ],
       "calls": [
         {
@@ -1914,7 +1914,7 @@
       "postconditions": [
         "Interactive prompts still work.",
         "A word split across two reads is still rewritten.",
-        "Without beads on the machine, the worker is told to install it and the exit code is 127."
+        "Without the tracker on the machine, the worker is told the install command, brew install adimpression/tap/dotdiw, and the exit code is 127."
       ],
       "calls": [],
       "derivedFrom": [

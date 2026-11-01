@@ -50,7 +50,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 
 TOP_N = 3
 
@@ -461,7 +461,7 @@ def run_bd(args, filter_text, filter_bytes):
     """
     bd = find_bd()
     if not bd:
-        sys.stderr.write("%s needs beads: brew install beads\n" % PROG)
+        sys.stderr.write("%s is not fully installed. Run: brew install adimpression/tap/dotdiw\n" % PROG)
         return 127, ""
     argv = [bd] + list(args)
 
@@ -1238,7 +1238,7 @@ def describe_and_check(request):
     home = os.path.expanduser("~/.beads/formulas")
     for p in sorted(glob.glob(os.path.join(home, "*.toml"))
                     + glob.glob(os.path.join(home, "*.json"))):
-        probs.append((p, "outside the repo: bd finds it, nobody else does"))
+        probs.append((p, "outside the repo: the tracker finds it, nobody else does"))
 
     for f in forms + extra:
         n = len(f["desc"].split())
@@ -1376,7 +1376,7 @@ def forward_to_beads(request):
                     witness(ws, "beadsIssues", "step_closed",
                             workId=e.get("workId"), moleculeId=mol, stepId=ident)
     return {"status": "completed" if code == 0 else "failed",
-            "summary": "%s %s exited %d." % ("beads", argv[0] if argv else "", code),
+            "summary": "%s %s exited %d." % ("tracker", argv[0] if argv else "", code),
             "exitCode": code, "output": out}
 
 
@@ -1541,14 +1541,14 @@ def turn_metrics_off(request):
                 "turnedOff": False, "exitCode": 0}
     bd_quiet(["metrics", "off"])
     if not off_already():
-        return {"status": "failed", "summary": "bd did not turn its metrics off.",
+        return {"status": "failed", "summary": "The tracker did not turn its metrics off.",
                 "turnedOff": False, "exitCode": 0}
     sys.stderr.write(
-        "\n%s turned bd's anonymous usage metrics off, for every repository on\n"
-        "    this machine: %s, metrics.disabled: true. It does\n"
-        "    this on every run. What bd would have sent: bd metrics example\n\n"
-        % (PROG, BD_CONFIG))
-    return {"status": "completed", "summary": "Turned bd's metrics off.",
+        "\n%s turned the tracker's anonymous usage metrics off, for every\n"
+        "    repository on this machine: %s, metrics.disabled: true.\n"
+        "    It does this on every run. What would have been sent: %s metrics example\n\n"
+        % (PROG, BD_CONFIG, PROG))
+    return {"status": "completed", "summary": "Turned the tracker's metrics off.",
             "turnedOff": True, "exitCode": 0}
 
 
@@ -1613,10 +1613,7 @@ def undo_earlier_adoption(request):
 
     if done or made:
         out = sys.stderr
-        if request.get("fresh"):
-            out.write("\n%s declined what bd init configured here:\n" % PROG)
-        else:
-            out.write("\n%s put right what an earlier version of it left here:\n" % PROG)
+        out.write("\n%s put right what an earlier version of it left here:\n" % PROG)
         for line in done:
             out.write("    %s\n" % line)
         if made:
@@ -1719,8 +1716,9 @@ def declare_conventions(request):
 
     if request.get("announce") == "init":
         if renamed:
-            print("\n✓ Renamed bd to %s in %d agent instruction file%s:"
-                  % (PROG, len(renamed), "" if len(renamed) == 1 else "s"))
+            n = len(renamed)
+            print("\n✓ %d agent instruction file%s now name%s %s:"
+                  % (n, "" if n == 1 else "s", "s" if n == 1 else "", PROG))
             for rel in renamed:
                 print("    %s" % rel)
         if declared:
@@ -1728,8 +1726,9 @@ def declare_conventions(request):
                   % " and ".join(declared))
             print("    Whoever shows up reads it there, human or agent.")
     elif request.get("announce") == "create" and renamed:
-        print("\n(%s renamed bd in %d agent instruction file%s that bd rewrote)"
-              % (PROG, len(renamed), "" if len(renamed) == 1 else "s"), file=sys.stderr)
+        n = len(renamed)
+        print("\n(%d agent instruction file%s the tracker rewrote now name%s %s)"
+              % (n, "" if n == 1 else "s", "s" if n == 1 else "", PROG), file=sys.stderr)
     changed = list(dict.fromkeys(renamed + declared))
     return {"status": "completed",
             "summary": "%d file%s changed." % (len(changed), "" if len(changed) == 1 else "s"),
@@ -1835,7 +1834,7 @@ def adopt_a_repository(request):
     made = adopt_repository({"root": root, "arguments": request["arguments"]})
     if made["exitCode"] == 2:
         return made                        # not a git repository: nothing else applies
-    undone = undo_earlier_adoption({"root": root, "fresh": True})
+    undone = undo_earlier_adoption({"root": root})
     declared = declare_conventions({"root": root, "announce": "init"})
     report_what_is_yours_to_commit({"root": root, "paths": declared["changed"],
                                     "command": undone["command"] if undone.get("adopted") else None})
@@ -1891,8 +1890,9 @@ def main():
     if argv[0] in ("--version", "-V", "version") and len(argv) == 1:
         _, bdv = bd_quiet(["--version"]) if find_bd() else (1, "")
         print("%s %s" % (PROG, VERSION))
-        if bdv.strip():
-            print("  on %s" % " ".join(bdv.split()))
+        number = re.search(r"\d+(?:\.\d+)+", bdv)
+        if number:
+            print("  tracker %s" % number.group(0))
         return 0
     # Before anything else: what an earlier version left -- a hook override,
     # a remote, a tracker in the tree -- is put right, so that the command

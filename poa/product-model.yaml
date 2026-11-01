@@ -361,8 +361,12 @@ realWorldModel:
       name: One name for all four
       statement: >
         Everything the tracker does is reachable under dotdiw's name, and bd's
-        name is not in what comes back: not in the stream, not in the files
-        written for agents, not in the version reported.
+        name is in nothing dotdiw says: not in the stream, not in the files
+        written for agents, not in the version reported, not in a message of
+        its own. It appears only inside the names of bd's own things on the
+        machine -- its config file, its state directory, its variable. The
+        rewrite of the stream is on the word bd; what bd's own report says of
+        itself passes through.
       rationale: >
         A worker who has to know that beads is underneath has two tools to
         learn, and the files agents read would teach them the wrong name.
@@ -1496,7 +1500,7 @@ steps:
       - interaction.run-any-command
     relatedInvariantIds:
       - invariant.one-name-for-all-four
-    expectedUserVisibleOutcome: The files renamed and the files declared in, or nothing when nothing changed.
+    expectedUserVisibleOutcome: How many files now name dotdiw, and the files declared in, or nothing when nothing changed.
     status: active
     stateTransitions:
       - objectId: object.conventions
@@ -1533,7 +1537,7 @@ steps:
       - Nothing in the in-tree copy is read but its metadata, and nothing in it is moved, edited or deleted; a remote inside it reaches nothing, since no tracker runs there any more.
       - The new tracker has the old prefix and no tasks.
       - Nothing is printed where there was nothing to do, and the upgrade's notice is printed once.
-      - The notice says an earlier version left it only when one did; on a fresh init it says the tracker configured it in this run.
+      - The notice says an earlier version left it, which is the only case there is; a fresh init leaves nothing to put right, and nothing is printed.
     relatedObjectIds:
       - object.repository
     relatedInteractionIds:
@@ -1563,7 +1567,7 @@ steps:
       - interaction.run-any-command
     relatedInvariantIds:
       - invariant.nothing-outside-the-repository
-    expectedUserVisibleOutcome: One notice, once, naming the file and the setting.
+    expectedUserVisibleOutcome: One notice, once, naming the tracker, the file and the setting, with the example command under dotdiw's name.
     status: active
   - stepId: step.forward-to-beads
     journeyId: journey.run-a-tracker-command
@@ -1575,7 +1579,7 @@ steps:
     thenAssertions:
       - Interactive prompts still work.
       - A word split across two reads is still rewritten.
-      - Without beads on the machine, the worker is told to install it and the exit code is 127.
+      - Without the tracker on the machine, the worker is told the install command, brew install adimpression/tap/dotdiw, and the exit code is 127.
     relatedObjectIds:
       - object.tracker-command
     relatedInteractionIds:
@@ -2565,6 +2569,45 @@ updates:
       runs dotdiw init once.
     approvalStatus: draft
     createdAt: "2026-11-01T21:00:00+08:00"
+
+  - changeId: change.the-tracker-is-not-named
+    changeType: model-update
+    targetRefs:
+      - invariant.one-name-for-all-four
+      - step.forward-to-beads
+      - step.declare-conventions
+      - step.turn-metrics-off
+      - step.undo-earlier-adoption
+    summary: >
+      Nothing dotdiw says names bd or beads: the install line when the
+      tracker is missing is Day 0's command, the metrics notice names the
+      tracker and its file, --version reports the tracker's version as a
+      number, the rename lines say how many files now name dotdiw, and the
+      formula problem line says the tracker finds it. The name appears only
+      inside the names of bd's own things on the machine. A test holds every
+      string literal in the program to that.
+    reason: >
+      A worker needs a command when something is missing, a path when a file
+      of theirs was changed, and a number for a bug report; none of those
+      needs the word. The --version line named bd and so breached this
+      invariant as written, and nothing checked it.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.put-all-four-under-one-name
+      affectedJourneys:
+        - journey.run-a-tracker-command
+        - journey.adopt-a-repository
+      affectedSlos: []
+      affectedTraces:
+        - antitrace.tracker-named-itself
+      affectedInvariants:
+        - invariant.one-name-for-all-four
+      riskLevel: low
+      riskExplanation: Messages change their words; what the program does, writes and runs is unchanged.
+    migrationPlan: null
+    approvalStatus: draft
+    createdAt: "2026-11-01T22:30:00+08:00"
 
 openQuestions:
   - questionId: question.hundreds-of-formulas
