@@ -233,6 +233,15 @@ BD_CONFIG = "~/.config/bd/config.yaml"
 WITNESS_FILE = os.path.join(".beads", "witness.jsonl")
 WITNESS_IGNORE = os.path.join(".beads", ".gitignore")
 
+# bd's stealth mode keeps the tracker local to the checkout by writing these
+# into .git/info/exclude (bd 1.3.2, read off a fresh init). A repository
+# adopted before 0.3.0 has bd's files tracked instead; the undo step writes
+# the same lines there, so that once the files leave the index they do not
+# come back as untracked.
+STEALTH_EXCLUDES = (".beads/", ".claude/settings.local.json", ".dolt/", "*.db",
+                    ".beads-credential-key", ".beads/proxieddb/", "*.gate.lock*")
+NO_DATABASE = "no beads database found"
+
 # When this process started, for the one latency the promise names: from the
 # worker invoking create to the applying formulas being printed. work_named
 # carries it as startedAt; the match's occurredAt is the other end.
@@ -433,12 +442,12 @@ def run_bd(args, filter_text, filter_bytes):
 
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         p = subprocess.run(argv, capture_output=True, text=True)
-        out = filter_text(p.stdout)
+        out, err = filter_text(p.stdout), filter_text(p.stderr)
         sys.stdout.write(out)
         sys.stdout.flush()
-        sys.stderr.write(filter_text(p.stderr))
+        sys.stderr.write(err)
         sys.stderr.flush()
-        return p.returncode, out
+        return p.returncode, out + err
 
     # A pty, so interactive prompts still work while the stream is filtered.
     import pty
@@ -1176,6 +1185,9 @@ def describe_and_check(request):
     # Only once the project has adopted any of this: a plain repo is not in
     # breach of a convention it has never declared.
     if os.path.isdir(os.path.join(root, ".beads")):
+        if git(["ls-files", "-z", "--", ".beads"], root):
+            probs.append((".beads", "tracked in git, from an adoption before 0.3.0 -- "
+                                    "run: git rm -r --cached .beads && git commit"))
         for rel in CONVENTION_FILES:
             try:
                 with open(os.path.join(root, rel), encoding="utf-8") as fh:
@@ -1319,6 +1331,11 @@ def forward_to_beads(request):
     root, argv = request["root"], list(request["arguments"])
     code, out = run_bd(argv, lambda s: _BD_WORD.sub(PROG, s),
                        lambda b: _BD_WORD_B.sub(PROG.encode(), b))
+    if code != 0 and NO_DATABASE in out:
+        # A clone of an adopted repository: the tracker's files are local to
+        # each checkout, so this one has not been adopted yet.
+        sys.stderr.write("\n  This checkout has no tracker database yet. Run %s init once;\n"
+                         "  it is local and commits nothing.\n" % PROG)
     if code == 0 and argv and argv[0] == "close" and request.get("witness"):
         poured = {}
         for e in witnessed(root):
@@ -1506,10 +1523,15 @@ def turn_metrics_off(request):
 
 
 def undo_earlier_adoption(request):
-    """step.undo-earlier-adoption: what v0.1.0 let bd do to a repository, undone and said.
+    """step.undo-earlier-adoption: what an earlier version let bd do to a repository, undone and said.
 
-    Silence when there was nothing to undo: a repair that announces itself
-    every time teaches people to ignore it.
+    v0.1.0 let bd point core.hooksPath at its own directory and aim a Dolt
+    remote at the git remote; 0.2.x let bd commit its own files into the
+    repository. The first two are undone here. The third is a commit, which
+    is the worker's: this writes the exclude bd's stealth mode would have
+    written and names the one command. Silence when there was nothing to
+    undo: a repair that announces itself every time teaches people to ignore
+    it.
     """
     root = request["root"]
 
@@ -1577,19 +1599,54 @@ def undo_earlier_adoption(request):
         done.append("the Dolt remote %s is out of %s."
                     % (", ".join(names), os.path.relpath(path, root)))
 
+    # Adopted by 0.2.x, which let bd commit its files. Keep them local from
+    # here on -- the lines bd's own stealth mode writes -- so that once the
+    # files leave the index they do not come back as untracked. Taking them
+    # out of the index is a commit, and a commit is the worker's.
+    tracked = [p for p in git(["ls-files", "-z", "--", ".beads", ".beads.gate.lock"],
+                              root).split("\0") if p]
+    command = None
+    if tracked:
+        exclude = git(["rev-parse", "--git-path", "info/exclude"], root).strip()
+        if exclude:
+            if not os.path.isabs(exclude):
+                exclude = os.path.join(root, exclude)
+            try:
+                with open(exclude, encoding="utf-8") as fh:
+                    have = fh.read()
+            except OSError:
+                have = ""
+            missing = [l for l in STEALTH_EXCLUDES if l not in have.split()]
+            if missing:
+                try:
+                    with open(exclude, "a", encoding="utf-8") as fh:
+                        fh.write("%s# %s: the tracker stays local to this checkout\n%s\n"
+                                 % ("" if have.endswith("\n") or not have else "\n",
+                                    PROG, "\n".join(missing)))
+                except OSError:
+                    pass
+        tops = sorted({p.split("/")[0] for p in tracked})
+        command = ("git rm -r --cached %s && git commit -m \"Keep the tracker local "
+                   "to each checkout\"" % " ".join(tops))
+
     if done:
         out = sys.stderr
-        out.write("\n%s undid what an earlier version of it did here:\n" % PROG)
+        if request.get("fresh"):
+            out.write("\n%s declined what bd init configured here:\n" % PROG)
+        else:
+            out.write("\n%s undid what an earlier version of it did here:\n" % PROG)
         for line in done:
             out.write("    %s\n" % line)
-        out.write("\n    Nothing was deleted and no history was rewritten. Hooks\n"
-                  "    that existed when this repository was adopted went on\n"
-                  "    running. Any hook added after that was skipped until now,\n"
-                  "    so commits made in between did not see it.\n\n")
+        if got:
+            out.write("\n    Nothing was deleted and no history was rewritten. Hooks\n"
+                      "    that existed when this repository was adopted went on\n"
+                      "    running. Any hook added after that was skipped until now,\n"
+                      "    so commits made in between did not see it.\n\n")
+        else:
+            out.write("\n    Nothing was deleted and no history was rewritten.\n\n")
     return {"status": "completed",
             "summary": "%d thing%s undone." % (len(done), "" if len(done) == 1 else "s"),
-            "undone": done, "exitCode": 0}
-
+            "undone": done, "tracked": tracked, "command": command, "exitCode": 0}
 
 def declare_conventions(request):
     """step.declare-conventions: the files agents read say where work starts, and name dotdiw.
@@ -1670,7 +1727,10 @@ def declare_conventions(request):
             declared.append(rel)
 
     ignored = []
-    if witness_on(root) and os.path.isdir(os.path.join(root, ".beads")):
+    if (witness_on(root) and os.path.isdir(os.path.join(root, ".beads"))
+            and not git(["check-ignore", WITNESS_FILE], root).strip()):
+        # Under stealth .beads/ is excluded and this is never reached; in a
+        # repository adopted before 0.3.0 the line is still needed.
         path = os.path.join(root, WITNESS_IGNORE)
         try:
             with open(path, encoding="utf-8") as fh:
@@ -1707,59 +1767,88 @@ def declare_conventions(request):
             "exitCode": 0}
 
 
-def report_what_was_left_uncommitted(request):
-    """step.report-what-was-left-uncommitted: the files edited after bd committed them.
+def report_what_is_yours_to_commit(request):
+    """step.report-what-is-yours-to-commit: the declaration files, and the one command.
 
-    bd commits its own files during init, and the steps before this then
-    edit some of them. That left the repository dirty and the committed
-    copies stale -- naming bd, and carrying no declaration -- so a clone at
-    that commit got neither. Say so; committing is not this tool's to do.
+    bd commits nothing. What init leaves behind is dotdiw's declaration of
+    where work starts, written into the instruction files for the worker to
+    commit so that every clone reads it. Say which files, and the command;
+    committing is not this tool's to do. Where an earlier version let bd
+    commit its own files, say the one command that keeps the tracker local
+    from here on, too.
     """
     root, rels = request["root"], list(request.get("paths") or [])
-    dirty = []
+    yours = []
     if rels:
-        out = git(["diff", "--name-only", "--"] + rels, root)
-        dirty = [r for r in out.split("\n") if r.strip()]
-    if dirty:
-        print("\n⚠ Edited after bd committed them, so they are "
-              "uncommitted here:")
-        for rel in dirty:
+        out = git(["status", "--porcelain", "--"] + rels, root)
+        yours = [line[3:] for line in out.split("\n") if line.strip()]
+    if yours:
+        print("\n\u26a0 %s wrote the project's declaration of where work starts into"
+              " these files.\n  They are yours to commit, so that every clone reads it:"
+              % PROG)
+        for rel in yours:
             print("    %s" % rel)
-        print("\n  The committed copies still name bd and do not say where"
-              " work starts.\n  To fix that:\n")
-        print("    git add %s && git commit -m \"Declare where work "
-              "starts\"" % " ".join(dirty))
+        print("\n    git add %s && git commit -m \"Declare where work starts\""
+              % " ".join(yours))
+    if request.get("command"):
+        print("\n\u26a0 .beads is tracked in this repository, from an adoption before "
+              "0.3.0.\n  %s now keeps the tracker local to each checkout and never"
+              " commits.\n  To do the same here:\n" % PROG)
+        print("    %s" % request["command"])
+        print("\n  Other clones that pull this will need %s init once; it is local"
+              " and commits nothing." % PROG)
     return {"status": "completed",
-            "summary": "%d file%s left uncommitted." % (len(dirty), "" if len(dirty) == 1 else "s"),
-            "uncommitted": dirty, "exitCode": 0}
-
+            "summary": "%d file%s yours to commit." % (len(yours), "" if len(yours) == 1 else "s"),
+            "yours": yours, "exitCode": 0}
 
 def adopt_repository(request):
-    """step.adopt-repository: the tracker initialised, with its hook installation declined.
+    """step.adopt-repository: the tracker initialised in its stealth mode, hooks declined.
 
-    bd installs its hooks by pointing core.hooksPath at its own directory,
-    which replaces this repository's. Decline that: nothing here needs bd's
-    hooks, and the repository needs its own.
+    bd's default init commits its own files into the repository, points
+    core.hooksPath at its own directory and aims a Dolt remote at the git
+    remote. Its stealth mode does none of that: nothing committed, nothing
+    written for agents, no remote, and .beads/ kept local to the checkout
+    through .git/info/exclude. 0.2.x declined the hooks and repaired the rest
+    after the fact; the flag was there all along. --skip-hooks stays, because
+    the help does not promise that stealth implies it.
     """
+    root = request["root"]
+    if not git(["rev-parse", "--is-inside-work-tree"], root).strip():
+        # bd would run git init on the worker's behalf. Formulas are found
+        # with git, so there is nothing for dotdiw to do here anyway.
+        sys.stderr.write("%s init needs a git repository: formulas are found with "
+                         "git. Run git init first.\n" % PROG)
+        return {"status": "failed", "summary": "Not a git repository.", "exitCode": 2}
+    if git(["ls-files", "-z", "--", ".beads"], root):
+        # Adopted by an earlier version, which let bd commit its files. bd's
+        # own init aborts here; what this repository needs is the migration
+        # the undo step names, not a second initialisation.
+        sys.stderr.write("%s: this repository is already adopted; nothing to "
+                         "initialise.\n" % PROG)
+        return {"status": "blocked", "summary": "Already adopted; the tracker's files are tracked.",
+                "exitCode": 1}
     argv = list(request["arguments"])
-    if "--skip-hooks" not in argv:
-        argv.insert(1, "--skip-hooks")
-    fwd = forward_to_beads({"root": request["root"], "arguments": argv})
+    for flag in ("--skip-hooks", "--stealth"):
+        if flag not in argv:
+            argv.insert(1, flag)
+    fwd = forward_to_beads({"root": root, "arguments": argv})
     return {"status": fwd["status"], "summary": fwd["summary"],
             "exitCode": fwd["exitCode"]}
-
 
 def adopt_a_repository(request):
     """journey.adopt-a-repository: one command, and nothing reaches outside unsaid."""
     root = request["root"]
     turn_metrics_off({"root": root})
     adopted = adopt_repository({"root": root, "arguments": request["arguments"]})
-    undo_earlier_adoption({"root": root})
+    if adopted["exitCode"] == 2:
+        return adopted                     # not a git repository: nothing else applies
+    undone = undo_earlier_adoption({"root": root, "fresh": True})
     declared = declare_conventions({"root": root, "announce": "init"})
-    report_what_was_left_uncommitted({"root": root, "paths": declared["changed"]})
+    report_what_is_yours_to_commit({"root": root, "paths": declared["changed"],
+                                    "tracked": undone["tracked"],
+                                    "command": undone["command"]})
     return {"status": adopted["status"], "summary": adopted["summary"],
             "exitCode": adopted["exitCode"]}
-
 
 # ============================================================ the command line
 #

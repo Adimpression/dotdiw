@@ -146,6 +146,13 @@ falseSuccessRisks:
       words, and the worker pours it.
     whatItWouldCounterfeit: >
       The right procedure, when it is a coincidence of vocabulary.
+  - riskId: risk.a-diff-in-the-trackers-file
+    statement: >
+      A file the tracker committed is changed by dotdiw without being named in
+      its report, and the adopter reasons about bd.
+    whatItWouldCounterfeit: >
+      One name for all four, while the second name is what the repository
+      makes them think about.
 pressureNotes:
   - >
     Urgency pulls towards starting by doing. A one-second act that names the
@@ -183,6 +190,20 @@ promiseChanges:
       The promise claimed evidence it could not produce: an invocation log
       read by hand. The evidence now comes from the bodies that do the work,
       and a contract says when it counts.
+  - changeId: change.init-leaves-git-alone
+    summary: >
+      From 0.3.0, `init` runs the tracker in its stealth mode: it commits
+      nothing, writes nothing for agents, configures no remote, and keeps its
+      files local to the checkout. What init leaves behind is dotdiw's own
+      declaration, named as yours to commit. Repositories adopted earlier are
+      told the one command that does the same for them. Every clone runs
+      `init` once, which was always so and was never said.
+    compatibility: corrective
+    rationale: >
+      Under 0.2.0 and 0.2.1 the tracker committed its files during init and
+      the sync remote was removed afterwards, which left .beads/config.yaml
+      changed and not named in the report. The tracker's stealth mode commits
+      nothing.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

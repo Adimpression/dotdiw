@@ -478,3 +478,27 @@ suggestion costs, which is a question about a project and not about a ranker.
       whoever found it on the machine.
 - [x] Update SPEC.md, which still said `bd create`. Rewritten as a spec: it
       names no tool at all.
+
+## 2026-11-01: init in bd's stealth mode
+
+- [x] `bd init --stealth` commits nothing, writes nothing for agents,
+      configures no remote, and keeps `.beads/` local to the checkout through
+      `.git/info/exclude`. 0.2.0 and 0.2.1 used bd's default init with
+      `--skip-hooks`, removed the sync remote afterwards, and reported the
+      files left modified; that report did not include `.beads/config.yaml`,
+      the file the removal had changed.
+- [x] From 0.3.0 `init` runs `bd init --stealth --skip-hooks`. bd commits
+      nothing; dotdiw writes the declaration into `CLAUDE.md` and `AGENTS.md`
+      and names them as the worker's to commit; the printed command leaves the
+      tree clean, and a test runs it. Outside a git repository init refuses
+      (bd would otherwise `git init` on the worker's behalf). A clone is told
+      to run init once -- which was always needed, since bd's database was
+      never in git, and never said.
+- [x] Repositories adopted by 0.1.x are repaired as before; those adopted by
+      0.2.x are told the one command, `git rm -r --cached .beads && git
+      commit`, on init, check, doctor and lint, with the exclude written so the
+      files stay out once gone. dotdiw never runs it.
+- [x] What stays of the repair: the hook override and the Dolt remote for
+      0.1.x adoptions, and the notice, now worded by who did what it undid.
+      The numbers above were measured with bd's agent files present, renamed;
+      whether agents do as well without them is the next round's question.

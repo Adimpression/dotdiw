@@ -72,7 +72,7 @@ needs = ["idl", "contract"]
 
 [[steps]]
 id = "promise"
-title = "Hold the program to the IDL: `python3 -I test_promise.py` (the sort of every definition, the calls and external calls against the bodies, the bindings, and a real run with the witness log on that the contract calls valid), then `python3 -I test_dotdiw.py` (adoption, repair and metrics unchanged)"
+title = "Hold the program to the IDL: `python3 -I test_promise.py` (the sort of every definition, the calls and external calls against the bodies, the bindings, and a real run with the witness log on that the contract calls valid), then `python3 -I test_dotdiw.py` (adoption in stealth mode, the repair, the migration of earlier adoptions, and metrics)"
 needs = ["idl"]
 
 [[steps]]

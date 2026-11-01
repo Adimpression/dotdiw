@@ -303,7 +303,7 @@
         "stepIds": [
           "step.adopt-repository",
           "step.declare-conventions",
-          "step.report-what-was-left-uncommitted",
+          "step.report-what-is-yours-to-commit",
           "step.undo-earlier-adoption",
           "step.turn-metrics-off"
         ],
@@ -356,10 +356,11 @@
         "Day 0 happened; dotdiw and beads are on the machine."
       ],
       "postconditions": [
+        "The tracker made no commit and nothing of its own is tracked in git.",
         "core.hooksPath is not set to the tracker's directory.",
         "No Dolt remote points at the repository's git remote.",
         "The instruction files declare where work starts.",
-        "The uncommitted files are named with the command that commits them."
+        "The declaration files are named with the command that commits them, and that command leaves the tree clean."
       ],
       "calls": [
         {
@@ -387,8 +388,8 @@
           "failurePropagation": "propagate"
         },
         {
-          "operationId": "operation.report-what-was-left-uncommitted",
-          "callPurpose": "Compose operation.report-what-was-left-uncommitted as a governed journey step.",
+          "operationId": "operation.report-what-is-yours-to-commit",
+          "callPurpose": "Compose operation.report-what-is-yours-to-commit as a governed journey step.",
           "required": true,
           "failurePropagation": "propagate"
         }
@@ -1320,6 +1321,12 @@
           "operationRef": "product.git::ls-files --others --exclude-standard",
           "callPurpose": "An uncommitted formula is reported as one nobody else can see.",
           "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::ls-files",
+          "callPurpose": "A tracker directory tracked in git is a convention problem, with the command that ends it.",
+          "failurePropagation": "propagate"
         }
       ]
     },
@@ -1405,7 +1412,7 @@
     {
       "operationId": "operation.adopt-repository",
       "name": "AdoptRepository",
-      "summary": "Adopt the repository: The tracker is initialised with its hook installation declined, so the repository's own hook directory stays the one git reads.",
+      "summary": "Adopt the repository: The tracker is initialised in its stealth mode with its hook installation declined. It commits nothing, writes nothing for agents, configures no remote, and keeps its own directory local to the checkout through .git/info/exclude.",
       "kind": "command",
       "status": "active",
       "visibility": "supporting",
@@ -1465,8 +1472,11 @@
         "A repository with no tracking, on a machine where Day 0 happened."
       ],
       "postconditions": [
+        "The tracker made no commit; git log is as it was.",
+        "Nothing under .beads is tracked, and .git/info/exclude names .beads/.",
         "core.hooksPath is not set.",
         "No Dolt remote is configured.",
+        "Outside a git repository init refuses with exit code 2 and creates nothing; over a repository whose tracker files are tracked it initialises nothing and names the migration instead.",
         "The tracker's own output is shown, under dotdiw's name."
       ],
       "calls": [
@@ -1486,9 +1496,21 @@
       ],
       "externalCalls": [
         {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::rev-parse --is-inside-work-tree",
+          "callPurpose": "Outside a git repository init refuses; the tracker's stealth init would otherwise run git init on the worker's behalf.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::ls-files",
+          "callPurpose": "Over a repository whose tracker files are tracked, init initialises nothing and the migration is named instead.",
+          "failurePropagation": "propagate"
+        },
+        {
           "dependencyId": "dependency.beads",
-          "operationRef": "product.beads::init --skip-hooks",
-          "callPurpose": "The tracker initialises its database; its hook installation is declined.",
+          "operationRef": "product.beads::init --stealth --skip-hooks",
+          "callPurpose": "The tracker initialises its database in stealth mode: it commits nothing, writes nothing for agents, configures no remote, keeps .beads/ local to the checkout; its hook installation is declined.",
           "failurePropagation": "propagate"
         }
       ]
@@ -1553,7 +1575,7 @@
         "explanation": "Given the same source artifacts, the product-visible result is deterministic."
       },
       "preconditions": [
-        "The tracker has written its instruction files for agents, naming itself and saying nothing about where work starts."
+        "The instruction files may not exist yet, or were written by the tracker under an earlier version, naming it and saying nothing about where work starts."
       ],
       "postconditions": [
         "CLAUDE.md and AGENTS.md say where work starts, between the markers, and name dotdiw.",
@@ -1568,12 +1590,19 @@
           "reason": "Derived from a product-visible GWT step."
         }
       ],
-      "externalCalls": []
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::check-ignore",
+          "callPurpose": "Whether the witness log is already kept out of git; under stealth it is, and in a repository adopted before 0.3.0 the line is added.",
+          "failurePropagation": "propagate"
+        }
+      ]
     },
     {
-      "operationId": "operation.report-what-was-left-uncommitted",
-      "name": "ReportWhatWasLeftUncommitted",
-      "summary": "Report what was left uncommitted: The edited files are listed as uncommitted, with the one command that commits them.",
+      "operationId": "operation.report-what-is-yours-to-commit",
+      "name": "ReportWhatIsYoursToCommit",
+      "summary": "Report what is yours to commit: The declaration files are listed as the worker's to commit, with the one command that commits them, so that every clone reads the declaration; where an earlier version let the tracker commit its files, the one command that keeps the tracker local from here on is named too.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -1586,7 +1615,7 @@
           "journey.adopt-a-repository"
         ],
         "stepIds": [
-          "step.report-what-was-left-uncommitted"
+          "step.report-what-is-yours-to-commit"
         ],
         "invariantIds": [
           "invariant.tool-never-commits"
@@ -1607,8 +1636,8 @@
         "networkSeparationAllowed": true,
         "causalJustification": "The tracker initialises its database, which takes seconds."
       },
-      "requestType": "type.report-what-was-left-uncommitted-request",
-      "responseType": "type.report-what-was-left-uncommitted-response",
+      "requestType": "type.report-what-is-yours-to-commit-request",
+      "responseType": "type.report-what-is-yours-to-commit-response",
       "failureTypes": [
         "type.invalid-cli-usage-error",
         "type.unsupported-command-error",
@@ -1620,30 +1649,31 @@
         "explanation": "Observes and prints; changes nothing in the project or the tracker."
       },
       "preconditions": [
-        "The tracker committed its own files and init then edited some of them."
+        "init wrote or changed the declaration files; the tracker committed nothing."
       ],
       "postconditions": [
-        "dotdiw made no commit.",
-        "Every file it edited after the tracker's commit is in the list."
+        "dotdiw made no commit and changed no index.",
+        "Every file dotdiw wrote or changed is in the list, and nothing else is.",
+        "Running the printed command leaves the tree clean."
       ],
       "calls": [],
       "derivedFrom": [
         {
           "sourceKind": "gwt-step",
-          "sourceRef": "step.report-what-was-left-uncommitted",
+          "sourceRef": "step.report-what-is-yours-to-commit",
           "reason": "Derived from a product-visible GWT step."
         },
         {
           "sourceKind": "manual-decision",
-          "sourceRef": "step.report-what-was-left-uncommitted",
-          "reason": "Reads git's diff and prints; the commit is the worker's."
+          "sourceRef": "step.report-what-is-yours-to-commit",
+          "reason": "Reads git's status and prints; the commit is the worker's."
         }
       ],
       "externalCalls": [
         {
           "dependencyId": "dependency.git",
-          "operationRef": "product.git::diff --name-only",
-          "callPurpose": "Which of the files dotdiw edited now differ from what the tracker committed.",
+          "operationRef": "product.git::status --porcelain",
+          "callPurpose": "Which of the declaration files dotdiw wrote are untracked or changed, and so the worker's to commit.",
           "failurePropagation": "propagate"
         }
       ]
@@ -1651,7 +1681,7 @@
     {
       "operationId": "operation.undo-earlier-adoption",
       "name": "UndoEarlierAdoption",
-      "summary": "Undo an earlier adoption: The hook override is unset, the Dolt remote removed from the tracker's config and database state, and what was undone is printed.",
+      "summary": "Undo an earlier adoption: The hook override is unset, the Dolt remote removed from the tracker's config and database state, and what was undone is printed, naming who did it. Where the tracker's files are tracked, .git/info/exclude gains the lines the tracker's stealth mode writes and the one command that takes the files out of the index is named, on init, check, doctor and lint.",
       "kind": "command",
       "status": "active",
       "visibility": "supporting",
@@ -1708,12 +1738,13 @@
         "explanation": "Given the same source artifacts, the product-visible result is deterministic."
       },
       "preconditions": [
-        "A repository adopted by v0.1.0, carrying a core.hooksPath into .beads and a Dolt remote at its git remote."
+        "A repository adopted by v0.1.0, carrying a core.hooksPath into .beads and a Dolt remote at its git remote; or by 0.2.x, with the tracker's files tracked in git."
       ],
       "postconditions": [
         "A core.hooksPath pointing anywhere but .beads is left alone.",
-        "Nothing is deleted and no history is rewritten.",
-        "Nothing is printed where there was nothing to undo."
+        "Nothing is deleted, no history is rewritten, and nothing is removed from the index by dotdiw.",
+        "Nothing is printed where there was nothing to undo.",
+        "The notice says an earlier version did it only when an earlier version did; on a fresh init it says the tracker configured it in this run."
       ],
       "calls": [],
       "derivedFrom": [
@@ -1734,6 +1765,18 @@
           "dependencyId": "dependency.git",
           "operationRef": "product.git::config --unset core.hooksPath",
           "callPurpose": "Hand the hooks back to .git/hooks; only a path inside .beads is ever unset.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::ls-files",
+          "callPurpose": "Whether an earlier version let the tracker commit its files; if so, the one command is named and never run.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::rev-parse --git-path",
+          "callPurpose": "Where this checkout's exclude file is, so the tracker's files stay local once they leave the index.",
           "failurePropagation": "propagate"
         }
       ]
@@ -3655,10 +3698,10 @@
       ]
     },
     {
-      "typeId": "type.report-what-was-left-uncommitted-request",
-      "name": "ReportWhatWasLeftUncommittedRequest",
+      "typeId": "type.report-what-is-yours-to-commit-request",
+      "name": "ReportWhatIsYoursToCommitRequest",
       "kind": "record",
-      "description": "Request for ReportWhatWasLeftUncommitted.",
+      "description": "Request for ReportWhatIsYoursToCommit.",
       "fields": [
         {
           "name": "correlationId",
@@ -3713,16 +3756,25 @@
             }
           },
           "required": false,
-          "summary": "The files dotdiw edited after the tracker committed them.",
+          "summary": "The declaration files dotdiw wrote or changed.",
           "cardinality": "many"
+        },
+        {
+          "name": "command",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The migration command the undo step named, when the tracker's files are tracked."
         }
       ]
     },
     {
-      "typeId": "type.report-what-was-left-uncommitted-response",
-      "name": "ReportWhatWasLeftUncommittedResponse",
+      "typeId": "type.report-what-is-yours-to-commit-response",
+      "name": "ReportWhatIsYoursToCommitResponse",
       "kind": "record",
-      "description": "Response for ReportWhatWasLeftUncommitted.",
+      "description": "Response for ReportWhatIsYoursToCommit.",
       "fields": [
         {
           "name": "status",
@@ -3774,7 +3826,7 @@
           "cardinality": "many"
         },
         {
-          "name": "uncommitted",
+          "name": "yours",
           "valueType": {
             "kind": "list",
             "itemType": {
@@ -3783,7 +3835,8 @@
             }
           },
           "required": false,
-          "cardinality": "many"
+          "cardinality": "many",
+          "summary": "The files that are the worker's to commit."
         }
       ]
     },
@@ -3905,6 +3958,28 @@
           "required": false,
           "summary": "One line per thing undone; empty and silent when there was nothing.",
           "cardinality": "many"
+        },
+        {
+          "name": "tracked",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many",
+          "summary": "The tracker's files an earlier version let it commit, still in the index."
+        },
+        {
+          "name": "command",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The one command that takes them out, never run by dotdiw."
         }
       ]
     },
@@ -6032,9 +6107,9 @@
     },
     {
       "fromOperationId": "operation.adopt-a-repository",
-      "toOperationId": "operation.report-what-was-left-uncommitted",
+      "toOperationId": "operation.report-what-is-yours-to-commit",
       "callKind": "asynchronous",
-      "reason": "Compose operation.report-what-was-left-uncommitted as a governed journey step."
+      "reason": "Compose operation.report-what-is-yours-to-commit as a governed journey step."
     },
     {
       "fromOperationId": "operation.run-a-tracker-command",
@@ -6228,7 +6303,7 @@
       "separationAllowed": false,
       "consistencyExpectation": "strong",
       "causalityJustification": "Adoption is local and complete when the command returns; nothing of it happens elsewhere or later.\n",
-      "userVisibleImpact": "The repository has .beads/, the conventions in its instruction files, and a list of what was left uncommitted.\n"
+      "userVisibleImpact": "The repository has .beads/ locally, the conventions in its instruction files, and the two files that are the worker's to commit.\n"
     },
     {
       "boundaryId": "boundary.run-any-command",
@@ -6285,10 +6360,10 @@
       "productId": "product.beads",
       "productName": "beads (bd)",
       "reason": "beads is the issue tracker underneath: it holds the work items, cooks and pours formulas, and owns every command dotdiw forwards. dotdiw adds discovery and hides the second name.",
-      "boundarySemantics": "A local subprocess on the same machine. dotdiw declines its hook installation and its Dolt remote, turns its usage metrics off before the first call, rewrites its name in everything it prints, and otherwise changes nothing it does. It has no POA IDL; the commands below are what dotdiw calls.",
+      "boundarySemantics": "A local subprocess on the same machine, run in its stealth mode: it commits nothing, writes nothing for agents, configures no remote, and keeps .beads/ local to the checkout through .git/info/exclude. dotdiw declines its hook installation, turns its usage metrics off before the first call, rewrites its name in everything it prints, and otherwise changes nothing it does. It has no POA IDL; the commands below are what dotdiw calls.",
       "calledOperations": [
         "create",
-        "init --skip-hooks",
+        "init --stealth --skip-hooks",
         "mol pour",
         "cook --persist --force",
         "formula show",
@@ -6303,14 +6378,18 @@
       "productId": "product.git",
       "productName": "git",
       "reason": "git is the registry and the sharing mechanism: a formula the project holds is one git tracks, and it reaches other people as every other file does.",
-      "boundarySemantics": "The project's own repository, read and never written: dotdiw lists tracked and untracked files, reads and unsets one config key that an earlier version let the tracker set, and diffs the files it edited. It never commits, pushes or syncs. It has no POA IDL; the commands below are what dotdiw calls.",
+      "boundarySemantics": "The project's own repository, read and never written except one file inside its .git -- info/exclude, local to the checkout, so that the tracker's files stay local: dotdiw lists tracked and untracked files, reads and unsets one config key that an earlier version let the tracker set, reads status for the declaration files, and asks what is ignored. It never commits, pushes, syncs or changes the index. It has no POA IDL; the commands below are what dotdiw calls.",
       "calledOperations": [
         "rev-parse --show-toplevel",
         "ls-files",
         "ls-files --others --exclude-standard",
         "config --get core.hooksPath",
         "config --unset core.hooksPath",
-        "diff --name-only"
+        "diff --name-only",
+        "rev-parse --is-inside-work-tree",
+        "rev-parse --git-path info/exclude",
+        "status --porcelain",
+        "check-ignore"
       ]
     }
   ],
@@ -6699,13 +6778,13 @@
       "operationId": "operation.adopt-a-repository",
       "affordance": {
         "label": "dotdiw init",
-        "shape": "Adopt the repository: tracking without hooks or a remote, the conventions declared, the uncommitted files named.",
+        "shape": "Adopt the repository: tracking local to the checkout, nothing of the tracker's in git, the conventions declared, the declaration files named as yours to commit.",
         "command": "dotdiw init [bd init flags]",
         "inputMapping": [
           {
             "from": "every argument",
             "to": "arguments",
-            "notes": "--skip-hooks is inserted when absent; the rest goes to the tracker unchanged."
+            "notes": "--stealth and --skip-hooks are inserted when absent; the rest goes to the tracker unchanged."
           }
         ]
       },
@@ -6720,7 +6799,7 @@
         "stepIds": [
           "step.adopt-repository",
           "step.declare-conventions",
-          "step.report-what-was-left-uncommitted"
+          "step.report-what-is-yours-to-commit"
         ],
         "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
@@ -6859,7 +6938,7 @@
       "operationId": "operation.undo-earlier-adoption",
       "affordance": {
         "label": "every dotdiw command",
-        "shape": "Before whatever was typed, an earlier adoption's hook override and Dolt remote are undone and announced.",
+        "shape": "Before whatever was typed, an earlier adoption's hook override and Dolt remote are undone and announced, and tracked tracker files are excluded locally with the one command named where people look.",
         "command": "dotdiw <anything>"
       },
       "coverage": {
@@ -6921,7 +7000,7 @@
         "operation.adopt-repository",
         "operation.undo-earlier-adoption",
         "operation.declare-conventions",
-        "operation.report-what-was-left-uncommitted"
+        "operation.report-what-is-yours-to-commit"
       ],
       "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
     },
@@ -7072,9 +7151,9 @@
       "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
     },
     {
-      "bindingId": "impl.report-what-was-left-uncommitted",
-      "operationId": "operation.report-what-was-left-uncommitted",
-      "implementationUnit": "promise_bindings::ReportWhatWasLeftUncommitted",
+      "bindingId": "impl.report-what-is-yours-to-commit",
+      "operationId": "operation.report-what-is-yours-to-commit",
+      "implementationUnit": "promise_bindings::ReportWhatIsYoursToCommit",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
