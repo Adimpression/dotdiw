@@ -269,6 +269,73 @@ class Repair(unittest.TestCase):
         self.assertNotIn("undid", out)
 
 
+@unittest.skipUnless(have_bd(), "bd is not installed")
+class Metrics(unittest.TestCase):
+    """bd's usage metrics are off before this tool runs anything else.
+
+    bd ships them on. These tests run against an empty HOME, which is what a
+    machine looks like the day bd is installed, so nothing here touches the
+    config of the machine running the suite.
+    """
+
+    OFF = "turned bd's anonymous usage metrics off"
+
+    def setUp(self):
+        self.home = tempfile.mkdtemp(prefix="dotdiw-home-")
+        self.addCleanup(shutil.rmtree, self.home, True)
+        self.env = dict(os.environ, HOME=self.home)
+
+    def dotdiw(self, *args):
+        p = subprocess.run([sys.executable, "-I", DOTDIW] + list(args),
+                           cwd=self.home, env=self.env,
+                           capture_output=True, text=True)
+        return p.returncode, p.stdout + p.stderr
+
+    def config(self):
+        try:
+            with open(os.path.join(self.home, ".config", "bd", "config.yaml"),
+                      encoding="utf-8") as fh:
+                return fh.read()
+        except OSError:
+            return ""
+
+    def queued(self):
+        """Events bd has queued to send: the proof of whether metrics ran."""
+        return glob.glob(os.path.join(self.home, ".beads", "eventsData",
+                                      "*.evtq"))
+
+    def test_first_run_turns_them_off_before_anything_is_queued(self):
+        """The first command, whatever it is, turns them off before bd runs.
+
+        `--version` runs bd. Had metrics still been on at that moment, bd
+        would have queued an event for it; the empty queue is the evidence.
+        """
+        self.assertEqual(self.config(), "")
+        code, out = self.dotdiw("--version")
+        self.assertEqual(code, 0, out)
+        self.assertIn(self.OFF, out)
+        self.assertRegex(self.config(), r"(?m)^metrics:\n(?:[ \t]+.*\n)*?[ \t]+disabled: true")
+        self.assertEqual(self.queued(), [])
+
+    def test_silent_once_they_are_off(self):
+        self.dotdiw("--version")
+        code, out = self.dotdiw("--version")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn(self.OFF, out)
+        self.assertEqual(self.queued(), [])
+
+    def test_turned_back_on_they_are_turned_off_again(self):
+        """Every run, not only the first: `bd metrics on` does not hold."""
+        self.dotdiw("--version")
+        subprocess.run([shutil.which("bd"), "metrics", "on"], cwd=self.home,
+                       env=self.env, capture_output=True)
+        self.assertNotRegex(self.config(), r"disabled: true")
+        code, out = self.dotdiw("learn")
+        self.assertEqual(code, 0, out)
+        self.assertIn(self.OFF, out)
+        self.assertRegex(self.config(), r"disabled: true")
+
+
 class Version(unittest.TestCase):
     def test_version_is_its_own(self):
         """`--version` reports this tool's version, not the one it wraps."""
