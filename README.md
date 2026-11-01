@@ -356,13 +356,34 @@ which do not.
 Once per machine, the way git is installed:
 
 ```bash
-brew install adimpression/dotdiw/dotdiw
+brew install adimpression/tap/dotdiw
 ```
 
-That pulls `beads`, `git` and
-`python@3.12`. **Nothing is installed or configured per project, and nothing is
-left for a newcomer to install later.** `dotdiw` is a single Python file
+That pulls `beads`, `git` and `python@3.12`. `dotdiw` is a single Python file
 depending only on the standard library; putting it on `PATH` works just as well.
+
+### What `dotdiw init` changes in a repository
+
+v0.1.0 said nothing is configured per project. That was wrong, and worth stating
+plainly rather than quietly correcting. `init` calls `bd init`, and bd:
+
+- created `.beads/`, its issue database, and committed its own files;
+- set `core.hooksPath` to `<repo>/.beads/hooks`. bd copies the hooks that were
+  already in `.git/hooks` into that directory and appends its own block, so
+  hooks present at adoption keep running. **Hooks added to `.git/hooks`
+  afterwards do not**: git reads one hook directory, and from then on it is
+  bd's snapshot;
+- configured a Dolt remote aimed at the repository's git remote, so the issue
+  database was pushed into the repository, keeping its full history;
+- left bd's telemetry enabled, which ships on by default.
+
+From v0.2.0 `init` declines the hooks, removes the Dolt remote, and says what it
+did. Any invocation in a repository adopted by v0.1.0 also puts both back and
+prints what it undid. Nothing was deleted and no history was rewritten, and
+hooks that existed at adoption went on running; a hook added after adoption was
+skipped until the repair, so commits made in between did not see it.
+
+bd's telemetry remains bd's: `~/.config/bd/config.yaml`, `metrics.disabled`.
 
 ## Commands
 
