@@ -37,12 +37,13 @@ WATERMARKS = os.path.join(HERE, "events", "source-watermarks.yaml")
 POA = os.path.expanduser("~/poa")
 
 # Shared by any body and deciding nothing about the product: how to run git
-# and bd, the pty plumbing, tokenising, the FTS storage, file parsing, and the
-# witness log's append and read.
+# and bd, the pty plumbing, resolving the checkout's tracker under the home,
+# tokenising, the FTS storage, file parsing, and the witness log's append and
+# read.
 INFRASTRUCTURE = {
-    "find_bd", "git", "repo_root", "bd_quiet", "_hold_partial", "run_bd",
-    "toks", "load_formula", "no_fts5", "Index", "witness_on", "witness",
-    "witnessed",
+    "find_bd", "git", "repo_root", "workspace", "beads_dir", "adopted",
+    "bd_quiet", "_hold_partial", "run_bd", "toks", "load_formula", "no_fts5",
+    "Index", "witness_on", "witness", "witnessed",
 }
 
 # The command line: parse the affordance, build the request, call the
@@ -125,6 +126,19 @@ class Source:
 def body_of(source, operation):
     """The operation's function and the helpers that belong to its body."""
     return {operation} | HELPERS.get(operation, set())
+
+
+def commands_of(source, operation):
+    """Every literal git or bd command a body runs, directly or through the
+    infrastructure it calls: `workspace()` runs `git config --local --get`
+    on the body's behalf, and the body declares it."""
+    out = []
+    parts = set(body_of(source, operation))
+    for part in list(parts):
+        parts |= source.names_called(part) & (INFRASTRUCTURE - set(RUNNERS))
+    for part in parts:
+        out.extend(source.commands(part))
+    return out
 
 
 def same_command(declared, literal):
@@ -254,12 +268,11 @@ class TheCalls(unittest.TestCase):
             words = {}
             for dep, ref in declared:
                 words.setdefault(self.dependencies[dep]["productId"], []).append(ref.split("::")[1].split())
-            for part in body_of(self.source, name):
-                for runner, literal in self.source.commands(part):
-                    product = RUNNERS[runner]
-                    self.assertTrue(
-                        any(same_command(d, literal) for d in words.get(product, [])),
-                        "%s runs %s %s and does not declare it" % (name, product, " ".join(literal)))
+            for runner, literal in commands_of(self.source, name):
+                product = RUNNERS[runner]
+                self.assertTrue(
+                    any(same_command(d, literal) for d in words.get(product, [])),
+                    "%s runs %s %s and does not declare it" % (name, product, " ".join(literal)))
             # A step that forwards decides which tracker command runs, and says
             # so; an orchestration hands the worker's command on and decides
             # nothing, so the crossing is forward-to-beads's own.
@@ -270,9 +283,7 @@ class TheCalls(unittest.TestCase):
 
     def test_every_declared_external_call_has_evidence_in_the_body(self):
         for name, op in self.operations.items():
-            literals = []
-            for part in body_of(self.source, name):
-                literals.extend(self.source.commands(part))
+            literals = commands_of(self.source, name)
             forwards = "forward_to_beads" in self.body_calls(name) or name == "forward_to_beads"
             for c in op.get("externalCalls") or []:
                 product, command = c["operationRef"].split("::")
@@ -353,19 +364,17 @@ class TheWitnessLog(unittest.TestCase):
                            env=env, capture_output=True, text=True)
         return p.returncode, p.stdout + p.stderr
 
+    def log_path(self):
+        key = subprocess.run(["git", "config", "--local", "--get", "dotdiw.workspace"],
+                             cwd=self.root, capture_output=True, text=True).stdout.strip()
+        return os.path.join(self.home, ".dotdiw", key, "witness.jsonl") if key else None
+
     def log(self):
-        path = os.path.join(self.root, ".beads", "witness.jsonl")
-        if not os.path.exists(path):
+        path = self.log_path()
+        if not path or not os.path.exists(path):
             return None
         with open(path, encoding="utf-8") as fh:
             return [json.loads(line) for line in fh if line.strip()]
-
-    def ignore_file(self):
-        try:
-            with open(os.path.join(self.root, ".beads", ".gitignore"), encoding="utf-8") as fh:
-                return fh.read()
-        except OSError:
-            return ""
 
     def test_off_by_default(self):
         code, out = self.dotdiw("init", "--prefix", "w")
@@ -378,9 +387,8 @@ class TheWitnessLog(unittest.TestCase):
     def test_a_real_run_is_a_story_the_contract_calls_valid(self):
         code, out = self.dotdiw("init", "--prefix", "w", witness=True)
         self.assertEqual(code, 0, out)
-        p = subprocess.run(["git", "check-ignore", "-q", ".beads/witness.jsonl"],
-                           cwd=self.root, capture_output=True)
-        self.assertEqual(p.returncode, 0, "the log is this machine's and must be kept out of git")
+        self.assertFalse(os.path.exists(os.path.join(self.root, ".beads")),
+                         "nothing of the tracker's is in the tree; the log lives under the home")
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap", witness=True)
         self.assertEqual(code, 0, out)
@@ -414,9 +422,10 @@ class TheWitnessLog(unittest.TestCase):
         labels = [e["label"] for e in self.log()]
         self.assertEqual(labels, ["work_named", "formula_surfaced", "procedure_poured"]
                          + ["step_closed"] * 3 + ["molecule_closed"])
-        p = subprocess.run(["git", "status", "--porcelain", "--", ".beads"], cwd=self.root,
+        p = subprocess.run(["git", "status", "--porcelain"], cwd=self.root,
                            capture_output=True, text=True)
-        self.assertEqual(p.stdout.strip(), "", "nothing of the tracker's is visible to git")
+        self.assertEqual(sorted(l[3:] for l in p.stdout.splitlines() if l.strip()),
+                         ["AGENTS.md", "CLAUDE.md"], "only the declaration is in the tree")
 
         # Every field the observability bindings require is on every event.
         idl = load_idl()
@@ -430,7 +439,7 @@ class TheWitnessLog(unittest.TestCase):
         if not os.path.exists(POA):
             self.skipTest("POA is not on this machine; the log was checked against the bindings only")
         p = subprocess.run([POA, "match", "cesc", "--contract", CONTRACT, "--events",
-                            os.path.join(self.root, ".beads", "witness.jsonl"),
+                            self.log_path(),
                             "--watermarks", WATERMARKS, "--json"],
                            capture_output=True, text=True)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
@@ -458,7 +467,7 @@ class TheWitnessLog(unittest.TestCase):
         if not os.path.exists(POA):
             self.skipTest("POA is not on this machine")
         p = subprocess.run([POA, "match", "cesc", "--contract", CONTRACT, "--events",
-                            os.path.join(self.root, ".beads", "witness.jsonl"),
+                            self.log_path(),
                             "--watermarks", WATERMARKS, "--json"],
                            capture_output=True, text=True)
         report = json.loads(p.stdout)

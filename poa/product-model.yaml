@@ -8,7 +8,7 @@ modelPurpose: >
   than a hope. The thin promise is ../product.yaml; this file is POA's
   internal source and mirrors the operation material that ../praxis.yaml owns.
 createdAt: "2026-11-01T00:00:00+08:00"
-updatedAt: "2026-11-01T18:30:00+08:00"
+updatedAt: "2026-11-01T21:00:00+08:00"
 
 product:
   productId: product.dotdiw
@@ -123,7 +123,10 @@ realWorldModel:
         - duty.surface-procedures-when-work-starts
     - objectId: object.repository
       name: Repository
-      definition: A git repository in which people and agents work.
+      definition: >
+        A git repository in which people and agents work. An adopted one is
+        tied to its tracker by one line in its own .git/config, the key under
+        which the tracker's state lives under the user's home.
       lifecycleStates:
         - unadopted
         - adopted
@@ -202,9 +205,9 @@ realWorldModel:
     - interactionId: interaction.adopt-repository
       name: Adopt a repository
       description: >
-        A repository is given tracking and the two conventions, once, without
-        anything reaching outside it and without anything of the tracker's
-        entering git.
+        A repository is given tracking and the two conventions, once. The
+        tracker lives under the user's home, keyed to the checkout; the
+        repository gains only the declaration.
       participantObjectIds:
         - object.repository
         - object.conventions
@@ -314,12 +317,16 @@ realWorldModel:
     - invariantId: invariant.nothing-outside-the-repository
       name: Nothing outside the repository
       statement: >
-        Adoption and use change nothing outside the repository, except bd's
-        usage-metrics setting on the machine, which is turned off and said;
-        and nothing of the tracker's enters git, which stays the project's.
+        Adoption and use leave nothing in the repository but the formulas and
+        the declaration. Everything the tracker keeps lives under the user's
+        home in a directory of dotdiw's own name, keyed to the checkout, and
+        the one other thing changed on the machine -- bd's usage-metrics
+        setting, turned off -- is said. Nothing of the tracker's enters git.
       rationale: >
-        v0.1.0 passed on a hook override and a Dolt remote without saying so.
-        What a tool does on somebody's behalf must be stated.
+        v0.1.0 passed on a hook override and a Dolt remote without saying so;
+        every version before 0.4.0 left the tracker's state in the tree. What
+        a tool does on somebody's behalf must be stated, and what is the
+        project's must be only what the project shares on purpose.
       severity: critical
       objectIds:
         - object.repository
@@ -444,9 +451,11 @@ realWorldModel:
       userVisibleImpact: Everyone's next create can reach the formula once they have pulled it.
     - boundaryId: boundary.adoption
       name: Adoption
-      description: One command, run once, on one machine, inside one repository.
+      description: >
+        One command, run once, on one machine, for one checkout -- a key in
+        its .git/config, a tracker under the home, the declaration in its tree.
       interactionId: interaction.adopt-repository
-      realWorldProcess: A repository is given tracking and the two conventions.
+      realWorldProcess: A repository is given tracking under the home and the two conventions in its tree.
       realWorldLatencyClass: over-or-equal-1s
       separationAllowed: false
       consistencyExpectation: strong
@@ -454,8 +463,8 @@ realWorldModel:
         Adoption is local and complete when the command returns; nothing of it
         happens elsewhere or later.
       userVisibleImpact: >
-        The repository has .beads/ locally, the conventions in its instruction
-        files, and the two files that are the worker's to commit.
+        Two files in the repository, which are the worker's to commit, and one
+        directory under the home, ~/.dotdiw/<key>.
     - boundaryId: boundary.run-any-command
       name: Run any command
       description: >
@@ -707,9 +716,9 @@ realWorldModel:
         - stateId: unadopted
           meaning: No tracking and no conventions.
         - stateId: adopted
-          meaning: Tracking local to the checkout with nothing of the tracker's in git, no hooks, no remote, conventions declared, nothing outside the repository changed unsaid.
+          meaning: Keyed in .git/config to a tracker under the home with no hooks and no remote; nothing of the tracker's in the tree; conventions declared; nothing outside the repository changed unsaid.
         - stateId: carrying-earlier-adoption
-          meaning: Adopted by v0.1.0, with a core.hooksPath into .beads and a Dolt remote at the git remote; or by 0.2.x, with the tracker's files tracked in git.
+          meaning: The tracker in the tree, as every version before 0.4.0 left it -- committed by 0.2.x, excluded by 0.3.0, and under v0.1.0 with a core.hooksPath into .beads and a Dolt remote at the git remote.
       transitions:
         - transitionId: transition.repository-unadopted-to-adopted
           fromState: unadopted
@@ -718,7 +727,7 @@ realWorldModel:
           authorizedBy:
             - duty.adopt-without-reaching-outside
           requiredProof:
-            - The tracker made no commit, nothing of its own is tracked, core.hooksPath unset, no Dolt remote, the conventions declared, the declaration files listed as the worker's.
+            - The key in .git/config; the tracker under the home at that key, with no remote; nothing of the tracker's in the tree; core.hooksPath unset; the conventions declared; the declaration files listed as the worker's.
           betrayalRisk: bd init passed through in its default mode, as under v0.1.0 and 0.2.x, committing its own files into the repository.
         - transitionId: transition.repository-carrying-earlier-adoption-to-adopted
           fromState: carrying-earlier-adoption
@@ -727,8 +736,8 @@ realWorldModel:
           authorizedBy:
             - duty.adopt-without-reaching-outside
           requiredProof:
-            - What was undone is printed once, naming who did it; core.hooksPath is unset; sync and remotes are gone from the tracker's state; where the tracker's files are tracked, .git/info/exclude names them and the command that takes them out of the index was printed.
-          betrayalRisk: The repair is silent, or blames an earlier version for what the tracker did in this run, so nobody learns what had been there.
+            - What was put right is printed once, naming who did it; core.hooksPath is unset; the key is in .git/config and a tracker with the old prefix is under the home; the in-tree copy is byte for byte as it was and the command that removes it was printed.
+          betrayalRisk: The repair is silent, blames an earlier version for what the tracker did in this run, or carries tasks over by half and lets the worker believe the history is whole.
       forbiddenTransitions:
         - fromState: unadopted
           toState: carrying-earlier-adoption
@@ -863,11 +872,11 @@ duties:
       Give a repository tracking and the two conventions in one command, and
       change nothing outside it that is not said.
     scope: >
-      Covers init in the tracker's stealth mode, declaring the conventions,
-      renaming bd in files an earlier version's tracker wrote, naming the
-      declaration files as the worker's to commit, undoing what an earlier
-      version did and naming the command for what it cannot undo, and turning
-      bd's metrics off.
+      Covers init with the tracker under the home keyed to the checkout,
+      declaring the conventions, renaming bd in files an earlier version's
+      tracker wrote, naming the declaration files as the worker's to commit,
+      putting right what an earlier version left and naming the command for
+      what is the worker's to remove, and turning bd's metrics off.
     nonGoals:
       - Installing hooks, remotes or anything per project.
       - Committing on the worker's behalf.
@@ -1066,32 +1075,35 @@ journeys:
     dutyId: duty.adopt-without-reaching-outside
     title: Adopt a repository
     description: >
-      A repository is given tracking and the two conventions once, with the
-      tracker kept local to the checkout and nothing of its own in git, is
-      told which files are the worker's to commit, and is put right if an
-      earlier version left anything behind.
-    purpose: Day 1 in a project is one command, nothing reaches outside the repository unsaid, and nothing of the tracker's enters git.
+      A repository is given tracking and the two conventions once. The
+      tracker's state lives under the user's home, keyed to the checkout by
+      one line in its own .git/config; the repository holds only the
+      declaration, which the worker is told to commit; and a repository an
+      earlier version adopted is put right by its first command.
+    purpose: Day 1 in a project is one command, the repository holds only what the project shares on purpose, and what the tool does on somebody's behalf is said.
     trigger: Someone runs dotdiw init, or runs any dotdiw command in a repository an earlier version adopted.
     preconditions:
       - Day 0 happened; dotdiw and beads are on the machine.
     primaryFlow:
-      - The tracker is initialised in its stealth mode without its hooks; it commits nothing and keeps its directory local to the checkout.
-      - The conventions are declared in the instruction files, which are created when absent, and bd is renamed in any the tracker wrote under an earlier version.
+      - A key is written into the checkout's .git/config and the tracker is initialised under the home at that key, in stealth mode with hooks and agent files declined; nothing of it is in the repository.
+      - The conventions are declared in the instruction files, which are created when absent, and bd is renamed in any an earlier version's tracker wrote.
       - The declaration files are listed as the worker's to commit, with the one command.
-      - A hook override or Dolt remote left by an earlier version is undone and announced; tracked tracker files from an earlier version are excluded locally and the one command is named.
+      - A hook override left by v0.1.0 is unset; a tracker left in the tree by any earlier version is replaced by one under the home with the same prefix, on the first command, and the command that removes the in-tree copy is named.
       - bd's usage metrics are turned off before any bd command, and announced once.
     completionCriteria:
-      - The tracker made no commit and nothing of its own is tracked in git.
-      - core.hooksPath is not set to the tracker's directory.
-      - No Dolt remote points at the repository's git remote.
+      - The tracker made no commit and nothing of its own is in the tree.
+      - The key is in .git/config and the state is under the home; worktrees of the checkout share it.
+      - core.hooksPath is not set to the tracker's directory, and the tracker under the home has no remote.
       - The instruction files declare where work starts.
       - The declaration files are named with the command that commits them, and that command leaves the tree clean.
     variants:
-      - A repository already adopted by this version: nothing to undo, so nothing is said.
-      - A clone of an adopted repository: the tracker is local to each checkout, so create says to run init once; init commits nothing.
+      - A repository already adopted by this version: init says so and changes nothing.
+      - A clone of an adopted repository: it has no key, so create says to run init once; init commits nothing and makes the clone's own tracker.
+      - A repository adopted by an earlier version: its first command adopts it under the home, keeping the prefix; earlier tasks are not carried over, and that is said once.
     failureBoundaries:
       - A core.hooksPath the project chose for itself is left alone.
       - Outside a git repository, init refuses and creates nothing.
+      - A plain bd typed in the repository finds no tracker; everything goes through dotdiw, which is the promise.
     nonGoals:
       - Committing the edited files.
       - Repairing what was already pushed into a repository's history.
@@ -1447,14 +1459,13 @@ steps:
     sequence: 1
     title: Adopt the repository
     given: A repository with no tracking, on a machine where Day 0 happened.
-    when: Someone runs dotdiw init in a git repository the tracker's files are not tracked in.
-    then: The tracker is initialised in its stealth mode with its hook installation declined. It commits nothing, writes nothing for agents, configures no remote, and keeps its own directory local to the checkout through .git/info/exclude.
+    when: Someone runs dotdiw init in a git repository that has no tracker yet.
+    then: A key is written into the checkout's own .git/config and the tracker is initialised under the user's home, in a directory of that key, in its stealth mode with hooks and agent files declined. Nothing of the tracker's is in the repository; where an earlier version's tracker sits in the tree, its prefix is kept.
     thenAssertions:
-      - The tracker made no commit; git log is as it was.
-      - Nothing under .beads is tracked, and .git/info/exclude names .beads/.
+      - The tracker made no commit; git log is as it was; nothing of the tracker's is in the tree.
+      - The key is in .git/config and the state is under the home at that key, with no sync remote.
       - core.hooksPath is not set.
-      - No Dolt remote is configured.
-      - Outside a git repository init refuses with exit code 2 and creates nothing; over a repository whose tracker files are tracked it initialises nothing and names the migration instead.
+      - Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing, unless the tracker's own re-init flags were given.
       - The tracker's own output is shown, under dotdiw's name.
     relatedObjectIds:
       - object.repository
@@ -1497,7 +1508,7 @@ steps:
     title: Report what is yours to commit
     given: init wrote or changed the declaration files; the tracker committed nothing.
     when: init finishes.
-    then: The declaration files are listed as the worker's to commit, with the one command that commits them, so that every clone reads the declaration; where an earlier version let the tracker commit its files, the one command that keeps the tracker local from here on is named too.
+    then: The declaration files are listed as the worker's to commit, with the one command that commits them, so that every clone reads the declaration; where an earlier version's tracker was just left behind in the tree, the one command that removes it is named too.
     thenAssertions:
       - dotdiw made no commit and changed no index.
       - Every file dotdiw wrote or changed is in the list, and nothing else is.
@@ -1514,21 +1525,22 @@ steps:
     journeyId: journey.adopt-a-repository
     sequence: 4
     title: Undo an earlier adoption
-    given: A repository adopted by v0.1.0, carrying a core.hooksPath into .beads and a Dolt remote at its git remote; or by 0.2.x, with the tracker's files tracked in git.
-    when: Any dotdiw command runs there, init included.
-    then: The hook override is unset, the Dolt remote removed from the tracker's config and database state, and what was undone is printed, naming who did it. Where the tracker's files are tracked, .git/info/exclude gains the lines the tracker's stealth mode writes and the one command that takes the files out of the index is named, on init, check, doctor and lint.
+    given: A repository adopted by any version before 0.4.0, with the tracker in its tree -- committed by 0.2.x, excluded by 0.3.0, and under v0.1.0 also carrying a core.hooksPath into .beads and a Dolt remote at its git remote.
+    when: Any dotdiw command runs there, including the first one after the upgrade.
+    then: The hook override is unset, because it decides which hooks git runs. A tracker is made under the home with the prefix read from the in-tree copy's metadata, the key is written, and the command typed runs against it; the in-tree copy is left exactly as it was and the one command that removes it is named, once here and on check while it remains. Earlier tasks are not carried over, and that is said.
     thenAssertions:
       - A core.hooksPath pointing anywhere but .beads is left alone.
-      - Nothing is deleted, no history is rewritten, and nothing is removed from the index by dotdiw.
-      - Nothing is printed where there was nothing to undo.
-      - The notice says an earlier version did it only when an earlier version did; on a fresh init it says the tracker configured it in this run.
+      - Nothing in the in-tree copy is read but its metadata, and nothing in it is moved, edited or deleted; a remote inside it reaches nothing, since no tracker runs there any more.
+      - The new tracker has the old prefix and no tasks.
+      - Nothing is printed where there was nothing to do, and the upgrade's notice is printed once.
+      - The notice says an earlier version left it only when one did; on a fresh init it says the tracker configured it in this run.
     relatedObjectIds:
       - object.repository
     relatedInteractionIds:
       - interaction.run-any-command
     relatedInvariantIds:
       - invariant.nothing-outside-the-repository
-    expectedUserVisibleOutcome: A short account of what was undone, once.
+    expectedUserVisibleOutcome: A short account of what was put right, once, with the one command for the in-tree copy.
     status: active
     stateTransitions:
       - objectId: object.repository
@@ -1708,9 +1720,10 @@ experience:
     - sliId: sli.adoption-leaves-nothing-outside
       name: Adoption leaves nothing outside
       description: >
-        The share of adoptions after which core.hooksPath is unset, no Dolt
-        remote exists, nothing of the tracker's is tracked in git, and the
-        only change outside the repository is the announced metrics setting.
+        The share of adoptions after which core.hooksPath is unset, the
+        tracker under the home has no remote, nothing of the tracker's is in
+        the tree, and the only changes outside the repository are the tracker
+        under ~/.dotdiw and the announced metrics setting.
       measurementType: correctness
       unit: percent
       eventSource: test_dotdiw.py
@@ -1898,9 +1911,9 @@ traces:
       traceType: golden
       title: Adoption left nothing outside the repository
       description: >
-        init runs the tracker in stealth mode without hooks, names the
-        declaration files as the worker's, and turns metrics off before the
-        first bd command.
+        init keys the checkout, puts the tracker under the home in stealth
+        mode without hooks or agent files, names the declaration files as the
+        worker's, and turns metrics off before the first bd command.
       dutyId: duty.adopt-without-reaching-outside
       journeyId: journey.adopt-a-repository
       scenario: A fresh repository with a hook of its own is adopted on an empty machine.
@@ -1908,10 +1921,10 @@ traces:
       events:
         - sequence: 1
           title: Adopted
-          event: bd init runs with --stealth --skip-hooks; the conventions are declared in files that did not exist.
+          event: The key is written into .git/config; bd init runs with --stealth --skip-hooks --skip-agents under ~/.dotdiw/<key>; the conventions are declared in files that did not exist.
           stateBefore: Unadopted.
           stateAfter: Adopted.
-          observedOutcome: bd made no commit; .beads/ is excluded locally; core.hooksPath is unset; the repository's own pre-commit hook still runs.
+          observedOutcome: bd made no commit; nothing of bd's is in the tree; core.hooksPath is unset; the repository's own pre-commit hook still runs.
           relatedStepIds:
             - step.adopt-repository
         - sequence: 2
@@ -1926,13 +1939,47 @@ traces:
           observedOutcome: One notice, naming the file and the setting.
           relatedStepIds:
             - step.turn-metrics-off
-      finalState: The repository is adopted and nothing outside it changed unsaid.
+      finalState: The repository holds the declaration and nothing else of this; the tracker is under the home.
       validatesStepIds:
         - step.adopt-repository
         - step.report-what-is-yours-to-commit
         - step.undo-earlier-adoption
         - step.turn-metrics-off
       classificationReason: Every assertion is a test in test_dotdiw.py that passes.
+      status: active
+    - traceId: trace.upgrade-was-one-command
+      traceType: golden
+      title: The upgrade was the first command
+      description: >
+        A repository adopted by 0.2.x, with bd's files committed and the
+        prefix "old", after the upgrade to 0.4.0: dotdiw create adopts it
+        under the home with the same prefix, says once that earlier tasks are
+        not carried over and names the one command for the in-tree copy, and
+        then creates the issue; the tree is untouched. Recorded as a test.
+      dutyId: duty.adopt-without-reaching-outside
+      journeyId: journey.adopt-a-repository
+      scenario: A client's checkout, tasks closed, after brew upgrade.
+      trigger: dotdiw create "After the upgrade"
+      events:
+        - sequence: 1
+          title: Put right
+          event: The key is written, the tracker is made under the home with prefix old, the notice is printed once with the removal command.
+          stateBefore: Carrying an earlier adoption.
+          stateAfter: Adopted.
+          observedOutcome: The in-tree .beads is byte for byte as it was; nothing was deleted.
+          relatedStepIds:
+            - step.undo-earlier-adoption
+        - sequence: 2
+          title: Named
+          event: The create runs against the new tracker and makes old-r5b.
+          observedOutcome: The command typed just worked; the second create prints no notice.
+          relatedStepIds:
+            - step.name-the-work
+      finalState: The repository works as before, minus its history, which it was told about.
+      validatesStepIds:
+        - step.undo-earlier-adoption
+        - step.adopt-repository
+      classificationReason: One command, nothing to run by hand, nothing unsaid.
       status: active
     - traceId: trace.handmade-procedure-noticed
       traceType: golden
@@ -2208,6 +2255,12 @@ traces:
             - step.adopt-repository
             - step.report-what-is-yours-to-commit
             - step.undo-earlier-adoption
+        - sequence: 4
+          title: The tracker's state in the tree
+          event: Under 0.3.0 the tracker stayed in the working tree, local and excluded, with an exclude to maintain, a leftover check, and a line of explanation in every notice.
+          observedOutcome: The repository carried state that was never the project's; 0.4.0 moves it under the home.
+          relatedStepIds:
+            - step.adopt-repository
       finalState: Repositories changed in ways their owners were not told about.
       violatesStepIds:
         - step.adopt-repository
@@ -2460,6 +2513,58 @@ updates:
       done on the worker's behalf.
     approvalStatus: draft
     createdAt: "2026-11-01T18:30:00+08:00"
+  - changeId: change.tracker-state-leaves-the-repository
+    changeType: model-update
+    targetRefs:
+      - object.repository
+      - step.adopt-repository
+      - step.undo-earlier-adoption
+      - journey.adopt-a-repository
+      - invariant.nothing-outside-the-repository
+      - lifecycle.repository
+    summary: >
+      The tracker's state leaves the repository: it lives under the user's
+      home in ~/.dotdiw/<key>, keyed to the checkout by one line in its
+      .git/config, told to bd through BEADS_DIR, with stealth, hooks and agent
+      files declined. The repository holds only the formulas and the
+      declaration. A repository adopted earlier is adopted under the home by
+      its first command, keeping its prefix; its tasks are not carried over.
+    reason: >
+      Every version before 0.4.0 kept bd's state in the working tree, where it
+      needed an exclude, a check for leftovers and an explanation in every
+      notice, and where a clone could never use it anyway. Under the home it
+      is keyed to the checkout, survives a move, is shared by worktrees, and
+      is nobody else's.
+    compatibility: corrective
+    impactAssessment:
+      affectedDuties:
+        - duty.adopt-without-reaching-outside
+      affectedJourneys:
+        - journey.adopt-a-repository
+      affectedSlos:
+        - slo.adoption-leaves-nothing-outside
+      affectedTraces:
+        - trace.adoption-left-nothing-outside
+        - trace.upgrade-was-one-command
+        - antitrace.adoption-reached-outside
+      affectedInvariants:
+        - invariant.nothing-outside-the-repository
+      riskLevel: medium
+      riskExplanation: >
+        New adoptions change shape; adoptions by earlier versions are upgraded
+        by their first command and lose their task history, which clients are
+        told before they upgrade.
+    migrationPlan: >
+      Clients close their tasks before upgrading and are told the history is
+      not carried over. After brew upgrade, the first dotdiw command in a
+      repository adopted earlier writes the key, makes the tracker under the
+      home with the old prefix, says so once, and names the one command that
+      removes the in-tree copy -- git rm -r -q .beads && git commit && rm -rf
+      .beads .beads.gate.lock where it was committed, rm -rf .beads
+      .beads.gate.lock where it was not. dotdiw runs neither. A fresh clone
+      runs dotdiw init once.
+    approvalStatus: draft
+    createdAt: "2026-11-01T21:00:00+08:00"
 
 openQuestions:
   - questionId: question.hundreds-of-formulas

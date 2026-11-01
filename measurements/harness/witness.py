@@ -71,11 +71,20 @@ if len(sys.argv) > 2 and sys.argv[1] == "--log":
              "met" if ms and max(ms) <= 1000 else "missed") if ms else "no create with both ends in the log")
     sys.exit(0)
 
+def log_of(run_dir):
+    """The run's witness log: under the harness's home, at the run's key."""
+    p = subprocess.run(["git", "config", "--local", "--get", "dotdiw.workspace"],
+                       cwd=run_dir, capture_output=True, text=True)
+    key = p.stdout.strip()
+    home = os.environ.get("HOME", S)
+    return os.path.join(home, ".dotdiw", key, "witness.jsonl") if key else ""
+
+
 runmap = sys.argv[1] if len(sys.argv) > 1 else "runmap3.tsv"
 rows = []
 for line in open(os.path.join(S, runmap), encoding="utf-8"):
     rid, proj, state, d = line.rstrip("\n").split("\t")
-    log = os.path.join(d, ".beads", "witness.jsonl")
+    log = log_of(d)
     found = stories(log) if os.path.exists(log) else []
     rows.append({"id": rid, "project": proj, "state": state,
                  "stories": found, "witnessed": os.path.exists(log),

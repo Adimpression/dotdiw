@@ -37,8 +37,9 @@ conditions:
       people use for the work, so `dotdiw check` finds it from them.
   - conditionId: condition.day-0-happened
     statement: >
-      dotdiw and beads are on the machine, once, the way git is; the repository
-      was adopted once with `dotdiw init`.
+      dotdiw and beads are on the machine, once, the way git is; this checkout
+      was adopted once with `dotdiw init`, which every clone runs for itself,
+      since the tracker lives under the user's home and not in the repository.
 boundaries:
   - boundaryId: boundary.shows-does-not-enforce
     statement: >
@@ -70,12 +71,17 @@ boundaries:
       at a wrong match against losing the mechanism.
   - boundaryId: boundary.nothing-outside-the-repository
     statement: >
-      Adoption and use change nothing outside the repository, except that bd's
-      anonymous usage metrics are turned off on the machine, and that is said
+      Adoption and use leave nothing in the repository but the formulas and
+      the declaration of where work starts. The tracker's state lives under
+      the user's home in a directory of dotdiw's own name, keyed to the
+      checkout by one line in its own `.git/config`, and the one other change
+      on the machine -- bd's anonymous usage metrics turned off -- is said
       aloud the first time.
     whyItMatters: >
       v0.1.0 inherited a hook override and a Dolt remote from bd without saying
-      so. What a tool does to a repository on somebody's behalf must be stated.
+      so, and every version before 0.4.0 kept the tracker's state in the tree.
+      What a tool does on somebody's behalf must be stated, and what is in the
+      project must be only what the project shares on purpose.
 possibleCarriers:
   - carrierId: carrier.dotdiw-cli
     name: The dotdiw command
@@ -204,6 +210,22 @@ promiseChanges:
       the sync remote was removed afterwards, which left .beads/config.yaml
       changed and not named in the report. The tracker's stealth mode commits
       nothing.
+  - changeId: change.tracker-state-leaves-the-repository
+    summary: >
+      From 0.4.0 the tracker's state lives under the user's home, in
+      `~/.dotdiw/<key>`, keyed to the checkout by one line in its
+      `.git/config`; the repository holds only the formulas and the
+      declaration. A repository adopted by an earlier version is adopted under
+      the home by its first command, keeping its prefix; its tasks are not
+      carried over, and that is said once with the one command that removes
+      the in-tree copy. Every clone runs `init` once.
+    compatibility: corrective
+    rationale: >
+      Every version before 0.4.0 kept bd's state in the working tree, where it
+      needed an exclude, a check for leftovers and an explanation in every
+      notice, and where a clone could never use it anyway. Under the home it
+      is keyed to the checkout, survives a move, is shared by worktrees, and
+      is nobody else's.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

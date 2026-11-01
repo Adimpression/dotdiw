@@ -8,13 +8,17 @@ claim made about one of them was itself wrong: bd copies the hooks already in
 What stops running is anything added afterwards, because `core.hooksPath` names
 one directory and from adoption onward it is bd's snapshot.
 
-0.2.x then let bd commit its own files into the repository and repaired what
-it had committed, which left one file modified and unexplained. From 0.3.0
-`init` runs bd in its stealth mode: bd commits nothing, writes nothing for
-agents, configures no remote, and keeps `.beads/` local to the checkout. What
-init leaves behind is dotdiw's own declaration, named as the worker's to
-commit, and the printed command leaves the tree clean. Repositories adopted
-earlier are told the one command that does the same for them.
+0.2.x let bd commit its own files into the repository; 0.3.0 kept them in the
+tree, local. From 0.4.0 the tracker's state lives under the user's home, in a
+directory keyed to the checkout by one line in its own .git/config, and bd runs
+there in its stealth mode with hooks and agent files declined. What init leaves
+in the repository is dotdiw's own declaration, named as the worker's to commit;
+the printed command leaves the tree clean. A repository adopted by an earlier
+version is adopted under the home by its first command, keeping its prefix;
+its tasks are not carried over, and the in-tree copy is the worker's to remove.
+
+Every test that adopts runs with HOME isolated, because that is where the state
+goes.
 
 Every assertion here was first run by hand, which is exactly why it is now a
 file: a shell command in a transcript is not evidence anyone else can check.
@@ -51,10 +55,14 @@ def have_bd():
 
 
 class Repo:
-    """A real git repository in a temporary directory."""
+    """A real git repository in a temporary directory, with a home of its own."""
 
-    def __init__(self):
+    def __init__(self, home=None):
         self.path = tempfile.mkdtemp(prefix="dotdiw-test-")
+        self.home = home or tempfile.mkdtemp(prefix="dotdiw-home-")
+        self.env = dict(os.environ, HOME=self.home)
+        self.env.pop("BEADS_DIR", None)
+        self.env.pop("DOTDIW_WITNESS", None)
         self.git("init", "-q", ".")
         self.git("config", "user.email", "test@example.invalid")
         self.git("config", "user.name", "Test")
@@ -63,6 +71,26 @@ class Repo:
 
     def close(self):
         shutil.rmtree(self.path, ignore_errors=True)
+        shutil.rmtree(self.home, ignore_errors=True)
+
+    def key(self):
+        return self.git("config", "--local", "--get", "dotdiw.workspace")[1].strip()
+
+    def workspace(self):
+        return os.path.join(self.home, ".dotdiw", self.key()) if self.key() else None
+
+    def trackers(self):
+        try:
+            return sorted(os.listdir(os.path.join(self.home, ".dotdiw")))
+        except OSError:
+            return []
+
+    def bd(self, *args):
+        """bd itself, pointed at this repository's tracker under the home."""
+        env = dict(self.env, BEADS_DIR=os.path.join(self.workspace(), ".beads"))
+        p = subprocess.run([shutil.which("bd")] + list(args), cwd=self.path, env=env,
+                           capture_output=True, text=True)
+        return p.returncode, p.stdout + p.stderr
 
     def git(self, *args):
         p = subprocess.run(["git"] + list(args), cwd=self.path,
@@ -72,9 +100,10 @@ class Repo:
     def config(self, key):
         return self.git("config", "--get", key)[1].strip()
 
-    def dotdiw(self, *args):
+    def dotdiw(self, *args, cwd=None, env=None):
         p = subprocess.run([sys.executable, "-I", DOTDIW] + list(args),
-                           cwd=self.path, capture_output=True, text=True)
+                           cwd=cwd or self.path, env=env or self.env,
+                           capture_output=True, text=True)
         return p.returncode, p.stdout + p.stderr
 
     def write(self, rel, text, executable=False):
@@ -87,8 +116,10 @@ class Repo:
 
     @classmethod
     def clone_of(cls, other):
+        """A clone in the same home, so that its tracker must be a second one."""
         repo = cls.__new__(cls)
         repo.path = tempfile.mkdtemp(prefix="dotdiw-clone-")
+        repo.home, repo.env = other.home, other.env
         subprocess.run(["git", "clone", "-q", other.path, repo.path], capture_output=True)
         repo.git("config", "user.email", "test@example.invalid")
         repo.git("config", "user.name", "Test")
@@ -124,10 +155,13 @@ class Repo:
         except OSError:
             return []
 
-    def adopt_the_old_way(self, prefix="t"):
-        """Adopt as 0.2.x did: bd's default init, which commits its own files."""
-        p = subprocess.run([shutil.which("bd"), "init", "--skip-hooks", "--prefix", prefix],
-                           cwd=self.path, capture_output=True, text=True)
+    def adopt_the_old_way(self, prefix="t", stealth=False):
+        """Adopt as 0.2.x did (bd's default init, which commits its own files),
+        or as 0.3.0 did (stealth: in the tree, local and excluded)."""
+        args = [shutil.which("bd"), "init", "--skip-hooks", "--prefix", prefix]
+        if stealth:
+            args.insert(2, "--stealth")
+        p = subprocess.run(args, cwd=self.path, env=self.env, capture_output=True, text=True)
         assert p.returncode == 0, p.stdout + p.stderr
 
     def dolt_remotes(self):
@@ -178,6 +212,104 @@ class Adoption(unittest.TestCase):
         self.repo = Repo()
         self.addCleanup(self.repo.close)
 
+    def test_init_leaves_the_tree_clean(self):
+        """Two files in the repository, one directory under the home.
+
+        The key is one line in the checkout's own git config; the tracker is
+        ~/.dotdiw/<key>/.beads with no sync remote; the hooks path is unset;
+        nothing of bd's is in the tree; and the command init prints leaves
+        the tree clean.
+        """
+        self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
+        self.repo.commit("first")
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+
+        self.assertEqual(self.repo.commits(), 1, "bd must not commit")
+        self.assertEqual(sorted(l[3:] for l in self.repo.porcelain()), ["AGENTS.md", "CLAUDE.md"])
+        self.assertFalse(os.path.exists(os.path.join(self.repo.path, ".beads")))
+        self.assertFalse(os.path.exists(os.path.join(self.repo.path, ".beads.gate.lock")))
+        self.assertRegex(self.repo.key(), r"^[0-9a-f]{16}$")
+        cfg = os.path.join(self.repo.workspace(), ".beads", "config.yaml")
+        self.assertTrue(os.path.exists(cfg), "the tracker lives under the home")
+        with open(cfg, encoding="utf-8") as fh:
+            self.assertNotIn("\nsync:", fh.read())
+        self.assertEqual(self.repo.config(HOOKS_KEY), "")
+        self.assertIn("yours to commit", out)
+        self.assertNotIn("an earlier version", out)
+        command = [l.strip() for l in out.split("\n") if l.strip().startswith("git add ")]
+        self.assertEqual(len(command), 1, out)
+        p = subprocess.run(command[0], shell=True, cwd=self.repo.path, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(self.repo.porcelain(), [], "the printed command must leave the tree clean")
+
+    def test_the_tracker_is_under_the_home(self):
+        """What dotdiw creates, bd sees only through that directory."""
+        self.repo.commit("first")
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        code, out = self.repo.dotdiw("create", "Under the home")
+        self.assertEqual(code, 0, out)
+        code, listing = self.repo.bd("list", "--json")
+        self.assertIn("Under the home", listing)
+        p = subprocess.run([shutil.which("bd"), "list"], cwd=self.repo.path, env=self.repo.env,
+                           capture_output=True, text=True)
+        self.assertNotEqual(p.returncode, 0, "plain bd in the repository finds no tracker")
+        self.assertTrue(os.path.exists(os.path.join(self.repo.workspace(), ".beads.gate.lock")))
+
+    def test_two_repositories_under_one_home_stay_apart(self):
+        other = Repo(home=self.repo.home)
+        self.addCleanup(lambda: shutil.rmtree(other.path, ignore_errors=True))
+        for r, prefix in ((self.repo, "a"), (other, "b")):
+            r.commit("first")
+            code, out = r.dotdiw("init", "--prefix", prefix)
+            self.assertEqual(code, 0, out)
+        self.assertNotEqual(self.repo.key(), other.key())
+        procs = [subprocess.Popen([sys.executable, "-I", DOTDIW, "create", "At once in %s" % n],
+                                  cwd=r.path, env=r.env, stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, text=True)
+                 for r, n in ((self.repo, "a"), (other, "b"))]
+        for p in procs:
+            p.communicate()
+            self.assertEqual(p.returncode, 0)
+        self.assertIn("At once in a", self.repo.bd("list", "--json")[1])
+        self.assertNotIn("At once in b", self.repo.bd("list", "--json")[1])
+        self.assertIn("At once in b", other.bd("list", "--json")[1])
+
+    def test_a_worktree_shares_the_tracker(self):
+        self.repo.commit("first")
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        wt = tempfile.mkdtemp(prefix="dotdiw-wt-")
+        self.addCleanup(shutil.rmtree, wt, True)
+        shutil.rmtree(wt)
+        self.repo.git("worktree", "add", "-q", wt, "-b", "wt")
+        code, out = self.repo.dotdiw("create", "From the worktree", cwd=wt)
+        self.assertEqual(code, 0, out)
+        self.assertIn("From the worktree", self.repo.bd("list", "--json")[1])
+        self.assertEqual(len(self.repo.trackers()), 1)
+
+    def test_init_twice_is_a_sentence_not_a_reinit(self):
+        self.repo.commit("first")
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        before = self.repo.bd("list", "--json")[1]
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        self.assertIn("is adopted", out)
+        self.assertEqual(len(self.repo.trackers()), 1)
+        self.assertEqual(self.repo.bd("list", "--json")[1], before)
+
+    def test_an_unadopted_repository_is_told_in_one_line(self):
+        self.repo.commit("first")
+        code, out = self.repo.dotdiw("create", "x")
+        self.assertEqual(code, 1)
+        self.assertIn("not adopted", out)
+        self.assertIn("dotdiw init", out)
+        self.assertNotIn("no beads database found", out)
+        code, out = self.repo.dotdiw("formula", "list")
+        self.assertEqual(code, 0, "listing formulas needs no tracker")
+
     def test_init_does_not_take_over_the_hooks(self):
         """The repository's own hook directory stays the one git reads.
 
@@ -215,36 +347,6 @@ class Adoption(unittest.TestCase):
         self.assertEqual(self.repo.dolt_remotes(), [])
         self.assertNotIn("\nsync:", self.repo.beads_config())
 
-    def test_init_commits_nothing_and_names_what_is_yours(self):
-        """bd commits nothing; what is left is dotdiw's declaration, and one command.
-
-        Under bd's stealth mode .beads/ is local to the checkout, so nothing of
-        bd's enters git. The two instruction files dotdiw wrote are the
-        worker's to commit, the report says so, and the command it prints
-        leaves the tree clean. Committing is not this tool's to do, but saying
-        exactly what to commit is.
-        """
-        self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
-        self.repo.commit("first")
-        code, out = self.repo.dotdiw("init", "--prefix", "t")
-        self.assertEqual(code, 0, out)
-
-        self.assertEqual(self.repo.commits(), 1, "bd must not commit")
-        self.assertEqual(sorted(l[3:] for l in self.repo.porcelain()),
-                         ["AGENTS.md", "CLAUDE.md"])
-        self.assertEqual(self.repo.tracked(".beads"), [])
-        self.assertIn(".beads/", self.repo.excluded())
-        self.assertIn("yours to commit", out)
-        self.assertIn("AGENTS.md", out)
-        self.assertIn("CLAUDE.md", out)
-        self.assertNotIn("an earlier version", out)
-        command = [l.strip() for l in out.split("\n") if l.strip().startswith("git add ")]
-        self.assertEqual(len(command), 1, out)
-        p = subprocess.run(command[0], shell=True, cwd=self.repo.path,
-                           capture_output=True, text=True)
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual(self.repo.porcelain(), [], "the printed command must leave the tree clean")
-
     def test_init_refuses_outside_a_git_repository(self):
         """bd's stealth init would run git init on the worker's behalf; dotdiw does not let it."""
         plain = tempfile.mkdtemp(prefix="dotdiw-nogit-")
@@ -256,12 +358,7 @@ class Adoption(unittest.TestCase):
         self.assertEqual(sorted(os.listdir(plain)), [], "nothing may be created")
 
     def test_a_clone_is_told_to_init_and_then_works(self):
-        """The tracker is local to each checkout, so a clone has none until init.
-
-        This was already true before 0.3.0 -- bd's database was never in git --
-        and nothing said so. Now create says so, and init in the clone commits
-        nothing.
-        """
+        """A clone has no key, so no tracker until init; its tracker is its own."""
         self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
         self.repo.commit("first")
         code, out = self.repo.dotdiw("init", "--prefix", "t")
@@ -270,55 +367,32 @@ class Adoption(unittest.TestCase):
         self.repo.git("commit", "-qm", "Declare where work starts")
 
         clone = Repo.clone_of(self.repo)
-        self.addCleanup(clone.close)
+        self.addCleanup(lambda: shutil.rmtree(clone.path, ignore_errors=True))
         code, out = clone.dotdiw("create", "In the clone")
-        self.assertNotEqual(code, 0)
-        self.assertIn("no tracker database yet", out)
-        self.assertIn("dotdiw init once", out)
+        self.assertEqual(code, 1)
+        self.assertIn("not adopted", out)
 
         code, out = clone.dotdiw("init", "--prefix", "t")
         self.assertEqual(code, 0, out)
         self.assertEqual(clone.commits(), 2)
-        self.assertIn(".beads/", clone.excluded())
         self.assertEqual(clone.porcelain(), [], "the clone already carries the declaration")
+        self.assertNotEqual(clone.key(), self.repo.key())
+        self.assertEqual(len(self.repo.trackers()), 2)
         code, out = clone.dotdiw("create", "In the clone")
         self.assertEqual(code, 0, out)
 
-    def test_init_over_an_old_adoption_does_not_reinitialise(self):
-        """A repository where 0.2.x let bd commit: no second init, the one command instead."""
+    def test_init_writes_nothing_global_but_its_own_directory(self):
+        """Outside the repository: ~/.dotdiw/<key> and bd's three per-machine files."""
         self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
         self.repo.commit("first")
-        self.repo.adopt_the_old_way()
-        before = self.repo.commits()
-        self.assertEqual(len(self.repo.tracked(".beads")), 4)
-
         code, out = self.repo.dotdiw("init", "--prefix", "t")
-        self.assertEqual(self.repo.commits(), before)
-        self.assertEqual(len(self.repo.tracked(".beads")), 4, "dotdiw never changes the index")
-        self.assertTrue(os.path.exists(os.path.join(self.repo.path, ".beads", "config.yaml")))
-        self.assertIn("git rm -r --cached .beads", out)
-        self.assertIn(".beads/", self.repo.excluded())
-
-    def test_init_writes_nothing_global(self):
-        """Outside the repository: bd's three per-machine files and nothing else.
-
-        bd's help says stealth mode writes a global gitignore and
-        gitattributes. bd 1.3.2 does not. The day a bd does, this fails before
-        a release instead of after.
-        """
-        home = tempfile.mkdtemp(prefix="dotdiw-home-")
-        self.addCleanup(shutil.rmtree, home, True)
-        self.repo.git("remote", "add", "origin", "git@example.invalid:x/y.git")
-        self.repo.commit("first")
-        p = subprocess.run([sys.executable, "-I", DOTDIW, "init", "--prefix", "t"],
-                           cwd=self.repo.path, env=dict(os.environ, HOME=home),
-                           capture_output=True, text=True)
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        written = sorted(os.path.relpath(os.path.join(d, f), home)
-                         for d, _, fs in os.walk(home) for f in fs)
+        self.assertEqual(code, 0, out)
+        written = sorted(os.path.relpath(os.path.join(d, f), self.repo.home)
+                         for d, _, fs in os.walk(self.repo.home) for f in fs)
         allowed = {".beads/machine-id", ".dolt/config_global.json", ".config/bd/config.yaml"}
-        self.assertTrue(set(written) <= allowed, written)
-
+        own = os.path.join(".dotdiw", self.repo.key())
+        stray = [w for w in written if w not in allowed and not w.startswith(own + os.sep)]
+        self.assertEqual(stray, [], written)
 
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class Repair(unittest.TestCase):
@@ -332,6 +406,16 @@ class Repair(unittest.TestCase):
         code, out = self.repo.dotdiw("init", "--prefix", "t")
         self.assertEqual(code, 0, out)
 
+    def old(self):
+        """A repository as 0.1.0 left it: tracker in the tree, hooks taken over, a remote."""
+        old = Repo()
+        self.addCleanup(old.close)
+        old.git("remote", "add", "origin", "git@example.invalid:x/y.git")
+        old.commit("first")
+        old.adopt_the_old_way()
+        old.adopt_as_v0_1_0()
+        return old
+
     def test_repair_hands_the_hooks_back(self):
         """A hook added after adoption was being skipped, and runs again.
 
@@ -340,33 +424,41 @@ class Repair(unittest.TestCase):
         running. A hook added afterwards went to .git/hooks, which git was no
         longer reading.
         """
-        self.repo.adopt_as_v0_1_0()
-        self.repo.hook("pre-commit", "added-later")
+        old = self.old()
+        old.hook("pre-commit", "added-later")
 
-        self.repo.commit("while-adopted")
-        self.assertFalse(self.repo.ran("added-later"),
+        old.commit("while-adopted")
+        self.assertFalse(old.ran("added-later"),
                          "a hook added after adoption should be skipped, or "
                          "there is nothing here to repair")
 
-        code, out = self.repo.dotdiw("check")
-        self.assertEqual(code, 0, out)
+        code, out = old.dotdiw("check")
         self.assertIn(HOOKS_KEY, out)
-        self.assertEqual(self.repo.config(HOOKS_KEY), "")
+        self.assertEqual(old.config(HOOKS_KEY), "")
 
-        self.repo.commit("after-repair")
-        self.assertTrue(self.repo.ran("added-later"),
+        old.commit("after-repair")
+        self.assertTrue(old.ran("added-later"),
                         "the hook must run once the override is gone")
 
-    def test_repair_removes_the_dolt_remote(self):
-        self.repo.adopt_as_v0_1_0()
-        self.assertEqual(self.repo.dolt_remotes(), ["origin"])
+    def test_an_old_remote_stays_in_the_unused_tree_copy(self):
+        """The in-tree tracker is left as it is; no bd runs there any more.
 
-        code, out = self.repo.dotdiw("check")
-        self.assertEqual(code, 0, out)
+        0.2.x stripped the Dolt remote out of it. Now the tracker under the
+        home has no remote, and the copy in the tree is the worker's to
+        remove, so nothing in it is edited -- a remote in an abandoned
+        directory reaches nothing.
+        """
+        old = self.old()
+        self.assertEqual(old.dolt_remotes(), ["origin"])
 
-        self.assertEqual(self.repo.dolt_remotes(), [])
-        self.assertNotIn("\nsync:", self.repo.beads_config())
-        self.assertIn("Dolt remote", out)
+        code, out = old.dotdiw("check")
+        self.assertEqual(old.dolt_remotes(), ["origin"], "the in-tree copy is not edited")
+        self.assertIn("\nsync:", old.beads_config())
+        self.assertIn("not carried over", out)
+        self.assertIn("git rm -r -q .beads", out)
+        cfg = os.path.join(old.workspace(), ".beads", "config.yaml")
+        with open(cfg, encoding="utf-8") as fh:
+            self.assertNotIn("\nsync:", fh.read(), "the tracker under the home has no remote")
 
     def test_repair_says_nothing_when_there_is_nothing_to_undo(self):
         """Silence in a repository this never touched.
@@ -375,42 +467,81 @@ class Repair(unittest.TestCase):
         """
         code, out = self.repo.dotdiw("check")
         self.assertEqual(code, 0, out)
-        self.assertNotIn("undid", out)
+        self.assertNotIn("put right", out)
 
-    def test_an_old_adoption_is_told_how_to_keep_the_tracker_local(self):
-        """0.2.x let bd commit its files. dotdiw names the one command and never runs it.
+    def test_upgrade_from_an_in_tree_adoption_is_seamless(self):
+        """0.2.x let bd commit its files. The first command adopts under the home.
 
-        The exclude is written so that once the files leave the index they
-        stay out; running the printed command leaves the tree clean and the
-        files on disk.
+        The prefix is kept, the in-tree copy is not touched, tasks are not
+        carried over and that is said once, with the one command that removes
+        the copy; after that command the tree is clean.
         """
         old = Repo()
         self.addCleanup(old.close)
         old.git("remote", "add", "origin", "git@example.invalid:x/y.git")
         old.commit("first")
-        old.adopt_the_old_way()
+        old.adopt_the_old_way(prefix="old")
         self.assertEqual(len(old.tracked(".beads")), 4)
+        before = {}
+        for d, _, fs in os.walk(os.path.join(old.path, ".beads")):
+            for f in fs:
+                with open(os.path.join(d, f), "rb") as fh:
+                    before[os.path.join(d, f)] = fh.read()
 
-        code, out = old.dotdiw("check")
-        self.assertIn("tracked in git, from an adoption before 0.3.0", out)
-        self.assertIn("git rm -r --cached .beads", out)
-        self.assertIn(".beads/", old.excluded())
+        code, out = old.dotdiw("create", "After the upgrade")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Created issue: old-", out, "the prefix is kept")
+        self.assertIn("not carried over", out)
+        self.assertIn("git rm -r -q .beads", out)
+        command = [l.strip() for l in out.split("\n") if l.strip().startswith("git rm -r")]
+        self.assertEqual(len(command), 1, out)
+        self.assertTrue(old.key())
+        self.assertTrue(os.path.isdir(os.path.join(old.workspace(), ".beads")))
         self.assertEqual(len(old.tracked(".beads")), 4, "dotdiw never changes the index")
+        for path, data in before.items():
+            with open(path, "rb") as fh:
+                self.assertEqual(fh.read(), data, "%s was touched" % path)
 
-        p = subprocess.run("git rm -r --cached .beads && git commit -qm \"Keep the tracker local\"",
-                           shell=True, cwd=old.path, capture_output=True, text=True)
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual(old.tracked(".beads"), [])
-        self.assertTrue(os.path.exists(os.path.join(old.path, ".beads", "config.yaml")))
-        self.assertEqual(old.porcelain(), [], "excluded, so not even untracked")
+        code, out = old.dotdiw("create", "Second create")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("not carried over", out, "said once")
         code, out = old.dotdiw("check")
-        self.assertNotIn("tracked in git", out, "the notice stops once it is done")
+        self.assertIn("left by an adoption before 0.4.0", out)
+
+        p = subprocess.run(command[0], shell=True, cwd=old.path, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertFalse(os.path.exists(os.path.join(old.path, ".beads")))
+        # What stays modified is bd's agent files from 0.2.x, now carrying the
+        # declaration: the worker's to commit, as init's report says.
+        self.assertEqual([l for l in old.porcelain() if ".beads" in l], [])
+        code, out = old.dotdiw("check")
+        self.assertNotIn("left by an adoption", out, "the notice stops once it is done")
+        code, out = old.dotdiw("create", "Still works")
+        self.assertEqual(code, 0, out)
+
+    def test_upgrade_from_a_stealth_adoption_is_seamless(self):
+        """0.3.0 kept .beads in the tree, excluded. Same upgrade, rm as the command."""
+        st = Repo()
+        self.addCleanup(st.close)
+        st.git("remote", "add", "origin", "git@example.invalid:x/y.git")
+        st.commit("first")
+        st.adopt_the_old_way(prefix="st", stealth=True)
+        self.assertEqual(st.porcelain(), [])
+
+        code, out = st.dotdiw("create", "After the upgrade")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Created issue: st-", out)
+        self.assertIn("rm -rf .beads .beads.gate.lock", out)
+        self.assertEqual([l for l in st.porcelain() if ".beads" in l], [])
+        subprocess.run("rm -rf .beads .beads.gate.lock", shell=True, cwd=st.path)
+        code, out = st.dotdiw("create", "Still works")
+        self.assertEqual(code, 0, out)
 
     def test_the_notice_says_who_did_it(self):
         """What 0.1.0 left is 'an earlier version'; a fresh init never says that."""
-        self.repo.adopt_as_v0_1_0()
-        code, out = self.repo.dotdiw("check")
-        self.assertIn("undid what an earlier version of it did here", out)
+        old = self.old()
+        code, out = old.dotdiw("check")
+        self.assertIn("put right what an earlier version of it left here", out)
 
         fresh = Repo()
         self.addCleanup(fresh.close)
@@ -435,7 +566,7 @@ class Repair(unittest.TestCase):
         self.assertEqual(code, 0, out)
 
         self.assertEqual(self.repo.config(HOOKS_KEY), mine)
-        self.assertNotIn("undid", out)
+        self.assertNotIn("put right", out)
 
 
 @unittest.skipUnless(have_bd(), "bd is not installed")

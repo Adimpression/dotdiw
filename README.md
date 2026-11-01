@@ -423,36 +423,40 @@ to `~/.config/bd/config.yaml`. That is per machine, not per repository, and
 it is the one thing dotdiw changes outside the repository. It says so the
 first time, and does it again on every run, so `bd metrics on` does not hold.
 
-From v0.3.0 `init` runs bd in its stealth mode, `bd init --stealth
---skip-hooks`. bd then commits nothing, writes nothing for agents, configures
-no remote, and keeps `.beads/` local to the checkout through
-`.git/info/exclude`. What init leaves behind is dotdiw's own declaration of
-where work starts, written into `CLAUDE.md` and `AGENTS.md`; it names those
-two files as yours to commit, and the command it prints leaves the tree clean.
-Nothing of bd's enters git. 0.2.0 and 0.2.1 used bd's default init and
-removed the sync remote afterwards. A repository adopted by those versions is told
-the one command that does the same for it, on `init`, `check`, `doctor` and
-`lint`; dotdiw never runs it. Outside a git repository `init` refuses, since
-formulas are found with git. And because the tracker is local to each
-checkout, every clone runs `dotdiw init` once; `create` says so when it finds
-no database. That was always true -- bd's database was never in git -- and
-nothing said it.
+From v0.3.0 `init` ran bd in its stealth mode, which commits nothing and
+configures no remote, but still kept `.beads/` in the working tree. From
+v0.4.0 the tracker's state leaves the repository altogether. `init` writes one
+line into the checkout's own `.git/config`, `dotdiw.workspace`, a random key,
+and runs `bd init --stealth --skip-hooks --skip-agents` under
+`~/.dotdiw/<key>/`, telling bd where through `BEADS_DIR`. Every dotdiw command
+does the same, so bd never sees the repository. What is left in the
+repository is dotdiw's declaration of where work starts, in `CLAUDE.md` and
+`AGENTS.md`, named as yours to commit; the command it prints leaves the tree
+clean. The key survives a move, worktrees share it, and a fresh clone has
+none, so every clone runs `dotdiw init` once and `create` says so until it
+has. A plain `bd` typed in the repository finds no tracker; everything goes
+through dotdiw, which is the point. A `BEADS_DIR` of your own is overridden
+for the bd that dotdiw runs. Outside a git repository `init` refuses.
 
-Also from v0.3.0 there is one file dotdiw writes that is opt-in: the witness
-log, `.beads/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that file
-exists, every create, pour and close that goes through dotdiw appends one JSON
-line -- the work id, the formula that surfaced or the silence, the molecule
-and its steps -- and the contract in `contracts/` decides whether those lines
-may be read as the promise kept. It is local, append-only, never transmitted,
-and stays out of git because `.beads/` does; in a repository adopted before
-0.3.0, `init` and `create` keep it out through `.beads/.gitignore`. A step
-closed with `bd` directly never reaches it, and the contract says so. Off, it
-writes nothing.
+A repository adopted by an earlier version is upgraded by its first dotdiw
+command: the key is written, a tracker is made under the home with the same
+prefix, and the command runs. Earlier tasks are not carried over; dotdiw says
+so once, and names the one command that removes the unused `.beads/` from the
+tree. It never runs that command and never edits the old copy.
+
+The one file dotdiw writes that is opt-in is the witness log,
+`~/.dotdiw/<key>/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that
+file exists, every create, pour and close that goes through dotdiw appends one
+JSON line -- the work id, the formula that surfaced or the silence, the
+molecule and its steps -- and the contract in `contracts/` decides whether
+those lines may be read as the promise kept. It is local, append-only, never
+transmitted, and never in the repository. A step closed with `bd` directly
+never reaches it, and the contract says so. Off, it writes nothing.
 
 ## Commands
 
 ```bash
-dotdiw init                                  # adopt it: tracking local to this checkout, the conventions declared
+dotdiw init                                  # adopt it: the tracker under your home, keyed to this checkout; the conventions declared
 dotdiw create "<what you're about to do>"    # where all work starts
 dotdiw formula new "<what it's for>"         # write a procedure down
 dotdiw formula new "..." --from <id>         # ...with steps from work already done

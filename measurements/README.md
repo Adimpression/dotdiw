@@ -68,10 +68,13 @@ only from inside the matrix, and captured none.
 
 Rounds one to four were built with the init of their day, which let bd commit
 its own files into each fixture repository; the agents saw bd's agent files
-with bd renamed, plus dotdiw's declaration. From 0.3.0 init runs bd in stealth
-mode and writes no agent files, so a new round is built with that init and is
-the measurement of whether agents do as well without them. The earlier rounds
-are not rebuilt or re-scored; their numbers keep that provenance.
+with bd renamed, plus dotdiw's declaration. From 0.4.0 init puts the tracker
+under the home and writes no agent files, so a new round is built with that
+init -- the harness's `HOME` is the sim root's, and each run's log is at
+`$HOME/.dotdiw/<key>/witness.jsonl`, the key read from the run directory's
+`.git/config` -- and is the measurement of whether agents do as well without
+bd's files. The earlier rounds are not rebuilt or re-scored; their numbers
+keep that provenance.
 
 The generated repositories are not here — about 85MB of them, rebuilt by
 `harness/build3.py` and `harness/build4.py`. Neither is the embedding model, nor
