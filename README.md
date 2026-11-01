@@ -351,6 +351,37 @@ which do not.
 
 ---
 
+## The promise, written down
+
+dotdiw is described in the discipline it asks of a project, as files that
+validate against the schemas they declare. Each is thin where it should be and
+owns only what is its own.
+
+- `product.yaml` -- the promise: what may be relied on, by whom, under what
+  conditions and boundaries, with the evidence that it was kept and the ways
+  it could look kept while broken.
+- `praxis.yaml` -- the lived capability that keeps it: what whoever works here
+  must notice, judge and do, what proves it, what would betray it, and the
+  lawful lifecycles of a piece of work and of a formula.
+- `carrier.yaml`, `reliant-enactments/` -- who may stand in the product's
+  position, and one real occasion of reliance.
+- `poa/product-model.yaml` and `operation-idl.json` -- the governed source and
+  the operation algebra derived from it: twenty-five operations, each traced
+  to a duty, a step and a lawful lifecycle transition. `poa/finish-idl.py`
+  finishes every derivation from `poa/idl-additions.json` and
+  `poa/idl-patches.json`: the real command-line bindings, the calls between
+  operations, the beads and git calls that cross the boundary.
+- `promise_bindings.py` -- every operation bound to its one body in `dotdiw`,
+  under the IDL's name. `dotdiw` is shaped by it: one function per operation,
+  nothing shared between them but infrastructure, and `main()` only routes.
+  `test_promise.py` holds the file to that from its source alone.
+- `contracts/`, `events/` -- the witness contract: which observed events are
+  allowed to count as "work was named and its procedure surfaced", proved
+  against this tool's own 0.2.1 release, a run recorded with the witness log
+  on, and three anti-golden traces it must reject.
+
+`check-promise-artifacts.formula.toml` is how they are re-derived and checked.
+
 ## Install
 
 Once per machine, the way git is installed:
@@ -361,6 +392,9 @@ brew install adimpression/tap/dotdiw
 
 That pulls `beads`, `git` and `python@3.12`. `dotdiw` is a single Python file
 depending only on the standard library; putting it on `PATH` works just as well.
+The Homebrew formula lives in
+[Adimpression/homebrew-tap](https://github.com/Adimpression/homebrew-tap), not
+in this repository.
 
 ### What `dotdiw init` changes in a repository
 
@@ -388,6 +422,16 @@ runs any bd command: `bd metrics off`, which writes `metrics.disabled: true`
 to `~/.config/bd/config.yaml`. That is per machine, not per repository, and
 it is the one thing dotdiw changes outside the repository. It says so the
 first time, and does it again on every run, so `bd metrics on` does not hold.
+
+From v0.3.0 there is one file dotdiw writes that is opt-in: the witness log,
+`.beads/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that file exists,
+every create, pour and close that goes through dotdiw appends one JSON line --
+the work id, the formula that surfaced or the silence, the molecule and its
+steps -- and the contract in `contracts/` decides whether those lines may be
+read as the promise kept. It is local, append-only, never transmitted, and
+`init` and `create` keep it out of git through `.beads/.gitignore`. A step
+closed with `bd` directly never reaches it, and the contract says so. Off, it
+writes nothing.
 
 ## Commands
 

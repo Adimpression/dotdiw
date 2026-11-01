@@ -1,0 +1,653 @@
+transcriptVersion: 0.1.0
+praxisName: Where work starts
+status: complete
+productId: product.praxis-formation-mvp
+idlId: idl.praxis-formation-mvp
+sourceProductModel: poa/product-model.yaml
+poa:
+  externalOperationId: operation.form-praxis-from-story
+  operationIds:
+  - operation.form-praxis-from-story
+  - operation.open-formation-case
+  - operation.capture-practice-story
+  - operation.ask-missing-formation-questions
+  - operation.mirror-back-praxis
+  - operation.record-bearer-correction
+  - operation.produce-formation-record
+  invariantIds:
+  - invariant.no-completion-without-recognition
+  - invariant.open-questions-remain-visible
+model:
+  provider: none
+  status: disabled
+case:
+  practiceName: Where work starts
+  practiceBearer: null
+  recognizedByBearer: true
+  recognitionStatement: 'Recognized as Where work starts: That the procedure the project
+    holds is the one that surfaces when the work is named, and that it is still right:
+    a formula that says cat where the tool now needs a script is a procedure the project
+    holds and should not. The promise is that naming the work shows you what applies,
+    and what applies has to be true. The reliance belongs to: The maintainer, who
+    had said on this branch that a release of dotdiw must run the promise check first
+    and who would be opening the pull request; and whoever next does this work here,
+    person or agent, who will type dotdiw create and trust that what surfaces is the
+    procedure as it now is, not as it was.. It would stop being this praxis if Three
+    things. Work is named before it is touched, with dotdiw create, in the worker''s
+    own words. What surfaces is read, and read as a claim about the project that can
+    be wrong. And a procedure that gets repeated, or found stale, is written as a
+    formula where it belongs and committed on its own. Take away the naming and nothing
+    surfaces; take away the reading and it is a runbook nobody opened; take away the
+    commit and only one checkout holds it. Any of those gone, it is a different practice..'
+  openQuestions: []
+story:
+  raw: 'On 2026-11-01, in the dotdiw repository, the agent working here was given
+    a task: implement POA_IMPLEMENTATION.md, the plan that binds the program to its
+    operation algebra. Before reading a file or cutting a branch it ran dotdiw create
+    with the task''s name. The create printed one formula, check-promise-artifacts,
+    with the command to pour it.
+
+    The work followed that procedure: validate the thin product, the praxis and the
+    source model; derive; the additions step; validate and check the IDL; check the
+    witness contract; replay; sweep. The step that could have gone wrong was additions.
+    The formula said to append poa/idl-additions.yaml to operation-idl.yaml with cat,
+    but the plan had just moved the derived IDL to JSON and the additions into a finishing
+    script. Following the step as written would have appended YAML to a JSON file;
+    poa check would still have passed on the generated bindings, and only the sweep
+    would have lost the contract, later, for somebody else.
+
+    The tempting shortcut was to do the finishing by hand, get the checks green, and
+    move on. Instead the formula was rewritten as version 2: a finish step running
+    poa/finish-idl.py, a promise step running both test suites, a conform step carrying
+    the two facts nobody could guess -- the protobuf pin and the copy into the generated
+    root -- and the readme step naming the plan. Then it was committed, on its own,
+    as the project asks. The authority stopped there: the commit of everything else
+    and the push were asked of the maintainer and done only on their word.
+
+    Proof that the promise held: dotdiw check reports six formulas, all discoverable,
+    with the new examples retrieving the formula; the commit holds the file; and the
+    next create for this work surfaces the rewritten procedure instead of the stale
+    one.'
+  summary: 'On 2026-11-01, in the dotdiw repository, the agent working here was given
+    a task: implement POA_IMPLEMENTATION.md, the plan that binds the program to its
+    operation algebra. Before reading a file or cutting a branch it ran dotdiw create
+    with the task''s name. The create printed one formula, check-promise-artifacts,
+    with the command to pour it. The work follow...'
+  originalPhrases:
+  - dotdiw create
+  - the declared moment
+  - a formula
+  - formula new
+  - surfaces
+  - holds
+  - check-promise-artifacts
+  - on its own
+  - as the project asks
+formationRecord:
+  storySummary: 'On 2026-11-01, in the dotdiw repository, the agent working here was
+    given a task: implement POA_IMPLEMENTATION.md, the plan that binds the program
+    to its operation algebra. Before reading a file or cutting a branch it ran dotdiw
+    create with the task''s name. The create printed one formula, check-promise-artifacts,
+    with the command to pour it. The work follow...'
+  originalPhrases:
+  - dotdiw create
+  - the declared moment
+  - a formula
+  - formula new
+  - surfaces
+  - holds
+  - check-promise-artifacts
+  - on its own
+  - as the project asks
+  corePromise: 'That the procedure the project holds is the one that surfaces when
+    the work is named, and that it is still right: a formula that says cat where the
+    tool now needs a script is a procedure the project holds and should not. The promise
+    is that naming the work shows you what applies, and what applies has to be true.'
+  beneficiary: The maintainer, who had said on this branch that a release of dotdiw
+    must run the promise check first and who would be opening the pull request; and
+    whoever next does this work here, person or agent, who will type dotdiw create
+    and trust that what surfaces is the procedure as it now is, not as it was.
+  possibleHarm: A stale procedure that looks followed. The next person pours check-promise-artifacts,
+    runs the cat step, poa check stays green, and the witness contract silently drops
+    out of the IDL; the release goes out with the promise unchecked while every step
+    shows closed. The repair would land on whoever ships next, who would not know
+    where to look.
+  expertAttention: 'The step''s own words no longer matched the files in front of
+    me. It said operation-idl.yaml and poa/idl-additions.yaml, and I had just deleted
+    both. The moment I read a step and reached for a different command than the one
+    written, that was the sign: the procedure and the tool had drifted apart, and
+    I was about to carry the difference in my head instead of in the file.'
+  hardJudgment: 'To stop and rewrite the formula before going on, rather than finish
+    the checks by hand and note the drift for later. The pull was real: the checks
+    were one command away from green, the rewrite was not on the plan''s list, and
+    later never comes. The decision was that the plan was not done until the procedure
+    that surfaces for this work was the procedure that works, and to commit that file
+    on its own before touching anything else.'
+  temptingShortcut: 'Run the right commands from memory, leave the formula as it was,
+    and write the drift into the plan as a note for later. It would have looked fine:
+    every check green, every box ticked, the formula still discoverable. Only the
+    next pour would have found out, and not from me.'
+  authorityBoundary: 'At the formula file. Committing it is what the project asks
+    of whoever writes a procedure, so I did that on my own. Committing everything
+    else, pushing the branch, releasing through the tap, deciding whether the praxis
+    is recognised: those are the maintainer''s, and each was asked for and done only
+    on their word. dotdiw itself stops even earlier -- it shows and never enforces,
+    and it never commits for anyone.'
+  proof: Three things anyone can look at. dotdiw check says six formulas, all discoverable,
+    and the two new example titles retrieve the rewritten formula. The commit holds
+    the file, so a clone has it. And the formula's steps, run from the top, reproduce
+    the whole set of checks -- fourteen in poa check, five replays, the sweep, two
+    test suites, the conformance harness -- which they did, from a clean state, before
+    the plan was called done.
+  excellentVersion: The drift never reaches a person. The moment a step names a file
+    that is gone, the check says so before anyone pours; the formula is edited where
+    it lives, in the same sitting as the change that made it stale, and committed
+    with it. Nobody carries the difference in their head, and the next create surfaces
+    something that is simply true.
+  betrayalVersion: 'A procedure that is followed because it surfaced, not because
+    it is right. Steps closing in order while the thing they describe no longer exists;
+    a check that stays green because it looks at the file and not at the tool; a formula
+    rewritten but not committed, so my checkout has the fix and the project does not.
+    Or the tool starting to refuse: a pour blocked because no create came first would
+    be enforcing, and this practice shows.'
+  identityTest: Three things. Work is named before it is touched, with dotdiw create,
+    in the worker's own words. What surfaces is read, and read as a claim about the
+    project that can be wrong. And a procedure that gets repeated, or found stale,
+    is written as a formula where it belongs and committed on its own. Take away the
+    naming and nothing surfaces; take away the reading and it is a runbook nobody
+    opened; take away the commit and only one checkout holds it. Any of those gone,
+    it is a different practice.
+  mirrorBack: 'Here is the shape I see:
+
+
+    Promise: That the procedure the project holds is the one that surfaces when the
+    work is named, and that it is still right: a formula that says cat where the tool
+    now needs a script is a procedure the project holds and should not. The promise
+    is that naming the work shows you what applies, and what applies has to be true.
+
+    Who relies on it: The maintainer, who had said on this branch that a release of
+    dotdiw must run the promise check first and who would be opening the pull request;
+    and whoever next does this work here, person or agent, who will type dotdiw create
+    and trust that what surfaces is the procedure as it now is, not as it was.
+
+    What could go wrong: A stale procedure that looks followed. The next person pours
+    check-promise-artifacts, runs the cat step, poa check stays green, and the witness
+    contract silently drops out of the IDL; the release goes out with the promise
+    unchecked while every step shows closed. The repair would land on whoever ships
+    next, who would not know where to look.
+
+
+    The work:
+
+    - What the person had to notice: The step''s own words no longer matched the files
+    in front of me. It said operation-idl.yaml and poa/idl-additions.yaml, and I had
+    just deleted both. The moment I read a step and reached for a different command
+    than the one written, that was the sign: the procedure and the tool had drifted
+    apart, and I was about to carry the difference in my head instead of in the file.
+
+    - Hard judgment: To stop and rewrite the formula before going on, rather than
+    finish the checks by hand and note the drift for later. The pull was real: the
+    checks were one command away from green, the rewrite was not on the plan''s list,
+    and later never comes. The decision was that the plan was not done until the procedure
+    that surfaces for this work was the procedure that works, and to commit that file
+    on its own before touching anything else.
+
+    - Tempting shortcut: Run the right commands from memory, leave the formula as
+    it was, and write the drift into the plan as a note for later. It would have looked
+    fine: every check green, every box ticked, the formula still discoverable. Only
+    the next pour would have found out, and not from me.
+
+    - Where authority stops: At the formula file. Committing it is what the project
+    asks of whoever writes a procedure, so I did that on my own. Committing everything
+    else, pushing the branch, releasing through the tap, deciding whether the praxis
+    is recognised: those are the maintainer''s, and each was asked for and done only
+    on their word. dotdiw itself stops even earlier -- it shows and never enforces,
+    and it never commits for anyone.
+
+
+    Recognition:
+
+    - Proof it worked: Three things anyone can look at. dotdiw check says six formulas,
+    all discoverable, and the two new example titles retrieve the rewritten formula.
+    The commit holds the file, so a clone has it. And the formula''s steps, run from
+    the top, reproduce the whole set of checks -- fourteen in poa check, five replays,
+    the sweep, two test suites, the conformance harness -- which they did, from a
+    clean state, before the plan was called done.
+
+    - Excellent version: The drift never reaches a person. The moment a step names
+    a file that is gone, the check says so before anyone pours; the formula is edited
+    where it lives, in the same sitting as the change that made it stale, and committed
+    with it. Nobody carries the difference in their head, and the next create surfaces
+    something that is simply true.
+
+    - Betrayal: A procedure that is followed because it surfaced, not because it is
+    right. Steps closing in order while the thing they describe no longer exists;
+    a check that stays green because it looks at the file and not at the tool; a formula
+    rewritten but not committed, so my checkout has the fix and the project does not.
+    Or the tool starting to refuse: a pour blocked because no create came first would
+    be enforcing, and this practice shows.
+
+    - No longer the same if removed: Three things. Work is named before it is touched,
+    with dotdiw create, in the worker''s own words. What surfaces is read, and read
+    as a claim about the project that can be wrong. And a procedure that gets repeated,
+    or found stale, is written as a formula where it belongs and committed on its
+    own. Take away the naming and nothing surfaces; take away the reading and it is
+    a runbook nobody opened; take away the commit and only one checkout holds it.
+    Any of those gone, it is a different practice.'
+  answerReviews: []
+  corrections: []
+  openQuestions: []
+events:
+- eventId: event-0001
+  at: '2026-11-01T10:03:28.093772+00:00'
+  operationId: operation.capture-practice-story
+  stepId: step.capture-practice-story
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: Tell me about one time when this practice mattered and it could have gone
+      wrong. Stay with what happened, not the official process.
+  - speaker: practice_bearer
+    text: 'On 2026-11-01, in the dotdiw repository, the agent working here was given
+      a task: implement POA_IMPLEMENTATION.md, the plan that binds the program to
+      its operation algebra. Before reading a file or cutting a branch it ran dotdiw
+      create with the task''s name. The create printed one formula, check-promise-artifacts,
+      with the command to pour it.
+
+      The work followed that procedure: validate the thin product, the praxis and
+      the source model; derive; the additions step; validate and check the IDL; check
+      the witness contract; replay; sweep. The step that could have gone wrong was
+      additions. The formula said to append poa/idl-additions.yaml to operation-idl.yaml
+      with cat, but the plan had just moved the derived IDL to JSON and the additions
+      into a finishing script. Following the step as written would have appended YAML
+      to a JSON file; poa check would still have passed on the generated bindings,
+      and only the sweep would have lost the contract, later, for somebody else.
+
+      The tempting shortcut was to do the finishing by hand, get the checks green,
+      and move on. Instead the formula was rewritten as version 2: a finish step running
+      poa/finish-idl.py, a promise step running both test suites, a conform step carrying
+      the two facts nobody could guess -- the protobuf pin and the copy into the generated
+      root -- and the readme step naming the plan. Then it was committed, on its own,
+      as the project asks. The authority stopped there: the commit of everything else
+      and the push were asked of the maintainer and done only on their word.
+
+      Proof that the promise held: dotdiw check reports six formulas, all discoverable,
+      with the new examples retrieving the formula; the commit holds the file; and
+      the next create for this work surfaces the rewritten procedure instead of the
+      stale one.'
+  state:
+    storySummary: 'On 2026-11-01, in the dotdiw repository, the agent working here
+      was given a task: implement POA_IMPLEMENTATION.md, the plan that binds the program
+      to its operation algebra. Before reading a file or cutting a branch it ran dotdiw
+      create with the task''s name. The create printed one formula, check-promise-artifacts,
+      with the command to pour it. The work follow...'
+    originalPhrases:
+    - dotdiw create
+    - the declared moment
+    - a formula
+    - formula new
+    - surfaces
+    - holds
+    - check-promise-artifacts
+    - on its own
+    - as the project asks
+- eventId: event-0002
+  at: '2026-11-01T10:03:29.569227+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: Who was counting on this going well?
+  - speaker: practice_bearer
+    text: The maintainer, who had said on this branch that a release of dotdiw must
+      run the promise check first and who would be opening the pull request; and whoever
+      next does this work here, person or agent, who will type dotdiw create and trust
+      that what surfaces is the procedure as it now is, not as it was.
+  state:
+    field: beneficiary
+    openQuestions: []
+- eventId: event-0003
+  at: '2026-11-01T10:03:31.024700+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: What had to remain true in that moment?
+  - speaker: practice_bearer
+    text: 'That the procedure the project holds is the one that surfaces when the
+      work is named, and that it is still right: a formula that says cat where the
+      tool now needs a script is a procedure the project holds and should not. The
+      promise is that naming the work shows you what applies, and what applies has
+      to be true.'
+  state:
+    field: corePromise
+    openQuestions: []
+- eventId: event-0004
+  at: '2026-11-01T10:03:32.471232+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: What bad outcome were you trying to prevent?
+  - speaker: practice_bearer
+    text: A stale procedure that looks followed. The next person pours check-promise-artifacts,
+      runs the cat step, poa check stays green, and the witness contract silently
+      drops out of the IDL; the release goes out with the promise unchecked while
+      every step shows closed. The repair would land on whoever ships next, who would
+      not know where to look.
+  state:
+    field: possibleHarm
+    openQuestions: []
+- eventId: event-0005
+  at: '2026-11-01T10:03:33.917126+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: 'You said the risk was: A stale procedure that looks followed. The next
+      person pours check-promise-artifacts, runs the cat step, poa check st.... What
+      did you notice in the moment that told you this risk was present, so you changed
+      what you did?'
+  - speaker: practice_bearer
+    text: 'The step''s own words no longer matched the files in front of me. It said
+      operation-idl.yaml and poa/idl-additions.yaml, and I had just deleted both.
+      The moment I read a step and reached for a different command than the one written,
+      that was the sign: the procedure and the tool had drifted apart, and I was about
+      to carry the difference in my head instead of in the file.'
+  state:
+    field: expertAttention
+    openQuestions: []
+- eventId: event-0006
+  at: '2026-11-01T10:03:35.396068+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: Given the risk (A stale procedure that looks followed. The next person pours
+      check-promise-artifacts, runs the cat step, poa check st...) and what you noticed
+      (The step's own words no longer matched the files in front of me. It said operation-idl.yaml
+      and poa/idl-additions.yam...), what did you have to decide to do or not do?
+  - speaker: practice_bearer
+    text: 'To stop and rewrite the formula before going on, rather than finish the
+      checks by hand and note the drift for later. The pull was real: the checks were
+      one command away from green, the rewrite was not on the plan''s list, and later
+      never comes. The decision was that the plan was not done until the procedure
+      that surfaces for this work was the procedure that works, and to commit that
+      file on its own before touching anything else.'
+  state:
+    field: hardJudgment
+    openQuestions: []
+- eventId: event-0007
+  at: '2026-11-01T10:03:36.875816+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: What shortcut would have been tempting?
+  - speaker: practice_bearer
+    text: 'Run the right commands from memory, leave the formula as it was, and write
+      the drift into the plan as a note for later. It would have looked fine: every
+      check green, every box ticked, the formula still discoverable. Only the next
+      pour would have found out, and not from me.'
+  state:
+    field: temptingShortcut
+    openQuestions: []
+- eventId: event-0008
+  at: '2026-11-01T10:03:38.354396+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: Where did your part stop?
+  - speaker: practice_bearer
+    text: 'At the formula file. Committing it is what the project asks of whoever
+      writes a procedure, so I did that on my own. Committing everything else, pushing
+      the branch, releasing through the tap, deciding whether the praxis is recognised:
+      those are the maintainer''s, and each was asked for and done only on their word.
+      dotdiw itself stops even earlier -- it shows and never enforces, and it never
+      commits for anyone.'
+  state:
+    field: authorityBoundary
+    openQuestions: []
+- eventId: event-0009
+  at: '2026-11-01T10:03:39.811079+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: What showed it had gone well?
+  - speaker: practice_bearer
+    text: Three things anyone can look at. dotdiw check says six formulas, all discoverable,
+      and the two new example titles retrieve the rewritten formula. The commit holds
+      the file, so a clone has it. And the formula's steps, run from the top, reproduce
+      the whole set of checks -- fourteen in poa check, five replays, the sweep, two
+      test suites, the conformance harness -- which they did, from a clean state,
+      before the plan was called done.
+  state:
+    field: proof
+    openQuestions: []
+- eventId: event-0010
+  at: '2026-11-01T10:03:41.268885+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: What would an excellent version look or feel like?
+  - speaker: practice_bearer
+    text: The drift never reaches a person. The moment a step names a file that is
+      gone, the check says so before anyone pours; the formula is edited where it
+      lives, in the same sitting as the change that made it stale, and committed with
+      it. Nobody carries the difference in their head, and the next create surfaces
+      something that is simply true.
+  state:
+    field: excellentVersion
+    openQuestions: []
+- eventId: event-0011
+  at: '2026-11-01T10:03:42.728894+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: What would make it feel wrong or unsafe?
+  - speaker: practice_bearer
+    text: 'A procedure that is followed because it surfaced, not because it is right.
+      Steps closing in order while the thing they describe no longer exists; a check
+      that stays green because it looks at the file and not at the tool; a formula
+      rewritten but not committed, so my checkout has the fix and the project does
+      not. Or the tool starting to refuse: a pour blocked because no create came first
+      would be enforcing, and this practice shows.'
+  state:
+    field: betrayalVersion
+    openQuestions: []
+- eventId: event-0012
+  at: '2026-11-01T10:03:44.195517+00:00'
+  operationId: operation.ask-missing-formation-questions
+  stepId: step.ask-missing-formation-questions
+  invariantIds:
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: What has to be there, or it is no longer this same practice?
+  - speaker: practice_bearer
+    text: Three things. Work is named before it is touched, with dotdiw create, in
+      the worker's own words. What surfaces is read, and read as a claim about the
+      project that can be wrong. And a procedure that gets repeated, or found stale,
+      is written as a formula where it belongs and committed on its own. Take away
+      the naming and nothing surfaces; take away the reading and it is a runbook nobody
+      opened; take away the commit and only one checkout holds it. Any of those gone,
+      it is a different practice.
+  state:
+    field: identityTest
+    openQuestions: []
+- eventId: event-0013
+  at: '2026-11-01T10:03:44.205899+00:00'
+  operationId: operation.mirror-back-praxis
+  stepId: step.mirror-back-praxis
+  invariantIds:
+  - invariant.no-completion-without-recognition
+  turns:
+  - speaker: formation_guide
+    text: Let me say back what I think this practice is protecting.
+  - speaker: practice_bearer
+    text: 'Here is the shape I see:
+
+
+      Promise: That the procedure the project holds is the one that surfaces when
+      the work is named, and that it is still right: a formula that says cat where
+      the tool now needs a script is a procedure the project holds and should not.
+      The promise is that naming the work shows you what applies, and what applies
+      has to be true.
+
+      Who relies on it: The maintainer, who had said on this branch that a release
+      of dotdiw must run the promise check first and who would be opening the pull
+      request; and whoever next does this work here, person or agent, who will type
+      dotdiw create and trust that what surfaces is the procedure as it now is, not
+      as it was.
+
+      What could go wrong: A stale procedure that looks followed. The next person
+      pours check-promise-artifacts, runs the cat step, poa check stays green, and
+      the witness contract silently drops out of the IDL; the release goes out with
+      the promise unchecked while every step shows closed. The repair would land on
+      whoever ships next, who would not know where to look.
+
+
+      The work:
+
+      - What the person had to notice: The step''s own words no longer matched the
+      files in front of me. It said operation-idl.yaml and poa/idl-additions.yaml,
+      and I had just deleted both. The moment I read a step and reached for a different
+      command than the one written, that was the sign: the procedure and the tool
+      had drifted apart, and I was about to carry the difference in my head instead
+      of in the file.
+
+      - Hard judgment: To stop and rewrite the formula before going on, rather than
+      finish the checks by hand and note the drift for later. The pull was real: the
+      checks were one command away from green, the rewrite was not on the plan''s
+      list, and later never comes. The decision was that the plan was not done until
+      the procedure that surfaces for this work was the procedure that works, and
+      to commit that file on its own before touching anything else.
+
+      - Tempting shortcut: Run the right commands from memory, leave the formula as
+      it was, and write the drift into the plan as a note for later. It would have
+      looked fine: every check green, every box ticked, the formula still discoverable.
+      Only the next pour would have found out, and not from me.
+
+      - Where authority stops: At the formula file. Committing it is what the project
+      asks of whoever writes a procedure, so I did that on my own. Committing everything
+      else, pushing the branch, releasing through the tap, deciding whether the praxis
+      is recognised: those are the maintainer''s, and each was asked for and done
+      only on their word. dotdiw itself stops even earlier -- it shows and never enforces,
+      and it never commits for anyone.
+
+
+      Recognition:
+
+      - Proof it worked: Three things anyone can look at. dotdiw check says six formulas,
+      all discoverable, and the two new example titles retrieve the rewritten formula.
+      The commit holds the file, so a clone has it. And the formula''s steps, run
+      from the top, reproduce the whole set of checks -- fourteen in poa check, five
+      replays, the sweep, two test suites, the conformance harness -- which they did,
+      from a clean state, before the plan was called done.
+
+      - Excellent version: The drift never reaches a person. The moment a step names
+      a file that is gone, the check says so before anyone pours; the formula is edited
+      where it lives, in the same sitting as the change that made it stale, and committed
+      with it. Nobody carries the difference in their head, and the next create surfaces
+      something that is simply true.
+
+      - Betrayal: A procedure that is followed because it surfaced, not because it
+      is right. Steps closing in order while the thing they describe no longer exists;
+      a check that stays green because it looks at the file and not at the tool; a
+      formula rewritten but not committed, so my checkout has the fix and the project
+      does not. Or the tool starting to refuse: a pour blocked because no create came
+      first would be enforcing, and this practice shows.
+
+      - No longer the same if removed: Three things. Work is named before it is touched,
+      with dotdiw create, in the worker''s own words. What surfaces is read, and read
+      as a claim about the project that can be wrong. And a procedure that gets repeated,
+      or found stale, is written as a formula where it belongs and committed on its
+      own. Take away the naming and nothing surfaces; take away the reading and it
+      is a runbook nobody opened; take away the commit and only one checkout holds
+      it. Any of those gone, it is a different practice.'
+  state:
+    openQuestions: []
+- eventId: event-0014
+  at: '2026-11-01T10:04:24.441951+00:00'
+  operationId: operation.record-bearer-correction
+  stepId: step.record-bearer-correction
+  invariantIds:
+  - invariant.no-completion-without-recognition
+  turns:
+  - speaker: formation_guide
+    text: Does that feel recognizable? Correct what is wrong, or answer yes.
+  - speaker: practice_bearer
+    text: 'Recognized as Where work starts: That the procedure the project holds is
+      the one that surfaces when the work is named, and that it is still right: a
+      formula that says cat where the tool now needs a script is a procedure the project
+      holds and should not. The promise is that naming the work shows you what applies,
+      and what applies has to be true. The reliance belongs to: The maintainer, who
+      had said on this branch that a release of dotdiw must run the promise check
+      first and who would be opening the pull request; and whoever next does this
+      work here, person or agent, who will type dotdiw create and trust that what
+      surfaces is the procedure as it now is, not as it was.. It would stop being
+      this praxis if Three things. Work is named before it is touched, with dotdiw
+      create, in the worker''s own words. What surfaces is read, and read as a claim
+      about the project that can be wrong. And a procedure that gets repeated, or
+      found stale, is written as a formula where it belongs and committed on its own.
+      Take away the naming and nothing surfaces; take away the reading and it is a
+      runbook nobody opened; take away the commit and only one checkout holds it.
+      Any of those gone, it is a different practice..'
+  state:
+    recognizedByBearer: true
+    recognitionStatement: 'Recognized as Where work starts: That the procedure the
+      project holds is the one that surfaces when the work is named, and that it is
+      still right: a formula that says cat where the tool now needs a script is a
+      procedure the project holds and should not. The promise is that naming the work
+      shows you what applies, and what applies has to be true. The reliance belongs
+      to: The maintainer, who had said on this branch that a release of dotdiw must
+      run the promise check first and who would be opening the pull request; and whoever
+      next does this work here, person or agent, who will type dotdiw create and trust
+      that what surfaces is the procedure as it now is, not as it was.. It would stop
+      being this praxis if Three things. Work is named before it is touched, with
+      dotdiw create, in the worker''s own words. What surfaces is read, and read as
+      a claim about the project that can be wrong. And a procedure that gets repeated,
+      or found stale, is written as a formula where it belongs and committed on its
+      own. Take away the naming and nothing surfaces; take away the reading and it
+      is a runbook nobody opened; take away the commit and only one checkout holds
+      it. Any of those gone, it is a different practice..'
+- eventId: event-0015
+  at: '2026-11-01T10:04:24.455260+00:00'
+  operationId: operation.produce-formation-record
+  stepId: step.produce-formation-record
+  invariantIds:
+  - invariant.no-completion-without-recognition
+  - invariant.open-questions-remain-visible
+  turns:
+  - speaker: formation_guide
+    text: Produce the formation record only after bearer recognition.
+  - speaker: practice_bearer
+    text: complete
+  state:
+    status: complete
+    openQuestions: []

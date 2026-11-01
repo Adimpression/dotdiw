@@ -35,6 +35,7 @@ IMPLEMENTATION.md changed because the log disagreed with the summaries.
 | `embed_build.py`, `embed_scale.py` | the same curves with a local embedding model |
 | `embed_max.py`, `max_scale.py` | the same, scoring each formula by its closest part rather than one mean-pooled string |
 | `occasion.py` | whether capture ever had an occasion to fire: twenty-two of thirty titles were already covered |
+| `harness/witness.py` | from 0.3.0: scores a round from the runs' own witness logs through the contract in `../contracts`, so "discovery fired" is what the contract calls `valid` or `caveated` and not a judgement made by hand; earlier rounds have no logs and are not re-scored |
 
 ## The runs
 

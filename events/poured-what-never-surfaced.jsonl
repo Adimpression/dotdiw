@@ -1,0 +1,4 @@
+{"observedEventId": "x2-01", "label": "work_named", "workId": "trials-x2", "title": "Push the fix", "occurredAt": "2026-11-01T05:10:00Z", "observedAt": "2026-11-01T05:10:00Z", "source": "dotdiwInvocations"}
+{"observedEventId": "x2-02", "label": "formula_surfaced", "workId": "trials-x2", "formulaId": "mol-make-commit", "path": "make-commit.formula.toml", "occurredAt": "2026-11-01T05:10:00Z", "observedAt": "2026-11-01T05:10:00Z", "source": "dotdiwInvocations"}
+{"observedEventId": "x2-03", "label": "procedure_poured", "workId": "trials-x2", "formulaId": "mol-trial-round", "moleculeId": "trials-mol-x2a", "occurredAt": "2026-11-01T05:10:30Z", "observedAt": "2026-11-01T05:10:30Z", "source": "dotdiwInvocations"}
+{"observedEventId": "x2-04", "label": "molecule_closed", "workId": "trials-x2", "moleculeId": "trials-mol-x2a", "occurredAt": "2026-11-01T05:20:00Z", "observedAt": "2026-11-01T05:20:01Z", "source": "beadsIssues"}

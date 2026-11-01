@@ -5,4 +5,8 @@ S=${DOTDIW_SIM_ROOT:-./sim-root}
 case "$PWD" in
   "$S"/runs3/*|"$S"/runs4/*) printf '%s\t%s\t%s\n' "$(date +%H:%M:%S)" "$PWD" "$*" >> "$S/invocations3.log" ;;
 esac
+# From 0.3.0 the runs witness themselves: every create, pour and close inside
+# the matrix writes to the run's own .beads/witness.jsonl, and witness.py
+# scores those logs against the contract instead of this shim's log.
+export DOTDIW_WITNESS=1
 exec /opt/homebrew/Cellar/dotdiw/0.1.0/bin/dotdiw "$@"

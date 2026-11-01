@@ -15,8 +15,21 @@ Formulas live anywhere in the tree, next to whatever they are about. They are
 found with `git ls-files`, which means an uncommitted formula is invisible --
 the sharing convention made mechanical rather than advisory.
 
-Silence the hints with DOTDIW_NO_HINTS=1.
+The file is shaped by the promise it keeps. operation-idl.json, derived from
+poa/product-model.yaml, names twenty-five operations; each is one function
+below taking a `request` dict and returning a dict with `status`, `summary`
+and `exitCode`. Orchestrations call step operations and nothing else is
+shared between operations except the infrastructure at the top: running git
+and bd, the pty plumbing, the FTS storage, file parsing, the witness log's
+append. promise_bindings.py re-exports the operations under the IDL's names,
+and test_promise.py holds each body to the calls the IDL declares for it.
+`main()` is the command line's binding and decides nothing about meaning.
+
+Silence the hints with DOTDIW_NO_HINTS=1. Witness what happens, locally and
+only here, with DOTDIW_WITNESS=1 or by creating .beads/witness.jsonl.
 """
+import contextlib
+import datetime
 import glob
 import json
 import math
@@ -37,7 +50,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "0.2.1"
+VERSION = "0.3.0"
 
 TOP_N = 3
 
@@ -96,25 +109,16 @@ CORPUS_EXTS = frozenset("""
 .html .css .scss .vue .svelte .tf .dockerfile .mk .gradle .bzl
 """.split()) | {""}
 
+# bd's name, as a whole word. Two bodies hide it -- the stream rewrite in
+# forward_to_beads and the file rewrite in declare_conventions -- and each
+# applies this pattern itself, so there is no helper that both share.
 _BD_WORD = re.compile(r"\bbd\b")
 _BD_WORD_B = re.compile(rb"\bbd\b")
-
-
-# ---------------------------------------------------------------- bd, hidden
-
-def find_bd():
-    return shutil.which("bd") or shutil.which("beads")
-
-
-def rewrite(s):
-    """bd names itself in compiled-in hints. argv[0] does not change them."""
-    return _BD_WORD.sub(PROG, s)
-
 
 # What bd init writes for agents to read. Its name is compiled into these the
 # same way it is into its output -- but an agent reads the file, so the stream
 # rewrite never reaches it. bd writes them again on setup, doctor --fix and
-# upgrades, so this re-runs rather than running once.
+# upgrades, so declare_conventions re-runs rather than running once.
 AGENT_FILES = (
     "AGENTS.md",
     "CLAUDE.md",
@@ -174,41 +178,6 @@ your changes as they are.
     %(p)s learn            all of it, in full
 %(close)s"""
 
-
-def conventions_text():
-    return CONVENTIONS % {"p": PROG, "open": MARK_OPEN, "close": MARK_CLOSE}
-
-
-def write_conventions(root):
-    """State the conventions in the files agents read. Returns what changed."""
-    body = conventions_text()
-    changed = permit_formula_commit(root)
-    for rel in CONVENTION_FILES:
-        path = os.path.join(root, rel)
-        try:
-            with open(path, encoding="utf-8") as fh:
-                before = fh.read()
-        except OSError:
-            before = ""
-        if MARK_OPEN in before and MARK_CLOSE in before:
-            head, rest = before.split(MARK_OPEN, 1)
-            after = head + body + rest.split(MARK_CLOSE, 1)[1]
-        elif before.strip():
-            after = before.rstrip() + "\n\n" + body + "\n"
-        else:
-            after = body + "\n"
-        if after == before:
-            continue
-        try:
-            with open(path, "w", encoding="utf-8") as fh:
-                fh.write(after)
-        except OSError:
-            continue
-        if rel not in changed:
-            changed.append(rel)
-    return changed
-
-
 # bd's own instruction files carry a git policy -- "Do not run git commits,
 # git pushes, or Dolt remote sync unless explicitly asked" -- and the project's
 # declaration right below it asks for one commit. Eight of eleven agents wrote
@@ -222,36 +191,6 @@ FORMULA_EXCEPTION = (
     " Committing a `*.formula.toml` file is the one exception: the project asks"
     " for it under \"How work starts\" below, so it is already explicitly asked."
     " Commit that file and leave your other changes alone.")
-
-
-def permit_formula_commit(root):
-    """Let the project's own declaration satisfy bd's git policy.
-
-    Without this the instruction files contradict each other, the stricter
-    sentence wins, and the formula stays uncommitted -- which by this design's
-    own rule means the project does not hold it.
-    """
-    changed = []
-    for rel in CONVENTION_FILES:
-        path = os.path.join(root, rel)
-        try:
-            with open(path, encoding="utf-8") as fh:
-                before = fh.read()
-        except OSError:
-            continue
-        if BD_GIT_POLICY not in before or FORMULA_EXCEPTION in before:
-            continue
-        try:
-            with open(path, "w", encoding="utf-8") as fh:
-                fh.write(before.replace(BD_GIT_POLICY,
-                                        BD_GIT_POLICY + FORMULA_EXCEPTION))
-        except OSError:
-            continue
-        changed.append(rel)
-    return changed
-
-
-# ------------------------------------------------- undoing what adoption did
 
 # `init` hands this tool's name to `bd init`, and v0.1.0 passed on three things
 # bd does to a repository without saying so. Two of them are destructive.
@@ -274,109 +213,6 @@ def permit_formula_commit(root):
 # was never told about it will think to look.
 HOOKS_KEY = "core.hooksPath"
 
-
-def hooks_replaced(root):
-    """bd's hook directory standing in for the repository's own, or ""."""
-    got = git(["config", "--get", HOOKS_KEY], root).strip()
-    if not got:
-        return ""
-    # realpath, not normpath: on macOS a checkout under /var or /tmp is
-    # reached through a symlink, and `git rev-parse` hands back the resolved
-    # path while the configured value keeps whichever form it was written in.
-    # Comparing the two unresolved left the override in place and said nothing
-    # -- the worst of both. Found by the test, not by hand.
-    mine = os.path.realpath(os.path.join(root, ".beads", "hooks"))
-    return got if os.path.realpath(os.path.join(root, got)) == mine else ""
-
-
-def dolt_remotes(root):
-    """(state file, remote names) for each local database carrying a remote."""
-    out = []
-    base = os.path.join(root, ".beads", "embeddeddolt")
-    try:
-        dbs = sorted(os.listdir(base))
-    except OSError:
-        return out
-    for db in dbs:
-        path = os.path.join(base, db, ".dolt", "repo_state.json")
-        try:
-            with open(path, encoding="utf-8") as fh:
-                state = json.load(fh)
-        except (OSError, ValueError):
-            continue
-        if state.get("remotes"):
-            out.append((path, sorted(state["remotes"])))
-    return out
-
-
-def repair(root):
-    """Undo it, and return a line for each thing undone."""
-    done = []
-
-    got = hooks_replaced(root)
-    if got:
-        git(["config", "--unset", HOOKS_KEY], root)
-        if not hooks_replaced(root):
-            done.append("%s is unset. It pointed at %s, a snapshot of this "
-                        "repository's hooks taken when it was adopted, so any "
-                        "hook added since was being skipped; .git/hooks is read "
-                        "again." % (HOOKS_KEY, got))
-
-    cfg = os.path.join(root, ".beads", "config.yaml")
-    try:
-        with open(cfg, encoding="utf-8") as fh:
-            before = fh.read()
-    except OSError:
-        before = ""
-    if before:
-        # A top-level `sync:` key and the indented block under it.
-        after = re.sub(r"(?m)^sync:\n(?:[ \t]+.*\n)*", "", before)
-        if after != before:
-            try:
-                with open(cfg, "w", encoding="utf-8") as fh:
-                    fh.write(after)
-                done.append("the Dolt remote is out of .beads/config.yaml.")
-            except OSError:
-                pass
-
-    for path, names in dolt_remotes(root):
-        try:
-            with open(path, encoding="utf-8") as fh:
-                state = json.load(fh)
-            state["remotes"] = {}
-            with open(path, "w", encoding="utf-8") as fh:
-                json.dump(state, fh, indent=2)
-        except (OSError, ValueError):
-            continue
-        done.append("the Dolt remote %s is out of %s."
-                    % (", ".join(names), os.path.relpath(path, root)))
-
-    return done
-
-
-def left_uncommitted(root, rels):
-    """Those of `rels` that git tracks and that now differ from the index."""
-    if not rels:
-        return []
-    out = git(["diff", "--name-only", "--"] + list(rels), root)
-    return [r for r in out.split("\n") if r.strip()]
-
-
-def announce_repair(root):
-    """Say what was undone. Silence when there was nothing to undo."""
-    done = repair(root)
-    if not done:
-        return
-    out = sys.stderr
-    out.write("\n%s undid what an earlier version of it did here:\n" % PROG)
-    for line in done:
-        out.write("    %s\n" % line)
-    out.write("\n    Nothing was deleted and no history was rewritten. Hooks\n"
-              "    that existed when this repository was adopted went on\n"
-              "    running. Any hook added after that was skipped until now,\n"
-              "    so commits made in between did not see it.\n\n")
-
-
 # bd ships with anonymous usage metrics on and asks nothing: the first run
 # prints a notice and starts queueing the name of every command, keyed by a
 # machine-derived ID, for gastownhall-eventsapi.com. The setting is per
@@ -389,485 +225,25 @@ def announce_repair(root):
 # empty HOME and looking at ~/.beads/eventsData afterwards.
 BD_CONFIG = "~/.config/bd/config.yaml"
 
-
-def metrics_off_already():
-    """Whether bd's own config says its metrics are off."""
-    try:
-        with open(os.path.expanduser(BD_CONFIG), encoding="utf-8") as fh:
-            text = fh.read()
-    except OSError:
-        return False
-    block = re.search(r"(?m)^metrics:[ \t]*\n((?:[ \t]+.*\n?)*)", text)
-    return bool(block and re.search(r"(?m)^[ \t]+disabled:[ \t]*[Tt]rue[ \t]*$",
-                                    block.group(1)))
-
-
-def turn_metrics_off():
-    """Turn bd's usage metrics off for this machine, and say so once.
-
-    Runs before any other bd command, on every run, so a fresh machine, a bd
-    upgrade or `bd metrics on` all get the same answer. Silent when they are
-    already off, which is every run but the first.
-    """
-    if metrics_off_already() or not find_bd():
-        return
-    bd_quiet(["metrics", "off"])
-    if not metrics_off_already():
-        return
-    sys.stderr.write(
-        "\n%s turned bd's anonymous usage metrics off, for every repository on\n"
-        "    this machine: %s, metrics.disabled: true. It does\n"
-        "    this on every run. What bd would have sent: bd metrics example\n\n"
-        % (PROG, BD_CONFIG))
-
-
-def undeclared(root):
-    """The instruction files that do not say where work starts."""
-    out = []
-    for rel in CONVENTION_FILES:
-        try:
-            with open(os.path.join(root, rel), encoding="utf-8") as fh:
-                if MARK_OPEN in fh.read():
-                    continue
-        except OSError:
-            pass
-        out.append(rel)
-    return out
-
-
-def agent_files(root):
-    for rel in AGENT_FILES:
-        yield os.path.join(root, rel)
-    for rel in AGENT_TREES:
-        for dirpath, _, names in os.walk(os.path.join(root, rel)):
-            for n in names:
-                yield os.path.join(dirpath, n)
-
-
-def rename_in_agent_files(root):
-    """Returns the files whose instructions stopped naming bd."""
-    changed = []
-    for path in agent_files(root):
-        try:
-            with open(path, encoding="utf-8") as fh:
-                before = fh.read()
-        except (OSError, UnicodeDecodeError, ValueError):
-            continue
-        after = rewrite(before)
-        if after == before:
-            continue
-        try:
-            with open(path, "w", encoding="utf-8") as fh:
-                fh.write(after)
-        except OSError:
-            continue
-        changed.append(os.path.relpath(path, root))
-    return changed
-
-
-def _hold_partial(buf):
-    """Split off a short alphanumeric tail that may be half of a split token."""
-    i, n = len(buf), 0
-    while i > 0 and chr(buf[i - 1]).isalnum() and n < 3:
-        i -= 1
-        n += 1
-    return buf[:i], buf[i:]
-
-
-def run_bd(args):
-    bd = find_bd()
-    if not bd:
-        sys.stderr.write("%s needs beads: brew install beads\n" % PROG)
-        return 127
-    argv = [bd] + list(args)
-
-    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-        p = subprocess.run(argv, capture_output=True, text=True)
-        sys.stdout.write(rewrite(p.stdout))
-        sys.stdout.flush()
-        sys.stderr.write(rewrite(p.stderr))
-        sys.stderr.flush()
-        return p.returncode
-
-    # A pty, so interactive prompts still work while the stream is filtered.
-    import pty
-    carry = bytearray()
-
-    def reader(fd):
-        data = os.read(fd, 4096)
-        if not data:
-            out = _BD_WORD_B.sub(PROG.encode(), bytes(carry))
-            del carry[:]
-            return out
-        carry.extend(data)
-        head, tail = _hold_partial(bytes(carry))
-        del carry[:]
-        carry.extend(tail)
-        return _BD_WORD_B.sub(PROG.encode(), head)
-
-    return os.waitstatus_to_exitcode(pty.spawn(argv, reader))
-
-
-def bd_quiet(args):
-    """Run bd for its output only, nothing printed."""
-    bd = find_bd()
-    if not bd:
-        return 127, ""
-    p = subprocess.run([bd] + list(args), capture_output=True, text=True)
-    return p.returncode, p.stdout
-
-
-# ------------------------------------------------------------------ scoring
-
-def toks(s):
-    """The words of a query. FTS5's porter tokenizer does the stemming."""
-    return list(dict.fromkeys(
-        w for w in re.findall(r"[a-z0-9]+", s.lower())
-        if len(w) >= 2 and w not in STOP))
-
-
-def git(args, cwd=None):
-    try:
-        p = subprocess.run(["git"] + args, capture_output=True, text=True,
-                           timeout=10, cwd=cwd)
-        if p.returncode == 0:
-            return p.stdout
-    except (OSError, subprocess.SubprocessError):
-        pass
-    return ""
-
-
-def repo_root():
-    return git(["rev-parse", "--show-toplevel"]).strip() or os.getcwd()
-
-
-def background(root):
-    """The project's own text, so that common words score as common.
-
-    These documents are indexed and never returned. Their only job is to tell
-    bm25 that "write", "test" and "version" are everyday words in this
-    project, which a corpus of four formulas cannot work out on its own. On
-    four documents of prose "version" was distinctive enough to pull up the
-    release formula for a Go toolchain bump; on twenty-two it is not.
-    """
-    out = []
-    for rel in git(["ls-files", "-z"], root).split("\0"):
-        if not rel or rel.endswith(".formula.toml") or rel.endswith(".formula.json"):
-            continue
-        if os.path.splitext(rel)[1].lower() not in CORPUS_EXTS:
-            continue
-        p = os.path.join(root, rel)
-        try:
-            if os.path.getsize(p) > CORPUS_BYTES:
-                continue
-            with open(p, errors="ignore") as fh:
-                out.append(fh.read())
-        except OSError:
-            continue
-        if len(out) >= CORPUS_FILES:
-            break
-    return out
-
-
-def tracked_formulas(root):
-    out = git(["ls-files", "-z", "--", "*.formula.toml", "*.formula.json"], root)
-    return [p for p in out.split("\0") if p]
-
-
-def untracked_formulas(root):
-    out = git(["ls-files", "-z", "--others", "--exclude-standard", "--",
-               "*.formula.toml", "*.formula.json"], root)
-    return [p for p in out.split("\0") if p]
-
-
-def load_formula(root, rel):
-    path = os.path.join(root, rel)
-    try:
-        with open(path, "rb") as fh:
-            if path.endswith(".toml"):
-                if tomllib is None:
-                    return None
-                data = tomllib.load(fh)
-            else:
-                data = json.load(fh)
-    except Exception:
-        return None
-
-    name = os.path.basename(path).split(".")[0]
-    desc = str(data.get("description", ""))
-    ex = data.get("examples") or data.get("keywords") or []
-    if isinstance(ex, str):
-        ex = [ex]
-    ex = [str(e) for e in ex]
-    # The directory is matchable text too: services/billing/ says "billing"
-    # without the description having to repeat it.
-    where = " ".join(re.split(r"[/\\._-]+", os.path.dirname(rel)))
-    return {
-        "name": name,
-        "rel": rel,
-        "id": str(data.get("formula") or name),
-        "desc": desc,
-        "examples": ex,
-        "words": name.replace("-", " "),
-        "where": where,
-    }
-
-
-def load_formulas(root):
-    rels = tracked_formulas(root)
-    if rels and tomllib is None:
-        # Silently returning nothing here is the worst available answer: the
-        # project is full of formulas and the tool says it holds none.
-        sys.stderr.write(
-            "%s needs Python 3.11 or newer to read formulas (tomllib), and this "
-            "is %d.%d.\n  %d formula file%s in this repo cannot be parsed.\n"
-            "  brew install %s installs its own interpreter; this one came from "
-            "elsewhere.\n"
-            % (PROG, sys.version_info[0], sys.version_info[1], len(rels),
-               "" if len(rels) == 1 else "s", PROG))
-        sys.exit(3)
-    out = []
-    for rel in rels:
-        f = load_formula(root, rel)
-        if f:
-            out.append(f)
-    return out
-
-
-def no_fts5():
-    """Retrieval is FTS5, and some SQLite builds are compiled without it."""
-    sys.stderr.write(
-        "%s needs SQLite built with FTS5, and this interpreter's is not.\n"
-        "  brew install %s installs its own interpreter; this one came from "
-        "elsewhere.\n" % (PROG, PROG))
-    sys.exit(4)
-
-
-class Index:
-    """BM25 over the formulas, with the project's prose for word weight.
-
-    SQLite's FTS5 does the retrieval: its porter stemmer reaches "failing"
-    from "fail", and bm25() ranks on how distinctive a word is instead of on
-    how many words happened to overlap.
-    """
-
-    COLUMNS = ("fname", "place", "body", "cases")
-
-    def __init__(self, forms, bg, floor=COVERAGE):
-        self.forms = forms
-        self.nbg = len(bg)
-        self.floor = floor
-        self._spread_cache = {}
-        self.db = sqlite3.connect(":memory:")
-        try:
-            self.db.execute(
-                "CREATE VIRTUAL TABLE f USING fts5(%s, "
-                "tokenize='porter unicode61')" % ", ".join(self.COLUMNS))
-        except sqlite3.Error:
-            no_fts5()
-        rows = [(f["words"], f["where"], f["desc"], " ".join(f["examples"]))
-                for f in forms]
-        # Formulas take rowid 1..N, so everything after them is background.
-        rows += [("", "", text, "") for text in bg]
-        self.db.executemany(
-            "INSERT INTO f VALUES (?, ?, ?, ?)", rows)
-        self.sql = (
-            "SELECT rowid, -bm25(f, %s) AS s FROM f "
-            "WHERE f MATCH ? AND rowid <= ?"
-            % ", ".join("%g" % w for w in WEIGHTS))
-
-    def spread(self, word):
-        """Which formulas hold this word, and how many background documents do.
-
-        One query per word, so a title costs a handful however many formulas
-        the project has.
-        """
-        if word not in self._spread_cache:
-            n = len(self.forms)
-            rows = [r[0] for r in self.db.execute(
-                "SELECT rowid FROM f WHERE f MATCH ?", ('"%s"' % word,))]
-            self._spread_cache[word] = (frozenset(r for r in rows if r <= n),
-                                        sum(1 for r in rows if r > n))
-        return self._spread_cache[word]
-
-    def weight(self, word):
-        """How distinctive a word is in this project.
-
-        Smoothed so it stays positive. bm25's own idf is zero for a word in
-        half the corpus, and in a project with one formula and one README that
-        is every word there is.
-        """
-        held = self.spread(word)[1]
-        return math.log((self.nbg - held + 0.5) / (held + 0.5) + 1.0)
-
-    def search(self, text):
-        words = toks(text)
-        if not words or not self.forms:
-            return []
-        match = " OR ".join('"%s"' % w for w in words)
-        try:
-            rows = self.db.execute(self.sql, (match, len(self.forms))).fetchall()
-        except sqlite3.Error:
-            return []
-        total = sum(self.weight(w) for w in words)
-        if not total:
-            return []
-        ranked = []
-        for rowid, score in rows:
-            held = sum(self.weight(w) for w in words
-                       if rowid in self.spread(w)[0])
-            if held / total >= self.floor:
-                ranked.append((score, self.forms[rowid - 1]))
-        ranked.sort(key=lambda r: (-r[0], r[1]["name"]))
-        return ranked
-
-    def search_without_example(self, i, j, text):
-        """Search as if formula i had never listed example j.
-
-        A self-test that leaves the example in place proves nothing: the
-        title is in the index, so of course it finds itself.
-        """
-        ex = self.forms[i]["examples"]
-        before = " ".join(ex)
-        kept = " ".join(e for k, e in enumerate(ex) if k != j)
-        self.db.execute("UPDATE f SET cases = ? WHERE rowid = ?", (kept, i + 1))
-        self._spread_cache.clear()
-        try:
-            return self.search(text)
-        finally:
-            self.db.execute("UPDATE f SET cases = ? WHERE rowid = ?",
-                            (before, i + 1))
-            self._spread_cache.clear()
-
-
-class Titles:
-    """The work this project has already named, matched the way formulas are.
-
-    Word weights come from the formula index, whose background is the project's
-    own prose -- so "menu" counts as distinctive here for the same reason it
-    does there, and this table holds nothing but the titles.
-    """
-
-    def __init__(self, titles, idx):
-        self.titles = titles
-        self.idx = idx
-        self.db = sqlite3.connect(":memory:")
-        try:
-            self.db.execute("CREATE VIRTUAL TABLE t USING fts5(body, "
-                            "tokenize='porter unicode61')")
-        except sqlite3.Error:
-            no_fts5()
-        self.db.executemany("INSERT INTO t VALUES (?)",
-                            [(t,) for t in titles])
-        self._held = {}
-
-    def holders(self, word):
-        if word not in self._held:
-            self._held[word] = frozenset(
-                r[0] for r in self.db.execute(
-                    "SELECT rowid FROM t WHERE t MATCH ?", ('"%s"' % word,)))
-        return self._held[word]
-
-    def echoes(self, text):
-        """Earlier titles that look like this one, for seeding examples."""
-        words = toks(text)
-        if not words or not self.titles:
-            return []
-        total = sum(self.idx.weight(w) for w in words)
-        if not total:
-            return []
-        out = []
-        for i, t in enumerate(self.titles):
-            held = sum(self.idx.weight(w) for w in words
-                       if (i + 1) in self.holders(w))
-            if held / total >= SEED:
-                out.append((held / total, t))
-        out.sort(key=lambda r: (-r[0], r[1]))
-        return out
-
-
-def past_titles(root, drop=None, limit=300):
-    """The top-level work this project has named before.
-
-    Children of a poured molecule are left out: those titles came out of a
-    formula, so counting them as evidence that a formula is wanted is
-    circular. `drop` removes one copy of a title -- the one `create` just made.
-    """
-    code, out = bd_quiet(["list", "--all", "--json", "--brief",
-                          "-n", str(limit)])
-    if code != 0:
-        return []
-    try:
-        rows = json.loads(out)
-    except (ValueError, TypeError):
-        return []
-    titles = []
-    for r in rows:
-        if not isinstance(r, dict) or r.get("parent"):
-            continue
-        if r.get("issue_type") in ("molecule", "epic"):
-            continue
-        t = " ".join(str(r.get("title") or "").split())
-        if t:
-            titles.append(t)
-    if drop:
-        drop = " ".join(drop.split())
-        if drop in titles:
-            titles.remove(drop)
-    return titles
-
-
-# -------------------------------------------- the project's formula set
-
-def resolve(forms, ident):
-    """A formula by its id, its file name, or its path."""
-    ident = (ident or "").strip()
-    if not ident:
-        return None
-    base = os.path.basename(ident).split(".")[0]
-    for f in forms:
-        if ident in (f["id"], f["name"], f["rel"]) or base in (f["id"], f["name"]):
-            return f
-    return None
-
-
-def bd_knows(ident):
-    """Whether bd has this formula cooked. bd only looks in its own two
-    directories, so it can say no about a formula the project plainly holds."""
-    code, _ = bd_quiet(["formula", "show", ident])
-    return code == 0
-
-
-def cmd_formula_list(root, forms, as_json=False):
-    """What this project holds.
-
-    bd answers this question about its own search paths, so in a project whose
-    formulas sit next to what they are about it says "No formulas found" --
-    which is true of `.beads/formulas` and false of the project. Every agent in
-    the trial believed it and moved the formulas. This answers about the
-    project, which is what was asked.
-    """
-    if as_json:
-        print(json.dumps([{"formula": f["id"], "name": f["name"],
-                           "path": f["rel"], "description": f["desc"],
-                           "examples": f["examples"]} for f in forms], indent=2))
-        return 0
-    if not forms:
-        print("No formulas in this repo yet. %s learn says how to write one."
-              % PROG)
-        return 0
-    w = max(len(f["id"]) for f in forms)
-    print("%d formula%s in this repo:"
-          % (len(forms), "" if len(forms) == 1 else "s"))
-    for f in sorted(forms, key=lambda g: g["name"]):
-        d = " ".join(f["desc"].split())
-        if len(d) > 70 - w:
-            d = d[:69 - w] + "\u2026"
-        print("  %-*s  %s" % (w, f["id"], d))
-        print("  %-*s  %s" % (w, "", f["rel"]))
-    print("\nRun one: %s mol pour <id>" % PROG)
-    return 0
-
+# The witness log: what the contract in contracts/ is allowed to count as
+# evidence that work was named and its procedure surfaced. Local, append-only,
+# never transmitted, off unless the project or the worker turns it on, and
+# kept out of git. A step closed with bd directly never reaches it; the
+# contract says so rather than pretending otherwise.
+WITNESS_FILE = os.path.join(".beads", "witness.jsonl")
+WITNESS_IGNORE = os.path.join(".beads", ".gitignore")
+
+# When this process started, for the one latency the promise names: from the
+# worker invoking create to the applying formulas being printed. work_named
+# carries it as startedAt; the match's occurredAt is the other end.
+STARTED_AT = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+# bd create flags that consume the next argument, so it is never the title.
+VALUE_FLAGS = {
+    "-d", "--description", "-p", "--priority", "-t", "--type", "-a", "--assignee",
+    "-l", "--label", "--labels", "--design", "--acceptance", "--notes", "--parent",
+    "--estimate", "--status", "--due", "--repo", "--db", "--actor", "--external-id",
+}
 
 SCAFFOLD = """# Fill in the description and the steps, then: %(p)s check
 # The description is the mechanism and not a label on one -- it is all that
@@ -898,374 +274,10 @@ title = "TODO -- the next thing, and so on"
 needs = ["first"]
 '''
 
-
-def slug(title, limit=4):
-    words = [w for w in re.findall(r"[a-z0-9]+", title.lower())
-             if len(w) >= 2 and w not in STOP]
-    return "-".join(words[:limit]) or "procedure"
-
-
-def steps_from(ident, limit=300):
-    """An issue's children as steps, with its blocks edges as `needs`.
-
-    The highest-fidelity capture there is: the procedure as it was actually
-    carried out, rather than as someone remembers it afterwards.
-    """
-    code, out = bd_quiet(["list", "--all", "--json", "--brief",
-                          "-n", str(limit)])
-    if code != 0:
-        return None
-    try:
-        rows = json.loads(out)
-    except (ValueError, TypeError):
-        return None
-    byid = {r.get("id"): r for r in rows if isinstance(r, dict)}
-    hit = [i for i in byid if i == ident or str(i).endswith("-" + ident)]
-    if len(hit) != 1:
-        return None
-    parent = hit[0]
-    kids = [r for r in rows if r.get("parent") == parent]
-    if not kids:
-        return None
-    ids, used = {}, set()
-    for r in kids:
-        sid, k = slug(str(r.get("title") or ""), 3), 1
-        while sid in used:
-            k += 1
-            sid = "%s-%d" % (slug(str(r.get("title") or ""), 3), k)
-        used.add(sid)
-        ids[r.get("id")] = sid
-    needs = {}
-    for r in kids:
-        needs[ids[r["id"]]] = [ids[d.get("depends_on_id")]
-                               for d in (r.get("dependencies") or [])
-                               if d.get("type") == "blocks"
-                               and d.get("depends_on_id") in ids]
-    # In the order the work was done, not the order the tracker lists it: a
-    # formula is read top to bottom by whoever has to follow it.
-    order, left = [], [ids[r["id"]] for r in kids]
-    while left:
-        ready = [x for x in left if all(d in order for d in needs[x])]
-        if not ready:                       # a cycle; keep what is left as-is
-            order.extend(left)
-            break
-        order.extend(ready)
-        left = [x for x in left if x not in ready]
-    titles = {ids[r["id"]]: str(r.get("title") or "").replace('"', "'")
-              for r in kids}
-    out = []
-    for sid in order:
-        block = STEP % {"id": sid, "title": titles[sid]}
-        if needs[sid]:
-            block += "needs = [%s]\n" % ", ".join('"%s"' % x for x in needs[sid])
-        out.append(block)
-    return "\n".join(out)
-
-
-def cmd_formula_new(root, title, at=None, frm=None):
-    """Write a formula for work the project keeps doing.
-
-    The expensive part of declaring a procedure was never the thinking, it was
-    the TOML: fifteen agents in the trial wrote the procedure down as prose
-    instead, where nothing can match it against a title or pour it into steps.
-    This writes the file, seeds the examples from the titles the work has
-    actually been given here, and leaves the thinking marked TODO.
-    """
-    if not title:
-        sys.stderr.write("%s formula new \"<what the procedure is for>\"\n"
-                         % PROG)
-        return 2
-    forms = load_formulas(root)
-    idx = Index(forms, background(root))
-    cases = [title]
-    for _, t in Titles(past_titles(root), idx).echoes(title):
-        if t not in cases:
-            cases.append(t)
-    steps = (frm and steps_from(frm)) or PLACEHOLDER_STEPS
-    name = slug(title)
-    path = os.path.join(at or os.getcwd(), name + ".formula.toml")
-    if os.path.exists(path):
-        sys.stderr.write("%s already exists\n" % os.path.relpath(path, root))
-        return 1
-    body = SCAFFOLD % {
-        "p": PROG, "slug": name, "title": title.replace('"', "'"),
-        "examples": "".join('  "%s",\n' % c.replace('"', "'") for c in cases),
-        "steps": steps,
-    }
-    try:
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(body)
-    except OSError as e:
-        sys.stderr.write("%s: %s\n" % (path, e))
-        return 1
-    rel = os.path.relpath(path, root)
-    print("\u2713 Wrote %s" % rel)
-    if len(cases) > 1:
-        print("  Seeded %d example titles from work already named here."
-              % len(cases))
-    done = frm and steps is not PLACEHOLDER_STEPS
-    if done:
-        print("  Steps taken from %s, in the order the work was done." % frm)
-    if done:
-        print("\n  One thing left, and it is discoverable:")
-        print("    the description   the situation, and when to reach for it")
-    else:
-        print("\n  Two things left, and it is discoverable:")
-        print("    the description   the situation, and when to reach for it")
-        print("    the steps         what you do, and which step needs which")
-    print("\n  Then:  git add %s && git commit" % rel)
-    print("         %s check" % PROG)
-    return 0
-
-
-def cmd_formula_show(root, f):
-    """The formula as it is written, from where it is written."""
-    try:
-        with open(os.path.join(root, f["rel"]), encoding="utf-8") as fh:
-            sys.stdout.write(fh.read())
-    except OSError as e:
-        sys.stderr.write("%s: %s\n" % (f["rel"], e))
-        return 1
-    return 0
-
-
-def ensure_cooked(root, f):
-    """Cook a formula from where it actually lives, every time.
-
-    bd pours only what it has cooked, and cooks only from its own directories.
-    Cooking by path closes that gap, so a formula never has to be moved or
-    linked out of the place it belongs.
-
-    Unconditionally, and with --force, because the file is the formula. Cooking
-    only when bd had never heard of the id meant that a formula edited in place
-    poured the version bd happened to hold -- found by editing this project's
-    own commit formula and watching `mol pour` instantiate the step that edit
-    had just removed. A procedure that gets edited in place is the convention;
-    silently pouring its previous version defeats it.
-    """
-    path = os.path.join(root, f["rel"])
-    code, _ = bd_quiet(["cook", path, "--persist", "--force"])
-    if code == 0:
-        return True
-    # Older bd without --force on cook: the stale proto is better than none.
-    code, _ = bd_quiet(["cook", path, "--persist"])
-    return code == 0 or bd_knows(f["id"])
-
-
-# ------------------------------------------------------- the create moment
-
-# bd create flags that consume the next argument, so it is never the title.
-VALUE_FLAGS = {
-    "-d", "--description", "-p", "--priority", "-t", "--type", "-a", "--assignee",
-    "-l", "--label", "--labels", "--design", "--acceptance", "--notes", "--parent",
-    "--estimate", "--status", "--due", "--repo", "--db", "--actor", "--external-id",
-}
-
-
-def extract_query(argv):
-    """Title plus -d description, from a `create ...` argument list."""
-    title, desc, skip = "", "", False
-    for i, a in enumerate(argv):
-        if skip:
-            skip = False
-            continue
-        if a == "create":
-            continue
-        if a.startswith("--") and "=" in a:
-            k, v = a.split("=", 1)
-            if k in ("-d", "--description"):
-                desc = v
-            continue
-        if a.startswith("-"):
-            if a in VALUE_FLAGS:
-                skip = True
-                if a in ("-d", "--description") and i + 1 < len(argv):
-                    desc = argv[i + 1]
-            continue
-        if not title:
-            title = a
-    return title, desc
-
-
-def suggest(argv, root, idx):
-    """The procedures that apply. Returns whether any did."""
-    title, desc = extract_query(argv)
-    if not title:
-        return False
-    ranked = idx.search(title + " " + desc)
-    if not ranked:
-        return False
-    seen, top = set(), []
-    for score, f in ranked:
-        if f["name"] in seen:
-            continue
-        seen.add(f["name"])
-        top.append((score, f))
-        if len(top) == TOP_N:
-            break
-    w = max(len(f["name"]) for _, f in top)
-    print("\n\U0001f4dc Formulas that may apply:", file=sys.stderr)
-    for _, f in top:
-        d = " ".join(f["desc"].split())
-        if len(d) > 74 - w:
-            d = d[:73 - w] + "…"
-        print("  %-*s  %s" % (w, f["name"], d), file=sys.stderr)
-        print("  %-*s  %s" % (w, "", f["rel"]), file=sys.stderr)
-    f = top[0][1]
-    # One command. It used to print `cook --persist && mol wisp create`, whose
-    # wisp is ephemeral and never synced via git -- which is management and
-    # sharing both given up. `mol pour` is the durable one, and it now cooks
-    # from the formula's own path first.
-    print("  Run it: %s mol pour %s" % (PROG, f["id"]), file=sys.stderr)
-    return True
-
-
-def handmade(root, limit=300):
-    """Procedures this project carried out but never declared.
-
-    Pouring a formula leaves a molecule behind. A parent that is not a molecule,
-    with several ordered children, is that same shape built by hand: the
-    procedure exists, in the tracker, where nothing can match it against a
-    title or pour it a second time. Unlike a guess at what two titles have in
-    common, this cannot misfire -- the DAG is either there or it is not.
-    """
-    code, out = bd_quiet(["list", "--all", "--json", "--brief",
-                          "-n", str(limit)])
-    if code != 0:
-        return []
-    try:
-        rows = json.loads(out)
-    except (ValueError, TypeError):
-        return []
-    byid, kids = {}, {}
-    for r in rows:
-        if not isinstance(r, dict):
-            continue
-        byid[r.get("id")] = r
-        if r.get("parent"):
-            kids.setdefault(r["parent"], []).append(r)
-    found = []
-    for pid, ks in sorted(kids.items(), key=lambda kv: -len(kv[1])):
-        p = byid.get(pid) or {}
-        if p.get("issue_type") in ("molecule", "epic"):
-            continue
-        if len(ks) < HANDMADE_STEPS:
-            continue
-        if not any(d.get("type") == "blocks"
-                   for k in ks for d in (k.get("dependencies") or [])):
-            continue
-        found.append((pid, " ".join(str(p.get("title") or "").split()), len(ks)))
-    return found
-
-
-def note_handmade(root, idx):
-    """Name the procedures the project has run by hand and not written down.
-
-    Suppressed once a formula reaches the title, which is what writing it down
-    means -- so this stops the moment it is acted on, and `--from` turns the
-    work that was actually done into the steps.
-    """
-    found = [t for t in handmade(root) if not idx.search(t[1])]
-    if not found:
-        return
-    sys.stdout.flush()
-    print("\n\U0001f4dc %d procedure%s carried out here, never declared:"
-          % (len(found), "" if len(found) == 1 else "s"), file=sys.stderr)
-    for pid, title, k in found[:TOP_N]:
-        print("    %s  (%d ordered steps, built by hand)" % (title or pid, k),
-              file=sys.stderr)
-        print("      %s formula new \"%s\" --from %s" % (PROG, title, pid),
-              file=sys.stderr)
-    if len(found) > TOP_N:
-        print("    ... and %d more" % (len(found) - TOP_N), file=sys.stderr)
-
-
-# ------------------------------------------------------------- enforcement
-
-def problems(root, forms, idx):
-    """The two conventions, checked rather than hoped for."""
-    out = []
-
-    # Only once the project has adopted any of this: a plain repo is not in
-    # breach of a convention it has never declared.
-    if os.path.isdir(os.path.join(root, ".beads")):
-        for rel in undeclared(root):
-            out.append((rel, "does not say where work starts -- run `%s init`"
-                        % PROG))
-
-    extra = []
-    for rel in untracked_formulas(root):
-        out.append((rel, "not committed, so nobody else can see it"))
-        f = load_formula(root, rel)
-        if f:
-            extra.append(f)
-
-    home = os.path.expanduser("~/.beads/formulas")
-    for p in sorted(glob.glob(os.path.join(home, "*.toml"))
-                    + glob.glob(os.path.join(home, "*.json"))):
-        out.append((p, "outside the repo: bd finds it, nobody else does"))
-
-    for f in forms + extra:
-        n = len(f["desc"].split())
-        if n < MIN_DESC_WORDS:
-            out.append((f["rel"], "description is %d word%s -- write a sentence "
-                                  "naming the situation, and when to use it"
-                        % (n, "" if n == 1 else "s")))
-        try:
-            with open(os.path.join(root, f["rel"]), encoding="utf-8") as fh:
-                if "TODO" in fh.read():
-                    out.append((f["rel"], "still has TODO in it -- a scaffold "
-                                          "is not yet a procedure"))
-        except OSError:
-            pass
-        if len(f["examples"]) < MIN_EXAMPLES:
-            out.append((f["rel"], "has %d example title%s, needs %d"
-                        % (len(f["examples"]),
-                           "" if len(f["examples"]) == 1 else "s", MIN_EXAMPLES)))
-
-    for i, f in enumerate(forms):
-        for j, ex in enumerate(f["examples"]):
-            ranked = idx.search_without_example(i, j, ex)
-            top = [g["name"] for _, g in ranked[:TOP_N]]
-            if f["name"] not in top:
-                out.append((f["rel"], 'example "%s" does not retrieve it' % ex))
-
-    return out
-
-
-def print_problems(probs, limit=None):
-    shown = probs if limit is None else probs[:limit]
-    w = max(len(p[0]) for p in shown)
-    for where, what in shown:
-        print("  %-*s  %s" % (w, where, what), file=sys.stderr)
-    extra = len(probs) - len(shown)
-    if extra > 0:
-        print("  ... and %d more. See them all: %s check" % (extra, PROG),
-              file=sys.stderr)
-
-
-def cmd_check():
-    root = repo_root()
-    forms = load_formulas(root)
-    idx = Index(forms, background(root))
-    probs = problems(root, forms, idx)
-    if not forms and not probs:
-        print("No formulas yet. %s learn says how to write one." % PROG)
-        note_handmade(root, idx)
-        return 0
-    if not probs:
-        print("✓ %d formula%s, all discoverable."
-              % (len(forms), "" if len(forms) == 1 else "s"))
-        note_handmade(root, idx)
-        return 0
-    print("%d problem%s:" % (len(probs), "" if len(probs) == 1 else "s"),
-          file=sys.stderr)
-    print_problems(probs)
-    note_handmade(root, idx)
-    return 1
-
-
-# ------------------------------------------------------------------- learn
+# Words that make a remembered note read like a procedure rather than a fact.
+# Two or more: one "then" is a sentence, two is a sequence.
+PROCEDURAL = ("every time", "each time", "always", "first", "then", "after",
+              "before", "step", "run ", "finally", "once you")
 
 LEARN = """%(p)s -- how work gets done in this project
 
@@ -1362,38 +374,1438 @@ Everything else works as before:  %(p)s list, %(p)s show, %(p)s init, ...
 """ % {"p": PROG}
 
 
-# Words that make a remembered note read like a procedure rather than a fact.
-# Two or more: one "then" is a sentence, two is a sequence.
-PROCEDURAL = ("every time", "each time", "always", "first", "then", "after",
-              "before", "step", "run ", "finally", "once you")
+# ============================================================ infrastructure
+#
+# Shared by any body below, and deciding nothing about the product: how to run
+# git and bd, the pty plumbing, tokenising, the FTS storage, file parsing, and
+# appending to the witness log. Everything after this section is one
+# operation's body.
+
+def find_bd():
+    return shutil.which("bd") or shutil.which("beads")
 
 
-def clip(text, n):
-    """Cut to a word, not to a letter: this goes in a command to be copied."""
-    t = " ".join(text.split())
-    return t if len(t) <= n else t[:t.rfind(" ", 0, n + 1)]
+def git(args, cwd=None):
+    try:
+        p = subprocess.run(["git"] + args, capture_output=True, text=True,
+                           timeout=10, cwd=cwd)
+        if p.returncode == 0:
+            return p.stdout
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return ""
 
 
-def reads_procedural(text):
+def repo_root():
+    return git(["rev-parse", "--show-toplevel"]).strip() or os.getcwd()
+
+
+def bd_quiet(args):
+    """Run bd for its output only, nothing printed."""
+    bd = find_bd()
+    if not bd:
+        return 127, ""
+    p = subprocess.run([bd] + list(args), capture_output=True, text=True)
+    return p.returncode, p.stdout
+
+
+def _hold_partial(buf):
+    """Split off a short alphanumeric tail that may be half of a split token."""
+    i, n = len(buf), 0
+    while i > 0 and chr(buf[i - 1]).isalnum() and n < 3:
+        i -= 1
+        n += 1
+    return buf[:i], buf[i:]
+
+
+def run_bd(args, filter_text, filter_bytes):
+    """Run bd with the worker's terminal, every byte of output through a filter.
+
+    What the filter does is the caller's decision; this only knows how to keep
+    interactive prompts working while the stream is filtered. Returns the exit
+    code and the filtered text that went past, for the caller to read.
+    """
+    bd = find_bd()
+    if not bd:
+        sys.stderr.write("%s needs beads: brew install beads\n" % PROG)
+        return 127, ""
+    argv = [bd] + list(args)
+
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        p = subprocess.run(argv, capture_output=True, text=True)
+        out = filter_text(p.stdout)
+        sys.stdout.write(out)
+        sys.stdout.flush()
+        sys.stderr.write(filter_text(p.stderr))
+        sys.stderr.flush()
+        return p.returncode, out
+
+    # A pty, so interactive prompts still work while the stream is filtered.
+    import pty
+    carry = bytearray()
+    seen = bytearray()
+
+    def reader(fd):
+        data = os.read(fd, 4096)
+        if not data:
+            out = filter_bytes(bytes(carry))
+            del carry[:]
+            seen.extend(out)
+            return out
+        carry.extend(data)
+        head, tail = _hold_partial(bytes(carry))
+        del carry[:]
+        carry.extend(tail)
+        out = filter_bytes(head)
+        seen.extend(out)
+        return out
+
+    code = os.waitstatus_to_exitcode(pty.spawn(argv, reader))
+    return code, bytes(seen).decode("utf-8", "replace")
+
+
+def toks(s):
+    """The words of a query. FTS5's porter tokenizer does the stemming."""
+    return list(dict.fromkeys(
+        w for w in re.findall(r"[a-z0-9]+", s.lower())
+        if len(w) >= 2 and w not in STOP))
+
+
+def load_formula(root, rel):
+    path = os.path.join(root, rel)
+    try:
+        with open(path, "rb") as fh:
+            if path.endswith(".toml"):
+                if tomllib is None:
+                    return None
+                data = tomllib.load(fh)
+            else:
+                data = json.load(fh)
+    except Exception:
+        return None
+
+    name = os.path.basename(path).split(".")[0]
+    desc = str(data.get("description", ""))
+    ex = data.get("examples") or data.get("keywords") or []
+    if isinstance(ex, str):
+        ex = [ex]
+    ex = [str(e) for e in ex]
+    # The directory is matchable text too: services/billing/ says "billing"
+    # without the description having to repeat it.
+    where = " ".join(re.split(r"[/\\._-]+", os.path.dirname(rel)))
+    return {
+        "name": name,
+        "rel": rel,
+        "id": str(data.get("formula") or name),
+        "desc": desc,
+        "examples": ex,
+        "words": name.replace("-", " "),
+        "where": where,
+    }
+
+
+def no_fts5():
+    """Retrieval is FTS5, and some SQLite builds are compiled without it."""
+    sys.stderr.write(
+        "%s needs SQLite built with FTS5, and this interpreter's is not.\n"
+        "  brew install %s installs its own interpreter; this one came from "
+        "elsewhere.\n" % (PROG, PROG))
+    sys.exit(4)
+
+
+class Index:
+    """BM25 storage over the formulas, with the project's prose for word weight.
+
+    SQLite's FTS5 does the retrieval: its porter stemmer reaches "failing"
+    from "fail", and bm25() ranks on how distinctive a word is instead of on
+    how many words happened to overlap. What counts as a match -- the
+    coverage floor, how many to show -- is match_formulas' decision, not this
+    class's; this only stores, weighs and ranks.
+    """
+
+    COLUMNS = ("fname", "place", "body", "cases")
+
+    def __init__(self, forms, bg):
+        self.forms = forms
+        self.nbg = len(bg)
+        self._spread_cache = {}
+        self.db = sqlite3.connect(":memory:")
+        try:
+            self.db.execute(
+                "CREATE VIRTUAL TABLE f USING fts5(%s, "
+                "tokenize='porter unicode61')" % ", ".join(self.COLUMNS))
+        except sqlite3.Error:
+            no_fts5()
+        rows = [(f["words"], f["where"], f["desc"], " ".join(f["examples"]))
+                for f in forms]
+        # Formulas take rowid 1..N, so everything after them is background.
+        rows += [("", "", text, "") for text in bg]
+        self.db.executemany(
+            "INSERT INTO f VALUES (?, ?, ?, ?)", rows)
+        self.sql = (
+            "SELECT rowid, -bm25(f, %s) AS s FROM f "
+            "WHERE f MATCH ? AND rowid <= ?"
+            % ", ".join("%g" % w for w in WEIGHTS))
+
+    def spread(self, word):
+        """Which formulas hold this word, and how many background documents do.
+
+        One query per word, so a title costs a handful however many formulas
+        the project has.
+        """
+        if word not in self._spread_cache:
+            n = len(self.forms)
+            rows = [r[0] for r in self.db.execute(
+                "SELECT rowid FROM f WHERE f MATCH ?", ('"%s"' % word,))]
+            self._spread_cache[word] = (frozenset(r for r in rows if r <= n),
+                                        sum(1 for r in rows if r > n))
+        return self._spread_cache[word]
+
+    def weight(self, word):
+        """How distinctive a word is in this project.
+
+        Smoothed so it stays positive. bm25's own idf is zero for a word in
+        half the corpus, and in a project with one formula and one README that
+        is every word there is.
+        """
+        held = self.spread(word)[1]
+        return math.log((self.nbg - held + 0.5) / (held + 0.5) + 1.0)
+
+    def rows(self, words):
+        """(rowid, bm25 score) for every formula holding any of the words."""
+        if not words or not self.forms:
+            return []
+        match = " OR ".join('"%s"' % w for w in words)
+        try:
+            return self.db.execute(self.sql, (match, len(self.forms))).fetchall()
+        except sqlite3.Error:
+            return []
+
+    @contextlib.contextmanager
+    def without_example(self, i, j):
+        """The index as if formula i had never listed example j.
+
+        A self-test that leaves the example in place proves nothing: the
+        title is in the index, so of course it finds itself.
+        """
+        ex = self.forms[i]["examples"]
+        before = " ".join(ex)
+        kept = " ".join(e for k, e in enumerate(ex) if k != j)
+        self.db.execute("UPDATE f SET cases = ? WHERE rowid = ?", (kept, i + 1))
+        self._spread_cache.clear()
+        try:
+            yield
+        finally:
+            self.db.execute("UPDATE f SET cases = ? WHERE rowid = ?",
+                            (before, i + 1))
+            self._spread_cache.clear()
+
+
+def witness_on(root):
+    """Whether this repository is keeping the witness log."""
+    return bool(os.environ.get("DOTDIW_WITNESS")) or os.path.exists(
+        os.path.join(root, WITNESS_FILE))
+
+
+def witness(root, source, label, **fields):
+    """Append one observed event. Which events exist is each body's decision."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    stamp = now.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    event = {"observedEventId": "%s-%s-%d" % (label, now.strftime("%Y%m%d%H%M%S%f"),
+                                              os.getpid()),
+             "label": label}
+    event.update((k, v) for k, v in fields.items() if v is not None)
+    event.update({"occurredAt": stamp, "observedAt": stamp, "source": source})
+    path = os.path.join(root, WITNESS_FILE)
+    if not os.path.isdir(os.path.dirname(path)):
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def witnessed(root):
+    """The events this repository's log holds, oldest first."""
+    out = []
+    try:
+        with open(os.path.join(root, WITNESS_FILE), encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    out.append(json.loads(line))
+                except ValueError:
+                    continue
+    except OSError:
+        pass
+    return out
+
+
+# ================================================================ operations
+#
+# One function per operation in operation-idl.json, in the order the duties
+# hold them. Each takes a request dict and returns a dict carrying `status`
+# (completed, blocked or failed), `summary`, `exitCode`, and whatever else the
+# IDL's response type names. Printing happens here, because what is printed
+# is the product-visible outcome; main() only routes.
+
+# --------------------------------------------- duty.teach-without-a-project
+
+def teach_the_conventions(request):
+    """step.teach-the-conventions: the four things and the two conventions."""
+    sys.stdout.write(LEARN)
+    return {"status": "completed", "summary": "Printed how work gets done here.",
+            "exitCode": 0}
+
+
+def learn_the_conventions(request):
+    """journey.learn-the-conventions."""
+    return teach_the_conventions(request)
+
+
+# ------------------------------------------- duty.keep-procedures-findable
+
+def index_the_project(request):
+    """step.index-the-project: the committed formulas, indexed with the project's own text.
+
+    These documents are indexed and never returned. Their only job is to tell
+    bm25 that "write", "test" and "version" are everyday words in this
+    project, which a corpus of four formulas cannot work out on its own. On
+    four documents of prose "version" was distinctive enough to pull up the
+    release formula for a Go toolchain bump; on twenty-two it is not.
+    """
+    root = request["root"]
+    rels = [p for p in git(["ls-files", "-z", "--", "*.formula.toml",
+                            "*.formula.json"], root).split("\0") if p]
+    if rels and tomllib is None:
+        # Silently returning nothing here is the worst available answer: the
+        # project is full of formulas and the tool says it holds none.
+        sys.stderr.write(
+            "%s needs Python 3.11 or newer to read formulas (tomllib), and this "
+            "is %d.%d.\n  %d formula file%s in this repo cannot be parsed.\n"
+            "  brew install %s installs its own interpreter; this one came from "
+            "elsewhere.\n"
+            % (PROG, sys.version_info[0], sys.version_info[1], len(rels),
+               "" if len(rels) == 1 else "s", PROG))
+        sys.exit(3)
+    forms = []
+    for rel in rels:
+        f = load_formula(root, rel)
+        if f:
+            forms.append(f)
+
+    idx = None
+    if request.get("background", True):
+        bg = []
+        for rel in git(["ls-files", "-z"], root).split("\0"):
+            if not rel or rel.endswith(".formula.toml") or rel.endswith(".formula.json"):
+                continue
+            if os.path.splitext(rel)[1].lower() not in CORPUS_EXTS:
+                continue
+            p = os.path.join(root, rel)
+            try:
+                if os.path.getsize(p) > CORPUS_BYTES:
+                    continue
+                with open(p, errors="ignore") as fh:
+                    bg.append(fh.read())
+            except OSError:
+                continue
+            if len(bg) >= CORPUS_FILES:
+                break
+        idx = Index(forms, bg)
+    return {"status": "completed",
+            "summary": "%d committed formula%s." % (len(forms), "" if len(forms) == 1 else "s"),
+            "formulas": forms, "index": idx, "formulaCount": len(forms),
+            "exitCode": 0}
+
+
+def resolve_formula(request):
+    """step.resolve-formula: a formula by its id, its file name, or its path."""
+    forms = request.get("formulas")
+    if forms is None:
+        forms = index_the_project({"root": request["root"], "background": False})["formulas"]
+    ident = (request.get("ident") or "").strip()
+    found = None
+    if ident:
+        base = os.path.basename(ident).split(".")[0]
+        for f in forms:
+            if ident in (f["id"], f["name"], f["rel"]) or base in (f["id"], f["name"]):
+                found = f
+                break
+    return {"status": "completed" if found else "blocked",
+            "summary": ("Resolved %s to %s." % (ident, found["rel"])) if found
+            else "%s names no committed formula." % (ident or "nothing"),
+            "formulaRef": found["id"] if found else None,
+            "path": found["rel"] if found else None,
+            "formula": found, "formulas": forms, "exitCode": 0}
+
+
+def list_formulas(request):
+    """step.list-formulas: what this project holds.
+
+    bd answers this question about its own search paths, so in a project whose
+    formulas sit next to what they are about it says "No formulas found" --
+    which is true of `.beads/formulas` and false of the project. Every agent in
+    the trial believed it and moved the formulas. This answers about the
+    project, which is what was asked.
+    """
+    forms = index_the_project({"root": request["root"], "background": False})["formulas"]
+    if request.get("json"):
+        print(json.dumps([{"formula": f["id"], "name": f["name"],
+                           "path": f["rel"], "description": f["desc"],
+                           "examples": f["examples"]} for f in forms], indent=2))
+    elif not forms:
+        print("No formulas in this repo yet. %s learn says how to write one."
+              % PROG)
+    else:
+        w = max(len(f["id"]) for f in forms)
+        print("%d formula%s in this repo:"
+              % (len(forms), "" if len(forms) == 1 else "s"))
+        for f in sorted(forms, key=lambda g: g["name"]):
+            d = " ".join(f["desc"].split())
+            if len(d) > 70 - w:
+                d = d[:69 - w] + "…"
+            print("  %-*s  %s" % (w, f["id"], d))
+            print("  %-*s  %s" % (w, "", f["rel"]))
+        print("\nRun one: %s mol pour <id>" % PROG)
+    return {"status": "completed", "summary": "%d formulas listed." % len(forms),
+            "formulaCount": len(forms), "exitCode": 0}
+
+
+def show_formula(request):
+    """step.show-formula: the formula as it is written, from where it is written."""
+    r = resolve_formula(request)
+    f = r["formula"]
+    if not f:
+        return {"status": "blocked", "summary": r["summary"], "exitCode": 0}
+    try:
+        with open(os.path.join(request["root"], f["rel"]), encoding="utf-8") as fh:
+            sys.stdout.write(fh.read())
+    except OSError as e:
+        sys.stderr.write("%s: %s\n" % (f["rel"], e))
+        return {"status": "failed", "summary": str(e), "exitCode": 1}
+    return {"status": "completed", "summary": "Showed %s." % f["rel"],
+            "path": f["rel"], "exitCode": 0}
+
+
+def find_a_held_procedure(request):
+    """journey.find-a-held-procedure: list, show or resolve, by what is asked."""
+    root = request["root"]
+    built = index_the_project({"root": root, "background": False})
+    ask = request.get("ask")
+    if ask == "list":
+        return list_formulas({"root": root, "json": request.get("json")})
+    if ask == "show":
+        return show_formula({"root": root, "ident": request.get("ident"),
+                             "formulas": built["formulas"]})
+    return resolve_formula({"root": root, "ident": request.get("ident"),
+                            "formulas": built["formulas"]})
+
+
+def match_formulas(request):
+    """step.match-formulas: the procedures that apply to a title.
+
+    The one place a title is ranked against the project's formulas. The
+    conventions check reuses it with one example taken out of the index, and
+    the handmade notice reuses it to see whether a formula already reaches a
+    title -- both through this body, so the threshold lives here once.
+    """
+    root = request["root"]
+    idx, forms = request.get("index"), request.get("formulas")
+    if idx is None:
+        built = index_the_project({"root": root, "background": True})
+        idx, forms = built["index"], built["formulas"]
+    text = "%s %s" % (request.get("title") or "", request.get("description") or "")
+    words = toks(text)
+    ranked = []
+    exclude = request.get("exclude")
+    with idx.without_example(*exclude) if exclude else contextlib.nullcontext():
+        rows = idx.rows(words) if forms else []
+        total = sum(idx.weight(w) for w in words) if rows else 0
+        for rowid, score in rows:
+            held = sum(idx.weight(w) for w in words if rowid in idx.spread(w)[0])
+            if total and held / total >= COVERAGE:
+                ranked.append((score, forms[rowid - 1]))
+    ranked.sort(key=lambda r: (-r[0], r[1]["name"]))
+    seen, top = set(), []
+    for score, f in ranked:
+        if f["name"] in seen:
+            continue
+        seen.add(f["name"])
+        top.append(f)
+        if len(top) == TOP_N:
+            break
+
+    if top and request.get("print", True):
+        w = max(len(f["name"]) for f in top)
+        print("\n\U0001f4dc Formulas that may apply:", file=sys.stderr)
+        for f in top:
+            d = " ".join(f["desc"].split())
+            if len(d) > 74 - w:
+                d = d[:73 - w] + "…"
+            print("  %-*s  %s" % (w, f["name"], d), file=sys.stderr)
+            print("  %-*s  %s" % (w, "", f["rel"]), file=sys.stderr)
+        # One command. It used to print `cook --persist && mol wisp create`,
+        # whose wisp is ephemeral and never synced via git -- which is
+        # management and sharing both given up. `mol pour` is the durable one,
+        # and it now cooks from the formula's own path first.
+        print("  Run it: %s mol pour %s" % (PROG, top[0]["id"]), file=sys.stderr)
+
+    if request.get("witness") and request.get("workRef"):
+        for f in top:
+            witness(root, "dotdiwInvocations", "formula_surfaced",
+                    workId=request["workRef"], formulaId=f["id"], path=f["rel"])
+        if not top:
+            witness(root, "dotdiwInvocations", "nothing_surfaced",
+                    workId=request["workRef"], title=request.get("title"))
+    return {"status": "completed",
+            "summary": "%d formula%s apply." % (len(top), "" if len(top) == 1 else "s"),
+            "surfaced": [f["id"] for f in top], "names": [f["name"] for f in top],
+            "exitCode": 0}
+
+
+def notice_handmade_procedures(request):
+    """step.notice-handmade-procedures: procedures this project carried out but never declared.
+
+    Pouring a formula leaves a molecule behind. A parent that is not a molecule,
+    with several ordered children, is that same shape built by hand: the
+    procedure exists, in the tracker, where nothing can match it against a
+    title or pour it a second time. Unlike a guess at what two titles have in
+    common, this cannot misfire -- the DAG is either there or it is not.
+    Suppressed once a formula reaches the title, which is what writing it down
+    means -- so this stops the moment it is acted on, and `--from` turns the
+    work that was actually done into the steps.
+    """
+    root = request["root"]
+    code, out = bd_quiet(["list", "--all", "--json", "--brief", "-n", "300"])
+    rows = []
+    if code == 0:
+        try:
+            rows = json.loads(out)
+        except (ValueError, TypeError):
+            rows = []
+    byid, kids = {}, {}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        byid[r.get("id")] = r
+        if r.get("parent"):
+            kids.setdefault(r["parent"], []).append(r)
+    found = []
+    for pid, ks in sorted(kids.items(), key=lambda kv: -len(kv[1])):
+        p = byid.get(pid) or {}
+        if p.get("issue_type") in ("molecule", "epic"):
+            continue
+        if len(ks) < HANDMADE_STEPS:
+            continue
+        if not any(d.get("type") == "blocks"
+                   for k in ks for d in (k.get("dependencies") or [])):
+            continue
+        title = " ".join(str(p.get("title") or "").split())
+        if match_formulas({"root": root, "index": request.get("index"),
+                           "formulas": request.get("formulas"), "title": title,
+                           "print": False})["surfaced"]:
+            continue
+        found.append((pid, title, len(ks)))
+    if found:
+        sys.stdout.flush()
+        print("\n\U0001f4dc %d procedure%s carried out here, never declared:"
+              % (len(found), "" if len(found) == 1 else "s"), file=sys.stderr)
+        for pid, title, k in found[:TOP_N]:
+            print("    %s  (%d ordered steps, built by hand)" % (title or pid, k),
+                  file=sys.stderr)
+            print("      %s formula new \"%s\" --from %s" % (PROG, title, pid),
+                  file=sys.stderr)
+        if len(found) > TOP_N:
+            print("    ... and %d more" % (len(found) - TOP_N), file=sys.stderr)
+    return {"status": "completed",
+            "summary": "%d undeclared procedure%s." % (len(found), "" if len(found) == 1 else "s"),
+            "undeclared": [pid for pid, _, _ in found], "exitCode": 0}
+
+
+def nudge_towards_a_formula(request):
+    """step.nudge-towards-a-formula: a memory that reads like a procedure.
+
+    A procedure kept as a memory is one nothing can match or instantiate.
+    Three agents in five reached for this instead of writing a formula.
+    """
+    text = request.get("text") or ""
     t = " " + " ".join(text.lower().split()) + " "
-    return sum(1 for w in PROCEDURAL if w in t) >= 2
+    procedural = sum(1 for w in PROCEDURAL if w in t) >= 2
+    if procedural:
+        # Cut to a word, not to a letter: this goes in a command to be copied.
+        short = " ".join(text.split())
+        if len(short) > 60:
+            short = short[:short.rfind(" ", 0, 61)]
+        print("\n\U0001f4dc That reads like a procedure. A formula can be "
+              "matched against a\n   title and poured into tracked steps; "
+              "a memory can do neither.", file=sys.stderr)
+        print("   Write it as one:  %s formula new \"%s\"" % (PROG, short),
+              file=sys.stderr)
+    return {"status": "completed",
+            "summary": "Reads like a procedure." if procedural else "Reads like a fact.",
+            "nudged": procedural, "exitCode": 0}
 
 
-# -------------------------------------------------------------------- main
+# The rest of write_formula's body: the titles the project has already given
+# its work, and an issue's children as steps. Used by nothing else.
+
+class Titles:
+    """The work this project has already named, matched the way formulas are.
+
+    Word weights come from the formula index, whose background is the project's
+    own prose -- so "menu" counts as distinctive here for the same reason it
+    does there, and this table holds nothing but the titles.
+    """
+
+    def __init__(self, titles, idx):
+        self.titles = titles
+        self.idx = idx
+        self.db = sqlite3.connect(":memory:")
+        try:
+            self.db.execute("CREATE VIRTUAL TABLE t USING fts5(body, "
+                            "tokenize='porter unicode61')")
+        except sqlite3.Error:
+            no_fts5()
+        self.db.executemany("INSERT INTO t VALUES (?)",
+                            [(t,) for t in titles])
+        self._held = {}
+
+    def holders(self, word):
+        if word not in self._held:
+            self._held[word] = frozenset(
+                r[0] for r in self.db.execute(
+                    "SELECT rowid FROM t WHERE t MATCH ?", ('"%s"' % word,)))
+        return self._held[word]
+
+    def echoes(self, text):
+        """Earlier titles that look like this one, for seeding examples."""
+        words = toks(text)
+        if not words or not self.titles:
+            return []
+        total = sum(self.idx.weight(w) for w in words)
+        if not total:
+            return []
+        out = []
+        for i, t in enumerate(self.titles):
+            held = sum(self.idx.weight(w) for w in words
+                       if (i + 1) in self.holders(w))
+            if held / total >= SEED:
+                out.append((held / total, t))
+        out.sort(key=lambda r: (-r[0], r[1]))
+        return out
+
+
+def slug(title, limit=4):
+    words = [w for w in re.findall(r"[a-z0-9]+", title.lower())
+             if len(w) >= 2 and w not in STOP]
+    return "-".join(words[:limit]) or "procedure"
+
+
+def past_titles(drop=None, limit=300):
+    """The top-level work this project has named before.
+
+    Children of a poured molecule are left out: those titles came out of a
+    formula, so counting them as evidence that a formula is wanted is
+    circular. `drop` removes one copy of a title -- the one `create` just made.
+    """
+    code, out = bd_quiet(["list", "--all", "--json", "--brief",
+                          "-n", str(limit)])
+    if code != 0:
+        return []
+    try:
+        rows = json.loads(out)
+    except (ValueError, TypeError):
+        return []
+    titles = []
+    for r in rows:
+        if not isinstance(r, dict) or r.get("parent"):
+            continue
+        if r.get("issue_type") in ("molecule", "epic"):
+            continue
+        t = " ".join(str(r.get("title") or "").split())
+        if t:
+            titles.append(t)
+    if drop:
+        drop = " ".join(drop.split())
+        if drop in titles:
+            titles.remove(drop)
+    return titles
+
+
+def steps_from(ident, limit=300):
+    """An issue's children as steps, with its blocks edges as `needs`.
+
+    The highest-fidelity capture there is: the procedure as it was actually
+    carried out, rather than as someone remembers it afterwards.
+    """
+    code, out = bd_quiet(["list", "--all", "--json", "--brief",
+                          "-n", str(limit)])
+    if code != 0:
+        return None
+    try:
+        rows = json.loads(out)
+    except (ValueError, TypeError):
+        return None
+    byid = {r.get("id"): r for r in rows if isinstance(r, dict)}
+    hit = [i for i in byid if i == ident or str(i).endswith("-" + ident)]
+    if len(hit) != 1:
+        return None
+    parent = hit[0]
+    kids = [r for r in rows if r.get("parent") == parent]
+    if not kids:
+        return None
+    ids, used = {}, set()
+    for r in kids:
+        sid, k = slug(str(r.get("title") or ""), 3), 1
+        while sid in used:
+            k += 1
+            sid = "%s-%d" % (slug(str(r.get("title") or ""), 3), k)
+        used.add(sid)
+        ids[r.get("id")] = sid
+    needs = {}
+    for r in kids:
+        needs[ids[r["id"]]] = [ids[d.get("depends_on_id")]
+                               for d in (r.get("dependencies") or [])
+                               if d.get("type") == "blocks"
+                               and d.get("depends_on_id") in ids]
+    # In the order the work was done, not the order the tracker lists it: a
+    # formula is read top to bottom by whoever has to follow it.
+    order, left = [], [ids[r["id"]] for r in kids]
+    while left:
+        ready = [x for x in left if all(d in order for d in needs[x])]
+        if not ready:                       # a cycle; keep what is left as-is
+            order.extend(left)
+            break
+        order.extend(ready)
+        left = [x for x in left if x not in ready]
+    titles = {ids[r["id"]]: str(r.get("title") or "").replace('"', "'")
+              for r in kids}
+    out = []
+    for sid in order:
+        block = STEP % {"id": sid, "title": titles[sid]}
+        if needs[sid]:
+            block += "needs = [%s]\n" % ", ".join('"%s"' % x for x in needs[sid])
+        out.append(block)
+    return "\n".join(out)
+
+
+def write_formula(request):
+    """step.write-formula: a formula for work the project keeps doing.
+
+    The expensive part of declaring a procedure was never the thinking, it was
+    the TOML: fifteen agents in the trial wrote the procedure down as prose
+    instead, where nothing can match it against a title or pour it into steps.
+    This writes the file, seeds the examples from the titles the work has
+    actually been given here, and leaves the thinking marked TODO.
+    """
+    root, title = request["root"], request.get("title") or ""
+    at, frm = request.get("directory"), request.get("fromRef")
+    if not title:
+        sys.stderr.write("%s formula new \"<what the procedure is for>\"\n"
+                         % PROG)
+        return {"status": "failed", "summary": "No title given.", "exitCode": 2}
+    idx = index_the_project({"root": root, "background": True})["index"]
+    cases = [title]
+    for _, t in Titles(past_titles(), idx).echoes(title):
+        if t not in cases:
+            cases.append(t)
+    steps = (frm and steps_from(frm)) or PLACEHOLDER_STEPS
+    name = slug(title)
+    path = os.path.join(at or os.getcwd(), name + ".formula.toml")
+    if os.path.exists(path):
+        sys.stderr.write("%s already exists\n" % os.path.relpath(path, root))
+        return {"status": "failed", "summary": "The file already exists.",
+                "path": os.path.relpath(path, root), "exitCode": 1}
+    body = SCAFFOLD % {
+        "p": PROG, "slug": name, "title": title.replace('"', "'"),
+        "examples": "".join('  "%s",\n' % c.replace('"', "'") for c in cases),
+        "steps": steps,
+    }
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(body)
+    except OSError as e:
+        sys.stderr.write("%s: %s\n" % (path, e))
+        return {"status": "failed", "summary": str(e), "exitCode": 1}
+    rel = os.path.relpath(path, root)
+    print("✓ Wrote %s" % rel)
+    if len(cases) > 1:
+        print("  Seeded %d example titles from work already named here."
+              % len(cases))
+    done = frm and steps is not PLACEHOLDER_STEPS
+    if done:
+        print("  Steps taken from %s, in the order the work was done." % frm)
+    if done:
+        print("\n  One thing left, and it is discoverable:")
+        print("    the description   the situation, and when to reach for it")
+    else:
+        print("\n  Two things left, and it is discoverable:")
+        print("    the description   the situation, and when to reach for it")
+        print("    the steps         what you do, and which step needs which")
+    print("\n  Then:  git add %s && git commit" % rel)
+    print("         %s check" % PROG)
+    return {"status": "completed", "summary": "Wrote %s." % rel, "path": rel,
+            "exitCode": 0}
+
+
+def describe_and_check(request):
+    """step.describe-and-check: the two conventions, checked rather than hoped for.
+
+    Three places ask: `check` itself, in full; every `create`, quietly, with
+    the first three problems; and `doctor` and `lint`, with the first five
+    under the tracker's own report, because nobody in the trial ran `check`
+    or `learn` and everybody ran those two. The request's `mode` names which.
+    """
+    root, mode = request["root"], request.get("mode", "check")
+    idx, forms = request.get("index"), request.get("formulas")
+    if idx is None:
+        built = index_the_project({"root": root, "background": True})
+        idx, forms = built["index"], built["formulas"]
+
+    def notice():
+        return notice_handmade_procedures({"root": root, "index": idx,
+                                           "formulas": forms})
+
+    if mode == "quiet":
+        # Under a create the notice comes before the problems: the thing the
+        # worker can act on first, then the housekeeping.
+        notice()
+
+    probs = []
+    # Only once the project has adopted any of this: a plain repo is not in
+    # breach of a convention it has never declared.
+    if os.path.isdir(os.path.join(root, ".beads")):
+        for rel in CONVENTION_FILES:
+            try:
+                with open(os.path.join(root, rel), encoding="utf-8") as fh:
+                    if MARK_OPEN in fh.read():
+                        continue
+            except OSError:
+                pass
+            probs.append((rel, "does not say where work starts -- run `%s init`"
+                          % PROG))
+
+    extra = []
+    for rel in [p for p in git(["ls-files", "-z", "--others", "--exclude-standard",
+                                "--", "*.formula.toml", "*.formula.json"],
+                               root).split("\0") if p]:
+        probs.append((rel, "not committed, so nobody else can see it"))
+        f = load_formula(root, rel)
+        if f:
+            extra.append(f)
+
+    home = os.path.expanduser("~/.beads/formulas")
+    for p in sorted(glob.glob(os.path.join(home, "*.toml"))
+                    + glob.glob(os.path.join(home, "*.json"))):
+        probs.append((p, "outside the repo: bd finds it, nobody else does"))
+
+    for f in forms + extra:
+        n = len(f["desc"].split())
+        if n < MIN_DESC_WORDS:
+            probs.append((f["rel"], "description is %d word%s -- write a sentence "
+                                    "naming the situation, and when to use it"
+                          % (n, "" if n == 1 else "s")))
+        try:
+            with open(os.path.join(root, f["rel"]), encoding="utf-8") as fh:
+                if "TODO" in fh.read():
+                    probs.append((f["rel"], "still has TODO in it -- a scaffold "
+                                            "is not yet a procedure"))
+        except OSError:
+            pass
+        if len(f["examples"]) < MIN_EXAMPLES:
+            probs.append((f["rel"], "has %d example title%s, needs %d"
+                          % (len(f["examples"]),
+                             "" if len(f["examples"]) == 1 else "s", MIN_EXAMPLES)))
+
+    for i, f in enumerate(forms):
+        for j, ex in enumerate(f["examples"]):
+            top = match_formulas({"root": root, "index": idx, "formulas": forms,
+                                  "title": ex, "print": False,
+                                  "exclude": (i, j)})["names"]
+            if f["name"] not in top:
+                probs.append((f["rel"], 'example "%s" does not retrieve it' % ex))
+
+    def show(limit):
+        shown = probs if limit is None else probs[:limit]
+        w = max(len(p[0]) for p in shown)
+        for where, what in shown:
+            print("  %-*s  %s" % (w, where, what), file=sys.stderr)
+        rest = len(probs) - len(shown)
+        if rest > 0:
+            print("  ... and %d more. See them all: %s check" % (rest, PROG),
+                  file=sys.stderr)
+
+    code = 0
+    lines = ["%s: %s" % p for p in probs]
+    if mode == "quiet":
+        if probs:
+            print("\n%d formula problem%s:" % (len(probs), "" if len(probs) == 1 else "s"),
+                  file=sys.stderr)
+            show(3)
+    elif mode == "doctor":
+        if probs:
+            print("\n%d %s convention problem%s:"
+                  % (len(probs), PROG, "" if len(probs) == 1 else "s"),
+                  file=sys.stderr)
+            show(5)
+        notice()
+    else:
+        if not forms and not probs:
+            print("No formulas yet. %s learn says how to write one." % PROG)
+        elif not probs:
+            print("✓ %d formula%s, all discoverable."
+                  % (len(forms), "" if len(forms) == 1 else "s"))
+        else:
+            print("%d problem%s:" % (len(probs), "" if len(probs) == 1 else "s"),
+                  file=sys.stderr)
+            show(None)
+            code = 1
+        notice()
+    return {"status": "completed" if not probs else "blocked",
+            "summary": "%d problem%s." % (len(probs), "" if len(probs) == 1 else "s"),
+            "problems": lines, "formulaCount": len(forms), "exitCode": code}
+
+
+def commit_formula(request):
+    """step.commit-formula: the one step dotdiw never performs.
+
+    The commit is the worker's act, which the project asks for; a tool that
+    made it would be deciding what goes into history on somebody's behalf.
+    So this body refuses, and says exactly what to run instead.
+    """
+    path = request.get("path") or "<the formula file>"
+    command = "git add %s && git commit -m \"Add the %s formula\"" % (
+        path, os.path.basename(path).split(".")[0])
+    return {"status": "blocked",
+            "summary": "The commit is the worker's: %s never commits, pushes or syncs." % PROG,
+            "command": command, "exitCode": 0}
+
+
+def write_a_procedure_down(request):
+    """journey.write-a-procedure-down, as one executable: notice, nudge, write, check, and stop at the commit."""
+    root = request["root"]
+    built = index_the_project({"root": root, "background": True})
+    notice_handmade_procedures({"root": root, "index": built["index"],
+                                "formulas": built["formulas"]})
+    if request.get("text"):
+        nudge_towards_a_formula({"root": root, "text": request["text"]})
+    path = request.get("path")
+    if request.get("title"):
+        written = write_formula({"root": root, "title": request["title"],
+                                 "directory": request.get("directory"),
+                                 "fromRef": request.get("fromRef")})
+        if written["status"] != "completed":
+            return written
+        path = written["path"]
+    checked = describe_and_check({"root": root, "mode": "check"})
+    commit = commit_formula({"root": root, "path": path})
+    return {"status": "blocked", "summary": commit["summary"],
+            "command": commit["command"], "problems": checked["problems"],
+            "path": path, "exitCode": checked["exitCode"]}
+
+
+# ------------------------------------------- duty.put-all-four-under-one-name
+
+def forward_to_beads(request):
+    """step.forward-to-beads: the command, unchanged, with bd's name rewritten on the way back.
+
+    The rewrite is the whole of "one name for all four", so it happens in
+    this body and nowhere else: every operation that runs a tracker command
+    with the worker's terminal comes through here. When the command closes a
+    step of a poured molecule and the witness log is on, the close is written
+    to the log, because it is the only place that sees it happen.
+    """
+    root, argv = request["root"], list(request["arguments"])
+    code, out = run_bd(argv, lambda s: _BD_WORD.sub(PROG, s),
+                       lambda b: _BD_WORD_B.sub(PROG.encode(), b))
+    if code == 0 and argv and argv[0] == "close" and request.get("witness"):
+        poured = {}
+        for e in witnessed(root):
+            if e.get("label") == "procedure_poured" and e.get("moleculeId"):
+                poured[e["moleculeId"]] = e
+        for ident in [a for a in argv[1:] if not a.startswith("-")]:
+            if ident in poured:
+                witness(root, "beadsIssues", "molecule_closed",
+                        workId=poured[ident].get("workId"), moleculeId=ident)
+                continue
+            for mol, e in poured.items():
+                if ident in (e.get("stepIds") or []):
+                    witness(root, "beadsIssues", "step_closed",
+                            workId=e.get("workId"), moleculeId=mol, stepId=ident)
+    return {"status": "completed" if code == 0 else "failed",
+            "summary": "%s %s exited %d." % ("beads", argv[0] if argv else "", code),
+            "exitCode": code, "output": out}
+
+
+def run_a_tracker_command(request):
+    """journey.run-a-tracker-command: forward, with what rides along on cook, doctor, lint and remember."""
+    root, argv = request["root"], list(request["arguments"])
+    # `cook <id>` means that formula's file, wherever in the tree it sits.
+    if argv and argv[0] == "cook" and len(argv) > 1 and not argv[1].startswith("-"):
+        r = resolve_formula({"root": root, "ident": argv[1]})
+        if r["formula"] and not os.path.exists(argv[1]):
+            argv = ["cook", os.path.join(root, r["path"])] + argv[2:]
+    fwd = forward_to_beads({"root": root, "arguments": argv,
+                            "witness": request.get("witness")})
+    # The conventions, checked where someone actually looks. Nobody in the
+    # trial ran `check` or `learn`; they ran these two.
+    if argv and argv[0] in ("doctor", "lint"):
+        describe_and_check({"root": root, "mode": "doctor"})
+    if argv and argv[0] == "remember" and fwd["exitCode"] == 0:
+        nudge_towards_a_formula({"root": root, "text": " ".join(argv[1:])})
+    return {"status": fwd["status"], "summary": fwd["summary"],
+            "exitCode": fwd["exitCode"]}
+
+
+# --------------------------------- duty.surface-procedures-when-work-starts
+
+def name_the_work(request):
+    """step.name-the-work: the work item, created under the title given."""
+    root = request["root"]
+    fwd = forward_to_beads({"root": root, "arguments": request["arguments"]})
+    work = None
+    if fwd["exitCode"] == 0:
+        m = re.search(r"Created issue:\s+(\S+)", fwd.get("output") or "")
+        work = m.group(1) if m else None
+        if request.get("witness") and work:
+            witness(root, "dotdiwInvocations", "work_named", workId=work,
+                    title=request.get("title"), startedAt=STARTED_AT)
+    return {"status": fwd["status"],
+            "summary": "Named %s." % (work or "the work") if fwd["exitCode"] == 0
+            else "The tracker refused the create.",
+            "workRef": work, "exitCode": fwd["exitCode"]}
+
+
+def pour_procedure(request):
+    """step.pour-procedure: a surfaced formula becomes tracked, ordered steps.
+
+    Cooks the formula from where it actually lives, every time. bd pours only
+    what it has cooked, and cooks only from its own directories; cooking by
+    path closes that gap, so a formula never has to be moved or linked out of
+    the place it belongs. Unconditionally, and with --force, because the file
+    is the formula: cooking only when bd had never heard of the id meant that
+    a formula edited in place poured the version bd happened to hold -- found
+    by editing this project's own commit formula and watching `mol pour`
+    instantiate the step that edit had just removed.
+    """
+    root = request["root"]
+    r = resolve_formula({"root": root, "ident": request.get("ident")})
+    f = r["formula"]
+    argv = ["mol", "pour", request.get("ident")] + list(request.get("arguments") or [])
+    if f:
+        path = os.path.join(root, f["rel"])
+        code, _ = bd_quiet(["cook", path, "--persist", "--force"])
+        if code != 0:
+            # Older bd without --force on cook: the stale proto is better
+            # than none, and bd may already hold the formula.
+            code, _ = bd_quiet(["cook", path, "--persist"])
+            if code != 0:
+                code, _ = bd_quiet(["formula", "show", f["id"]])
+        if code == 0:
+            argv = ["mol", "pour", f["id"]] + list(request.get("arguments") or [])
+    fwd = forward_to_beads({"root": root, "arguments": argv})
+
+    molecule = None
+    if fwd["exitCode"] == 0 and f and request.get("witness"):
+        m = re.search(r"Root issue:\s+(\S+)", fwd.get("output") or "")
+        molecule = m.group(1) if m else None
+        if molecule:
+            steps = []
+            code, out = bd_quiet(["list", "--all", "--json", "--brief", "-n", "300"])
+            if code == 0:
+                try:
+                    steps = sorted(str(x.get("id")) for x in json.loads(out)
+                                   if isinstance(x, dict) and x.get("parent") == molecule)
+                except (ValueError, TypeError):
+                    steps = []
+            # Whose work this pour belongs to: the create that surfaced this
+            # formula, failing that the most recent named work. A pour the
+            # log cannot place is exactly what the contract is there to say.
+            work = request.get("workRef")
+            if not work:
+                for e in reversed(witnessed(root)):
+                    if e.get("label") == "formula_surfaced" and e.get("formulaId") == f["id"]:
+                        work = e.get("workId")
+                        break
+                else:
+                    for e in reversed(witnessed(root)):
+                        if e.get("label") == "work_named":
+                            work = e.get("workId")
+                            break
+            witness(root, "dotdiwInvocations", "procedure_poured", workId=work,
+                    formulaId=f["id"], moleculeId=molecule, stepIds=steps)
+    return {"status": fwd["status"], "summary": fwd["summary"],
+            "moleculeRef": molecule, "exitCode": fwd["exitCode"]}
+
+
+def start_named_work(request):
+    """journey.start-named-work: name it, read what applies, and -- when asked -- pour."""
+    root = request["root"]
+    named = name_the_work({"root": root, "arguments": request["arguments"],
+                           "title": request.get("title"),
+                           "witness": request.get("witness")})
+    if named["exitCode"] != 0:
+        return named
+    if request.get("quiet"):
+        return {"status": "completed", "summary": named["summary"],
+                "workRef": named["workRef"], "surfaced": [], "exitCode": 0}
+
+    declare_conventions({"root": root, "announce": "create"})
+    built = index_the_project({"root": root, "background": True})
+    matched = match_formulas({"root": root, "index": built["index"],
+                              "formulas": built["formulas"],
+                              "title": request.get("title"),
+                              "description": request.get("description"),
+                              "workRef": named["workRef"],
+                              "witness": request.get("witness")})
+    describe_and_check({"root": root, "index": built["index"],
+                        "formulas": built["formulas"], "mode": "quiet"})
+    if request.get("formulaRef"):
+        pour_procedure({"root": root, "ident": request["formulaRef"],
+                        "workRef": named["workRef"],
+                        "witness": request.get("witness")})
+    return {"status": "completed", "summary": named["summary"],
+            "workRef": named["workRef"], "surfaced": matched["surfaced"],
+            "exitCode": 0}
+
+
+# ------------------------------------------ duty.adopt-without-reaching-outside
+
+def turn_metrics_off(request):
+    """step.turn-metrics-off: bd's usage metrics off for this machine, and say so once.
+
+    Runs before any other bd command, on every run, so a fresh machine, a bd
+    upgrade or `bd metrics on` all get the same answer. Silent when they are
+    already off, which is every run but the first.
+    """
+    def off_already():
+        try:
+            with open(os.path.expanduser(BD_CONFIG), encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            return False
+        block = re.search(r"(?m)^metrics:[ \t]*\n((?:[ \t]+.*\n?)*)", text)
+        return bool(block and re.search(r"(?m)^[ \t]+disabled:[ \t]*[Tt]rue[ \t]*$",
+                                        block.group(1)))
+
+    if off_already() or not find_bd():
+        return {"status": "completed", "summary": "Metrics were already off.",
+                "turnedOff": False, "exitCode": 0}
+    bd_quiet(["metrics", "off"])
+    if not off_already():
+        return {"status": "failed", "summary": "bd did not turn its metrics off.",
+                "turnedOff": False, "exitCode": 0}
+    sys.stderr.write(
+        "\n%s turned bd's anonymous usage metrics off, for every repository on\n"
+        "    this machine: %s, metrics.disabled: true. It does\n"
+        "    this on every run. What bd would have sent: bd metrics example\n\n"
+        % (PROG, BD_CONFIG))
+    return {"status": "completed", "summary": "Turned bd's metrics off.",
+            "turnedOff": True, "exitCode": 0}
+
+
+def undo_earlier_adoption(request):
+    """step.undo-earlier-adoption: what v0.1.0 let bd do to a repository, undone and said.
+
+    Silence when there was nothing to undo: a repair that announces itself
+    every time teaches people to ignore it.
+    """
+    root = request["root"]
+
+    def hooks_replaced():
+        """bd's hook directory standing in for the repository's own, or ""."""
+        got = git(["config", "--get", HOOKS_KEY], root).strip()
+        if not got:
+            return ""
+        # realpath, not normpath: on macOS a checkout under /var or /tmp is
+        # reached through a symlink, and `git rev-parse` hands back the
+        # resolved path while the configured value keeps whichever form it
+        # was written in. Comparing the two unresolved left the override in
+        # place and said nothing -- the worst of both. Found by the test.
+        mine = os.path.realpath(os.path.join(root, ".beads", "hooks"))
+        return got if os.path.realpath(os.path.join(root, got)) == mine else ""
+
+    done = []
+    got = hooks_replaced()
+    if got:
+        git(["config", "--unset", HOOKS_KEY], root)
+        if not hooks_replaced():
+            done.append("%s is unset. It pointed at %s, a snapshot of this "
+                        "repository's hooks taken when it was adopted, so any "
+                        "hook added since was being skipped; .git/hooks is read "
+                        "again." % (HOOKS_KEY, got))
+
+    cfg = os.path.join(root, ".beads", "config.yaml")
+    try:
+        with open(cfg, encoding="utf-8") as fh:
+            before = fh.read()
+    except OSError:
+        before = ""
+    if before:
+        # A top-level `sync:` key and the indented block under it.
+        after = re.sub(r"(?m)^sync:\n(?:[ \t]+.*\n)*", "", before)
+        if after != before:
+            try:
+                with open(cfg, "w", encoding="utf-8") as fh:
+                    fh.write(after)
+                done.append("the Dolt remote is out of .beads/config.yaml.")
+            except OSError:
+                pass
+
+    base = os.path.join(root, ".beads", "embeddeddolt")
+    try:
+        dbs = sorted(os.listdir(base))
+    except OSError:
+        dbs = []
+    for db in dbs:
+        path = os.path.join(base, db, ".dolt", "repo_state.json")
+        try:
+            with open(path, encoding="utf-8") as fh:
+                state = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if not state.get("remotes"):
+            continue
+        names = sorted(state["remotes"])
+        try:
+            state["remotes"] = {}
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(state, fh, indent=2)
+        except (OSError, ValueError):
+            continue
+        done.append("the Dolt remote %s is out of %s."
+                    % (", ".join(names), os.path.relpath(path, root)))
+
+    if done:
+        out = sys.stderr
+        out.write("\n%s undid what an earlier version of it did here:\n" % PROG)
+        for line in done:
+            out.write("    %s\n" % line)
+        out.write("\n    Nothing was deleted and no history was rewritten. Hooks\n"
+                  "    that existed when this repository was adopted went on\n"
+                  "    running. Any hook added after that was skipped until now,\n"
+                  "    so commits made in between did not see it.\n\n")
+    return {"status": "completed",
+            "summary": "%d thing%s undone." % (len(done), "" if len(done) == 1 else "s"),
+            "undone": done, "exitCode": 0}
+
+
+def declare_conventions(request):
+    """step.declare-conventions: the files agents read say where work starts, and name dotdiw.
+
+    Three edits, each idempotent, because bd writes these files again on
+    setup, doctor --fix and upgrades: bd renamed to dotdiw in every file it
+    wrote for agents; the declaration between its markers in CLAUDE.md and
+    AGENTS.md; and the one exception inside bd's own git policy. Where the
+    witness log is on, its file is kept out of git the same way.
+    """
+    root = request["root"]
+
+    renamed = []
+    paths = [os.path.join(root, rel) for rel in AGENT_FILES]
+    for rel in AGENT_TREES:
+        for dirpath, _, names in os.walk(os.path.join(root, rel)):
+            paths.extend(os.path.join(dirpath, n) for n in names)
+    for path in paths:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                before = fh.read()
+        except (OSError, UnicodeDecodeError, ValueError):
+            continue
+        after = _BD_WORD.sub(PROG, before)
+        if after == before:
+            continue
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(after)
+        except OSError:
+            continue
+        renamed.append(os.path.relpath(path, root))
+
+    declared = []
+    # Let the project's own declaration satisfy bd's git policy. Without this
+    # the instruction files contradict each other, the stricter sentence wins,
+    # and the formula stays uncommitted -- which by this design's own rule
+    # means the project does not hold it.
+    for rel in CONVENTION_FILES:
+        path = os.path.join(root, rel)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                before = fh.read()
+        except OSError:
+            continue
+        if BD_GIT_POLICY not in before or FORMULA_EXCEPTION in before:
+            continue
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(before.replace(BD_GIT_POLICY,
+                                        BD_GIT_POLICY + FORMULA_EXCEPTION))
+        except OSError:
+            continue
+        declared.append(rel)
+    body = CONVENTIONS % {"p": PROG, "open": MARK_OPEN, "close": MARK_CLOSE}
+    for rel in CONVENTION_FILES:
+        path = os.path.join(root, rel)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                before = fh.read()
+        except OSError:
+            before = ""
+        if MARK_OPEN in before and MARK_CLOSE in before:
+            head, rest = before.split(MARK_OPEN, 1)
+            after = head + body + rest.split(MARK_CLOSE, 1)[1]
+        elif before.strip():
+            after = before.rstrip() + "\n\n" + body + "\n"
+        else:
+            after = body + "\n"
+        if after == before:
+            continue
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(after)
+        except OSError:
+            continue
+        if rel not in declared:
+            declared.append(rel)
+
+    ignored = []
+    if witness_on(root) and os.path.isdir(os.path.join(root, ".beads")):
+        path = os.path.join(root, WITNESS_IGNORE)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                before = fh.read()
+        except OSError:
+            before = ""
+        if os.path.basename(WITNESS_FILE) not in before.split():
+            try:
+                with open(path, "a", encoding="utf-8") as fh:
+                    fh.write("%s# The witness log is this machine's, never the project's\n%s\n"
+                             % ("" if before.endswith("\n") or not before else "\n",
+                                os.path.basename(WITNESS_FILE)))
+                ignored.append(WITNESS_IGNORE)
+            except OSError:
+                pass
+
+    if request.get("announce") == "init":
+        if renamed:
+            print("\n✓ Renamed bd to %s in %d agent instruction file%s:"
+                  % (PROG, len(renamed), "" if len(renamed) == 1 else "s"))
+            for rel in renamed:
+                print("    %s" % rel)
+        if declared:
+            print("\n✓ Declared where work starts, in %s."
+                  % " and ".join(declared))
+            print("    Whoever shows up reads it there, human or agent.")
+    elif request.get("announce") == "create" and renamed:
+        print("\n(%s renamed bd in %d agent instruction file%s that bd rewrote)"
+              % (PROG, len(renamed), "" if len(renamed) == 1 else "s"), file=sys.stderr)
+    changed = list(dict.fromkeys(renamed + declared + ignored))
+    return {"status": "completed",
+            "summary": "%d file%s changed." % (len(changed), "" if len(changed) == 1 else "s"),
+            "renamed": renamed, "declared": declared, "changed": changed,
+            "exitCode": 0}
+
+
+def report_what_was_left_uncommitted(request):
+    """step.report-what-was-left-uncommitted: the files edited after bd committed them.
+
+    bd commits its own files during init, and the steps before this then
+    edit some of them. That left the repository dirty and the committed
+    copies stale -- naming bd, and carrying no declaration -- so a clone at
+    that commit got neither. Say so; committing is not this tool's to do.
+    """
+    root, rels = request["root"], list(request.get("paths") or [])
+    dirty = []
+    if rels:
+        out = git(["diff", "--name-only", "--"] + rels, root)
+        dirty = [r for r in out.split("\n") if r.strip()]
+    if dirty:
+        print("\n⚠ Edited after bd committed them, so they are "
+              "uncommitted here:")
+        for rel in dirty:
+            print("    %s" % rel)
+        print("\n  The committed copies still name bd and do not say where"
+              " work starts.\n  To fix that:\n")
+        print("    git add %s && git commit -m \"Declare where work "
+              "starts\"" % " ".join(dirty))
+    return {"status": "completed",
+            "summary": "%d file%s left uncommitted." % (len(dirty), "" if len(dirty) == 1 else "s"),
+            "uncommitted": dirty, "exitCode": 0}
+
+
+def adopt_repository(request):
+    """step.adopt-repository: the tracker initialised, with its hook installation declined.
+
+    bd installs its hooks by pointing core.hooksPath at its own directory,
+    which replaces this repository's. Decline that: nothing here needs bd's
+    hooks, and the repository needs its own.
+    """
+    argv = list(request["arguments"])
+    if "--skip-hooks" not in argv:
+        argv.insert(1, "--skip-hooks")
+    fwd = forward_to_beads({"root": request["root"], "arguments": argv})
+    return {"status": fwd["status"], "summary": fwd["summary"],
+            "exitCode": fwd["exitCode"]}
+
+
+def adopt_a_repository(request):
+    """journey.adopt-a-repository: one command, and nothing reaches outside unsaid."""
+    root = request["root"]
+    turn_metrics_off({"root": root})
+    adopted = adopt_repository({"root": root, "arguments": request["arguments"]})
+    undo_earlier_adoption({"root": root})
+    declared = declare_conventions({"root": root, "announce": "init"})
+    report_what_was_left_uncommitted({"root": root, "paths": declared["changed"]})
+    return {"status": adopted["status"], "summary": adopted["summary"],
+            "exitCode": adopted["exitCode"]}
+
+
+# ============================================================ the command line
+#
+# The interface binding: parse the affordance, build the request, call the
+# operation, return its exit code. No product decision lives here. What runs
+# before every command -- metrics off, an earlier adoption undone -- runs here
+# because every affordance supports those two operations (binding.cli-every-
+# run-*); the version is the tool's identity and no operation.
+
+def extract_query(argv):
+    """Title plus -d description, from a `create ...` argument list."""
+    title, desc, skip = "", "", False
+    for i, a in enumerate(argv):
+        if skip:
+            skip = False
+            continue
+        if a == "create":
+            continue
+        if a.startswith("--") and "=" in a:
+            k, v = a.split("=", 1)
+            if k in ("-d", "--description"):
+                desc = v
+            continue
+        if a.startswith("-"):
+            if a in VALUE_FLAGS:
+                skip = True
+                if a in ("-d", "--description") and i + 1 < len(argv):
+                    desc = argv[i + 1]
+            continue
+        if not title:
+            title = a
+    return title, desc
+
 
 def main():
     argv = sys.argv[1:]
+    root = repo_root()
 
     # Before any bd command, --version included: while metrics are on, bd
     # queues an event for every command it runs.
-    turn_metrics_off()
+    turn_metrics_off({"root": root})
 
     if not argv or argv[0] == "learn":
-        sys.stdout.write(LEARN)
-        return 0
+        return learn_the_conventions({"root": root})["exitCode"]
     if argv[0] in ("--version", "-V", "version") and len(argv) == 1:
-        bd = find_bd()
-        _, bdv = bd_quiet(["--version"]) if bd else (1, "")
+        _, bdv = bd_quiet(["--version"]) if find_bd() else (1, "")
         print("%s %s" % (PROG, VERSION))
         if bdv.strip():
             print("  on %s" % " ".join(bdv.split()))
@@ -1401,55 +1813,14 @@ def main():
     # Before anything else: a repository adopted by v0.1.0 is running with
     # its own hooks replaced, and it cannot be left that way while this
     # tool is in a position to put it back.
-    announce_repair(repo_root())
+    undo_earlier_adoption({"root": root})
 
     if argv[0] == "check":
-        return cmd_check()
+        return describe_and_check({"root": root, "mode": "check"})["exitCode"]
 
     if argv[0] == "init":
-        # bd installs its hooks by pointing core.hooksPath at its own
-        # directory, which replaces this repository's. Decline that: nothing
-        # here needs bd's hooks, and the repository needs its own.
-        argv = list(argv)
-        if "--skip-hooks" not in argv:
-            argv.insert(1, "--skip-hooks")
-        code = run_bd(argv)
-        root = repo_root()
-        announce_repair(root)
-        renamed = rename_in_agent_files(root)
-        declared = write_conventions(root)
-        if renamed:
-            print("\n\u2713 Renamed bd to %s in %d agent instruction file%s:"
-                  % (PROG, len(renamed), "" if len(renamed) == 1 else "s"))
-            for rel in renamed:
-                print("    %s" % rel)
-        if declared:
-            print("\n\u2713 Declared where work starts, in %s."
-                  % " and ".join(declared))
-            print("    Whoever shows up reads it there, human or agent.")
+        return adopt_a_repository({"root": root, "arguments": argv})["exitCode"]
 
-        # bd commits its own files during init, and the two steps above then
-        # edit some of them. That left the repository dirty and the committed
-        # copies stale -- naming bd, and carrying no declaration -- so a clone
-        # at that commit got neither. Say so; committing is not this tool's
-        # to do.
-        dirty = left_uncommitted(root, set(renamed) | set(declared))
-        if dirty:
-            print("\n\u26a0 Edited after bd committed them, so they are "
-                  "uncommitted here:")
-            for rel in dirty:
-                print("    %s" % rel)
-            print("\n  The committed copies still name bd and do not say where"
-                  " work starts.\n  To fix that:\n")
-            print("    git add %s && git commit -m \"Declare where work "
-                  "starts\"" % " ".join(dirty))
-        return code
-
-    root = repo_root()
-
-    # These three questions are about the project. bd answers them about its
-    # own two search paths, and in a project whose formulas sit next to what
-    # they are about its answer is "No formulas found".
     if argv[0] == "formula" and len(argv) > 1 and argv[1] == "new":
         rest, at, frm, title, i = argv[2:], None, None, "", 0
         while i < len(rest):
@@ -1464,87 +1835,37 @@ def main():
             elif not a.startswith("-") and not title:
                 title = a
             i += 1
-        return cmd_formula_new(root, title, at, frm)
+        return write_formula({"root": root, "title": title, "directory": at,
+                              "fromRef": frm})["exitCode"]
 
+    # These questions are about the project. bd answers them about its own
+    # two search paths, and in a project whose formulas sit next to what they
+    # are about its answer is "No formulas found".
     if argv[0] == "formula" and len(argv) > 1:
-        forms = load_formulas(root)
         plain = [a for a in argv[2:] if not a.startswith("-")]
         flags = [a for a in argv[2:] if a.startswith("-")]
         if argv[1] == "list" and not [g for g in flags if g != "--json"]:
-            return cmd_formula_list(root, forms, "--json" in flags)
+            return list_formulas({"root": root, "json": "--json" in flags})["exitCode"]
         if argv[1] == "show" and len(plain) == 1 and not flags:
-            f = resolve(forms, plain[0])
-            if f:
-                return cmd_formula_show(root, f)
+            shown = show_formula({"root": root, "ident": plain[0]})
+            if shown["status"] != "blocked":
+                return shown["exitCode"]
 
     # Pour from where the formula lives, instead of requiring it be moved there.
     if argv[0] == "mol" and len(argv) > 2 and argv[1] == "pour":
-        f = resolve(load_formulas(root), argv[2])
-        if f and ensure_cooked(root, f):
-            argv = ["mol", "pour", f["id"]] + argv[3:]
-        return run_bd(argv)
-
-    # `cook <id>` means that formula's file, wherever in the tree it sits.
-    if argv[0] == "cook" and len(argv) > 1 and not argv[1].startswith("-"):
-        f = resolve(load_formulas(root), argv[1])
-        if f and not os.path.exists(argv[1]):
-            argv = ["cook", os.path.join(root, f["rel"])] + argv[2:]
-        return run_bd(argv)
-
-    # The conventions, checked where someone actually looks. Nobody in the
-    # trial ran `check` or `learn`; they ran these two.
-    if argv[0] in ("doctor", "lint"):
-        code = run_bd(argv)
-        forms = load_formulas(root)
-        idx = Index(forms, background(root))
-        probs = problems(root, forms, idx)
-        if probs:
-            print("\n%d %s convention problem%s:"
-                  % (len(probs), PROG, "" if len(probs) == 1 else "s"),
-                  file=sys.stderr)
-            print_problems(probs, limit=5)
-        note_handmade(root, idx)
-        return code
-
-    # A procedure kept as a memory is one nothing can match or instantiate.
-    # Three agents in five reached for this instead of writing a formula.
-    if argv[0] == "remember":
-        code = run_bd(argv)
-        if code == 0 and reads_procedural(" ".join(argv[1:])):
-            print("\n\U0001f4dc That reads like a procedure. A formula can be "
-                  "matched against a\n   title and poured into tracked steps; "
-                  "a memory can do neither.", file=sys.stderr)
-            print("   Write it as one:  %s formula new \"%s\""
-                  % (PROG, clip(" ".join(argv[1:]), 60)), file=sys.stderr)
-        return code
+        return pour_procedure({"root": root, "ident": argv[2], "arguments": argv[3:],
+                               "witness": witness_on(root)})["exitCode"]
 
     if argv[0] != "create":
-        return run_bd(argv)
+        return run_a_tracker_command({"root": root, "arguments": argv,
+                                      "witness": witness_on(root)})["exitCode"]
 
-    code = run_bd(argv)
-    if code != 0:
-        return code
-    if os.environ.get("DOTDIW_NO_HINTS"):
-        return 0
-    if any(a in ("--json", "-q", "--quiet", "--silent") for a in argv):
-        return 0
-
-    again = rename_in_agent_files(root)
-    write_conventions(root)
-    if again:
-        print("\n(%s renamed bd in %d agent instruction file%s that bd rewrote)"
-              % (PROG, len(again), "" if len(again) == 1 else "s"), file=sys.stderr)
-    forms = load_formulas(root)
-    idx = Index(forms, background(root))
-    if forms:
-        suggest(argv, root, idx)
-    note_handmade(root, idx)
-    probs = problems(root, forms, idx)
-    if probs:
-        print("\n%d formula problem%s:" % (len(probs), "" if len(probs) == 1 else "s"),
-              file=sys.stderr)
-        print_problems(probs, limit=3)
-    return 0
+    title, desc = extract_query(argv)
+    quiet = bool(os.environ.get("DOTDIW_NO_HINTS")) or any(
+        a in ("--json", "-q", "--quiet", "--silent") for a in argv)
+    return start_named_work({"root": root, "arguments": argv, "title": title,
+                             "description": desc, "quiet": quiet,
+                             "witness": witness_on(root)})["exitCode"]
 
 
 if __name__ == "__main__":

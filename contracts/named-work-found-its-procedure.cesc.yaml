@@ -1,0 +1,325 @@
+cescVersion: 0.1.0
+contractId: cesc.named-work-found-its-procedure
+name: Named work found its procedure
+status: draft
+purpose: >
+  Defines which finite observed event configurations may count as evidence
+  that a piece of work was named, that the procedure applying to it surfaced
+  in the same breath, that the surfaced procedure was the one poured, and
+  that its steps were closed. It does not decide what dotdiw promises; it
+  decides when a log is allowed to say the promise was kept.
+
+  What the log can and cannot see. Both sources are dotdiw's own witness log,
+  .beads/witness.jsonl, written only when the project or the worker turned it
+  on and never transmitted. beadsIssues covers closes that went through
+  dotdiw; a step closed with bd directly is invisible to it, so a story can be
+  incomplete through no fault of the work. A pour is attributed to the create
+  that surfaced its formula, failing that to the most recently named work; a
+  pour the log cannot place is exactly what this contract exists to refuse.
+sourceSemanticStack:
+  products:
+    - productId: product.dotdiw
+      sourceUri: product.yaml
+  carriers:
+    - carrierId: carrier.dotdiw-on-path
+      sourceUri: carrier.yaml
+  praxis:
+    - praxisId: praxis.where-work-starts
+      sourceUri: praxis.yaml
+  reliantEnactments:
+    - enactmentId: reliant-enactment.release-relied-on-the-surfaced-procedure
+      sourceUri: reliant-enactments/named-work-reliance.yaml
+sourceProductIdl:
+  idlId: idl.dotdiw
+  idlVersion: 0.1.0
+  sourceUri: operation-idl.json
+semanticSources:
+  productIds:
+    - product.dotdiw
+  carrierIds:
+    - carrier.dotdiw-on-path
+  praxisIds:
+    - praxis.where-work-starts
+  reliantEnactmentIds:
+    - reliant-enactment.release-relied-on-the-surfaced-procedure
+  operationIds:
+    - operation.name-the-work
+    - operation.match-formulas
+    - operation.pour-procedure
+  invariantIds:
+    - invariant.work-starts-named
+  goldenTraceIds:
+    - trace.release-found-its-procedure
+    - trace.recorded-run-found-its-procedure
+  antiGoldenTraceIds:
+    - antitrace.procedure-poured-unnamed
+    - antitrace.poured-what-never-surfaced
+    - antitrace.create-both-surfaced-and-silent
+  objectIds:
+    - object.work
+    - object.formula
+    - object.molecule
+  boundaryIds:
+    - boundary.create-to-match
+case:
+  keyFields:
+    - workId
+  storyBound:
+    startsAt: named
+    endsAt:
+      any:
+        - completed
+        - timeout(24h)
+clock:
+  occurredAtField: occurredAt
+  observedAtField: observedAt
+  maxCrossSourceSkew: 5s
+  clockOnlyPolicy: weak-evidence-requires-caveat
+observationSources:
+  dotdiwInvocations:
+    labels:
+      - work_named
+      - formula_surfaced
+      - nothing_surfaced
+      - procedure_poured
+    watermarkDelay: 1m
+    requiredForValidStory: true
+  beadsIssues:
+    labels:
+      - step_closed
+      - molecule_closed
+    watermarkDelay: 1m
+    requiredForValidStory: true
+storySemantics:
+  finite: required
+  downClosure: required
+  conflictFreedom: required
+  scopeWellFormedness: required
+  objectPassageConsistency: required
+  fictionalInference: forbidden
+  defaultOutcomeOnMissingPredecessor: incomplete
+  defaultOutcomeBeforeWatermark: open
+eventClasses:
+  named:
+    eventClassId: event.work-named
+    label:
+      anyOf:
+        - work_named
+    count:
+      perCase: exactlyOne
+    predicates:
+      - field: title
+        op: exists
+    produces:
+      - objectId: object.work
+        state: named
+        keyField: workId
+  surfaced:
+    eventClassId: event.formula-surfaced
+    label:
+      anyOf:
+        - formula_surfaced
+    count:
+      perCase: zeroOrMore
+    predicates:
+      - field: formulaId
+        op: exists
+    produces:
+      - objectId: object.formula
+        state: surfaced
+        keyField: formulaId
+  silent:
+    eventClassId: event.nothing-surfaced
+    label:
+      anyOf:
+        - nothing_surfaced
+    count:
+      perCase: zeroOrOne
+    terminalMeaning: no-formula-applied
+  poured:
+    eventClassId: event.procedure-poured
+    label:
+      anyOf:
+        - procedure_poured
+    count:
+      perCase: zeroOrOne
+    predicates:
+      - field: formulaId
+        op: exists
+      - field: moleculeId
+        op: exists
+    consumes:
+      - objectId: object.formula
+        state: surfaced
+        keyField: formulaId
+    produces:
+      - objectId: object.molecule
+        state: poured
+        keyField: moleculeId
+  step_closed:
+    eventClassId: event.step-closed
+    label:
+      anyOf:
+        - step_closed
+    count:
+      perCase: zeroOrMore
+    predicates:
+      - field: moleculeId
+        op: exists
+      - field: stepId
+        op: exists
+    observes:
+      - objectId: object.molecule
+        state: poured
+        keyField: moleculeId
+  completed:
+    eventClassId: event.molecule-closed
+    label:
+      anyOf:
+        - molecule_closed
+    count:
+      perCase: zeroOrOne
+    consumes:
+      - objectId: object.molecule
+        state: poured
+        keyField: moleculeId
+    produces:
+      - objectId: object.work
+        state: done
+        keyField: workId
+causality:
+  - relationId: relation.named-before-surfaced
+    before: named
+    after: surfaced
+    quantifier: allMatched
+    meaning: enables
+    requiredEvidence:
+      anyOf:
+        - sameCaseKey
+  - relationId: relation.named-before-silent
+    before: named
+    after: silent
+    quantifier: allMatched
+    meaning: enables
+    requiredEvidence:
+      anyOf:
+        - sameCaseKey
+  - relationId: relation.surfaced-before-poured
+    before: surfaced
+    after: poured
+    quantifier: exists
+    meaning: produces-consumed-object
+    requiredEvidence:
+      anyOf:
+        - objectProducedThenConsumed
+  - relationId: relation.poured-before-step-closed
+    before: poured
+    after: step_closed
+    quantifier: allMatched
+    meaning: enables
+    requiredEvidence:
+      anyOf:
+        - sameCaseKey
+  - relationId: relation.poured-before-completed
+    before: poured
+    after: completed
+    quantifier: exists
+    meaning: produces-consumed-object
+    requiredEvidence:
+      anyOf:
+        - objectProducedThenConsumed
+conflicts:
+  - conflictId: conflict.surfaced-vs-silent
+    left: surfaced
+    right: silent
+    global: true
+    justification: >
+      A work item is named by exactly one create invocation, and that
+      invocation either printed formulas or printed nothing.
+    reason: One create cannot both surface a formula and report silence.
+    propagateAlongCausality: false
+scopes: {}
+outcomes:
+  valid:
+    meaning: >
+      The work was named first, what applied surfaced with it, the surfaced
+      procedure was poured, and its steps closed after the pour.
+    emitWhen:
+      - allRequiredCausalitySatisfied
+      - allRequiredObjectsPassed
+      - noConflicts
+      - allRequiredSourcesPastWatermark
+  open:
+    meaning: A required source has not passed its watermark; absence means nothing yet.
+    emitWhen:
+      - requiredSourceNotPastWatermark
+  incomplete:
+    meaning: >
+      A downstream event is observed without its required predecessor: a pour
+      with no naming, or a pour of a formula that never surfaced.
+    emitWhen:
+      - downstreamClaimHasMissingRequiredPredecessor
+  caveated:
+    meaning: The story leans on clock order alone or on a source that was out.
+    emitWhen:
+      - clockOnlyCausalityUsed
+      - sourceOutagePresent
+  conflicted:
+    meaning: The same create both surfaced a formula and reported silence.
+    emitWhen:
+      - conflictRelationViolated
+  invalid:
+    meaning: Object passage, a predicate, or a cardinality rule was violated.
+    emitWhen:
+      - objectPassageViolated
+      - predicateViolated
+      - cardinalityViolated
+derivationPolicy:
+  derivedEvents: forbidden
+  requiresSourceEvidence: true
+traceExpectations:
+  - traceId: trace.release-found-its-procedure
+    traceKind: golden
+    fixtureUri: ../events/golden.jsonl
+    expectedStatus: valid
+  - traceId: antitrace.procedure-poured-unnamed
+    traceKind: anti-golden
+    fixtureUri: ../events/poured-without-naming.jsonl
+    expectedStatus: invalid
+    violatedRefs:
+      - invariant.work-starts-named
+    rejectionReason: >
+      A procedure was poured and followed for work that was never named, so
+      discovery never had its moment.
+  - traceId: antitrace.poured-what-never-surfaced
+    traceKind: anti-golden
+    fixtureUri: ../events/poured-what-never-surfaced.jsonl
+    expectedStatus: invalid
+    violatedRefs:
+      - transition.work-named-to-procedure-poured
+    rejectionReason: >
+      The poured formula is not one the create printed; the surfacing looks
+      to have worked and did not.
+  - traceId: trace.recorded-run-found-its-procedure
+    traceKind: golden
+    fixtureUri: ../events/recorded-run.jsonl
+    expectedStatus: valid
+  - traceId: antitrace.create-both-surfaced-and-silent
+    traceKind: anti-golden
+    fixtureUri: ../events/surfaced-and-silent.jsonl
+    expectedStatus: conflicted
+    violatedRefs:
+      - conflict.surfaced-vs-silent
+    rejectionReason: >
+      One create cannot both surface a formula and report silence; a log that
+      says both is evidence of nothing.
+changePolicy:
+  compatibilityClasses:
+    - additive
+    - corrective
+    - strengthening
+    - weakening
+    - breaking
+  migrationRequiredFor:
+    - weakening
+    - breaking

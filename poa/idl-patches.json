@@ -1,0 +1,2167 @@
+{
+  "operations": {
+    "operation.start-named-work": {
+      "calls": [
+        {
+          "operationId": "operation.name-the-work",
+          "callPurpose": "Compose operation.name-the-work as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.declare-conventions",
+          "callPurpose": "Re-declare the conventions after the create, because the tracker rewrites the files agents read on setup, doctor --fix and upgrades.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "Index the project once and hand the index to the match and the check, so a create indexes once.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.match-formulas",
+          "callPurpose": "Compose operation.match-formulas as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.describe-and-check",
+          "callPurpose": "Run the conventions check quietly after every create, printing the first three problems and the handmade notice.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.pour-procedure",
+          "callPurpose": "Compose operation.pour-procedure as a governed journey step.",
+          "required": false,
+          "failurePropagation": "propagate",
+          "notes": "Performed when the request names a formula to pour. From the command line the worker pours through dotdiw mol pour after reading what surfaced; the create does not choose for them."
+        }
+      ]
+    },
+    "operation.write-a-procedure-down": {
+      "calls": [
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "Index the project once for the notice and the check.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.notice-handmade-procedures",
+          "callPurpose": "Compose operation.notice-handmade-procedures as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.nudge-towards-a-formula",
+          "callPurpose": "Compose operation.nudge-towards-a-formula as a governed journey step.",
+          "required": false,
+          "failurePropagation": "propagate",
+          "notes": "Performed when the request carries remembered text; from the command line it rides on dotdiw remember."
+        },
+        {
+          "operationId": "operation.write-formula",
+          "callPurpose": "Compose operation.write-formula as a governed journey step.",
+          "required": false,
+          "failurePropagation": "propagate",
+          "notes": "Performed when the request names what the procedure is for; from the command line it is dotdiw formula new."
+        },
+        {
+          "operationId": "operation.describe-and-check",
+          "callPurpose": "Compose operation.describe-and-check as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.commit-formula",
+          "callPurpose": "Compose operation.commit-formula as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate",
+          "notes": "Always ends blocked: the commit is the worker's, and the response carries the command."
+        }
+      ]
+    },
+    "operation.adopt-a-repository": {
+      "calls": [
+        {
+          "operationId": "operation.turn-metrics-off",
+          "callPurpose": "Compose operation.turn-metrics-off as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.adopt-repository",
+          "callPurpose": "Compose operation.adopt-repository as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.undo-earlier-adoption",
+          "callPurpose": "Compose operation.undo-earlier-adoption as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.declare-conventions",
+          "callPurpose": "Compose operation.declare-conventions as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.report-what-was-left-uncommitted",
+          "callPurpose": "Compose operation.report-what-was-left-uncommitted as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.run-a-tracker-command": {
+      "calls": [
+        {
+          "operationId": "operation.resolve-formula",
+          "callPurpose": "For cook, resolve the formula id to the file it lives in before the tracker sees the command.",
+          "required": false,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.forward-to-beads",
+          "callPurpose": "Compose operation.forward-to-beads as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.describe-and-check",
+          "callPurpose": "After doctor or lint, print the project's convention problems and the handmade notice under the tracker's report.",
+          "required": false,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.nudge-towards-a-formula",
+          "callPurpose": "After remember, say so when the remembered text reads like a procedure.",
+          "required": false,
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.find-a-held-procedure": {
+      "calls": [
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "Compose operation.index-the-project as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.list-formulas",
+          "callPurpose": "Compose operation.list-formulas as a governed journey step.",
+          "required": false,
+          "failurePropagation": "propagate",
+          "notes": "One of list, show and resolve is performed, by what the request asks."
+        },
+        {
+          "operationId": "operation.show-formula",
+          "callPurpose": "Compose operation.show-formula as a governed journey step.",
+          "required": false,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.resolve-formula",
+          "callPurpose": "Compose operation.resolve-formula as a governed journey step.",
+          "required": false,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "tracesTo": {
+        "boundaryIds": [
+          "boundary.list-to-answer"
+        ]
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "journey.find-a-held-procedure",
+          "reason": "derive gives a journey every boundary of every interaction its duty uses, so this under-1s journey inherited boundary.repository-to-remote from the duty's sharing interaction and failed check.boundary-timing. It crosses only boundary.list-to-answer."
+        }
+      ]
+    },
+    "operation.learn-the-conventions": {
+      "calls": [
+        {
+          "operationId": "operation.teach-the-conventions",
+          "callPurpose": "Compose operation.teach-the-conventions as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.name-the-work": {
+      "calls": [
+        {
+          "operationId": "operation.forward-to-beads",
+          "callPurpose": "Create the work item through the tracker, with bd's name rewritten in what it prints.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::create",
+          "callPurpose": "The work item is the tracker's issue; dotdiw names it and nothing else creates it.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.match-formulas": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.match-formulas",
+          "reason": "The step id does not start with a query verb, so derive called this a command. It ranks and prints; it changes nothing."
+        }
+      ],
+      "calls": [
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "Rank the title against the project's formulas with the project's own text as background; the index is built here when the orchestration did not pass one in.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.pour-procedure": {
+      "calls": [
+        {
+          "operationId": "operation.resolve-formula",
+          "callPurpose": "Find the formula's file from its id, wherever it sits in the tree.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.forward-to-beads",
+          "callPurpose": "Pour through the tracker, with bd's name rewritten in what it prints.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::cook --persist --force",
+          "callPurpose": "Cook the formula from its own path first, every time, so the version poured is the file as it is.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::formula show",
+          "callPurpose": "On an older tracker without --force on cook, ask whether it already holds the formula.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::mol pour",
+          "callPurpose": "Instantiate the formula as tracked, ordered steps.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::list --all --json --brief",
+          "callPurpose": "Read back the root and the steps the pour created, for the witness log.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.notice-handmade-procedures": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.notice-handmade-procedures",
+          "reason": "Reads the tracker and prints; changes nothing."
+        }
+      ],
+      "calls": [
+        {
+          "operationId": "operation.match-formulas",
+          "callPurpose": "Whether a committed formula already reaches the parent's title; if one does, the notice stops.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::list --all --json --brief",
+          "callPurpose": "Read every issue to find a parent that is not a molecule with three or more ordered children.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.nudge-towards-a-formula": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.nudge-towards-a-formula",
+          "reason": "Reads the remembered text and prints; the memory itself is the tracker's and was already stored."
+        }
+      ]
+    },
+    "operation.write-formula": {
+      "calls": [
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "Seed the new formula's examples with earlier titles that look like this one, weighted by the project's own words.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::list --all --json --brief",
+          "callPurpose": "The titles the project has already given its work, and with --from the children and dependencies of the work already done.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.describe-and-check": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.describe-and-check",
+          "reason": "Reads the formulas and the index and prints; changes nothing."
+        }
+      ],
+      "calls": [
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "Every check is a search over the project's formulas with the example taken out of the index.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.match-formulas",
+          "callPurpose": "Each example is searched for with itself taken out of the index; the formula must come back in the top three.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.notice-handmade-procedures",
+          "callPurpose": "The handmade notice follows the check wherever the check runs.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::ls-files --others --exclude-standard",
+          "callPurpose": "An uncommitted formula is reported as one nobody else can see.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.commit-formula": {
+      "calls": [],
+      "externalCalls": [],
+      "notes": "Never performed by dotdiw: invariant.tool-never-commits. The body refuses, returning blocked with the exact git command and the reason the commit is the worker's. It binds inline because POA's conformance check requires every binding to resolve to a callable."
+    },
+    "operation.adopt-repository": {
+      "calls": [
+        {
+          "operationId": "operation.forward-to-beads",
+          "callPurpose": "Initialise the tracker through the stream rewrite, so its own output comes back under dotdiw's name.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::init --skip-hooks",
+          "callPurpose": "The tracker initialises its database; its hook installation is declined.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.declare-conventions": {
+      "calls": [],
+      "externalCalls": []
+    },
+    "operation.report-what-was-left-uncommitted": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.report-what-was-left-uncommitted",
+          "reason": "Reads git's diff and prints; the commit is the worker's."
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::diff --name-only",
+          "callPurpose": "Which of the files dotdiw edited now differ from what the tracker committed.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.undo-earlier-adoption": {
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::config --get core.hooksPath",
+          "callPurpose": "Whether the tracker's hook directory stands in for the repository's own.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::config --unset core.hooksPath",
+          "callPurpose": "Hand the hooks back to .git/hooks; only a path inside .beads is ever unset.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.turn-metrics-off": {
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::metrics off",
+          "callPurpose": "Turn the tracker's anonymous usage metrics off for this machine, before any other tracker command runs.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.forward-to-beads": {
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::*",
+          "callPurpose": "Whatever command was given, unchanged; the tracker's exit code is the worker's.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.index-the-project": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.index-the-project",
+          "reason": "Reads git and the formula files; builds an in-memory index."
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::ls-files",
+          "callPurpose": "Only git-tracked formulas and tracked text are indexed; what git does not hold, the project does not hold.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.list-formulas": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.list-formulas",
+          "reason": "Prints what the project holds."
+        }
+      ],
+      "calls": [
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "The formulas the project holds, read from git.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.show-formula": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.show-formula",
+          "reason": "Prints one formula file."
+        }
+      ],
+      "calls": [
+        {
+          "operationId": "operation.resolve-formula",
+          "callPurpose": "Find the file the id names.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.resolve-formula": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.resolve-formula",
+          "reason": "Maps an id to a file; changes nothing."
+        }
+      ],
+      "calls": [
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "The committed formulas, by id, file name and path.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    "operation.teach-the-conventions": {
+      "kind": "query",
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+      },
+      "derivedFrom": [
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.teach-the-conventions",
+          "reason": "Prints compiled-in text."
+        }
+      ]
+    }
+  },
+  "types": {
+    "type.start-named-work-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "arguments",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
+          "cardinality": "many"
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "What the work is called, in the worker's words."
+        },
+        {
+          "name": "description",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The -d description, matched together with the title."
+        },
+        {
+          "name": "quiet",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Print only the tracker's own output; --json, -q, --quiet, --silent and DOTDIW_NO_HINTS set it."
+        },
+        {
+          "name": "witness",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Whether the witness log is on for this repository."
+        }
+      ]
+    },
+    "type.start-named-work-response": {
+      "fields": [
+        {
+          "name": "workRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The id of the work item the tracker created."
+        },
+        {
+          "name": "surfaced",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The formula ids printed for the title, best first; empty when nothing crossed the threshold.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.name-the-work-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "arguments",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
+          "cardinality": "many"
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "witness",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.name-the-work-response": {
+      "fields": [
+        {
+          "name": "workRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The id of the work item the tracker created."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The tracker's exit code; nothing else happens when it is not zero."
+        }
+      ]
+    },
+    "type.match-formulas-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "description",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false
+        },
+        {
+          "name": "workRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false
+        },
+        {
+          "name": "witness",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.match-formulas-response": {
+      "fields": [
+        {
+          "name": "surfaced",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The formula ids printed, best first.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.pour-procedure-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "arguments",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
+          "cardinality": "many"
+        },
+        {
+          "name": "ident",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The formula id, file name or path to pour."
+        },
+        {
+          "name": "workRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false
+        },
+        {
+          "name": "witness",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.pour-procedure-response": {
+      "fields": [
+        {
+          "name": "moleculeRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The root issue the pour created."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.write-a-procedure-down-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "What the procedure is for; when present, the formula is written."
+        },
+        {
+          "name": "directory",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false
+        },
+        {
+          "name": "fromRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The work item whose children become the steps."
+        },
+        {
+          "name": "text",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Remembered text, when the journey was entered through remember."
+        }
+      ]
+    },
+    "type.notice-handmade-procedures-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        }
+      ]
+    },
+    "type.notice-handmade-procedures-response": {
+      "fields": [
+        {
+          "name": "undeclared",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The parents named, as issue ids.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.nudge-towards-a-formula-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "text",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        }
+      ]
+    },
+    "type.write-formula-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "directory",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where to write the file; the current directory by default."
+        },
+        {
+          "name": "fromRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.write-formula-response": {
+      "fields": [
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository-relative path of the formula written."
+        }
+      ]
+    },
+    "type.describe-and-check-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "limit",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "How many problems to print; all of them when absent."
+        }
+      ]
+    },
+    "type.describe-and-check-response": {
+      "fields": [
+        {
+          "name": "problems",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "One line per problem: the file and what is wrong with it.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaCount",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.commit-formula-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The formula file the worker should commit."
+        }
+      ]
+    },
+    "type.commit-formula-response": {
+      "fields": [
+        {
+          "name": "command",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The git command the worker runs; dotdiw never runs it."
+        }
+      ]
+    },
+    "type.adopt-a-repository-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "arguments",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.adopt-repository-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "arguments",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.adopt-repository-response": {
+      "fields": [
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.declare-conventions-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "announce",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Whether to print the files changed, as init does; create prints only a count."
+        }
+      ]
+    },
+    "type.declare-conventions-response": {
+      "fields": [
+        {
+          "name": "renamed",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Files in which bd was renamed.",
+          "cardinality": "many"
+        },
+        {
+          "name": "declared",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Files that gained or regained the declaration.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.report-what-was-left-uncommitted-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "paths",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The files dotdiw edited after the tracker committed them.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.report-what-was-left-uncommitted-response": {
+      "fields": [
+        {
+          "name": "uncommitted",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.undo-earlier-adoption-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        }
+      ]
+    },
+    "type.undo-earlier-adoption-response": {
+      "fields": [
+        {
+          "name": "undone",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "One line per thing undone; empty and silent when there was nothing.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.turn-metrics-off-response": {
+      "fields": [
+        {
+          "name": "turnedOff",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Whether this run was the one that turned them off."
+        }
+      ]
+    },
+    "type.run-a-tracker-command-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "arguments",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    "type.run-a-tracker-command-response": {
+      "fields": [
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.forward-to-beads-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "arguments",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
+          "cardinality": "many"
+        },
+        {
+          "name": "witness",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.forward-to-beads-response": {
+      "fields": [
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.find-a-held-procedure-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "ask",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "list",
+              "show",
+              "resolve"
+            ]
+          },
+          "required": true
+        },
+        {
+          "name": "ident",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false
+        },
+        {
+          "name": "json",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.index-the-project-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "background",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Build the ranking index too; off when only the formula set is wanted."
+        }
+      ]
+    },
+    "type.index-the-project-response": {
+      "fields": [
+        {
+          "name": "formulaCount",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.list-formulas-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "json",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.show-formula-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "ident",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        }
+      ]
+    },
+    "type.resolve-formula-request": {
+      "fields": [
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository the interface resolved; bodies never ask git for it themselves."
+        },
+        {
+          "name": "ident",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        }
+      ]
+    },
+    "type.resolve-formula-response": {
+      "fields": [
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The formula id resolved, or absent."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository-relative path of its file."
+        }
+      ]
+    }
+  },
+  "externalProductDependencies": [
+    {
+      "dependencyId": "dependency.beads",
+      "productId": "product.beads",
+      "productName": "beads (bd)",
+      "reason": "beads is the issue tracker underneath: it holds the work items, cooks and pours formulas, and owns every command dotdiw forwards. dotdiw adds discovery and hides the second name.",
+      "boundarySemantics": "A local subprocess on the same machine. dotdiw declines its hook installation and its Dolt remote, turns its usage metrics off before the first call, rewrites its name in everything it prints, and otherwise changes nothing it does. It has no POA IDL; the commands below are what dotdiw calls.",
+      "calledOperations": [
+        "create",
+        "init --skip-hooks",
+        "mol pour",
+        "cook --persist --force",
+        "formula show",
+        "metrics off",
+        "list --all --json --brief",
+        "--version",
+        "every command dotdiw does not own, forwarded unchanged"
+      ]
+    },
+    {
+      "dependencyId": "dependency.git",
+      "productId": "product.git",
+      "productName": "git",
+      "reason": "git is the registry and the sharing mechanism: a formula the project holds is one git tracks, and it reaches other people as every other file does.",
+      "boundarySemantics": "The project's own repository, read and never written: dotdiw lists tracked and untracked files, reads and unsets one config key that an earlier version let the tracker set, and diffs the files it edited. It never commits, pushes or syncs. It has no POA IDL; the commands below are what dotdiw calls.",
+      "calledOperations": [
+        "rev-parse --show-toplevel",
+        "ls-files",
+        "ls-files --others --exclude-standard",
+        "config --get core.hooksPath",
+        "config --unset core.hooksPath",
+        "diff --name-only"
+      ]
+    }
+  ],
+  "interfaceBindings": [
+    {
+      "bindingId": "binding.cli-create",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.start-named-work",
+      "affordance": {
+        "label": "dotdiw create",
+        "shape": "Name the work and read what applies, in one invocation.",
+        "command": "dotdiw create \"<title>\" [-d <description>] [bd create flags]",
+        "inputMapping": [
+          {
+            "from": "<title>",
+            "to": "title",
+            "notes": "The first argument that is not a flag or a flag's value."
+          },
+          {
+            "from": "-d, --description",
+            "to": "description",
+            "notes": "Matched together with the title."
+          },
+          {
+            "from": "--json, -q, --quiet, --silent, DOTDIW_NO_HINTS=1",
+            "to": "quiet",
+            "notes": "Suppresses what rides along with the create: the match, the re-declaration, the check. The create itself still happens."
+          },
+          {
+            "from": "every argument",
+            "to": "arguments",
+            "notes": "Forwarded to the tracker's create unchanged."
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.surface-procedures-when-work-starts"
+        ],
+        "journeyIds": [
+          "journey.start-named-work"
+        ],
+        "stepIds": [
+          "step.name-the-work",
+          "step.match-formulas"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-mol-pour",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.pour-procedure",
+      "affordance": {
+        "label": "dotdiw mol pour",
+        "shape": "Pour a formula from where it lives, by its id.",
+        "command": "dotdiw mol pour <formula-id|file|path> [bd mol pour flags]"
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.surface-procedures-when-work-starts"
+        ],
+        "journeyIds": [
+          "journey.start-named-work"
+        ],
+        "stepIds": [
+          "step.pour-procedure"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-mol-pour-journey",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.start-named-work",
+      "affordance": {
+        "label": "dotdiw mol pour",
+        "shape": "The pour is the third step of named work, performed by the worker after reading what surfaced.",
+        "command": "dotdiw mol pour <formula-id>"
+      },
+      "coverage": {
+        "coverageKind": "participates-in",
+        "dutyIds": [
+          "duty.surface-procedures-when-work-starts"
+        ],
+        "journeyIds": [
+          "journey.start-named-work"
+        ],
+        "stepIds": [
+          "step.pour-procedure"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-formula-new",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.write-formula",
+      "affordance": {
+        "label": "dotdiw formula new",
+        "shape": "Write a formula scaffold next to what it is about.",
+        "command": "dotdiw formula new \"<what the procedure is for>\" [--at <dir>] [--from <issue-id>]",
+        "inputMapping": [
+          {
+            "from": "<what the procedure is for>",
+            "to": "title"
+          },
+          {
+            "from": "--at",
+            "to": "directory"
+          },
+          {
+            "from": "--from",
+            "to": "fromRef"
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.write-a-procedure-down"
+        ],
+        "stepIds": [
+          "step.write-formula"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-formula-new-journey",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.write-a-procedure-down",
+      "affordance": {
+        "label": "dotdiw formula new",
+        "shape": "Writing the file is the third step of writing a procedure down.",
+        "command": "dotdiw formula new \"<what the procedure is for>\""
+      },
+      "coverage": {
+        "coverageKind": "participates-in",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.write-a-procedure-down"
+        ],
+        "stepIds": [
+          "step.write-formula"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-check",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.describe-and-check",
+      "affordance": {
+        "label": "dotdiw check",
+        "shape": "Whether every formula here can actually be found, and the other convention problems.",
+        "command": "dotdiw check"
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.write-a-procedure-down"
+        ],
+        "stepIds": [
+          "step.describe-and-check",
+          "step.notice-handmade-procedures"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-check-journey",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.write-a-procedure-down",
+      "affordance": {
+        "label": "dotdiw check",
+        "shape": "Checking is the fourth step of writing a procedure down.",
+        "command": "dotdiw check"
+      },
+      "coverage": {
+        "coverageKind": "participates-in",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.write-a-procedure-down"
+        ],
+        "stepIds": [
+          "step.describe-and-check"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-remember",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.run-a-tracker-command",
+      "affordance": {
+        "label": "dotdiw remember",
+        "shape": "Keep a memory in the tracker, and be told when it reads like a procedure.",
+        "command": "dotdiw remember <text>",
+        "inputMapping": [
+          {
+            "from": "<text>",
+            "to": "arguments"
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.put-all-four-under-one-name"
+        ],
+        "journeyIds": [
+          "journey.run-a-tracker-command"
+        ],
+        "stepIds": [
+          "step.forward-to-beads"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-remember-nudge",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.write-a-procedure-down",
+      "affordance": {
+        "label": "dotdiw remember",
+        "shape": "A memory that reads like a procedure is the second step's occasion.",
+        "command": "dotdiw remember <text>"
+      },
+      "coverage": {
+        "coverageKind": "participates-in",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.write-a-procedure-down"
+        ],
+        "stepIds": [
+          "step.nudge-towards-a-formula"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-formula-list",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.list-formulas",
+      "affordance": {
+        "label": "dotdiw formula list",
+        "shape": "What this project holds, with paths.",
+        "command": "dotdiw formula list [--json]",
+        "inputMapping": [
+          {
+            "from": "--json",
+            "to": "json"
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.find-a-held-procedure"
+        ],
+        "stepIds": [
+          "step.index-the-project",
+          "step.list-formulas"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-formula-list-journey",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.find-a-held-procedure",
+      "affordance": {
+        "label": "dotdiw formula list",
+        "shape": "Listing is how the find journey is usually entered.",
+        "command": "dotdiw formula list"
+      },
+      "coverage": {
+        "coverageKind": "participates-in",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.find-a-held-procedure"
+        ],
+        "stepIds": [
+          "step.list-formulas"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-formula-show",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.show-formula",
+      "affordance": {
+        "label": "dotdiw formula show",
+        "shape": "One formula as it is written, from where it is written.",
+        "command": "dotdiw formula show <formula-id|file|path>",
+        "inputMapping": [
+          {
+            "from": "<formula-id|file|path>",
+            "to": "ident"
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.find-a-held-procedure"
+        ],
+        "stepIds": [
+          "step.resolve-formula",
+          "step.show-formula"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-cook",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.run-a-tracker-command",
+      "affordance": {
+        "label": "dotdiw cook",
+        "shape": "Cook a formula from where it lives; the id resolves to its file before the tracker sees it.",
+        "command": "dotdiw cook <formula-id|path> [bd cook flags]",
+        "inputMapping": [
+          {
+            "from": "<formula-id>",
+            "to": "arguments",
+            "notes": "Resolved to the formula's path through operation.resolve-formula when it names a committed formula."
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.put-all-four-under-one-name"
+        ],
+        "journeyIds": [
+          "journey.run-a-tracker-command"
+        ],
+        "stepIds": [
+          "step.forward-to-beads"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-init",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.adopt-a-repository",
+      "affordance": {
+        "label": "dotdiw init",
+        "shape": "Adopt the repository: tracking without hooks or a remote, the conventions declared, the uncommitted files named.",
+        "command": "dotdiw init [bd init flags]",
+        "inputMapping": [
+          {
+            "from": "every argument",
+            "to": "arguments",
+            "notes": "--skip-hooks is inserted when absent; the rest goes to the tracker unchanged."
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.adopt-without-reaching-outside"
+        ],
+        "journeyIds": [
+          "journey.adopt-a-repository"
+        ],
+        "stepIds": [
+          "step.adopt-repository",
+          "step.declare-conventions",
+          "step.report-what-was-left-uncommitted"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-doctor-lint",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.run-a-tracker-command",
+      "affordance": {
+        "label": "dotdiw doctor, dotdiw lint",
+        "shape": "The tracker's own health report, with the project's convention problems under it.",
+        "command": "dotdiw doctor | dotdiw lint"
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.put-all-four-under-one-name"
+        ],
+        "journeyIds": [
+          "journey.run-a-tracker-command"
+        ],
+        "stepIds": [
+          "step.forward-to-beads"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-doctor-lint-check",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.describe-and-check",
+      "affordance": {
+        "label": "dotdiw doctor, dotdiw lint",
+        "shape": "Where people look for health, the conventions check looks back.",
+        "command": "dotdiw doctor | dotdiw lint"
+      },
+      "coverage": {
+        "coverageKind": "participates-in",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.write-a-procedure-down"
+        ],
+        "stepIds": [
+          "step.describe-and-check",
+          "step.notice-handmade-procedures"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-any-tracker-command",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.run-a-tracker-command",
+      "affordance": {
+        "label": "dotdiw <any tracker command>",
+        "shape": "Everything the tracker does, under dotdiw's name: list, show, close, update, dep, sync, help and the rest.",
+        "command": "dotdiw <command> [arguments]",
+        "inputMapping": [
+          {
+            "from": "every argument",
+            "to": "arguments"
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.put-all-four-under-one-name"
+        ],
+        "journeyIds": [
+          "journey.run-a-tracker-command"
+        ],
+        "stepIds": [
+          "step.forward-to-beads"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-learn",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.learn-the-conventions",
+      "affordance": {
+        "label": "dotdiw learn, or dotdiw alone",
+        "shape": "How work gets done in this project, in full.",
+        "command": "dotdiw | dotdiw learn"
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.teach-without-a-project"
+        ],
+        "journeyIds": [
+          "journey.learn-the-conventions"
+        ],
+        "stepIds": [
+          "step.teach-the-conventions"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
+    },
+    {
+      "bindingId": "binding.cli-every-run-metrics",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.turn-metrics-off",
+      "affordance": {
+        "label": "every dotdiw command",
+        "shape": "Before the first tracker command of every run, the tracker's usage metrics are off.",
+        "command": "dotdiw <anything>"
+      },
+      "coverage": {
+        "coverageKind": "supports",
+        "dutyIds": [
+          "duty.adopt-without-reaching-outside"
+        ],
+        "journeyIds": [
+          "journey.adopt-a-repository"
+        ],
+        "stepIds": [
+          "step.turn-metrics-off"
+        ],
+        "explanation": "Not a command of its own: it runs before whatever was typed, --version included."
+      }
+    },
+    {
+      "bindingId": "binding.cli-every-run-repair",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.undo-earlier-adoption",
+      "affordance": {
+        "label": "every dotdiw command",
+        "shape": "Before whatever was typed, an earlier adoption's hook override and Dolt remote are undone and announced.",
+        "command": "dotdiw <anything>"
+      },
+      "coverage": {
+        "coverageKind": "supports",
+        "dutyIds": [
+          "duty.adopt-without-reaching-outside"
+        ],
+        "journeyIds": [
+          "journey.adopt-a-repository"
+        ],
+        "stepIds": [
+          "step.undo-earlier-adoption"
+        ],
+        "explanation": "Not a command of its own: a repository is unprotected for as long as the override stands, so it does not wait to be asked."
+      }
+    }
+  ],
+  "projections": [
+    {
+      "projectionId": "projection.cli",
+      "projectionKind": "cli",
+      "status": "manual",
+      "outputPath": "dotdiw",
+      "generator": "hand-written: main() in dotdiw parses the affordance, builds the request, calls the operation through promise_bindings.py and prints"
+    },
+    {
+      "projectionId": "projection.grpc",
+      "projectionKind": "grpc",
+      "status": "planned",
+      "outputPath": "gen",
+      "protoOutputPath": "gen/proto",
+      "bufConfigPath": "gen/buf.yaml",
+      "bufGenerationTemplatePath": "gen/buf.gen.yaml",
+      "languageTargets": [
+        {
+          "language": "python",
+          "outputPath": "gen/python"
+        }
+      ],
+      "protovalidate": {
+        "enabled": true,
+        "dependency": "buf.build/bufbuild/protovalidate",
+        "import": "buf/validate/validate.proto"
+      },
+      "generator": "poa conform grpc-signatures, as a conformance harness only: generated into gitignored gen/ on a machine with Buf; never served"
+    }
+  ]
+}

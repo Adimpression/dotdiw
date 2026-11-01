@@ -1,0 +1,433 @@
+schemaVersion: 3.0.0
+praxisId: praxis.where-work-starts
+name: Where work starts
+status: active
+bearer:
+  bearerId: bearer.whoever-works-here
+  name: Whoever works in an adopted project, person or agent
+  kind: hybrid
+promiseCarried:
+  productSignal: >
+    The project's instructions open with "start every task with dotdiw
+    create", and the command answers a title with the formulas that apply.
+  reliedUponPromise: >
+    When work starts by being named, the procedure that applies surfaces
+    before the work begins.
+  reliedUponBy: >
+    Whoever is about to do the work, and whoever wrote the procedure down
+    expecting it to reach them.
+minimumReview:
+  productSignal: >
+    The project's instructions open with "start every task with dotdiw
+    create", and the command answers a title with the formulas that apply.
+  reliedUponPromise: >
+    When work starts by being named, the procedure that applies surfaces
+    before the work begins.
+  reliantSubject: >
+    The worker starting a task, and the author of the procedure -- including
+    everyone who was not there when it was written.
+  relianceBehavior: >
+    The worker names the work and starts from what surfaced instead of reading
+    every runbook first. The author writes the procedure once, next to what it
+    is about, and does not announce it to anyone.
+  carriers:
+    - carrierId: carrier.dotdiw-cli
+      name: The dotdiw command
+      kind: software
+      howCarries: >
+        Matches the title against the committed formulas in the same
+        invocation that records the work, and prints the ones that apply with
+        the command that pours them.
+    - carrierId: carrier.project-instructions
+      name: The project's own instruction files
+      kind: hybrid
+      howCarries: >
+        State the declared moment where an agent reads before it acts, so the
+        first act is the naming.
+    - carrierId: carrier.the-bearer
+      name: The person or agent doing the work
+      kind: hybrid
+      howCarries: >
+        Names the work first, reads what surfaced, and writes down what they
+        repeated as a formula rather than as prose.
+  praxisDuties:
+    - dutyId: duty.name-the-work-first
+      statement: >
+        Start every task and subtask with `dotdiw create "<title>"`, before
+        any branch, file or other command.
+      whyItMatters: >
+        It is the only moment discovery can fire. Work begun elsewhere
+        surfaces nothing, and nobody is told.
+    - dutyId: duty.read-what-surfaces
+      statement: >
+        Read the formulas the create printed, and pour the one that applies
+        before doing the work.
+      whyItMatters: >
+        A surfaced procedure that is not read is the runbook nobody opened,
+        one step later.
+    - dutyId: duty.write-it-down-when-you-repeat
+      statement: >
+        The moment you notice you are repeating yourself, or just did by hand
+        what you will do again, write a formula next to what it is about --
+        steps and needs, not prose.
+      whyItMatters: >
+        Prose cannot be matched or poured. The procedure lives or dies on
+        being a formula.
+    - dutyId: duty.describe-to-be-found
+      statement: >
+        Write the description and examples in the words someone would use to
+        name the work, and run `dotdiw check` until the formula finds itself.
+      whyItMatters: >
+        The description is the only thing standing between a title and the
+        procedure that fits it.
+    - dutyId: duty.commit-the-formula
+      statement: >
+        Commit the formula file as the last step of writing it, and leave the
+        rest of your changes as they are.
+      whyItMatters: >
+        Uncommitted, the project does not hold it, and `dotdiw check` says so.
+    - dutyId: duty.rewrite-what-drifted
+      statement: >
+        When a surfaced step's own words no longer match the tool in front of
+        you -- it names a file that is gone, a command that changed -- stop,
+        rewrite the formula where it lives in the same sitting, and commit it
+        on its own before going on.
+      whyItMatters: >
+        A stale step followed from memory leaves every check green and the
+        drift in one person's head; the next pour finds out, and not from
+        them.
+  proof:
+    - evidenceId: evidence.create-first-in-the-log
+      statement: >
+        The invocation log shows `dotdiw create` as the first dotdiw command
+        for the work, and the formula it surfaced.
+    - evidenceId: evidence.steps-closed-in-order
+      statement: >
+        The poured molecule's steps are closed in an order its needs allow,
+        and the molecule closes after them.
+    - evidenceId: evidence.formula-committed-and-found
+      statement: >
+        git lists the formula, and `dotdiw check` reports it found by each of
+        its examples.
+    - evidenceId: evidence.formula-reruns-what-it-describes
+      statement: >
+        Poured from the top, the formula reproduces what it describes:
+        check-promise-artifacts reran poa check, five replays, the sweep, two
+        test suites and the conformance harness from a clean state on
+        2026-11-01, before the plan it checks was called done.
+  betrayal:
+    - riskId: risk.work-begun-by-editing
+      statement: >
+        The first act is an edit. `dotdiw create` never runs, and it looks as
+        if no procedure applied.
+    - riskId: risk.surfaced-and-ignored
+      statement: >
+        The create printed the formula and the worker went on from memory. The
+        mechanism looks to have worked.
+    - riskId: risk.procedure-written-as-prose
+      statement: >
+        A runbook in Markdown is written instead of a formula. It feels like
+        the procedure was captured.
+    - riskId: risk.formula-held-by-one-person
+      statement: >
+        The formula is used from one checkout and believed shared.
+    - riskId: risk.stale-step-followed
+      statement: >
+        A step that names a file the tool no longer has is followed because
+        it surfaced. The checks stay green, the steps close in order, and the
+        drift lands on whoever ships next.
+  topGaps:
+    - >
+      The maintainer's praxis -- what dotdiw may do to a repository on
+      somebody's behalf -- is a separate praxis, not formed here.
+    - >
+      The formation ran with the rule-only guide, which asks its fixed
+      questions and mirrors the answers back verbatim; nothing in it pushed
+      back on the bearer's words. The human co-bearer's recognition rests on
+      the maintainer's word in conversation, that the one who works in the
+      repository is the bearer, and is not in the transcript.
+  finalReviewSentence: >
+    It is no longer this praxis if work can begin without being named, or a
+    procedure can be held in prose, or held on one machine only, or a step
+    found stale can be left as it was.
+praxisModel:
+  recognition: >
+    You know it is this praxis when `dotdiw create` is the first line you type
+    without deciding to, and when doing something twice by hand makes you
+    reach for `dotdiw formula new` before the third time. Recognised on
+    2026-11-01 by the agent that worked in this repository that day, as
+    bearer.whoever-works-here, on the maintainer's word that whoever works
+    here is the bearer; formed with `px form` from one real story, the
+    check-promise-artifacts formula found stale and rewritten, and the record
+    said back was recognised as written. The transcript is
+    .praxis-formation.yaml.
+  authorityBoundaries:
+    - dotdiw shows a procedure. It never enforces one, and it never blocks work.
+    - >
+      dotdiw never commits or pushes. The formula commit is the bearer's act,
+      which the project asks for.
+    - >
+      dotdiw changes nothing outside the repository except bd's usage-metrics
+      setting, and says so.
+    - >
+      A surfaced formula is a procedure to follow or to decline knowingly, not
+      an order.
+  judgmentPressures:
+    - Urgency, which says start by doing and name it later.
+    - >
+      The smallness of a one-line title when the work feels bigger than a
+      title.
+    - Writing the runbook in prose today because the formula takes longer.
+    - >
+      Raising the threshold to silence one coincidence, at the cost of real
+      retrievals nobody will notice losing.
+  relatedPraxis: []
+  operationModel:
+    source:
+      sourceKind: praxis-authored-model
+      sourceName: Where work starts -- operation model
+      migrationNote: >
+        Authored directly as Praxis operation material. The thin product.yaml
+        carries none of it; poa/product-model.yaml mirrors it so POA can
+        derive and check operations against these lifecycles.
+    groups:
+      - groupId: group.golden-traces
+        groupKind: goldenTraces
+        title: Stories this praxis was formed from
+        records:
+          - recordId: trace.release-found-its-procedure
+            title: A release found its procedure
+            summary: >
+              Work was named "Release v0.2.1 through the tap"; the
+              release-through-tap formula surfaced; it was poured and its nine
+              steps closed in order, one of them skipped with a recorded
+              reason.
+            sourceField: traces.golden
+            fields:
+              - name: workItem
+                valueYaml: tap-r3e
+              - name: formula
+                valueYaml: mol-release-through-tap
+              - name: molecule
+                valueYaml: tap-mol-gxc
+          - recordId: trace.formula-written-after-repeating
+            title: A formula was written after the same mistake twice
+            summary: >
+              Two pushes happened without a procedure. The make-commit formula
+              gained the steps that stop before a push, was committed, and has
+              surfaced for every commit since.
+            sourceField: traces.golden
+            fields:
+              - name: formula
+                valueYaml: mol-make-commit
+              - name: versions
+                valueYaml: "2 -> 4"
+          - recordId: trace.formula-rewritten-when-its-step-drifted
+            title: A formula was rewritten when its step drifted from the tool
+            summary: >
+              The story this praxis was formed from. Work named "Implement
+              POA_IMPLEMENTATION.md" surfaced check-promise-artifacts; its
+              additions step still said cat into a file that had just become
+              JSON. The formula was rewritten as version 2 and committed on
+              its own before the work went on, and poured from the top it
+              reran every check.
+            sourceField: traces.golden
+            fields:
+              - name: formula
+                valueYaml: mol-check-promise-artifacts
+              - name: versions
+                valueYaml: "1 -> 2"
+              - name: commit
+                valueYaml: a127588
+      - groupId: group.anti-golden-traces
+        groupKind: antiGoldenTraces
+        title: What betrayal looked like when it happened
+        records:
+          - recordId: antitrace.work-begun-by-editing
+            title: Work begun by editing
+            summary: >
+              In the blind trials some agents began by editing. The invocation
+              log shows no create for them, and nothing surfaced.
+            sourceField: traces.antiGolden
+            fields:
+              - name: evidence
+                valueYaml: measurements/results/invocations-round*.log
+          - recordId: antitrace.formula-held-by-one-person
+            title: A formula held by one person
+            summary: >
+              A formula written and never committed. `dotdiw check` reports it
+              as not held; nobody else's create can reach it.
+            sourceField: traces.antiGolden
+            fields: []
+    objectLifecycleContracts:
+      - lifecycleContractId: lifecycle.work
+        title: A piece of work
+        objectId: object.work
+        objectName: Work
+        purpose: >
+          Govern how a piece of work may pass from intended to done: named
+          first, then the surfaced procedure poured, then its steps closed.
+        praxisDutyRefs:
+          - duty.name-the-work-first
+          - duty.read-what-surfaces
+        states:
+          - stateId: intended
+            meaning: Someone is about to do it. Nothing has been named.
+          - stateId: named
+            meaning: >
+              `dotdiw create` ran with a title. The work item exists and the
+              applying formulas were printed.
+          - stateId: procedure-poured
+            meaning: A formula that surfaced was poured as tracked steps.
+          - stateId: done
+            meaning: The steps are closed and the work item with them.
+        transitions:
+          - transitionId: transition.work-intended-to-named
+            fromState: intended
+            toState: named
+            lawfulWhen: The create is the first act of the work.
+            authorizedBy:
+              - duty.name-the-work-first
+            requiredProof:
+              - >
+                The invocation log shows `dotdiw create` as the first dotdiw
+                command for this work, and bd shows the issue it created.
+            betrayalRisk: >
+              The issue is created with `bd create` directly, so the work
+              looks named while nothing was matched.
+          - transitionId: transition.work-named-to-procedure-poured
+            fromState: named
+            toState: procedure-poured
+            lawfulWhen: The poured formula is one the create printed.
+            authorizedBy:
+              - duty.read-what-surfaces
+            requiredProof:
+              - The molecule's formula id appears in the create's output.
+            betrayalRisk: >
+              A procedure is poured from memory that never surfaced, so the
+              surfacing looks to have worked.
+          - transitionId: transition.work-procedure-poured-to-done
+            fromState: procedure-poured
+            toState: done
+            lawfulWhen: Every step of the molecule is closed in an order its needs allow.
+            authorizedBy:
+              - duty.read-what-surfaces
+            requiredProof:
+              - bd shows each step closed, none before the steps it needs.
+            betrayalRisk: >
+              Steps are closed in one batch at the end, so the tracking shows
+              a procedure followed that was not.
+        forbiddenTransitions:
+          - fromState: intended
+            toState: done
+            reason: Finished work that nobody named. Discovery never had its moment.
+          - fromState: intended
+            toState: procedure-poured
+            reason: A procedure poured for work that was never named.
+        poaBindings:
+          - operationId: operation.name-the-work
+            transitionIds:
+              - transition.work-intended-to-named
+          - operationId: operation.pour-procedure
+            transitionIds:
+              - transition.work-named-to-procedure-poured
+        cescWitnessExpectations:
+          - storyRef: cesc.named-work-found-its-procedure
+            mustWitness: >
+              One work item: named, a formula surfaced for it, that formula
+              poured, its steps closed.
+            allowedStatuses:
+              - valid
+              - caveated
+        status: draft
+      - lifecycleContractId: lifecycle.formula
+        title: A formula
+        objectId: object.formula
+        objectName: Formula
+        purpose: >
+          Govern how a procedure passes from something done by hand to
+          something the project holds and can reach.
+        praxisDutyRefs:
+          - duty.write-it-down-when-you-repeat
+          - duty.describe-to-be-found
+          - duty.commit-the-formula
+        states:
+          - stateId: repeated
+            meaning: The procedure exists only as something done by hand, more than once.
+          - stateId: written
+            meaning: A `*.formula.toml` file exists, next to what it is about, uncommitted.
+          - stateId: findable
+            meaning: "`dotdiw check` finds the formula from each of its own examples."
+          - stateId: held
+            meaning: The formula is committed. The project holds it.
+        transitions:
+          - transitionId: transition.formula-repeated-to-written
+            fromState: repeated
+            toState: written
+            lawfulWhen: The bearer noticed the repetition and wrote steps and needs, not prose.
+            authorizedBy:
+              - duty.write-it-down-when-you-repeat
+            requiredProof:
+              - >
+                A `*.formula.toml` file exists next to what it is about, with
+                a description, examples and steps.
+            betrayalRisk: >
+              The procedure is written as a runbook in prose, which nothing
+              can match or pour.
+          - transitionId: transition.formula-written-to-findable
+            fromState: written
+            toState: findable
+            lawfulWhen: The description and examples use the words people use for the work.
+            authorizedBy:
+              - duty.describe-to-be-found
+            requiredProof:
+              - "`dotdiw check` reports the formula found by each of its examples."
+            betrayalRisk: >
+              Examples that restate the formula's name find it in the test and
+              fail every real title.
+          - transitionId: transition.formula-findable-to-held
+            fromState: findable
+            toState: held
+            lawfulWhen: The formula file is committed, on its own, as the last step of writing it.
+            authorizedBy:
+              - duty.commit-the-formula
+            requiredProof:
+              - >
+                git lists the formula, and `dotdiw check` no longer reports it
+                as uncommitted.
+            betrayalRisk: The formula is used from one checkout and believed shared.
+        forbiddenTransitions:
+          - fromState: repeated
+            toState: held
+            reason: Nothing was written. There is nothing to commit.
+          - fromState: written
+            toState: held
+            reason: >
+              Committed before it found itself. The project holds a procedure
+              nobody can reach, whatever git says.
+        poaBindings:
+          - operationId: operation.write-formula
+            transitionIds:
+              - transition.formula-repeated-to-written
+          - operationId: operation.describe-and-check
+            transitionIds:
+              - transition.formula-written-to-findable
+          - operationId: operation.commit-formula
+            transitionIds:
+              - transition.formula-findable-to-held
+        cescWitnessExpectations: []
+        status: draft
+metadata:
+  createdAt: "2026-11-01"
+  updatedAt: "2026-11-01"
+  authors:
+    - The dotdiw maintainers
+    - The agent working in this repository on 2026-11-01, as bearer
+  source: >
+    Drafted from the make-commit and release-through-tap histories in this
+    repository and its tap, 2026-10-31 to 2026-11-01; formed with `px form
+    --dir . --plain --no-llm` on 2026-11-01 from one real story and recognised
+    by the bearer who lived it (.praxis-formation.yaml). The operation model
+    and the lifecycle contracts were authored before the formation and kept;
+    the formation added one duty, one proof, one betrayal, one trace and the
+    last clause of the review sentence.
