@@ -383,7 +383,11 @@ prints what it undid. Nothing was deleted and no history was rewritten, and
 hooks that existed at adoption went on running; a hook added after adoption was
 skipped until the repair, so commits made in between did not see it.
 
-bd's telemetry remains bd's: `~/.config/bd/config.yaml`, `metrics.disabled`.
+From v0.2.1 every run also turns bd's anonymous usage metrics off before it
+runs any bd command: `bd metrics off`, which writes `metrics.disabled: true`
+to `~/.config/bd/config.yaml`. That is per machine, not per repository, and
+it is the one thing dotdiw changes outside the repository. It says so the
+first time, and does it again on every run, so `bd metrics on` does not hold.
 
 ## Commands
 

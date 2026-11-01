@@ -37,7 +37,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 TOP_N = 3
 
@@ -375,6 +375,50 @@ def announce_repair(root):
               "    that existed when this repository was adopted went on\n"
               "    running. Any hook added after that was skipped until now,\n"
               "    so commits made in between did not see it.\n\n")
+
+
+# bd ships with anonymous usage metrics on and asks nothing: the first run
+# prints a notice and starts queueing the name of every command, keyed by a
+# machine-derived ID, for gastownhall-eventsapi.com. The setting is per
+# machine, in ~/.config/bd/config.yaml, so a tool that runs bd on somebody's
+# behalf decides it for them by staying silent. This one decides: off.
+#
+# Read the file rather than ask bd. `bd metrics` is itself a bd command, and
+# while metrics are on it queues an event for itself and flushes the queue;
+# `bd metrics off` queues nothing. Both found by running them against an
+# empty HOME and looking at ~/.beads/eventsData afterwards.
+BD_CONFIG = "~/.config/bd/config.yaml"
+
+
+def metrics_off_already():
+    """Whether bd's own config says its metrics are off."""
+    try:
+        with open(os.path.expanduser(BD_CONFIG), encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return False
+    block = re.search(r"(?m)^metrics:[ \t]*\n((?:[ \t]+.*\n?)*)", text)
+    return bool(block and re.search(r"(?m)^[ \t]+disabled:[ \t]*[Tt]rue[ \t]*$",
+                                    block.group(1)))
+
+
+def turn_metrics_off():
+    """Turn bd's usage metrics off for this machine, and say so once.
+
+    Runs before any other bd command, on every run, so a fresh machine, a bd
+    upgrade or `bd metrics on` all get the same answer. Silent when they are
+    already off, which is every run but the first.
+    """
+    if metrics_off_already() or not find_bd():
+        return
+    bd_quiet(["metrics", "off"])
+    if not metrics_off_already():
+        return
+    sys.stderr.write(
+        "\n%s turned bd's anonymous usage metrics off, for every repository on\n"
+        "    this machine: %s, metrics.disabled: true. It does\n"
+        "    this on every run. What bd would have sent: bd metrics example\n\n"
+        % (PROG, BD_CONFIG))
 
 
 def undeclared(root):
@@ -1339,6 +1383,10 @@ def reads_procedural(text):
 
 def main():
     argv = sys.argv[1:]
+
+    # Before any bd command, --version included: while metrics are on, bd
+    # queues an event for every command it runs.
+    turn_metrics_off()
 
     if not argv or argv[0] == "learn":
         sys.stdout.write(LEARN)
