@@ -50,7 +50,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 
 TOP_N = 3
 
@@ -225,22 +225,28 @@ HOOKS_KEY = "core.hooksPath"
 # empty HOME and looking at ~/.beads/eventsData afterwards.
 BD_CONFIG = "~/.config/bd/config.yaml"
 
+# The tracker's state lives under the user's home, not in the repository:
+# ~/.dotdiw/<id>/.beads is bd's directory for one checkout, told to bd through
+# BEADS_DIR, and <id> is one line in the checkout's own .git/config. The id is
+# random and means nothing but "this checkout's tracker": it survives a move,
+# worktrees share it (they share .git/config), and clones do not have it until
+# told. Nothing of bd's is in the tree, so there is nothing to exclude, repair
+# or report. bd's stealth mode is still asked for, because it is what declines
+# the sync remote; --skip-agents because the declaration below is the
+# instruction surface and bd's files would only teach the second name.
+DOTDIW_HOME = "~/.dotdiw"
+WORKSPACE_KEY = "dotdiw.workspace"
+INIT_FLAGS = ("--stealth", "--skip-hooks", "--skip-agents")
+REINIT_FLAGS = ("--reinit-local", "--force", "--discard-remote", "--init-if-missing",
+                "--destroy-token")
+
 # The witness log: what the contract in contracts/ is allowed to count as
 # evidence that work was named and its procedure surfaced. Local, append-only,
 # never transmitted, off unless the project or the worker turns it on, and
-# kept out of git. A step closed with bd directly never reaches it; the
-# contract says so rather than pretending otherwise.
-WITNESS_FILE = os.path.join(".beads", "witness.jsonl")
-WITNESS_IGNORE = os.path.join(".beads", ".gitignore")
-
-# bd's stealth mode keeps the tracker local to the checkout by writing these
-# into .git/info/exclude (bd 1.3.2, read off a fresh init). A repository
-# adopted before 0.3.0 has bd's files tracked instead; the undo step writes
-# the same lines there, so that once the files leave the index they do not
-# come back as untracked.
-STEALTH_EXCLUDES = (".beads/", ".claude/settings.local.json", ".dolt/", "*.db",
-                    ".beads-credential-key", ".beads/proxieddb/", "*.gate.lock*")
-NO_DATABASE = "no beads database found"
+# beside the tracker's state under the home, so never in git. A step closed
+# with bd directly never reaches it; the contract says so rather than
+# pretending otherwise.
+WITNESS_FILE = "witness.jsonl"
 
 # When this process started, for the one latency the promise names: from the
 # worker invoking create to the applying formulas being printed. work_named
@@ -407,6 +413,25 @@ def git(args, cwd=None):
 
 def repo_root():
     return git(["rev-parse", "--show-toplevel"]).strip() or os.getcwd()
+
+
+def workspace(root):
+    """~/.dotdiw/<id> for this checkout, or None when it has no key.
+
+    Read with --local on purpose: a worktree then sees the checkout's key and
+    a value set globally by mistake is never taken for one.
+    """
+    key = git(["config", "--local", "--get", WORKSPACE_KEY], root).strip()
+    return os.path.join(os.path.expanduser(DOTDIW_HOME), key) if key else None
+
+
+def beads_dir(ws):
+    return os.path.join(ws, ".beads")
+
+
+def adopted(ws):
+    """Whether the workspace has a tracker in it, not only a key pointing at it."""
+    return bool(ws) and os.path.isdir(beads_dir(ws))
 
 
 def bd_quiet(args):
@@ -610,13 +635,13 @@ class Index:
             self._spread_cache.clear()
 
 
-def witness_on(root):
-    """Whether this repository is keeping the witness log."""
-    return bool(os.environ.get("DOTDIW_WITNESS")) or os.path.exists(
-        os.path.join(root, WITNESS_FILE))
+def witness_on(ws):
+    """Whether this checkout's tracker is keeping the witness log."""
+    return bool(ws) and (bool(os.environ.get("DOTDIW_WITNESS"))
+                         or os.path.exists(os.path.join(ws, WITNESS_FILE)))
 
 
-def witness(root, source, label, **fields):
+def witness(ws, source, label, **fields):
     """Append one observed event. Which events exist is each body's decision."""
     now = datetime.datetime.now(datetime.timezone.utc)
     stamp = now.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
@@ -625,9 +650,9 @@ def witness(root, source, label, **fields):
              "label": label}
     event.update((k, v) for k, v in fields.items() if v is not None)
     event.update({"occurredAt": stamp, "observedAt": stamp, "source": source})
-    path = os.path.join(root, WITNESS_FILE)
-    if not os.path.isdir(os.path.dirname(path)):
+    if not ws or not os.path.isdir(ws):
         return
+    path = os.path.join(ws, WITNESS_FILE)
     try:
         with open(path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(event, ensure_ascii=False) + "\n")
@@ -635,11 +660,13 @@ def witness(root, source, label, **fields):
         pass
 
 
-def witnessed(root):
-    """The events this repository's log holds, oldest first."""
+def witnessed(ws):
+    """The events this checkout's log holds, oldest first."""
     out = []
+    if not ws:
+        return out
     try:
-        with open(os.path.join(root, WITNESS_FILE), encoding="utf-8") as fh:
+        with open(os.path.join(ws, WITNESS_FILE), encoding="utf-8") as fh:
             for line in fh:
                 try:
                     out.append(json.loads(line))
@@ -861,11 +888,12 @@ def match_formulas(request):
         print("  Run it: %s mol pour %s" % (PROG, top[0]["id"]), file=sys.stderr)
 
     if request.get("witness") and request.get("workRef"):
+        ws = request.get("workspace")
         for f in top:
-            witness(root, "dotdiwInvocations", "formula_surfaced",
+            witness(ws, "dotdiwInvocations", "formula_surfaced",
                     workId=request["workRef"], formulaId=f["id"], path=f["rel"])
         if not top:
-            witness(root, "dotdiwInvocations", "nothing_surfaced",
+            witness(ws, "dotdiwInvocations", "nothing_surfaced",
                     workId=request["workRef"], title=request.get("title"))
     return {"status": "completed",
             "summary": "%d formula%s apply." % (len(top), "" if len(top) == 1 else "s"),
@@ -1184,10 +1212,10 @@ def describe_and_check(request):
     probs = []
     # Only once the project has adopted any of this: a plain repo is not in
     # breach of a convention it has never declared.
-    if os.path.isdir(os.path.join(root, ".beads")):
+    if adopted(request.get("workspace")):
         if git(["ls-files", "-z", "--", ".beads"], root):
-            probs.append((".beads", "tracked in git, from an adoption before 0.3.0 -- "
-                                    "run: git rm -r --cached .beads && git commit"))
+            probs.append((".beads", "tracked in git, left by an adoption before 0.4.0 -- "
+                                    "run: git rm -r -q .beads && git commit && rm -rf .beads"))
         for rel in CONVENTION_FILES:
             try:
                 with open(os.path.join(root, rel), encoding="utf-8") as fh:
@@ -1310,7 +1338,8 @@ def write_a_procedure_down(request):
         if written["status"] != "completed":
             return written
         path = written["path"]
-    checked = describe_and_check({"root": root, "mode": "check"})
+    checked = describe_and_check({"root": root, "mode": "check",
+                                  "workspace": request.get("workspace")})
     commit = commit_formula({"root": root, "path": path})
     return {"status": "blocked", "summary": commit["summary"],
             "command": commit["command"], "problems": checked["problems"],
@@ -1331,24 +1360,20 @@ def forward_to_beads(request):
     root, argv = request["root"], list(request["arguments"])
     code, out = run_bd(argv, lambda s: _BD_WORD.sub(PROG, s),
                        lambda b: _BD_WORD_B.sub(PROG.encode(), b))
-    if code != 0 and NO_DATABASE in out:
-        # A clone of an adopted repository: the tracker's files are local to
-        # each checkout, so this one has not been adopted yet.
-        sys.stderr.write("\n  This checkout has no tracker database yet. Run %s init once;\n"
-                         "  it is local and commits nothing.\n" % PROG)
     if code == 0 and argv and argv[0] == "close" and request.get("witness"):
+        ws = request.get("workspace")
         poured = {}
-        for e in witnessed(root):
+        for e in witnessed(ws):
             if e.get("label") == "procedure_poured" and e.get("moleculeId"):
                 poured[e["moleculeId"]] = e
         for ident in [a for a in argv[1:] if not a.startswith("-")]:
             if ident in poured:
-                witness(root, "beadsIssues", "molecule_closed",
+                witness(ws, "beadsIssues", "molecule_closed",
                         workId=poured[ident].get("workId"), moleculeId=ident)
                 continue
             for mol, e in poured.items():
                 if ident in (e.get("stepIds") or []):
-                    witness(root, "beadsIssues", "step_closed",
+                    witness(ws, "beadsIssues", "step_closed",
                             workId=e.get("workId"), moleculeId=mol, stepId=ident)
     return {"status": "completed" if code == 0 else "failed",
             "summary": "%s %s exited %d." % ("beads", argv[0] if argv else "", code),
@@ -1364,11 +1389,13 @@ def run_a_tracker_command(request):
         if r["formula"] and not os.path.exists(argv[1]):
             argv = ["cook", os.path.join(root, r["path"])] + argv[2:]
     fwd = forward_to_beads({"root": root, "arguments": argv,
-                            "witness": request.get("witness")})
+                            "witness": request.get("witness"),
+                            "workspace": request.get("workspace")})
     # The conventions, checked where someone actually looks. Nobody in the
     # trial ran `check` or `learn`; they ran these two.
     if argv and argv[0] in ("doctor", "lint"):
-        describe_and_check({"root": root, "mode": "doctor"})
+        describe_and_check({"root": root, "mode": "doctor",
+                            "workspace": request.get("workspace")})
     if argv and argv[0] == "remember" and fwd["exitCode"] == 0:
         nudge_towards_a_formula({"root": root, "text": " ".join(argv[1:])})
     return {"status": fwd["status"], "summary": fwd["summary"],
@@ -1386,8 +1413,8 @@ def name_the_work(request):
         m = re.search(r"Created issue:\s+(\S+)", fwd.get("output") or "")
         work = m.group(1) if m else None
         if request.get("witness") and work:
-            witness(root, "dotdiwInvocations", "work_named", workId=work,
-                    title=request.get("title"), startedAt=STARTED_AT)
+            witness(request.get("workspace"), "dotdiwInvocations", "work_named",
+                    workId=work, title=request.get("title"), startedAt=STARTED_AT)
     return {"status": fwd["status"],
             "summary": "Named %s." % (work or "the work") if fwd["exitCode"] == 0
             else "The tracker refused the create.",
@@ -1439,18 +1466,19 @@ def pour_procedure(request):
             # Whose work this pour belongs to: the create that surfaced this
             # formula, failing that the most recent named work. A pour the
             # log cannot place is exactly what the contract is there to say.
+            ws = request.get("workspace")
             work = request.get("workRef")
             if not work:
-                for e in reversed(witnessed(root)):
+                for e in reversed(witnessed(ws)):
                     if e.get("label") == "formula_surfaced" and e.get("formulaId") == f["id"]:
                         work = e.get("workId")
                         break
                 else:
-                    for e in reversed(witnessed(root)):
+                    for e in reversed(witnessed(ws)):
                         if e.get("label") == "work_named":
                             work = e.get("workId")
                             break
-            witness(root, "dotdiwInvocations", "procedure_poured", workId=work,
+            witness(ws, "dotdiwInvocations", "procedure_poured", workId=work,
                     formulaId=f["id"], moleculeId=molecule, stepIds=steps)
     return {"status": fwd["status"], "summary": fwd["summary"],
             "moleculeRef": molecule, "exitCode": fwd["exitCode"]}
@@ -1459,9 +1487,10 @@ def pour_procedure(request):
 def start_named_work(request):
     """journey.start-named-work: name it, read what applies, and -- when asked -- pour."""
     root = request["root"]
+    ws = request.get("workspace")
     named = name_the_work({"root": root, "arguments": request["arguments"],
                            "title": request.get("title"),
-                           "witness": request.get("witness")})
+                           "witness": request.get("witness"), "workspace": ws})
     if named["exitCode"] != 0:
         return named
     if request.get("quiet"):
@@ -1475,13 +1504,14 @@ def start_named_work(request):
                               "title": request.get("title"),
                               "description": request.get("description"),
                               "workRef": named["workRef"],
-                              "witness": request.get("witness")})
+                              "witness": request.get("witness"), "workspace": ws})
     describe_and_check({"root": root, "index": built["index"],
-                        "formulas": built["formulas"], "mode": "quiet"})
+                        "formulas": built["formulas"], "mode": "quiet",
+                        "workspace": ws})
     if request.get("formulaRef"):
         pour_procedure({"root": root, "ident": request["formulaRef"],
                         "workRef": named["workRef"],
-                        "witness": request.get("witness")})
+                        "witness": request.get("witness"), "workspace": ws})
     return {"status": "completed", "summary": named["summary"],
             "workRef": named["workRef"], "surfaced": matched["surfaced"],
             "exitCode": 0}
@@ -1523,15 +1553,17 @@ def turn_metrics_off(request):
 
 
 def undo_earlier_adoption(request):
-    """step.undo-earlier-adoption: what an earlier version let bd do to a repository, undone and said.
+    """step.undo-earlier-adoption: what an earlier version let bd do to a repository, put right and said.
 
-    v0.1.0 let bd point core.hooksPath at its own directory and aim a Dolt
-    remote at the git remote; 0.2.x let bd commit its own files into the
-    repository. The first two are undone here. The third is a commit, which
-    is the worker's: this writes the exclude bd's stealth mode would have
-    written and names the one command. Silence when there was nothing to
-    undo: a repair that announces itself every time teaches people to ignore
-    it.
+    v0.1.0 let bd point core.hooksPath at its own directory, which is undone
+    here because it decides which hooks git runs. Every version before 0.4.0
+    kept bd's tracker in the tree -- v0.1.0 with a Dolt remote aimed at the
+    git remote, 0.2.x committed, 0.3.0 excluded. That is the upgrade: a
+    tracker is made under the home with the old prefix, once, on the first
+    command, and the in-tree copy is left exactly as it is, unused, for the
+    worker to remove with the command named; a remote inside it reaches
+    nothing, since no bd runs there any more. Earlier tasks are not carried
+    over, and that is said. Silence when there was nothing to do.
     """
     root = request["root"]
 
@@ -1558,85 +1590,40 @@ def undo_earlier_adoption(request):
                         "hook added since was being skipped; .git/hooks is read "
                         "again." % (HOOKS_KEY, got))
 
-    cfg = os.path.join(root, ".beads", "config.yaml")
-    try:
-        with open(cfg, encoding="utf-8") as fh:
-            before = fh.read()
-    except OSError:
-        before = ""
-    if before:
-        # A top-level `sync:` key and the indented block under it.
-        after = re.sub(r"(?m)^sync:\n(?:[ \t]+.*\n)*", "", before)
-        if after != before:
-            try:
-                with open(cfg, "w", encoding="utf-8") as fh:
-                    fh.write(after)
-                done.append("the Dolt remote is out of .beads/config.yaml.")
-            except OSError:
-                pass
-
-    base = os.path.join(root, ".beads", "embeddeddolt")
-    try:
-        dbs = sorted(os.listdir(base))
-    except OSError:
-        dbs = []
-    for db in dbs:
-        path = os.path.join(base, db, ".dolt", "repo_state.json")
-        try:
-            with open(path, encoding="utf-8") as fh:
-                state = json.load(fh)
-        except (OSError, ValueError):
-            continue
-        if not state.get("remotes"):
-            continue
-        names = sorted(state["remotes"])
-        try:
-            state["remotes"] = {}
-            with open(path, "w", encoding="utf-8") as fh:
-                json.dump(state, fh, indent=2)
-        except (OSError, ValueError):
-            continue
-        done.append("the Dolt remote %s is out of %s."
-                    % (", ".join(names), os.path.relpath(path, root)))
-
-    # Adopted by 0.2.x, which let bd commit its files. Keep them local from
-    # here on -- the lines bd's own stealth mode writes -- so that once the
-    # files leave the index they do not come back as untracked. Taking them
-    # out of the index is a commit, and a commit is the worker's.
-    tracked = [p for p in git(["ls-files", "-z", "--", ".beads", ".beads.gate.lock"],
-                              root).split("\0") if p]
+    # The upgrade: a tracker in the tree and no key means a version before
+    # 0.4.0 adopted this repository. Adopt it under the home now, with the
+    # old prefix, so the command that was typed just works.
+    ws = workspace(root)
+    in_tree = os.path.isdir(os.path.join(root, ".beads"))
+    made = None
+    if in_tree and not adopted(ws):
+        result = adopt_repository({"root": root, "arguments": ["init"], "quiet": True})
+        if result["exitCode"] == 0:
+            made = result["workspace"]
+            ws = made
     command = None
-    if tracked:
-        exclude = git(["rev-parse", "--git-path", "info/exclude"], root).strip()
-        if exclude:
-            if not os.path.isabs(exclude):
-                exclude = os.path.join(root, exclude)
-            try:
-                with open(exclude, encoding="utf-8") as fh:
-                    have = fh.read()
-            except OSError:
-                have = ""
-            missing = [l for l in STEALTH_EXCLUDES if l not in have.split()]
-            if missing:
-                try:
-                    with open(exclude, "a", encoding="utf-8") as fh:
-                        fh.write("%s# %s: the tracker stays local to this checkout\n%s\n"
-                                 % ("" if have.endswith("\n") or not have else "\n",
-                                    PROG, "\n".join(missing)))
-                except OSError:
-                    pass
-        tops = sorted({p.split("/")[0] for p in tracked})
-        command = ("git rm -r --cached %s && git commit -m \"Keep the tracker local "
-                   "to each checkout\"" % " ".join(tops))
+    if in_tree and adopted(ws):
+        if git(["ls-files", "-z", "--", ".beads"], root):
+            # git rm takes the tracked files; the database bd kept beside them
+            # was never tracked, so the directory is removed after.
+            command = ("git rm -r -q .beads && git commit -m \"Remove the tracker's files "
+                       "from the repository\" && rm -rf .beads .beads.gate.lock")
+        else:
+            command = "rm -rf .beads .beads.gate.lock"
 
-    if done:
+    if done or made:
         out = sys.stderr
         if request.get("fresh"):
             out.write("\n%s declined what bd init configured here:\n" % PROG)
         else:
-            out.write("\n%s undid what an earlier version of it did here:\n" % PROG)
+            out.write("\n%s put right what an earlier version of it left here:\n" % PROG)
         for line in done:
             out.write("    %s\n" % line)
+        if made:
+            out.write("    the tracker now lives at %s, under your home, keyed to\n"
+                      "    this checkout; earlier tasks are not carried over. The .beads in\n"
+                      "    the tree is unused -- remove it when convenient:\n"
+                      "        %s\n" % (made, command))
         if got:
             out.write("\n    Nothing was deleted and no history was rewritten. Hooks\n"
                       "    that existed when this repository was adopted went on\n"
@@ -1644,18 +1631,21 @@ def undo_earlier_adoption(request):
                       "    so commits made in between did not see it.\n\n")
         else:
             out.write("\n    Nothing was deleted and no history was rewritten.\n\n")
+    n = len(done) + bool(made)
     return {"status": "completed",
-            "summary": "%d thing%s undone." % (len(done), "" if len(done) == 1 else "s"),
-            "undone": done, "tracked": tracked, "command": command, "exitCode": 0}
+            "summary": "%d thing%s put right." % (n, "" if n == 1 else "s"),
+            "undone": done, "workspace": ws, "adopted": made, "command": command,
+            "exitCode": 0}
+
 
 def declare_conventions(request):
     """step.declare-conventions: the files agents read say where work starts, and name dotdiw.
 
-    Three edits, each idempotent, because bd writes these files again on
-    setup, doctor --fix and upgrades: bd renamed to dotdiw in every file it
-    wrote for agents; the declaration between its markers in CLAUDE.md and
-    AGENTS.md; and the one exception inside bd's own git policy. Where the
-    witness log is on, its file is kept out of git the same way.
+    Three edits, each idempotent: bd renamed to dotdiw in every file an
+    earlier version let it write for agents, which bd writes again on setup,
+    doctor --fix and upgrades; the declaration between its markers in
+    CLAUDE.md and AGENTS.md, created when absent; and the one exception
+    inside bd's own git policy where those files carry it.
     """
     root = request["root"]
 
@@ -1726,26 +1716,6 @@ def declare_conventions(request):
         if rel not in declared:
             declared.append(rel)
 
-    ignored = []
-    if (witness_on(root) and os.path.isdir(os.path.join(root, ".beads"))
-            and not git(["check-ignore", WITNESS_FILE], root).strip()):
-        # Under stealth .beads/ is excluded and this is never reached; in a
-        # repository adopted before 0.3.0 the line is still needed.
-        path = os.path.join(root, WITNESS_IGNORE)
-        try:
-            with open(path, encoding="utf-8") as fh:
-                before = fh.read()
-        except OSError:
-            before = ""
-        if os.path.basename(WITNESS_FILE) not in before.split():
-            try:
-                with open(path, "a", encoding="utf-8") as fh:
-                    fh.write("%s# The witness log is this machine's, never the project's\n%s\n"
-                             % ("" if before.endswith("\n") or not before else "\n",
-                                os.path.basename(WITNESS_FILE)))
-                ignored.append(WITNESS_IGNORE)
-            except OSError:
-                pass
 
     if request.get("announce") == "init":
         if renamed:
@@ -1760,7 +1730,7 @@ def declare_conventions(request):
     elif request.get("announce") == "create" and renamed:
         print("\n(%s renamed bd in %d agent instruction file%s that bd rewrote)"
               % (PROG, len(renamed), "" if len(renamed) == 1 else "s"), file=sys.stderr)
-    changed = list(dict.fromkeys(renamed + declared + ignored))
+    changed = list(dict.fromkeys(renamed + declared))
     return {"status": "completed",
             "summary": "%d file%s changed." % (len(changed), "" if len(changed) == 1 else "s"),
             "renamed": renamed, "declared": declared, "changed": changed,
@@ -1791,72 +1761,97 @@ def report_what_is_yours_to_commit(request):
         print("\n    git add %s && git commit -m \"Declare where work starts\""
               % " ".join(yours))
     if request.get("command"):
-        print("\n\u26a0 .beads is tracked in this repository, from an adoption before "
-              "0.3.0.\n  %s now keeps the tracker local to each checkout and never"
-              " commits.\n  To do the same here:\n" % PROG)
+        print("\n\u26a0 The .beads in the tree is from an adoption before 0.4.0 and is"
+              " unused now.\n  Remove it when convenient:\n")
         print("    %s" % request["command"])
-        print("\n  Other clones that pull this will need %s init once; it is local"
-              " and commits nothing." % PROG)
     return {"status": "completed",
             "summary": "%d file%s yours to commit." % (len(yours), "" if len(yours) == 1 else "s"),
             "yours": yours, "exitCode": 0}
 
 def adopt_repository(request):
-    """step.adopt-repository: the tracker initialised in its stealth mode, hooks declined.
+    """step.adopt-repository: the tracker made under the home, keyed to this checkout.
 
-    bd's default init commits its own files into the repository, points
-    core.hooksPath at its own directory and aims a Dolt remote at the git
-    remote. Its stealth mode does none of that: nothing committed, nothing
-    written for agents, no remote, and .beads/ kept local to the checkout
-    through .git/info/exclude. 0.2.x declined the hooks and repaired the rest
-    after the fact; the flag was there all along. --skip-hooks stays, because
-    the help does not promise that stealth implies it.
+    Nothing of bd's goes into the repository. The key is one line in the
+    checkout's own .git/config; the state is ~/.dotdiw/<key>/.beads, which bd
+    is told through BEADS_DIR. bd runs in its stealth mode with hooks and
+    agent files declined: stealth is what declines the sync remote (BEADS_DIR
+    alone does not), and the declaration dotdiw writes is the instruction
+    surface. Where an earlier version's tracker sits in the tree, its prefix
+    is kept so that issue ids read on; its tasks are not carried over.
     """
     root = request["root"]
     if not git(["rev-parse", "--is-inside-work-tree"], root).strip():
-        # bd would run git init on the worker's behalf. Formulas are found
-        # with git, so there is nothing for dotdiw to do here anyway.
+        # There is no .git/config to key from, and bd's own init would run
+        # git init on the worker's behalf.
         sys.stderr.write("%s init needs a git repository: formulas are found with "
                          "git. Run git init first.\n" % PROG)
         return {"status": "failed", "summary": "Not a git repository.", "exitCode": 2}
-    if git(["ls-files", "-z", "--", ".beads"], root):
-        # Adopted by an earlier version, which let bd commit its files. bd's
-        # own init aborts here; what this repository needs is the migration
-        # the undo step names, not a second initialisation.
-        sys.stderr.write("%s: this repository is already adopted; nothing to "
-                         "initialise.\n" % PROG)
-        return {"status": "blocked", "summary": "Already adopted; the tracker's files are tracked.",
-                "exitCode": 1}
     argv = list(request["arguments"])
-    for flag in ("--skip-hooks", "--stealth"):
+    ws = workspace(root)
+    if adopted(ws) and not any(a in REINIT_FLAGS for a in argv):
+        if not request.get("quiet"):
+            sys.stderr.write("%s: this repository is adopted; its tracker is %s\n" % (PROG, ws))
+        return {"status": "completed", "summary": "Already adopted.", "workspace": ws,
+                "created": False, "exitCode": 0}
+    if ws is None:
+        git(["config", "--local", WORKSPACE_KEY, os.urandom(8).hex()], root)
+        ws = workspace(root)
+        if ws is None:
+            sys.stderr.write("%s could not write %s into this repository's git config.\n"
+                             % (PROG, WORKSPACE_KEY))
+            return {"status": "failed", "summary": "The key could not be written.", "exitCode": 1}
+    try:
+        os.makedirs(ws, exist_ok=True)       # bd requires the parent to exist
+    except OSError as e:
+        sys.stderr.write("%s: %s\n" % (ws, e))
+        return {"status": "failed", "summary": str(e), "workspace": ws, "exitCode": 1}
+    if not any(a == "-p" or a.startswith("--prefix") for a in argv):
+        # An earlier version's tracker in the tree: keep its prefix, so the
+        # ids the project is used to read on. Nothing else of it is read.
+        try:
+            with open(os.path.join(root, ".beads", "metadata.json"), encoding="utf-8") as fh:
+                old = str(json.load(fh).get("dolt_database") or "").strip()
+        except (OSError, ValueError):
+            old = ""
+        if old:
+            argv += ["--prefix", old]
+    for flag in INIT_FLAGS:
         if flag not in argv:
             argv.insert(1, flag)
-    fwd = forward_to_beads({"root": root, "arguments": argv})
-    return {"status": fwd["status"], "summary": fwd["summary"],
-            "exitCode": fwd["exitCode"]}
+    os.environ["BEADS_DIR"] = beads_dir(ws)
+    if request.get("quiet"):
+        code, _ = bd_quiet(argv)
+    else:
+        code = forward_to_beads({"root": root, "arguments": argv})["exitCode"]
+    return {"status": "completed" if code == 0 else "failed",
+            "summary": "Adopted under %s." % ws if code == 0 else "The tracker's init failed.",
+            "workspace": ws, "created": code == 0, "exitCode": code}
+
 
 def adopt_a_repository(request):
-    """journey.adopt-a-repository: one command, and nothing reaches outside unsaid."""
+    """journey.adopt-a-repository: one command; the tracker under the home, the declaration in the tree."""
     root = request["root"]
     turn_metrics_off({"root": root})
-    adopted = adopt_repository({"root": root, "arguments": request["arguments"]})
-    if adopted["exitCode"] == 2:
-        return adopted                     # not a git repository: nothing else applies
+    made = adopt_repository({"root": root, "arguments": request["arguments"]})
+    if made["exitCode"] == 2:
+        return made                        # not a git repository: nothing else applies
     undone = undo_earlier_adoption({"root": root, "fresh": True})
     declared = declare_conventions({"root": root, "announce": "init"})
     report_what_is_yours_to_commit({"root": root, "paths": declared["changed"],
-                                    "tracked": undone["tracked"],
-                                    "command": undone["command"]})
-    return {"status": adopted["status"], "summary": adopted["summary"],
-            "exitCode": adopted["exitCode"]}
+                                    "command": undone["command"] if undone.get("adopted") else None})
+    return {"status": made["status"], "summary": made["summary"],
+            "workspace": made.get("workspace"), "exitCode": made["exitCode"]}
+
 
 # ============================================================ the command line
 #
 # The interface binding: parse the affordance, build the request, call the
 # operation, return its exit code. No product decision lives here. What runs
-# before every command -- metrics off, an earlier adoption undone -- runs here
-# because every affordance supports those two operations (binding.cli-every-
-# run-*); the version is the tool's identity and no operation.
+# before every command -- metrics off, an earlier adoption put right -- runs
+# here because every affordance supports those two operations (binding.cli-
+# every-run-*); resolving the workspace and handing bd its BEADS_DIR is how
+# the interface reaches the tracker; the version is the tool's identity and no
+# operation.
 
 def extract_query(argv):
     """Title plus -d description, from a `create ...` argument list."""
@@ -1899,17 +1894,27 @@ def main():
         if bdv.strip():
             print("  on %s" % " ".join(bdv.split()))
         return 0
-    # Before anything else: a repository adopted by v0.1.0 is running with
-    # its own hooks replaced, and it cannot be left that way while this
-    # tool is in a position to put it back.
+    # Before anything else: what an earlier version left -- a hook override,
+    # a remote, a tracker in the tree -- is put right, so that the command
+    # typed next runs against a tracker under the home.
     undo_earlier_adoption({"root": root})
 
+    # The tracker this checkout is keyed to, told to every bd that runs.
+    ws = workspace(root)
+    if adopted(ws):
+        os.environ["BEADS_DIR"] = beads_dir(ws)
+    else:
+        ws = None
+
     if argv[0] == "check":
-        return describe_and_check({"root": root, "mode": "check"})["exitCode"]
+        return describe_and_check({"root": root, "mode": "check", "workspace": ws})["exitCode"]
 
     if argv[0] == "init":
         return adopt_a_repository({"root": root, "arguments": argv})["exitCode"]
 
+    # These questions are about the project. bd answers them about its own
+    # two search paths, and in a project whose formulas sit next to what they
+    # are about its answer is "No formulas found". They need no tracker.
     if argv[0] == "formula" and len(argv) > 1 and argv[1] == "new":
         rest, at, frm, title, i = argv[2:], None, None, "", 0
         while i < len(rest):
@@ -1927,9 +1932,6 @@ def main():
         return write_formula({"root": root, "title": title, "directory": at,
                               "fromRef": frm})["exitCode"]
 
-    # These questions are about the project. bd answers them about its own
-    # two search paths, and in a project whose formulas sit next to what they
-    # are about its answer is "No formulas found".
     if argv[0] == "formula" and len(argv) > 1:
         plain = [a for a in argv[2:] if not a.startswith("-")]
         flags = [a for a in argv[2:] if a.startswith("-")]
@@ -1940,21 +1942,29 @@ def main():
             if shown["status"] != "blocked":
                 return shown["exitCode"]
 
+    if ws is None:
+        # bd's own error would name a .beads directory that is not supposed
+        # to exist; one sentence is better.
+        sys.stderr.write("%s: this repository is not adopted. Run %s init once; it is "
+                         "local and commits nothing.\n" % (PROG, PROG))
+        return 1
+    on = witness_on(ws)
+
     # Pour from where the formula lives, instead of requiring it be moved there.
     if argv[0] == "mol" and len(argv) > 2 and argv[1] == "pour":
         return pour_procedure({"root": root, "ident": argv[2], "arguments": argv[3:],
-                               "witness": witness_on(root)})["exitCode"]
+                               "witness": on, "workspace": ws})["exitCode"]
 
     if argv[0] != "create":
         return run_a_tracker_command({"root": root, "arguments": argv,
-                                      "witness": witness_on(root)})["exitCode"]
+                                      "witness": on, "workspace": ws})["exitCode"]
 
     title, desc = extract_query(argv)
     quiet = bool(os.environ.get("DOTDIW_NO_HINTS")) or any(
         a in ("--json", "-q", "--quiet", "--silent") for a in argv)
     return start_named_work({"root": root, "arguments": argv, "title": title,
                              "description": desc, "quiet": quiet,
-                             "witness": witness_on(root)})["exitCode"]
+                             "witness": on, "workspace": ws})["exitCode"]
 
 
 if __name__ == "__main__":

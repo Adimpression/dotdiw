@@ -407,33 +407,32 @@
         {
           "dependencyId": "dependency.git",
           "operationRef": "product.git::rev-parse --is-inside-work-tree",
-          "callPurpose": "Outside a git repository init refuses; the tracker's stealth init would otherwise run git init on the worker's behalf.",
+          "callPurpose": "Outside a git repository init refuses: there is no .git/config to key from, and the tracker's own init would run git init on the worker's behalf.",
           "failurePropagation": "propagate"
         },
         {
           "dependencyId": "dependency.git",
-          "operationRef": "product.git::ls-files",
-          "callPurpose": "Over a repository whose tracker files are tracked, init initialises nothing and the migration is named instead.",
+          "operationRef": "product.git::config --local --get dotdiw.workspace",
+          "callPurpose": "The key this checkout is tied to, read with --local so that worktrees share it and a global value never leaks in.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::config --local dotdiw.workspace",
+          "callPurpose": "The key is written once into the checkout's own .git/config, never into the tree.",
           "failurePropagation": "propagate"
         },
         {
           "dependencyId": "dependency.beads",
-          "operationRef": "product.beads::init --stealth --skip-hooks",
-          "callPurpose": "The tracker initialises its database in stealth mode: it commits nothing, writes nothing for agents, configures no remote, keeps .beads/ local to the checkout; its hook installation is declined.",
+          "operationRef": "product.beads::init --stealth --skip-hooks --skip-agents",
+          "callPurpose": "The tracker initialises its database under the home, told where through BEADS_DIR: stealth declines the sync remote, the other two decline hooks and agent files.",
           "failurePropagation": "propagate"
         }
       ]
     },
     "operation.declare-conventions": {
       "calls": [],
-      "externalCalls": [
-        {
-          "dependencyId": "dependency.git",
-          "operationRef": "product.git::check-ignore",
-          "callPurpose": "Whether the witness log is already kept out of git; under stealth it is, and in a repository adopted before 0.3.0 the line is added.",
-          "failurePropagation": "propagate"
-        }
-      ]
+      "externalCalls": []
     },
     "operation.report-what-is-yours-to-commit": {
       "kind": "query",
@@ -473,14 +472,22 @@
         },
         {
           "dependencyId": "dependency.git",
-          "operationRef": "product.git::ls-files",
-          "callPurpose": "Whether an earlier version let the tracker commit its files; if so, the one command is named and never run.",
+          "operationRef": "product.git::config --local --get dotdiw.workspace",
+          "callPurpose": "Whether this checkout already has a tracker under the home.",
           "failurePropagation": "propagate"
         },
         {
           "dependencyId": "dependency.git",
-          "operationRef": "product.git::rev-parse --git-path",
-          "callPurpose": "Where this checkout's exclude file is, so the tracker's files stay local once they leave the index.",
+          "operationRef": "product.git::ls-files",
+          "callPurpose": "Whether the in-tree copy an earlier version left is tracked, which decides the one command named for removing it.",
+          "failurePropagation": "propagate"
+        }
+      ],
+      "calls": [
+        {
+          "operationId": "operation.adopt-repository",
+          "callPurpose": "Where an earlier version left the tracker in the tree and no key exists, the repository is adopted under the home with the old prefix, quietly, before the command typed runs.",
+          "required": true,
           "failurePropagation": "propagate"
         }
       ]
@@ -1176,6 +1183,15 @@
           "required": false,
           "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
           "cardinality": "many"
+        },
+        {
+          "name": "quiet",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Run the tracker's init without its output on the terminal; the undo step asks for this when it adopts a repository an earlier version left."
         }
       ]
     },
@@ -1188,6 +1204,24 @@
             "scalar": "integer"
           },
           "required": false
+        },
+        {
+          "name": "workspace",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "~/.dotdiw/<key>, where this checkout's tracker lives."
+        },
+        {
+          "name": "created",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Whether this call made the tracker, as opposed to finding it already there."
         }
       ]
     },
@@ -1274,7 +1308,7 @@
             "scalar": "string"
           },
           "required": false,
-          "summary": "The migration command the undo step named, when the tracker's files are tracked."
+          "summary": "The command that removes an in-tree copy an earlier version left, when this run adopted the repository under the home."
         }
       ]
     },
@@ -1324,26 +1358,31 @@
           "cardinality": "many"
         },
         {
-          "name": "tracked",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many",
-          "summary": "The tracker's files an earlier version let it commit, still in the index."
-        },
-        {
           "name": "command",
           "valueType": {
             "kind": "scalar",
             "scalar": "string"
           },
           "required": false,
-          "summary": "The one command that takes them out, never run by dotdiw."
+          "summary": "The one command that removes the in-tree copy, never run by dotdiw."
+        },
+        {
+          "name": "workspace",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The tracker this checkout is keyed to after the step."
+        },
+        {
+          "name": "adopted",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The tracker made by this call for a repository an earlier version left, or absent."
         }
       ]
     },
@@ -1603,6 +1642,19 @@
           "summary": "The repository-relative path of its file."
         }
       ]
+    },
+    "type.adopt-a-repository-response": {
+      "fields": [
+        {
+          "name": "workspace",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "~/.dotdiw/<key>, where this checkout's tracker lives."
+        }
+      ]
     }
   },
   "externalProductDependencies": [
@@ -1611,10 +1663,10 @@
       "productId": "product.beads",
       "productName": "beads (bd)",
       "reason": "beads is the issue tracker underneath: it holds the work items, cooks and pours formulas, and owns every command dotdiw forwards. dotdiw adds discovery and hides the second name.",
-      "boundarySemantics": "A local subprocess on the same machine, run in its stealth mode: it commits nothing, writes nothing for agents, configures no remote, and keeps .beads/ local to the checkout through .git/info/exclude. dotdiw declines its hook installation, turns its usage metrics off before the first call, rewrites its name in everything it prints, and otherwise changes nothing it does. It has no POA IDL; the commands below are what dotdiw calls.",
+      "boundarySemantics": "A local subprocess on the same machine, told where its state lives through BEADS_DIR: ~/.dotdiw/<key>/.beads under the user's home, keyed to the checkout. It runs in its stealth mode with hooks and agent files declined, so it commits nothing, writes nothing into the repository and configures no remote. dotdiw turns its usage metrics off before the first call, rewrites its name in everything it prints, and otherwise changes nothing it does. It has no POA IDL; the commands below are what dotdiw calls.",
       "calledOperations": [
         "create",
-        "init --stealth --skip-hooks",
+        "init --stealth --skip-hooks --skip-agents",
         "mol pour",
         "cook --persist --force",
         "formula show",
@@ -1629,7 +1681,7 @@
       "productId": "product.git",
       "productName": "git",
       "reason": "git is the registry and the sharing mechanism: a formula the project holds is one git tracks, and it reaches other people as every other file does.",
-      "boundarySemantics": "The project's own repository, read and never written except one file inside its .git -- info/exclude, local to the checkout, so that the tracker's files stay local: dotdiw lists tracked and untracked files, reads and unsets one config key that an earlier version let the tracker set, reads status for the declaration files, and asks what is ignored. It never commits, pushes, syncs or changes the index. It has no POA IDL; the commands below are what dotdiw calls.",
+      "boundarySemantics": "The project's own repository, read and never written except one line inside its .git/config -- the key under which this checkout's tracker lives, local to the clone and never in the tree: dotdiw lists tracked and untracked files, reads and unsets one hooks key that an earlier version let the tracker set, and reads status for the declaration files. It never commits, pushes, syncs or changes the index. It has no POA IDL; the commands below are what dotdiw calls.",
       "calledOperations": [
         "rev-parse --show-toplevel",
         "ls-files",
@@ -1638,9 +1690,9 @@
         "config --unset core.hooksPath",
         "diff --name-only",
         "rev-parse --is-inside-work-tree",
-        "rev-parse --git-path info/exclude",
         "status --porcelain",
-        "check-ignore"
+        "config --local --get dotdiw.workspace",
+        "config --local dotdiw.workspace"
       ]
     }
   ],
@@ -2029,13 +2081,13 @@
       "operationId": "operation.adopt-a-repository",
       "affordance": {
         "label": "dotdiw init",
-        "shape": "Adopt the repository: tracking local to the checkout, nothing of the tracker's in git, the conventions declared, the declaration files named as yours to commit.",
+        "shape": "Adopt the repository: the tracker under your home, keyed to this checkout by one line in .git/config; nothing of it in the repository; the conventions declared and named as yours to commit.",
         "command": "dotdiw init [bd init flags]",
         "inputMapping": [
           {
             "from": "every argument",
             "to": "arguments",
-            "notes": "--stealth and --skip-hooks are inserted when absent; the rest goes to the tracker unchanged."
+            "notes": "--stealth, --skip-hooks and --skip-agents are inserted when absent, and --prefix is taken from an earlier version's in-tree tracker when none is given; the rest goes to the tracker unchanged."
           }
         ]
       },
@@ -2189,7 +2241,7 @@
       "operationId": "operation.undo-earlier-adoption",
       "affordance": {
         "label": "every dotdiw command",
-        "shape": "Before whatever was typed, an earlier adoption's hook override and Dolt remote are undone and announced, and tracked tracker files are excluded locally with the one command named where people look.",
+        "shape": "Before whatever was typed, a hook override left by v0.1.0 is unset, and a repository an earlier version adopted in its tree is adopted under the home with the same prefix, once, with the command for the in-tree copy named.",
         "command": "dotdiw <anything>"
       },
       "coverage": {

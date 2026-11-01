@@ -502,3 +502,26 @@ suggestion costs, which is a question about a project and not about a ranker.
       0.1.x adoptions, and the notice, now worded by who did what it undid.
       The numbers above were measured with bd's agent files present, renamed;
       whether agents do as well without them is the next round's question.
+
+## 2026-11-01: the tracker's state leaves the repository
+
+- [x] `init` keys the checkout with one line in its own `.git/config`,
+      `dotdiw.workspace`, and runs `bd init --stealth --skip-hooks
+      --skip-agents` under `~/.dotdiw/<key>/`, told where through `BEADS_DIR`;
+      every command sets the same, so bd never sees the repository. The
+      repository holds only the formulas and the declaration. Two facts the
+      design rests on: `BEADS_DIR` alone does not stop the sync remote and
+      `--stealth` does; and a tracker can be made under the home while an old
+      `.beads/` still sits in the tree, after which bd with `BEADS_DIR` uses
+      the new one and never the old.
+- [x] The key survives a move, worktrees share it, clones do not: a clone runs
+      `init` once, which every version in fact required and none said.
+- [x] A repository adopted by any earlier version is upgraded by its first
+      command, with its prefix read from the in-tree metadata; its tasks are
+      not carried over, which is said once together with the command that
+      removes the unused copy. dotdiw neither runs that command nor edits the
+      copy; only the hooks-path repair of v0.1.0 remains, because it decides
+      which hooks git runs.
+- [x] Measured: a create under the home costs what it cost in the tree,
+      0.40 s for bd's part. Whether agents do as well without bd's agent files
+      is the question of the next round.
