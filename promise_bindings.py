@@ -4,8 +4,8 @@
 
 POA resolves an implementation binding with importlib: `promise_bindings::
 NameTheWork` is this module's attribute of that name, and must be a callable
-taking one argument called `request`. Every body is in `dotdiw`; this module
-defines nothing but the table from the IDL's names to those bodies.
+taking one argument called `request`. Every body is in `dotdiw`, under the IDL's
+own name; this module defines nothing but the list of those names.
 
 Two facts shape it. `dotdiw` is a file without a .py suffix, so it is loaded
 by path under the module name `dotdiw`. And `poa conform grpc-signatures`
@@ -23,34 +23,34 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "dotdiw")
 
-# IDL operation name -> the function in dotdiw that is its one body.
-BINDINGS = {
-    "StartNamedWork": "start_named_work",
-    "NameTheWork": "name_the_work",
-    "MatchFormulas": "match_formulas",
-    "PourProcedure": "pour_procedure",
-    "WriteAProcedureDown": "write_a_procedure_down",
-    "NoticeHandmadeProcedures": "notice_handmade_procedures",
-    "NudgeTowardsAFormula": "nudge_towards_a_formula",
-    "WriteFormula": "write_formula",
-    "DescribeAndCheck": "describe_and_check",
-    "CommitFormula": "commit_formula",
-    "AdoptARepository": "adopt_a_repository",
-    "AdoptRepository": "adopt_repository",
-    "DeclareConventions": "declare_conventions",
-    "ReportWhatIsYoursToCommit": "report_what_is_yours_to_commit",
-    "UndoEarlierAdoption": "undo_earlier_adoption",
-    "TurnMetricsOff": "turn_metrics_off",
-    "RunATrackerCommand": "run_a_tracker_command",
-    "ForwardToBeads": "forward_to_beads",
-    "FindAHeldProcedure": "find_a_held_procedure",
-    "IndexTheProject": "index_the_project",
-    "ListFormulas": "list_formulas",
-    "ShowFormula": "show_formula",
-    "ResolveFormula": "resolve_formula",
-    "LearnTheConventions": "learn_the_conventions",
-    "TeachTheConventions": "teach_the_conventions",
-}
+# The IDL's operation names; each is the body of that name in dotdiw.
+BINDINGS = (
+    "StartNamedWork",
+    "WriteAProcedureDown",
+    "AdoptARepository",
+    "RunATrackerCommand",
+    "FindAHeldProcedure",
+    "LearnTheConventions",
+    "NameTheWork",
+    "MatchFormulas",
+    "PourProcedure",
+    "NoticeHandmadeProcedures",
+    "NudgeTowardsAFormula",
+    "WriteFormula",
+    "DescribeAndCheck",
+    "CommitFormula",
+    "AdoptRepository",
+    "DeclareConventions",
+    "ReportWhatIsYoursToCommit",
+    "UndoEarlierAdoption",
+    "TurnMetricsOff",
+    "ForwardToTheTracker",
+    "IndexTheProject",
+    "ListFormulas",
+    "ShowFormula",
+    "ResolveFormula",
+    "TeachTheConventions",
+)
 
 
 def load_dotdiw(path=SCRIPT):
@@ -65,15 +65,15 @@ def load_dotdiw(path=SCRIPT):
     return module
 
 
-def _bind(name, body):
+def _bind(name):
     def operation(request):
-        return getattr(load_dotdiw(), body)(request)
+        return getattr(load_dotdiw(), name)(request)
     operation.__name__ = operation.__qualname__ = name
-    operation.__doc__ = "%s: the body is dotdiw.%s." % (name, body)
-    operation.body = body
+    operation.__doc__ = "%s: the body of that name in dotdiw." % name
+    operation.body = name
     return operation
 
 
-for _name, _body in BINDINGS.items():
-    globals()[_name] = _bind(_name, _body)
+for _name in BINDINGS:
+    globals()[_name] = _bind(_name)
 __all__ = sorted(BINDINGS)

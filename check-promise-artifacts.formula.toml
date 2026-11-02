@@ -9,7 +9,7 @@ examples = [
   "dotdiw changed, is it still bound to its operations",
   "Run the gRPC conformance harness",
 ]
-version = 2
+version = 3
 type = "workflow"
 
 # Written after running this sequence twice by hand on 2026-11-01, and again
@@ -47,7 +47,7 @@ needs = ["model"]
 
 [[steps]]
 id = "finish"
-title = "Finish what derive cannot know: `python3 -I poa/finish-idl.py` -- drops the generated poa-invoke bindings, merges poa/idl-additions.json (the contract reference, observability, report and summary bindings, update records) and applies poa/idl-patches.json (real CLI bindings, kinds, calls, external calls, request fields, dependencies), then rebuilds the call graph and the implementation bindings"
+title = "Finish what derive cannot know: `python3 -I poa/finish-idl.py` -- drops the generated poa-invoke bindings, merges poa/idl-additions.json (the contract reference, observability, report and summary bindings, update records, the record types the responses share) and applies poa/idl-patches.json (real CLI bindings, kinds, calls, external calls, request and response fields, dependencies), then rebuilds the call graph and the implementation bindings"
 needs = ["derive"]
 
 [[steps]]

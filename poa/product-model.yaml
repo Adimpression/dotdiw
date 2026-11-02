@@ -8,7 +8,7 @@ modelPurpose: >
   than a hope. The thin promise is ../product.yaml; this file is POA's
   internal source and mirrors the operation material that ../praxis.yaml owns.
 createdAt: "2026-11-01T00:00:00+08:00"
-updatedAt: "2026-11-01T21:00:00+08:00"
+updatedAt: "2026-11-02T18:00:00+08:00"
 
 product:
   productId: product.dotdiw
@@ -240,7 +240,12 @@ realWorldModel:
         class: mixed
         explanation: >
           dotdiw adds a process spawn and a stream rewrite; the rest is however
-          long the tracker takes, which for a pour or an init is seconds.
+          long the tracker takes, which for a pour or an init is seconds. The
+          operation is bound to the worker's terminal: the tracker runs on a
+          pty when there is one, so its prompts still work, and its stream is
+          the one thing dotdiw shows that no response carries. A transport
+          without a terminal projects it with the output in the response and
+          no prompts, which is what the quiet path is today.
     - interactionId: interaction.find-procedure
       name: Find a held procedure
       description: >
@@ -377,7 +382,7 @@ realWorldModel:
       interactionIds:
         - interaction.forward-command
       enforcedByStepIds:
-        - step.forward-to-beads
+        - step.forward-to-the-tracker
         - step.declare-conventions
       guardedByAntiTraceIds:
         - antitrace.tracker-named-itself
@@ -399,6 +404,45 @@ realWorldModel:
         - step.notice-handmade-procedures
       guardedByAntiTraceIds:
         - antitrace.formulas-moved-to-the-trackers-directory
+    - invariantId: invariant.one-door
+      name: One door
+      statement: >
+        Every operation is invoked through the one door generated from the
+        operation IDL into dotdiw, by its id and with a request: the request is
+        held to its type on the way in and the response to its own on the way
+        out, and a key outside either is refused as the project's mistake. A
+        body neither reaches a terminal nor reads a field its type does not
+        declare; what the worker sees and what the witness log records come
+        from the typed response, after the body returns. The one stream no
+        response carries is the tracker's own, which the forward passes
+        through with the worker's terminal.
+      rationale: >
+        A body bound to the IDL in name only can read what its type never
+        declared and print what no response carries, and nothing would notice.
+        Through one door the types are the contract, every transport runs the
+        same bodies, and the program is held to the IDL from its source. No
+        step enforces this; the promise tests do, by regenerating the door's
+        table from the IDL and reading dotdiw's source.
+      severity: high
+      objectIds:
+        - object.work
+        - object.formula
+        - object.molecule
+        - object.repository
+        - object.conventions
+        - object.tracker-command
+      interactionIds:
+        - interaction.start-work
+        - interaction.pour-procedure
+        - interaction.write-procedure
+        - interaction.check-discoverability
+        - interaction.adopt-repository
+        - interaction.run-any-command
+        - interaction.forward-command
+        - interaction.find-procedure
+        - interaction.learn
+      enforcedByStepIds: []
+      guardedByAntiTraceIds: []
   networkBoundaries:
     - boundaryId: boundary.create-to-match
       name: Create to match
@@ -984,6 +1028,7 @@ journeys:
       - object.work
       - object.molecule
     invariantIds:
+      - invariant.one-door
       - invariant.work-starts-named
     stepIds:
       - step.name-the-work
@@ -1049,6 +1094,7 @@ journeys:
     outputObjectIds:
       - object.formula
     invariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
       - invariant.every-formula-finds-itself
     stepIds:
@@ -1117,6 +1163,7 @@ journeys:
       - object.repository
       - object.conventions
     invariantIds:
+      - invariant.one-door
       - invariant.nothing-outside-the-repository
       - invariant.tool-never-commits
     stepIds:
@@ -1174,9 +1221,10 @@ journeys:
     outputObjectIds:
       - object.tracker-command
     invariantIds:
+      - invariant.one-door
       - invariant.one-name-for-all-four
     stepIds:
-      - step.forward-to-beads
+      - step.forward-to-the-tracker
     sliIds: []
     sloIds: []
     goldenTraceIds:
@@ -1224,6 +1272,7 @@ journeys:
     outputObjectIds:
       - object.formula
     invariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
     stepIds:
       - step.index-the-project
@@ -1264,7 +1313,8 @@ journeys:
       - Tailoring the text to the project; it is the same everywhere.
     inputObjectIds: []
     outputObjectIds: []
-    invariantIds: []
+    invariantIds:
+      - invariant.one-door
     stepIds:
       - step.teach-the-conventions
     sliIds: []
@@ -1297,6 +1347,7 @@ steps:
     relatedInteractionIds:
       - interaction.start-work
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.work-starts-named
     expectedUserVisibleOutcome: The created work item and its id.
     status: active
@@ -1321,6 +1372,7 @@ steps:
     relatedInteractionIds:
       - interaction.start-work
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.work-starts-named
       - invariant.only-committed-formulas-are-held
     expectedUserVisibleOutcome: Up to three formulas under the work item, or nothing.
@@ -1342,6 +1394,7 @@ steps:
     relatedInteractionIds:
       - interaction.pour-procedure
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.work-starts-named
     expectedUserVisibleOutcome: The root issue id and the count of steps created.
     status: active
@@ -1368,6 +1421,7 @@ steps:
     relatedInteractionIds:
       - interaction.check-discoverability
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.notice-stops-when-written
     expectedUserVisibleOutcome: Up to three undeclared procedures, each with the command that declares it.
     status: active
@@ -1386,6 +1440,7 @@ steps:
     relatedInteractionIds:
       - interaction.write-procedure
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
     expectedUserVisibleOutcome: The tracker's confirmation, then the nudge with a command to copy.
     status: active
@@ -1404,6 +1459,7 @@ steps:
     relatedInteractionIds:
       - interaction.write-procedure
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
     expectedUserVisibleOutcome: The path of the new formula and what to fill in.
     status: active
@@ -1427,6 +1483,7 @@ steps:
     relatedInteractionIds:
       - interaction.check-discoverability
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.every-formula-finds-itself
     expectedUserVisibleOutcome: One line per failing example, or one line saying every formula is discoverable.
     status: active
@@ -1450,6 +1507,7 @@ steps:
     relatedInteractionIds:
       - interaction.write-procedure
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
       - invariant.tool-never-commits
     expectedUserVisibleOutcome: The formula appears in dotdiw formula list for everyone.
@@ -1476,6 +1534,7 @@ steps:
     relatedInteractionIds:
       - interaction.adopt-repository
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.nothing-outside-the-repository
     expectedUserVisibleOutcome: The repository is adopted.
     status: active
@@ -1499,6 +1558,7 @@ steps:
     relatedInteractionIds:
       - interaction.run-any-command
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.one-name-for-all-four
     expectedUserVisibleOutcome: How many files now name dotdiw, and the files declared in, or nothing when nothing changed.
     status: active
@@ -1522,6 +1582,7 @@ steps:
     relatedInteractionIds:
       - interaction.adopt-repository
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.tool-never-commits
     expectedUserVisibleOutcome: A list of files and one git command; a second command where the tracker's files are tracked.
     status: active
@@ -1543,6 +1604,7 @@ steps:
     relatedInteractionIds:
       - interaction.run-any-command
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.nothing-outside-the-repository
     expectedUserVisibleOutcome: A short account of what was put right, once, with the one command for the in-tree copy.
     status: active
@@ -1566,13 +1628,14 @@ steps:
     relatedInteractionIds:
       - interaction.run-any-command
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.nothing-outside-the-repository
     expectedUserVisibleOutcome: One notice, once, naming the tracker, the file and the setting, with the example command under dotdiw's name.
     status: active
-  - stepId: step.forward-to-beads
+  - stepId: step.forward-to-the-tracker
     journeyId: journey.run-a-tracker-command
     sequence: 1
-    title: Forward to beads
+    title: Forward to the tracker
     given: A command dotdiw does not own, or one of its own that is the tracker's underneath -- create, init, mol pour, cook.
     when: dotdiw runs it.
     then: beads runs the command with the worker's terminal, through a pty when it is interactive, and every occurrence of bd's name in the stream is rewritten to dotdiw on the way out; the exit code is the tracker's.
@@ -1580,11 +1643,13 @@ steps:
       - Interactive prompts still work.
       - A word split across two reads is still rewritten.
       - Without the tracker on the machine, the worker is told the install command, brew install adimpression/tap/dotdiw, and the exit code is 127.
+      - The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts.
     relatedObjectIds:
       - object.tracker-command
     relatedInteractionIds:
       - interaction.forward-command
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.one-name-for-all-four
     expectedUserVisibleOutcome: The tracker's own answer, under dotdiw's name.
     status: active
@@ -1604,6 +1669,7 @@ steps:
     relatedInteractionIds:
       - interaction.find-procedure
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
     expectedUserVisibleOutcome: Nothing; the index is what the other steps answer from.
     status: active
@@ -1622,6 +1688,7 @@ steps:
     relatedInteractionIds:
       - interaction.find-procedure
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
     expectedUserVisibleOutcome: One line per formula with its path, or the pointer to learn.
     status: active
@@ -1639,6 +1706,7 @@ steps:
     relatedInteractionIds:
       - interaction.find-procedure
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
     expectedUserVisibleOutcome: The formula file.
     status: active
@@ -1657,6 +1725,7 @@ steps:
     relatedInteractionIds:
       - interaction.find-procedure
     relatedInvariantIds:
+      - invariant.one-door
       - invariant.only-committed-formulas-are-held
     expectedUserVisibleOutcome: Nothing; the resolved file is what pour, cook and show act on.
     status: active
@@ -1673,7 +1742,8 @@ steps:
     relatedObjectIds: []
     relatedInteractionIds:
       - interaction.learn
-    relatedInvariantIds: []
+    relatedInvariantIds:
+      - invariant.one-door
     expectedUserVisibleOutcome: The teaching text.
     status: active
 
@@ -2026,7 +2096,7 @@ traces:
           event: beads runs doctor and its report comes back with bd renamed.
           observedOutcome: The tracker's report, under dotdiw's name.
           relatedStepIds:
-            - step.forward-to-beads
+            - step.forward-to-the-tracker
         - sequence: 2
           title: Checked
           event: The convention problems and the handmade notice follow the report.
@@ -2036,7 +2106,7 @@ traces:
             - step.notice-handmade-procedures
       finalState: The conventions were checked without anyone running check.
       validatesStepIds:
-        - step.forward-to-beads
+        - step.forward-to-the-tracker
         - step.describe-and-check
       classificationReason: The check reached the place people look instead of waiting to be asked.
       status: active
@@ -2293,7 +2363,7 @@ traces:
           event: dotdiw --version printed bd's version string with bd renamed.
           observedOutcome: A tool reporting a version it does not have.
           relatedStepIds:
-            - step.forward-to-beads
+            - step.forward-to-the-tracker
         - sequence: 2
           title: Wrong name in the files
           event: AGENTS.md and CLAUDE.md, written by bd, told agents to run bd.
@@ -2302,7 +2372,7 @@ traces:
             - step.declare-conventions
       finalState: Two names for the same thing, in the one place that was supposed to have one.
       violatesStepIds:
-        - step.forward-to-beads
+        - step.forward-to-the-tracker
         - step.declare-conventions
       violatesInvariantIds:
         - invariant.one-name-for-all-four
@@ -2574,7 +2644,7 @@ updates:
     changeType: model-update
     targetRefs:
       - invariant.one-name-for-all-four
-      - step.forward-to-beads
+      - step.forward-to-the-tracker
       - step.declare-conventions
       - step.turn-metrics-off
       - step.undo-earlier-adoption

@@ -370,11 +370,14 @@ owns only what is its own.
   to a duty, a step and a lawful lifecycle transition. `poa/finish-idl.py`
   finishes every derivation from `poa/idl-additions.json` and
   `poa/idl-patches.json`: the real command-line bindings, the calls between
-  operations, the tracker and git calls that cross the boundary.
+  operations, the tracker and git calls that cross the boundary, the fields
+  of every request and response; and it writes the door into `dotdiw`.
 - `promise_bindings.py` -- every operation bound to its one body in `dotdiw`,
   under the IDL's name. `dotdiw` is shaped by it: one function per operation,
-  nothing shared between them but infrastructure, and `main()` only routes.
-  `test_promise.py` holds the file to that from its source alone.
+  nothing shared between them but infrastructure, every operation invoked
+  through one door generated from the IDL, which holds the request and the
+  response to their types, and `main()` only routes. `test_promise.py` holds
+  the file to that from its source alone, the door regenerated and compared.
 - `contracts/`, `events/` -- the witness contract: which observed events are
   allowed to count as "work was named and its procedure surfaced", proved
   against this tool's own 0.2.1 release, a run recorded with the witness log
@@ -399,16 +402,17 @@ in this repository.
 
 ### What `dotdiw init` does
 
-`init` writes one line into the checkout's own `.git/config`,
+`init` writes one line of its own into the checkout's `.git/config`,
 `dotdiw.workspace`, a random key, and makes the tracker under
-`~/.dotdiw/<key>/`. Every dotdiw command finds it there, so nothing of the
-tracker's is in the repository: no files, no hooks, no remote, no commit.
-What is left in the repository is dotdiw's declaration of where work starts,
-in `CLAUDE.md` and `AGENTS.md`, named as yours to commit; the command it
-prints leaves the tree clean. The key survives a move and worktrees share
-it. A fresh clone has none, so every clone runs `dotdiw init` once, and
-`create` says so until it has. A `BEADS_DIR` of your own is overridden for
-the tracker dotdiw runs. Outside a git repository `init` refuses.
+`~/.dotdiw/<key>/`; the tracker records its role beside the key, maintainer,
+the answer it would otherwise ask for. Every dotdiw command finds it there, so
+nothing of the tracker's is in the repository: no files, no hooks, no remote,
+no commit. What is left in the repository is dotdiw's declaration of where
+work starts, in `CLAUDE.md` and `AGENTS.md`, named as yours to commit; the
+command it prints leaves the tree clean. The key survives a move and worktrees
+share it. A fresh clone has none, so every clone runs `dotdiw init` once, and
+`create` says so until it has. A `BEADS_DIR` of your own is overridden for the
+tracker dotdiw runs. Outside a git repository `init` refuses.
 
 A repository adopted by an earlier version is upgraded by its first dotdiw
 command: the key is written, a tracker is made under the home with the same
