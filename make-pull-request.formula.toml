@@ -1,5 +1,5 @@
 formula = "mol-make-pull-request"
-description = "Commit and push in this project as a pull request, a PR: decide what belongs in the commit, sweep the staged change for credentials and personal data, check the conventions still hold, write a message that says what is now true, then commit — one commit per branch, its message the pull request's description — and get it onto the remote only once somebody has asked for a push and named where it goes. Use when you are about to commit, when you have changes to land, when you are writing a commit message, when something needs pushing, or when a pull request is to be created."
+description = "Commit and push in this project as a pull request, a PR: decide what belongs in the commit, sweep the staged change for credentials and personal data, check the conventions still hold, move the version line when a release ships the change, write a message that says what is now true, then commit — one commit per branch, its message the pull request's description — and get it onto the remote only once somebody has asked for a push and named where it goes. Use when you are about to commit, when you have changes to land, when you are writing a commit message, when something needs pushing, or when a pull request is to be created."
 examples = [
   "Commit what I just changed",
   "Write the commit message for this change",
@@ -8,10 +8,11 @@ examples = [
   "Get this onto the remote",
   "Squash the branch into one commit",
   "Amend the commit with this change",
+  "Bump the version for the release",
   "Create the PR",
   "Open a pull request for this change",
 ]
-version = 5
+version = 6
 type = "workflow"
 
 # Reading the diff was the first step in version 1, and using the formula showed
@@ -37,6 +38,14 @@ id = "message"
 title = "Write the message: what is now true, why, and the number behind any claim it makes"
 needs = ["scope"]
 
+# Version 6: the one-door change went to its pull request with the version
+# line still reading 0.4.1, and main had to be rewritten to carry it. The
+# number is part of the change that earns it.
+[[steps]]
+id = "version"
+title = "If a release ships this change, the version line in `dotdiw` moves in this commit, with the change that earns it -- a release is never a second pull request for the number"
+needs = ["scope"]
+
 # Version 5: the branch is the pull request, and the pull request's description
 # is the commit's message. GitHub prefills a one-commit pull request from that
 # message; a second commit on the branch means a description typed by hand.
@@ -48,7 +57,7 @@ needs = ["message"]
 [[steps]]
 id = "commit"
 title = "Stage only what belongs and commit"
-needs = ["sweep", "conventions", "single"]
+needs = ["sweep", "conventions", "version", "single"]
 
 [[steps]]
 id = "verify"
