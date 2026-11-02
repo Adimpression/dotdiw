@@ -81,6 +81,7 @@
           "interaction.pour-procedure"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.work-starts-named"
         ],
         "boundaryIds": [
@@ -204,6 +205,7 @@
           "interaction.find-procedure"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held",
           "invariant.every-formula-finds-itself"
         ],
@@ -328,6 +330,7 @@
           "interaction.run-any-command"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.nothing-outside-the-repository",
           "invariant.tool-never-commits"
         ],
@@ -418,7 +421,7 @@
           "journey.run-a-tracker-command"
         ],
         "stepIds": [
-          "step.forward-to-beads"
+          "step.forward-to-the-tracker"
         ],
         "sliIds": [],
         "sloIds": [],
@@ -435,6 +438,7 @@
           "interaction.forward-command"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.one-name-for-all-four"
         ],
         "boundaryIds": [
@@ -473,8 +477,8 @@
           "failurePropagation": "propagate"
         },
         {
-          "operationId": "operation.forward-to-beads",
-          "callPurpose": "Compose operation.forward-to-beads as a governed journey step.",
+          "operationId": "operation.forward-to-the-tracker",
+          "callPurpose": "Compose operation.forward-to-the-tracker as a governed journey step.",
           "required": true,
           "failurePropagation": "propagate"
         },
@@ -537,6 +541,7 @@
           "interaction.find-procedure"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held"
         ],
         "boundaryIds": [
@@ -634,7 +639,9 @@
         "interactionIds": [
           "interaction.learn"
         ],
-        "invariantIds": [],
+        "invariantIds": [
+          "invariant.one-door"
+        ],
         "boundaryIds": [
           "boundary.learn-to-text"
         ]
@@ -696,6 +703,7 @@
           "step.name-the-work"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.work-starts-named"
         ],
         "objectIds": [
@@ -745,7 +753,7 @@
       ],
       "calls": [
         {
-          "operationId": "operation.forward-to-beads",
+          "operationId": "operation.forward-to-the-tracker",
           "callPurpose": "Create the work item through the tracker, with bd's name rewritten in what it prints.",
           "required": true,
           "failurePropagation": "propagate"
@@ -786,6 +794,7 @@
           "step.match-formulas"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.work-starts-named",
           "invariant.only-committed-formulas-are-held"
         ],
@@ -865,6 +874,7 @@
           "step.pour-procedure"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.work-starts-named"
         ],
         "objectIds": [
@@ -932,7 +942,7 @@
           "failurePropagation": "propagate"
         },
         {
-          "operationId": "operation.forward-to-beads",
+          "operationId": "operation.forward-to-the-tracker",
           "callPurpose": "Pour through the tracker, with bd's name rewritten in what it prints.",
           "required": true,
           "failurePropagation": "propagate"
@@ -991,6 +1001,7 @@
           "step.notice-handmade-procedures"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.notice-stops-when-written"
         ],
         "objectIds": [
@@ -1076,6 +1087,7 @@
           "step.nudge-towards-a-formula"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held"
         ],
         "objectIds": [
@@ -1145,6 +1157,7 @@
           "step.write-formula"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held"
         ],
         "objectIds": [
@@ -1235,6 +1248,7 @@
           "step.describe-and-check"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.every-formula-finds-itself"
         ],
         "objectIds": [
@@ -1327,6 +1341,12 @@
           "operationRef": "product.git::ls-files",
           "callPurpose": "A tracker directory tracked in git is a convention problem, with the command that ends it.",
           "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::config --local --get dotdiw.workspace",
+          "callPurpose": "Whether this checkout is adopted, read from its key, so that a plain repository is not held to a convention it never declared.",
+          "failurePropagation": "propagate"
         }
       ]
     },
@@ -1349,6 +1369,7 @@
           "step.commit-formula"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held",
           "invariant.tool-never-commits"
         ],
@@ -1428,6 +1449,7 @@
           "step.adopt-repository"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.nothing-outside-the-repository"
         ],
         "objectIds": [
@@ -1480,7 +1502,7 @@
       ],
       "calls": [
         {
-          "operationId": "operation.forward-to-beads",
+          "operationId": "operation.forward-to-the-tracker",
           "callPurpose": "Initialise the tracker through the stream rewrite, so its own output comes back under dotdiw's name.",
           "required": true,
           "failurePropagation": "propagate"
@@ -1539,6 +1561,7 @@
           "step.declare-conventions"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.one-name-for-all-four"
         ],
         "objectIds": [
@@ -1616,6 +1639,7 @@
           "step.report-what-is-yours-to-commit"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.tool-never-commits"
         ],
         "objectIds": [
@@ -1695,6 +1719,7 @@
           "step.undo-earlier-adoption"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.nothing-outside-the-repository"
         ],
         "objectIds": [
@@ -1806,6 +1831,7 @@
           "step.turn-metrics-off"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.nothing-outside-the-repository"
         ],
         "objectIds": [
@@ -1861,9 +1887,9 @@
       ]
     },
     {
-      "operationId": "operation.forward-to-beads",
-      "name": "ForwardToBeads",
-      "summary": "Forward to beads: beads runs the command with the worker's terminal, through a pty when it is interactive, and every occurrence of bd's name in the stream is rewritten to dotdiw on the way out; the exit code is the tracker's.",
+      "operationId": "operation.forward-to-the-tracker",
+      "name": "ForwardToTheTracker",
+      "summary": "Forward to the tracker: beads runs the command with the worker's terminal, through a pty when it is interactive, and every occurrence of bd's name in the stream is rewritten to dotdiw on the way out; the exit code is the tracker's.",
       "kind": "command",
       "status": "active",
       "visibility": "supporting",
@@ -1876,9 +1902,10 @@
           "journey.run-a-tracker-command"
         ],
         "stepIds": [
-          "step.forward-to-beads"
+          "step.forward-to-the-tracker"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.one-name-for-all-four"
         ],
         "objectIds": [
@@ -1895,10 +1922,10 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "dotdiw adds a process spawn and a stream rewrite; the rest is however long the tracker takes, which for a pour or an init is seconds.\n"
+        "causalJustification": "dotdiw adds a process spawn and a stream rewrite; the rest is however long the tracker takes, which for a pour or an init is seconds. The operation is bound to the worker's terminal: the tracker runs on a pty when there is one, so its prompts still work, and its stream is the one thing dotdiw shows that no response carries. A transport without a terminal projects it with the output in the response and no prompts, which is what the quiet path is today.\n"
       },
-      "requestType": "type.forward-to-beads-request",
-      "responseType": "type.forward-to-beads-response",
+      "requestType": "type.forward-to-the-tracker-request",
+      "responseType": "type.forward-to-the-tracker-response",
       "failureTypes": [
         "type.artifact-not-found-error",
         "type.open-question-blocked-error"
@@ -1914,13 +1941,14 @@
       "postconditions": [
         "Interactive prompts still work.",
         "A word split across two reads is still rewritten.",
-        "Without the tracker on the machine, the worker is told the install command, brew install adimpression/tap/dotdiw, and the exit code is 127."
+        "Without the tracker on the machine, the worker is told the install command, brew install adimpression/tap/dotdiw, and the exit code is 127.",
+        "The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts."
       ],
       "calls": [],
       "derivedFrom": [
         {
           "sourceKind": "gwt-step",
-          "sourceRef": "step.forward-to-beads",
+          "sourceRef": "step.forward-to-the-tracker",
           "reason": "Derived from a product-visible GWT step."
         }
       ],
@@ -1952,6 +1980,7 @@
           "step.index-the-project"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held"
         ],
         "objectIds": [
@@ -2030,6 +2059,7 @@
           "step.list-formulas"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held"
         ],
         "objectIds": [
@@ -2106,6 +2136,7 @@
           "step.show-formula"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held"
         ],
         "objectIds": [
@@ -2181,6 +2212,7 @@
           "step.resolve-formula"
         ],
         "invariantIds": [
+          "invariant.one-door",
           "invariant.only-committed-formulas-are-held"
         ],
         "objectIds": [
@@ -2256,7 +2288,9 @@
         "stepIds": [
           "step.teach-the-conventions"
         ],
-        "invariantIds": [],
+        "invariantIds": [
+          "invariant.one-door"
+        ],
         "objectIds": [],
         "interactionIds": [
           "interaction.learn"
@@ -2374,14 +2408,6 @@
             "scalar": "string"
           },
           "required": true
-        },
-        {
-          "name": "witness",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false
         }
       ]
     },
@@ -2534,12 +2560,22 @@
           "required": false
         },
         {
-          "name": "witness",
+          "name": "exclude",
+          "valueType": {
+            "kind": "type-ref",
+            "typeId": "type.formula-example"
+          },
+          "required": false,
+          "summary": "An example taken out of the index while this title is ranked. The conventions check asks for this, so that a formula is found from its example by the rest of what it says and not by the example itself."
+        },
+        {
+          "name": "surface",
           "valueType": {
             "kind": "scalar",
             "scalar": "boolean"
           },
-          "required": false
+          "required": false,
+          "summary": "Whether what applies is surfaced: printed for the worker and, under a work id, written to the witness log. False when another operation ranks a title only to see what reaches it, as the conventions check and the handmade notice do. True when absent."
         }
       ]
     },
@@ -2603,13 +2639,22 @@
           "valueType": {
             "kind": "list",
             "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
+              "kind": "type-ref",
+              "typeId": "type.held-formula"
             }
           },
           "required": false,
-          "summary": "The formula ids printed, best first.",
+          "summary": "The formulas that apply, best first, at most three; empty when nothing crossed the threshold. The renderer prints their names, descriptions and paths; the witness records their ids and paths.",
           "cardinality": "many"
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -2703,14 +2748,6 @@
           },
           "required": true,
           "summary": "The formula id, file name or path to pour."
-        },
-        {
-          "name": "witness",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false
         }
       ]
     },
@@ -2785,6 +2822,28 @@
             "scalar": "integer"
           },
           "required": false
+        },
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": false,
+          "summary": "The formula poured, resolved from the ident given; absent when the ident named no committed formula and the tracker was asked as typed."
+        },
+        {
+          "name": "stepRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The ids of the steps the pour created, sorted; the witness records them with the molecule.",
+          "cardinality": "many"
         }
       ]
     },
@@ -2899,13 +2958,22 @@
           "valueType": {
             "kind": "list",
             "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
+              "kind": "type-ref",
+              "typeId": "type.handmade-procedure"
             }
           },
           "required": false,
-          "summary": "The parents named, as issue ids.",
+          "summary": "The procedures carried out here and never declared, most steps first.",
           "cardinality": "many"
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -3022,6 +3090,33 @@
           "required": false,
           "summary": "Open questions that block or qualify the result.",
           "cardinality": "many"
+        },
+        {
+          "name": "nudged",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Whether the text read like a procedure."
+        },
+        {
+          "name": "command",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The formula new command that writes it as one, for the worker to run; absent when the text read like a fact."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -3164,6 +3259,62 @@
           },
           "required": false,
           "summary": "The repository-relative path of the formula written."
+        },
+        {
+          "name": "seeded",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "How many example titles the file carries: the title given, then its echoes among the work already named here."
+        },
+        {
+          "name": "stepsFrom",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.work"
+          },
+          "required": false,
+          "summary": "The work item whose children became the steps, when they did; absent when the steps are placeholders."
+        },
+        {
+          "name": "left",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "enum-inline",
+              "values": [
+                "description",
+                "steps"
+              ]
+            }
+          },
+          "required": false,
+          "summary": "What the worker still fills in: the description always, the steps when they are placeholders.",
+          "cardinality": "many"
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "no-title",
+              "exists",
+              "unwritable"
+            ]
+          },
+          "required": false,
+          "summary": "Why nothing was written, when nothing was."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -3217,13 +3368,17 @@
           "summary": "The repository the interface resolved; bodies never ask git for it themselves."
         },
         {
-          "name": "limit",
+          "name": "mode",
           "valueType": {
-            "kind": "scalar",
-            "scalar": "integer"
+            "kind": "enum-inline",
+            "values": [
+              "check",
+              "quiet",
+              "doctor"
+            ]
           },
           "required": false,
-          "summary": "How many problems to print; all of them when absent."
+          "summary": "Which of the three places asks. check: in full, with the exit code. quiet: under a create, the handmade notice first and then the first three problems. doctor: under the tracker's doctor and lint, the first five problems and then the notice. check when absent."
         }
       ]
     },
@@ -3287,12 +3442,12 @@
           "valueType": {
             "kind": "list",
             "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
+              "kind": "type-ref",
+              "typeId": "type.convention-problem"
             }
           },
           "required": false,
-          "summary": "One line per problem: the file and what is wrong with it.",
+          "summary": "Every problem found, the conventions first, then the formulas in the order the index holds them.",
           "cardinality": "many"
         },
         {
@@ -3302,6 +3457,28 @@
             "scalar": "integer"
           },
           "required": false
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
+        },
+        {
+          "name": "undeclared",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "type-ref",
+              "typeId": "type.handmade-procedure"
+            }
+          },
+          "required": false,
+          "summary": "The handmade notice, as NoticeHandmadeProcedures returned it, shown with the problems: before them under a create, after them under check, doctor and lint.",
+          "cardinality": "many"
         }
       ]
     },
@@ -3428,6 +3605,15 @@
           },
           "required": false,
           "summary": "The git command the worker runs; dotdiw never runs it."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -3584,6 +3770,20 @@
           },
           "required": false,
           "summary": "Whether this call made the tracker, as opposed to finding it already there."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "not-a-repository",
+              "key-not-written",
+              "workspace-not-made",
+              "init-failed"
+            ]
+          },
+          "required": false,
+          "summary": "Why the repository was not adopted, when it was not."
         }
       ]
     },
@@ -3639,11 +3839,14 @@
         {
           "name": "announce",
           "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
+            "kind": "enum-inline",
+            "values": [
+              "init",
+              "create"
+            ]
           },
           "required": false,
-          "summary": "Whether to print the files changed, as init does; create prints only a count."
+          "summary": "Which journey is declaring. init announces every file renamed and the declaration written; create notes only how many files the tracker rewrote. Absent, nothing is announced."
         }
       ]
     },
@@ -3727,6 +3930,28 @@
           "required": false,
           "summary": "Files that gained or regained the declaration.",
           "cardinality": "many"
+        },
+        {
+          "name": "changed",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "renamed and declared together, each file once, in that order: what ReportWhatIsYoursToCommit is handed.",
+          "cardinality": "many"
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -3870,6 +4095,15 @@
           "required": false,
           "cardinality": "many",
           "summary": "The files that are the worker's to commit."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -4018,6 +4252,24 @@
           },
           "required": false,
           "summary": "The tracker made by this call for a repository an earlier version left, or absent."
+        },
+        {
+          "name": "hooksReplaced",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Whether the tracker's hook directory stood in for the repository's own when this ran; the notice then says what that skipped."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -4126,14 +4378,23 @@
           },
           "required": false,
           "summary": "Whether this run was the one that turned them off."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
     {
-      "typeId": "type.forward-to-beads-request",
-      "name": "ForwardToBeadsRequest",
+      "typeId": "type.forward-to-the-tracker-request",
+      "name": "ForwardToTheTrackerRequest",
       "kind": "record",
-      "description": "Request for ForwardToBeads.",
+      "description": "Request for ForwardToTheTracker.",
       "fields": [
         {
           "name": "correlationId",
@@ -4190,22 +4451,14 @@
           "required": false,
           "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
           "cardinality": "many"
-        },
-        {
-          "name": "witness",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false
         }
       ]
     },
     {
-      "typeId": "type.forward-to-beads-response",
-      "name": "ForwardToBeadsResponse",
+      "typeId": "type.forward-to-the-tracker-response",
+      "name": "ForwardToTheTrackerResponse",
       "kind": "record",
-      "description": "Response for ForwardToBeads.",
+      "description": "Response for ForwardToTheTracker.",
       "fields": [
         {
           "name": "status",
@@ -4263,6 +4516,28 @@
             "scalar": "integer"
           },
           "required": false
+        },
+        {
+          "name": "output",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The tracker's output with its name rewritten, as the terminal saw it; what NameTheWork and PourProcedure read their ids from."
+        },
+        {
+          "name": "closedRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The ids a close that succeeded named; the witness writes molecule_closed or step_closed for each one that belongs to a poured molecule.",
+          "cardinality": "many"
         }
       ]
     },
@@ -4388,6 +4663,24 @@
             "scalar": "integer"
           },
           "required": false
+        },
+        {
+          "name": "fileCount",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The formula files git lists; more than formulaCount when a file could not be read, and the summary says why."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -4504,6 +4797,36 @@
           "required": false,
           "summary": "Open questions that block or qualify the result.",
           "cardinality": "many"
+        },
+        {
+          "name": "formulas",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "type-ref",
+              "typeId": "type.held-formula"
+            }
+          },
+          "required": false,
+          "summary": "What the project holds, as the renderer lists it, or prints it as JSON when asked.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaCount",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -4620,6 +4943,33 @@
           "required": false,
           "summary": "Open questions that block or qualify the result.",
           "cardinality": "many"
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The repository-relative path of the file shown."
+        },
+        {
+          "name": "text",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The file, as written."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -4754,6 +5104,15 @@
           },
           "required": false,
           "summary": "The repository-relative path of its file."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -4841,6 +5200,24 @@
           "required": false,
           "summary": "Open questions that block or qualify the result.",
           "cardinality": "many"
+        },
+        {
+          "name": "text",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "How work gets done here, as printed."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -4956,15 +5333,6 @@
           },
           "required": false,
           "summary": "Print only the tracker's own output; --json, -q, --quiet, --silent and DOTDIW_NO_HINTS set it."
-        },
-        {
-          "name": "witness",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "Whether the witness log is on for this repository."
         }
       ]
     },
@@ -5037,13 +5405,22 @@
           "valueType": {
             "kind": "list",
             "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
+              "kind": "type-ref",
+              "typeId": "type.held-formula"
             }
           },
           "required": false,
-          "summary": "The formula ids printed for the title, best first; empty when nothing crossed the threshold.",
+          "summary": "The formulas that applied to the title, best first; empty when nothing crossed the threshold or the create was quiet.",
           "cardinality": "many"
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -5130,6 +5507,15 @@
           },
           "required": false,
           "summary": "Remembered text, when the journey was entered through remember."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "A formula file already written, when the journey is entered to check and commit one rather than to write it; otherwise the file the title produces."
         }
       ]
     },
@@ -5187,6 +5573,46 @@
           "required": false,
           "summary": "Open questions that block or qualify the result.",
           "cardinality": "many"
+        },
+        {
+          "name": "command",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The git command that commits the formula; dotdiw never runs it."
+        },
+        {
+          "name": "problems",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "type-ref",
+              "typeId": "type.convention-problem"
+            }
+          },
+          "required": false,
+          "summary": "What the check found, as DescribeAndCheck reports it.",
+          "cardinality": "many"
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The formula file, written by this call or named in the request."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -5329,6 +5755,15 @@
           },
           "required": false,
           "summary": "~/.dotdiw/<key>, where this checkout's tracker lives."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -5594,6 +6029,64 @@
           "required": false,
           "summary": "Open questions that block or qualify the result.",
           "cardinality": "many"
+        },
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": false,
+          "summary": "resolve and show: the formula resolved."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "resolve and show: the repository-relative path of its file."
+        },
+        {
+          "name": "text",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "show: the file, as written."
+        },
+        {
+          "name": "formulas",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "type-ref",
+              "typeId": "type.held-formula"
+            }
+          },
+          "required": false,
+          "summary": "list: what the project holds.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaCount",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "list: how many."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -5681,6 +6174,24 @@
           "required": false,
           "summary": "Open questions that block or qualify the result.",
           "cardinality": "many"
+        },
+        {
+          "name": "text",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "How work gets done here, as printed."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
         }
       ]
     },
@@ -6053,6 +6564,162 @@
           "required": true
         }
       ]
+    },
+    {
+      "typeId": "type.held-formula",
+      "name": "HeldFormula",
+      "kind": "record",
+      "description": "A formula the project holds, as read from its committed file: what ListFormulas lists, MatchFormulas surfaces and the witness records.",
+      "fields": [
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": true,
+          "summary": "The formula's id, as its file declares it; the file's name when it declares none."
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The file's name without its extensions, which is what MatchFormulas prints."
+        },
+        {
+          "name": "description",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The description as written in the file."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The repository-relative path of the file."
+        },
+        {
+          "name": "examples",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The example titles the file declares, in its order.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    {
+      "typeId": "type.formula-example",
+      "name": "FormulaExample",
+      "kind": "record",
+      "description": "One example title of one formula, named so that the conventions check can take it out of the index while that formula is searched for.",
+      "fields": [
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": true,
+          "summary": "The formula whose example it is."
+        },
+        {
+          "name": "example",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The example title, as the file declares it."
+        }
+      ]
+    },
+    {
+      "typeId": "type.convention-problem",
+      "name": "ConventionProblem",
+      "kind": "record",
+      "description": "One problem DescribeAndCheck found: where it is, what is wrong, and which convention it breaks.",
+      "fields": [
+        {
+          "name": "kind",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "convention",
+              "formula"
+            ]
+          },
+          "required": true,
+          "summary": "convention: an instruction file that does not say where work starts, or the tracker's directory tracked in git. formula: a formula that is uncommitted, outside the repository, too short to name a situation, still a scaffold, short of examples, or not retrieved by one of its examples."
+        },
+        {
+          "name": "where",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The file, repository-relative; the absolute path of a formula outside the repository."
+        },
+        {
+          "name": "what",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "What is wrong with it, and the command that puts it right when there is one."
+        }
+      ]
+    },
+    {
+      "typeId": "type.handmade-procedure",
+      "name": "HandmadeProcedure",
+      "kind": "record",
+      "description": "A procedure carried out in the tracker and never declared: a parent that is not a molecule, with ordered children, that no formula reaches.",
+      "fields": [
+        {
+          "name": "workRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.work"
+          },
+          "required": true,
+          "summary": "The parent's id, which formula new --from turns into steps."
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The parent's title, which becomes the formula's."
+        },
+        {
+          "name": "stepCount",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": true,
+          "summary": "How many ordered children it has."
+        }
+      ]
     }
   ],
   "operationCallGraph": [
@@ -6166,9 +6833,9 @@
     },
     {
       "fromOperationId": "operation.run-a-tracker-command",
-      "toOperationId": "operation.forward-to-beads",
+      "toOperationId": "operation.forward-to-the-tracker",
       "callKind": "synchronous",
-      "reason": "Compose operation.forward-to-beads as a governed journey step."
+      "reason": "Compose operation.forward-to-the-tracker as a governed journey step."
     },
     {
       "fromOperationId": "operation.run-a-tracker-command",
@@ -6214,7 +6881,7 @@
     },
     {
       "fromOperationId": "operation.name-the-work",
-      "toOperationId": "operation.forward-to-beads",
+      "toOperationId": "operation.forward-to-the-tracker",
       "callKind": "synchronous",
       "reason": "Create the work item through the tracker, with bd's name rewritten in what it prints."
     },
@@ -6232,7 +6899,7 @@
     },
     {
       "fromOperationId": "operation.pour-procedure",
-      "toOperationId": "operation.forward-to-beads",
+      "toOperationId": "operation.forward-to-the-tracker",
       "callKind": "synchronous",
       "reason": "Pour through the tracker, with bd's name rewritten in what it prints."
     },
@@ -6268,7 +6935,7 @@
     },
     {
       "fromOperationId": "operation.adopt-repository",
-      "toOperationId": "operation.forward-to-beads",
+      "toOperationId": "operation.forward-to-the-tracker",
       "callKind": "asynchronous",
       "reason": "Initialise the tracker through the stream rewrite, so its own output comes back under dotdiw's name."
     },
@@ -6678,7 +7345,7 @@
           "journey.run-a-tracker-command"
         ],
         "stepIds": [
-          "step.forward-to-beads"
+          "step.forward-to-the-tracker"
         ],
         "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
@@ -6819,7 +7486,7 @@
           "journey.run-a-tracker-command"
         ],
         "stepIds": [
-          "step.forward-to-beads"
+          "step.forward-to-the-tracker"
         ],
         "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
@@ -6876,7 +7543,7 @@
           "journey.run-a-tracker-command"
         ],
         "stepIds": [
-          "step.forward-to-beads"
+          "step.forward-to-the-tracker"
         ],
         "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
@@ -6931,7 +7598,7 @@
           "journey.run-a-tracker-command"
         ],
         "stepIds": [
-          "step.forward-to-beads"
+          "step.forward-to-the-tracker"
         ],
         "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
@@ -7024,7 +7691,7 @@
         "operation.describe-and-check",
         "operation.pour-procedure"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::StartNamedWork, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.write-a-procedure-down",
@@ -7040,7 +7707,7 @@
         "operation.describe-and-check",
         "operation.commit-formula"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::WriteAProcedureDown, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.adopt-a-repository",
@@ -7055,7 +7722,7 @@
         "operation.declare-conventions",
         "operation.report-what-is-yours-to-commit"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::AdoptARepository, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.run-a-tracker-command",
@@ -7065,11 +7732,11 @@
       "privateHelpersUsed": false,
       "calledOperationIds": [
         "operation.resolve-formula",
-        "operation.forward-to-beads",
+        "operation.forward-to-the-tracker",
         "operation.describe-and-check",
         "operation.nudge-towards-a-formula"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::RunATrackerCommand, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.find-a-held-procedure",
@@ -7083,7 +7750,7 @@
         "operation.show-formula",
         "operation.resolve-formula"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::FindAHeldProcedure, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.learn-the-conventions",
@@ -7094,7 +7761,7 @@
       "calledOperationIds": [
         "operation.teach-the-conventions"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::LearnTheConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.name-the-work",
@@ -7103,9 +7770,9 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [
-        "operation.forward-to-beads"
+        "operation.forward-to-the-tracker"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::NameTheWork, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.match-formulas",
@@ -7116,7 +7783,7 @@
       "calledOperationIds": [
         "operation.index-the-project"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::MatchFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.pour-procedure",
@@ -7126,9 +7793,9 @@
       "privateHelpersUsed": false,
       "calledOperationIds": [
         "operation.resolve-formula",
-        "operation.forward-to-beads"
+        "operation.forward-to-the-tracker"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::PourProcedure, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.notice-handmade-procedures",
@@ -7139,7 +7806,7 @@
       "calledOperationIds": [
         "operation.match-formulas"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::NoticeHandmadeProcedures, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.nudge-towards-a-formula",
@@ -7148,7 +7815,7 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::NudgeTowardsAFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.write-formula",
@@ -7159,7 +7826,7 @@
       "calledOperationIds": [
         "operation.index-the-project"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::WriteFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.describe-and-check",
@@ -7172,7 +7839,7 @@
         "operation.match-formulas",
         "operation.notice-handmade-procedures"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::DescribeAndCheck, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.commit-formula",
@@ -7181,7 +7848,7 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::CommitFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.adopt-repository",
@@ -7190,9 +7857,9 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [
-        "operation.forward-to-beads"
+        "operation.forward-to-the-tracker"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::AdoptRepository, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.declare-conventions",
@@ -7201,7 +7868,7 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::DeclareConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.report-what-is-yours-to-commit",
@@ -7210,7 +7877,7 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::ReportWhatIsYoursToCommit, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.undo-earlier-adoption",
@@ -7221,7 +7888,7 @@
       "calledOperationIds": [
         "operation.adopt-repository"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::UndoEarlierAdoption, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.turn-metrics-off",
@@ -7230,16 +7897,16 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::TurnMetricsOff, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
-      "bindingId": "impl.forward-to-beads",
-      "operationId": "operation.forward-to-beads",
-      "implementationUnit": "promise_bindings::ForwardToBeads",
+      "bindingId": "impl.forward-to-the-tracker",
+      "operationId": "operation.forward-to-the-tracker",
+      "implementationUnit": "promise_bindings::ForwardToTheTracker",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::ForwardToTheTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.index-the-project",
@@ -7248,7 +7915,7 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::IndexTheProject, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.list-formulas",
@@ -7259,7 +7926,7 @@
       "calledOperationIds": [
         "operation.index-the-project"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::ListFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.show-formula",
@@ -7270,7 +7937,7 @@
       "calledOperationIds": [
         "operation.resolve-formula"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::ShowFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.resolve-formula",
@@ -7281,7 +7948,7 @@
       "calledOperationIds": [
         "operation.index-the-project"
       ],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::ResolveFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.teach-the-conventions",
@@ -7290,7 +7957,7 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [],
-      "notes": "One inline body in dotdiw, re-exported under this name by promise_bindings.py; test_promise.py holds the body to the calls declared here."
+      "notes": "The body is dotdiw::TeachTheConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     }
   ],
   "projections": [
@@ -7320,7 +7987,15 @@
       "projectionKind": "cli",
       "status": "manual",
       "outputPath": "dotdiw",
-      "generator": "hand-written: main() in dotdiw parses the affordance, builds the request, calls the operation through promise_bindings.py and prints"
+      "generator": "hand-written: main() in dotdiw parses the affordance, builds the request and calls the operation through the door, invoke, by its id; it installs the presenter that shows each response as its operation returns"
+    },
+    {
+      "projectionId": "projection.door",
+      "projectionKind": "python-dispatcher",
+      "status": "generated",
+      "outputPath": "dotdiw",
+      "generator": "poa/finish-idl.py writes the door's table into dotdiw between markers, from operation-idl.json: for every operation, the body's name and the fields of its request and its response, the required ones named. invoke, DoorError and witness_from beside it are hand-written",
+      "notes": "The one way an operation is invoked, by id and with a request dict. The request is held to its type on the way in and the response to its own on the way out; a key outside either raises DoorError naming the operation and the key. The witness log is appended from the response, and the response is shown by the presenter the interface installs, so every transport runs the same bodies. test_promise.py regenerates the table and fails on any difference."
     }
   ],
   "conformance": {
@@ -7405,6 +8080,20 @@
       "reason": "Until the bindings are real, POA checks the artifacts against each other and never against the program. These are the facts that let it check the program.",
       "compatibility": "additive",
       "createdAt": "2026-11-01T12:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.every-operation-through-one-door",
+      "changeType": "project-python-dispatcher",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.door",
+        "invariant.one-door"
+      ],
+      "summary": "Invoke every operation through one door generated from the IDL into dotdiw: the request held to its type on the way in, the response to its own on the way out, the witness log appended and the terminal fed from the typed response, with the request and response types made true to what the bodies use. Migration plan: none; nothing a worker sees changes, and seventeen commands print the same bytes as before.",
+      "reason": "A body bound to the IDL in name only read fields its type never declared, printed what no response carried and wrote the witness log itself, and nothing noticed. Through one door the types are the contract, every transport runs the same bodies, and the tests hold the program to the IDL from its source.",
+      "compatibility": "strengthening",
+      "createdAt": "2026-11-02T18:00:00+08:00",
       "approvalStatus": "draft"
     }
   ],
@@ -7553,7 +8242,7 @@
     },
     {
       "bindingId": "binding.obs.step-closed",
-      "operationId": "operation.forward-to-beads",
+      "operationId": "operation.forward-to-the-tracker",
       "eventClassId": "event.step-closed",
       "observedLabels": [
         "step_closed"
@@ -7578,7 +8267,7 @@
     },
     {
       "bindingId": "binding.obs.molecule-closed",
-      "operationId": "operation.forward-to-beads",
+      "operationId": "operation.forward-to-the-tracker",
       "eventClassId": "event.molecule-closed",
       "observedLabels": [
         "molecule_closed"
