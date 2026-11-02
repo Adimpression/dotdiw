@@ -24,6 +24,20 @@
       "compatibility": "additive",
       "createdAt": "2026-11-01T12:00:00+08:00",
       "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.every-operation-through-one-door",
+      "changeType": "project-python-dispatcher",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.door",
+        "invariant.one-door"
+      ],
+      "summary": "Invoke every operation through one door generated from the IDL into dotdiw: the request held to its type on the way in, the response to its own on the way out, the witness log appended and the terminal fed from the typed response, with the request and response types made true to what the bodies use. Migration plan: none; nothing a worker sees changes, and seventeen commands print the same bytes as before.",
+      "reason": "A body bound to the IDL in name only read fields its type never declared, printed what no response carried and wrote the witness log itself, and nothing noticed. Through one door the types are the contract, every transport runs the same bodies, and the tests hold the program to the IDL from its source.",
+      "compatibility": "strengthening",
+      "createdAt": "2026-11-02T18:00:00+08:00",
+      "approvalStatus": "draft"
     }
   ],
   "eventStructureContracts": [
@@ -171,7 +185,7 @@
     },
     {
       "bindingId": "binding.obs.step-closed",
-      "operationId": "operation.forward-to-beads",
+      "operationId": "operation.forward-to-the-tracker",
       "eventClassId": "event.step-closed",
       "observedLabels": [
         "step_closed"
@@ -196,7 +210,7 @@
     },
     {
       "bindingId": "binding.obs.molecule-closed",
-      "operationId": "operation.forward-to-beads",
+      "operationId": "operation.forward-to-the-tracker",
       "eventClassId": "event.molecule-closed",
       "observedLabels": [
         "molecule_closed"
@@ -253,6 +267,164 @@
         "open",
         "conflicted",
         "invalid"
+      ]
+    }
+  ],
+  "types": [
+    {
+      "typeId": "type.held-formula",
+      "name": "HeldFormula",
+      "kind": "record",
+      "description": "A formula the project holds, as read from its committed file: what ListFormulas lists, MatchFormulas surfaces and the witness records.",
+      "fields": [
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": true,
+          "summary": "The formula's id, as its file declares it; the file's name when it declares none."
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The file's name without its extensions, which is what MatchFormulas prints."
+        },
+        {
+          "name": "description",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The description as written in the file."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The repository-relative path of the file."
+        },
+        {
+          "name": "examples",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The example titles the file declares, in its order.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    {
+      "typeId": "type.formula-example",
+      "name": "FormulaExample",
+      "kind": "record",
+      "description": "One example title of one formula, named so that the conventions check can take it out of the index while that formula is searched for.",
+      "fields": [
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": true,
+          "summary": "The formula whose example it is."
+        },
+        {
+          "name": "example",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The example title, as the file declares it."
+        }
+      ]
+    },
+    {
+      "typeId": "type.convention-problem",
+      "name": "ConventionProblem",
+      "kind": "record",
+      "description": "One problem DescribeAndCheck found: where it is, what is wrong, and which convention it breaks.",
+      "fields": [
+        {
+          "name": "kind",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "convention",
+              "formula"
+            ]
+          },
+          "required": true,
+          "summary": "convention: an instruction file that does not say where work starts, or the tracker's directory tracked in git. formula: a formula that is uncommitted, outside the repository, too short to name a situation, still a scaffold, short of examples, or not retrieved by one of its examples."
+        },
+        {
+          "name": "where",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The file, repository-relative; the absolute path of a formula outside the repository."
+        },
+        {
+          "name": "what",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "What is wrong with it, and the command that puts it right when there is one."
+        }
+      ]
+    },
+    {
+      "typeId": "type.handmade-procedure",
+      "name": "HandmadeProcedure",
+      "kind": "record",
+      "description": "A procedure carried out in the tracker and never declared: a parent that is not a molecule, with ordered children, that no formula reaches.",
+      "fields": [
+        {
+          "name": "workRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.work"
+          },
+          "required": true,
+          "summary": "The parent's id, which formula new --from turns into steps."
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The parent's title, which becomes the formula's."
+        },
+        {
+          "name": "stepCount",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": true,
+          "summary": "How many ordered children it has."
+        }
       ]
     }
   ]

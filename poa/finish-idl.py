@@ -9,7 +9,8 @@ never edited by hand:
 
   poa/idl-additions.json   what the model does not carry: the witness contract
                            reference, the observability, report and summary
-                           bindings, and the update records for this binding
+                           bindings, the update records for this binding, and
+                           the record types the responses share
   poa/idl-patches.json     per-operation facts about the program: the real
                            command-line bindings in place of the generated
                            `poa invoke` fictions, the kinds the step-id
@@ -18,8 +19,11 @@ never edited by hand:
                            calls that cross the product boundary, and the
                            request and response fields the bodies really use
   this file                drops the generated bindings, applies the two files,
-                           and rebuilds what must agree with them: the
-                           operation call graph and the implementation bindings
+                           rebuilds what must agree with them, the operation
+                           call graph and the implementation bindings, and
+                           writes the door's table into dotdiw between its
+                           markers: for every operation, the body's name and
+                           the fields of its request and response
 
 Standard library only, because dotdiw's world is the standard library and the
 tests read the result.
@@ -29,6 +33,7 @@ tests read the result.
 import json
 import os
 import sys
+import textwrap
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -39,8 +44,13 @@ PATCHES = os.path.join(HERE, "idl-patches.json")
 GENERATED_BINDING = "binding.cli-invoke-"
 BINDING_MODULE = "promise_bindings"
 
+DOTDIW = os.path.join(ROOT, "dotdiw")
+DOOR_OPEN = "# >>> generated from operation-idl.json by poa/finish-idl.py; do not edit\n"
+DOOR_CLOSE = "# <<< end generated\n"
+
 # The id field of each list the additions may extend.
 ID_FIELDS = {
+    "types": "typeId",
     "updates": "changeId",
     "eventStructureContracts": "contractId",
     "observabilityBindings": "bindingId",
@@ -94,7 +104,9 @@ def finish(idl, additions, patches):
         op = ops[op_id]            # an unknown operation is an error, loudly
         for k, v in patch.items():
             if k == "derivedFrom":
-                op.setdefault("derivedFrom", []).extend(v)
+                # Once each, so that running this twice gives the same file.
+                have = op.setdefault("derivedFrom", [])
+                have.extend(item for item in v if item not in have)
             elif k == "tracesTo":
                 op["tracesTo"].update(v)
             else:
@@ -128,11 +140,74 @@ def finish(idl, additions, patches):
          "implementationMode": "inline-body",
          "privateHelpersUsed": False,
          "calledOperationIds": [c["operationId"] for c in op.get("calls") or []],
-         "notes": "One inline body in dotdiw, re-exported under this name by "
-                  "promise_bindings.py; test_promise.py holds the body to the "
-                  "calls declared here."}
+         "notes": "The body is dotdiw::%s, reached only through the door, "
+                  "invoke, by this operation's id; promise_bindings.py "
+                  "re-exports it under this name for import only, which is "
+                  "how the conformance harness calls it. test_promise.py "
+                  "holds the body to the calls declared here and to the "
+                  "door." % op["name"]}
         for op in idl["operations"]]
     return idl
+
+
+def names_tuple(key, names):
+    """One table entry: a tuple of field names, wrapped to the line."""
+    if not names:
+        return '        "%s": (),\n' % key
+    text = ", ".join('"%s"' % n for n in names) + ","
+    out = '        "%s": (\n' % key
+    for line in textwrap.wrap(text, width=67, break_long_words=False,
+                              break_on_hyphens=False):
+        out += "            %s\n" % line
+    return out + "        ),\n"
+
+
+def door_source(idl):
+    """The door's table: what dotdiw holds between the markers.
+
+    Sorted by operation id and field name, so that the same IDL always gives
+    the same text and a test can regenerate it and compare.
+    """
+    types = by_id(idl["types"], "typeId")
+    statuses = None
+    for op in idl["operations"]:
+        status = [f for f in types[op["responseType"]]["fields"] if f["name"] == "status"]
+        values = tuple(status[0]["valueType"]["values"])
+        assert statuses in (None, values), "response types disagree on status"
+        statuses = values
+    out = DOOR_OPEN
+    out += "STATUSES = (%s)\n\n" % ", ".join('"%s"' % s for s in statuses)
+    out += "# operation id -> the body's name, the fields of its request, the required\n"
+    out += "# ones among them, and the same for its response.\n"
+    out += "DOOR = {\n"
+    for op in sorted(idl["operations"], key=lambda o: o["operationId"]):
+        req = types[op["requestType"]]["fields"]
+        resp = types[op["responseType"]]["fields"]
+        out += '    "%s": {\n' % op["operationId"]
+        out += '        "body": "%s",\n' % op["name"]
+        out += names_tuple("request", sorted(f["name"] for f in req))
+        out += names_tuple("requestRequired", sorted(f["name"] for f in req if f["required"]))
+        out += names_tuple("response", sorted(f["name"] for f in resp))
+        out += names_tuple("responseRequired", sorted(f["name"] for f in resp if f["required"]))
+        out += "    },\n"
+    out += "}\n"
+    return out + DOOR_CLOSE
+
+
+def write_door(idl, path=DOTDIW):
+    """Put the table between the markers in dotdiw; True when that changed it."""
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+    assert text.count(DOOR_OPEN) == 1 and text.count(DOOR_CLOSE) == 1, \
+        "%s must hold the door's markers exactly once" % path
+    head, rest = text.split(DOOR_OPEN, 1)
+    tail = rest.split(DOOR_CLOSE, 1)[1]
+    after = head + door_source(idl) + tail
+    if after == text:
+        return False
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(after)
+    return True
 
 
 def main(argv):
@@ -144,6 +219,10 @@ def main(argv):
     print("finished %s: %d operations, %d interface bindings, %d call edges"
           % (os.path.relpath(path, ROOT), len(idl["operations"]),
              len(idl["interfaceBindings"]), len(idl["operationCallGraph"])))
+    changed = write_door(idl)
+    print("the door in %s: %d operations, %s"
+          % (os.path.relpath(DOTDIW, ROOT), len(idl["operations"]),
+             "rewritten" if changed else "unchanged"))
     return 0
 
 

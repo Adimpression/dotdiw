@@ -507,7 +507,9 @@ Kept here from the README, where it stood until 0.4.1: an adopter wants what
   remote, but still kept `.beads/` in the working tree.
 - v0.4.0 moved the tracker's state under the home: one key in the checkout's
   `.git/config`, `bd init --stealth --skip-hooks --skip-agents` under
-  `~/.dotdiw/<key>/`, told where through `BEADS_DIR`. The dated entries below
+  `~/.dotdiw/<key>/`, told where through `BEADS_DIR`. bd's init records its
+  role beside the key, `beads.role=maintainer`, the answer it would otherwise
+  prompt for; dotdiw neither writes nor reads it. The dated entries below
   have the detail.
 
 ## 2026-11-01: init in bd's stealth mode
@@ -576,3 +578,41 @@ Kept here from the README, where it stood until 0.4.1: an adopter wants what
       declarations belong: `carrier.beads` in `product.yaml`,
       `boundary.dotdiw-to-beads` in the model, `depends_on "beads"` in the
       tap's formula.
+
+## 2026-11-02: every operation through one door
+
+- [x] Every operation is invoked through one door, `invoke`, by its id and
+      with a request. The door's table is generated from `operation-idl.json`
+      into `dotdiw`, between markers, by `poa/finish-idl.py`, which says
+      whether that changed the file. The request is held to its type on the
+      way in and the response to its own on the way out; a key outside
+      either raises, naming the operation and the key, because that is the
+      project's mistake and not a worker's situation.
+- [x] The types are true. The request types carry what the bodies decide by
+      and the response types what the terminal and the witness read, as four
+      shared record types and typed fields; the in-memory index and the
+      parsed formulas travel in no response. Sixty-four types, sixty before.
+- [x] No body prints and no body writes the witness log. The door appends
+      the log from the response and shows the response as its operation
+      returns, through the presenter `main()` installs; a transport without
+      a terminal installs none and runs the same bodies. The tracker's own
+      stream is the one thing shown that no response carries, and the
+      forward step is marked terminal-bound.
+- [x] Nothing a worker sees changes: seventeen commands against 0.4.1 print
+      the same bytes, the tracker's random ids normalised. `test_dotdiw.py`
+      is unchanged and passes.
+- [x] `test_promise.py` holds the door from the source and the IDL: the
+      table is a fresh generation, a body is reached only through the door,
+      `main()` calls only infrastructure and the door and invokes only
+      operations the IDL binds to the command line, nothing behind the door
+      touches a stream, and the door raises naming the operation and the
+      key. Each test fails on a mutation of `dotdiw`.
+- [x] The create path stays under one second: 0.893 s through the door
+      against 0.922 s on 0.4.1, back to back on an idle machine, the tracker
+      alone 0.45 s in both. The harness and the runs are under
+      `measurements/`.
+- [x] The record: `invariant.one-door` in the model, upheld by every
+      operation; the door as a projection of kind `python-dispatcher`; the
+      change `change.every-operation-through-one-door`, with no migration
+      since nothing a worker sees changes. `promise_bindings.py` stays the
+      import-only shim the conformance harness calls through.

@@ -1,0 +1,16 @@
+Two runs of measure/time_create.py on 2026-11-02, back to back on an idle
+machine, tracker 1.3.2, the same interpreter for both.
+
+dotdiw 0.4.1 (main at 36b657e):
+dotdiw create: median 0.922 s, min 0.902, max 0.950 (10 runs)
+bd create alone: median 0.448 s, min 0.434, max 0.466 (10 runs)
+dotdiw's own part: 0.474 s (median less median)
+
+dotdiw with the one door (0.5.0):
+dotdiw create: median 0.893 s, min 0.866, max 0.916 (10 runs)
+bd create alone: median 0.452 s, min 0.416, max 0.465 (10 runs)
+dotdiw's own part: 0.441 s (median less median)
+
+The baseline taken before the door was written, the same day with the same
+harness from a scratch directory, on a quieter machine: 0.4.1 median 0.822 s,
+min 0.803, max 0.853; bd create alone median 0.409 s.

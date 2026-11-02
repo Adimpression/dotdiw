@@ -10,10 +10,15 @@ hold the program to the file without any of that, from the source alone.
     python3 -I test_promise.py
 
 The sort of every top-level definition in `dotdiw` -- infrastructure, the
-command-line interface, one operation's helpers, or an operation -- is written
-here. It is the proof that no behaviour is shared outside the operation
-algebra, and the test that fails when a function is added without saying
-which of the four it is.
+door, the command-line interface, one operation's helpers, or an operation --
+is written here. It is the proof that no behaviour is shared outside the
+operation algebra, and the test that fails when a function is added without
+saying which of the five it is.
+
+The door is held too: its table is a fresh generation from the IDL, a body is
+reached only through it, `main()` calls only it and infrastructure, nothing
+behind it writes to the terminal, and it raises naming the operation and the
+key when a request or a response steps outside its type.
 """
 
 import ast
@@ -34,6 +39,7 @@ SCRIPT = os.path.join(HERE, "dotdiw")
 IDL = os.path.join(HERE, "operation-idl.json")
 BINDINGS = os.path.join(HERE, "promise_bindings.py")
 CONTRACT = os.path.join(HERE, "contracts", "named-work-found-its-procedure.cesc.yaml")
+FINISH = os.path.join(HERE, "poa", "finish-idl.py")
 WATERMARKS = os.path.join(HERE, "events", "source-watermarks.yaml")
 POA = os.path.expanduser("~/poa")
 
@@ -42,18 +48,28 @@ POA = os.path.expanduser("~/poa")
 # tokenising, the FTS storage, file parsing, and the witness log's append and
 # read.
 INFRASTRUCTURE = {
-    "find_bd", "git", "repo_root", "workspace", "beads_dir", "adopted",
-    "bd_quiet", "_hold_partial", "run_bd", "toks", "load_formula", "no_fts5",
-    "Index", "witness_on", "witness", "witnessed",
+    "find_bd", "git", "repo_root", "workspace", "forget_workspace", "beads_dir",
+    "adopted", "bd_quiet", "_hold_partial", "run_bd", "toks", "load_formula",
+    "no_fts5", "Index", "hold_index", "held_index", "held_formula", "witness_on",
+    "witness", "witnessed",
 }
+
+# The door: the one way an operation is invoked, holding the request and the
+# response to their types and appending the witness from the response.
+DOOR = {"DoorError", "invoke", "witness_from"}
 
 # The command line: parse the affordance, build the request, call the
 # operation. Infrastructure and operations, nothing else, may be called here.
-INTERFACE = {"extract_query", "main"}
+INTERFACE = {
+    "extract_query", "main", "present", "show_teach", "show_index", "show_list",
+    "show_show", "show_match", "show_notice", "show_check", "show_nudge",
+    "show_write", "show_metrics", "show_undo", "show_declare", "show_report",
+    "show_adopt",
+}
 
 # Module-level definitions that are part of exactly one operation's body.
 HELPERS = {
-    "write_formula": {"Titles", "slug", "past_titles", "steps_from"},
+    "WriteFormula": {"Titles", "slug", "past_titles", "steps_from"},
 }
 
 # Infrastructure that runs a tracker or git command, and the dependency it
@@ -61,13 +77,17 @@ HELPERS = {
 RUNNERS = {"git": "product.git", "bd_quiet": "product.beads"}
 
 
-def function_for(operation_id):
-    return operation_id.split(".", 1)[1].replace("-", "_")
-
-
 def load_idl():
     with open(IDL, encoding="utf-8") as fh:
         return json.load(fh)
+
+
+NAME = {o["operationId"]: o["name"] for o in load_idl()["operations"]}
+
+
+def function_for(operation_id):
+    """The body's name is the IDL's name for the operation."""
+    return NAME[operation_id]
 
 
 def load_module(name, path):
@@ -95,6 +115,16 @@ class Source:
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 if node.func.id in self.defs:
                     out.add(node.func.id)
+        return out
+
+    def operations_invoked(self, name):
+        """Operation ids a definition invokes through the door, by literal id."""
+        out = set()
+        for node in ast.walk(self.defs[name]):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id == "invoke" and node.args
+                    and isinstance(node.args[0], ast.Constant)):
+                out.add(node.args[0].value)
         return out
 
     def commands(self, name):
@@ -168,10 +198,10 @@ class TheSort(unittest.TestCase):
 
     def test_every_definition_is_sorted(self):
         helpers = set().union(*HELPERS.values())
-        expected = INFRASTRUCTURE | INTERFACE | helpers | set(self.operations)
+        expected = INFRASTRUCTURE | INTERFACE | DOOR | helpers | set(self.operations)
         self.assertEqual(set(self.source.defs), expected,
                          "a top-level definition is not infrastructure, interface, "
-                         "an operation, or one operation's helper")
+                         "the door, an operation, or one operation's helper")
 
     def test_every_operation_is_one_function_taking_one_request(self):
         module = load_module("dotdiw_under_test", SCRIPT)
@@ -203,7 +233,8 @@ class TheSort(unittest.TestCase):
         self.assertEqual(out["status"], "blocked")
 
     def test_infrastructure_calls_no_operation(self):
-        for name in INFRASTRUCTURE:
+        """Nor does the door, which reaches a body only through its table."""
+        for name in INFRASTRUCTURE | DOOR:
             called = self.source.names_called(name)
             self.assertFalse(called & set(self.operations), "%s calls %s" % (name, called))
             self.assertFalse(called & set().union(*HELPERS.values()), name)
@@ -218,10 +249,10 @@ class TheSort(unittest.TestCase):
                 self.assertEqual(users, {owner}, "%s is used by %s" % (helper, users))
 
     def test_the_interface_decides_nothing(self):
-        """main() calls infrastructure and operations only."""
+        """The command line calls infrastructure, itself, and the door."""
         for name in INTERFACE:
             called = self.source.names_called(name)
-            allowed = INFRASTRUCTURE | INTERFACE | set(self.operations)
+            allowed = INFRASTRUCTURE | INTERFACE | {"invoke"}
             self.assertTrue(called <= allowed, "%s calls %s" % (name, called - allowed))
 
 
@@ -236,9 +267,11 @@ class TheCalls(unittest.TestCase):
         cls.dependencies = {d["dependencyId"]: d for d in cls.idl["externalProductDependencies"]}
 
     def body_calls(self, name):
+        """What a body reaches: names it calls, and operations it invokes."""
         called = set()
         for part in body_of(self.source, name):
             called |= self.source.names_called(part)
+            called |= {NAME[op] for op in self.source.operations_invoked(part)}
         return called
 
     def test_declared_calls_match_the_body(self):
@@ -252,7 +285,7 @@ class TheCalls(unittest.TestCase):
         """A non-infrastructure name reached from two bodies is an operation."""
         users = {}
         for name in self.operations:
-            for called in self.body_calls(name) - INFRASTRUCTURE:
+            for called in self.body_calls(name) - INFRASTRUCTURE - DOOR:
                 users.setdefault(called, set()).add(name)
         for called, bodies in users.items():
             if len(bodies) > 1:
@@ -276,8 +309,8 @@ class TheCalls(unittest.TestCase):
                     "%s runs %s %s and does not declare it" % (name, product, " ".join(literal)))
             # A step that forwards decides which tracker command runs, and says
             # so; an orchestration hands the worker's command on and decides
-            # nothing, so the crossing is forward-to-beads's own.
-            if ("forward_to_beads" in self.body_calls(name) and name != "forward_to_beads"
+            # nothing, so the crossing is forward-to-the-tracker's own.
+            if ("ForwardToTheTracker" in self.body_calls(name) and name != "ForwardToTheTracker"
                     and op["kind"] != "orchestration"):
                 self.assertTrue(words.get("product.beads"),
                                 "%s forwards to beads and declares no beads call" % name)
@@ -285,7 +318,7 @@ class TheCalls(unittest.TestCase):
     def test_every_declared_external_call_has_evidence_in_the_body(self):
         for name, op in self.operations.items():
             literals = commands_of(self.source, name)
-            forwards = "forward_to_beads" in self.body_calls(name) or name == "forward_to_beads"
+            forwards = "ForwardToTheTracker" in self.body_calls(name) or name == "ForwardToTheTracker"
             for c in op.get("externalCalls") or []:
                 product, command = c["operationRef"].split("::")
                 declared = command.split()
@@ -300,14 +333,137 @@ class TheCalls(unittest.TestCase):
         """The name-hiding happens in exactly one body."""
         for name in self.source.defs:
             if "run_bd" in self.source.names_called(name):
-                self.assertEqual(name, "forward_to_beads", name)
+                self.assertEqual(name, "ForwardToTheTracker", name)
 
     def test_the_commit_is_refused(self):
         module = load_module("dotdiw_under_test_2", SCRIPT)
-        out = module.commit_formula({"root": HERE, "path": "x.formula.toml"})
+        out = module.CommitFormula({"root": HERE, "path": "x.formula.toml"})
         self.assertEqual(out["status"], "blocked")
         self.assertIn("git add x.formula.toml", out["command"])
-        self.assertEqual(self.source.commands("commit_formula"), [])
+        self.assertEqual(self.source.commands("CommitFormula"), [])
+
+
+class TheDoor(unittest.TestCase):
+    """The one way in: generated from the IDL, the only route to a body, the
+    only thing main() reaches an operation through; it raises naming the
+    operation and the key, and nothing behind it writes to the terminal."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.idl = load_idl()
+        cls.source = Source()
+        cls.operations = {function_for(o["operationId"]): o for o in cls.idl["operations"]}
+
+    def test_the_table_is_a_fresh_generation_from_the_idl(self):
+        """The region between the markers is what finish-idl writes today."""
+        finish = load_module("finish_idl_under_test", FINISH)
+        with open(SCRIPT, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertEqual(text.count(finish.DOOR_OPEN), 1)
+        self.assertEqual(text.count(finish.DOOR_CLOSE), 1)
+        start = text.index(finish.DOOR_OPEN)
+        end = text.index(finish.DOOR_CLOSE) + len(finish.DOOR_CLOSE)
+        self.assertEqual(text[start:end], finish.door_source(self.idl),
+                         "the door's table is not what operation-idl.json generates; "
+                         "run python3 -I poa/finish-idl.py")
+        # And the table the program runs is the one in the file.
+        module = load_module("dotdiw_door_table", SCRIPT)
+        self.assertEqual({spec["body"] for spec in module.DOOR.values()}, set(self.operations))
+
+    def test_a_body_is_reached_only_through_the_door(self):
+        """No definition names a body. The door reaches one by the name in its
+        table, a string; promise_bindings.py by the same name, from the IDL."""
+        bodies = set(self.operations)
+        named = [(node.lineno, node.id) for node in ast.walk(self.source.tree)
+                 if isinstance(node, ast.Name) and node.id in bodies]
+        self.assertEqual(named, [], "a body is named outside the door's table: %s" % named)
+        table = [node for node in self.source.tree.body
+                 if isinstance(node, ast.Assign)
+                 and any(isinstance(t, ast.Name) and t.id == "DOOR" for t in node.targets)]
+        self.assertEqual(len(table), 1, "one table")
+        in_table = sorted(n.value for n in ast.walk(table[0])
+                          if isinstance(n, ast.Constant) and n.value in bodies)
+        self.assertEqual(in_table, sorted(bodies), "each body once, in the table")
+        elsewhere = [(n.lineno, n.value) for node in self.source.tree.body
+                     if node is not table[0] for n in ast.walk(node)
+                     if isinstance(n, ast.Constant) and n.value in bodies]
+        self.assertEqual(elsewhere, [], "a body's name is written outside the table")
+
+    def test_main_calls_only_infrastructure_and_the_door(self):
+        """Routing is hand-written, reaches an operation only by its id through
+        the door, and every id it reaches is one the IDL binds to the command
+        line. Its own argument parsing is the one interface call it makes."""
+        called = self.source.names_called("main")
+        self.assertIn("invoke", called)
+        beyond = called - INFRASTRUCTURE - {"invoke", "extract_query"}
+        self.assertEqual(beyond, set(), "main() calls %s" % sorted(beyond))
+        doors = [node for node in ast.walk(self.source.defs["main"])
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                 and node.func.id == "invoke"]
+        self.assertTrue(doors, "main() invokes nothing")
+        for node in doors:
+            self.assertTrue(node.args and isinstance(node.args[0], ast.Constant),
+                            "line %d: main() invokes an operation it does not name" % node.lineno)
+        cli = {b["operationId"] for b in self.idl["interfaceBindings"]
+               if b["interfaceKind"] == "cli"}
+        unbound = self.source.operations_invoked("main") - cli
+        self.assertEqual(unbound, set(), "main() invokes %s, bound to no command" % sorted(unbound))
+        # What the interface shows is keyed by operation id, and each is one.
+        module = load_module("dotdiw_interface", SCRIPT)
+        self.assertEqual(set(module.SHOW) - set(NAME), set())
+
+    def test_no_body_writes_to_the_terminal(self):
+        """A body returns; what is shown is the presenter's. The one stream no
+        response carries, the tracker's own, is run_bd's, which only
+        ForwardToTheTracker calls, so no body is excepted here; nor is the
+        door, which shows a response only through the presenter."""
+        helpers = set().union(*HELPERS.values())
+        streams = {("sys", "stdout"), ("sys", "stderr"), ("sys", "stdin"), ("os", "write")}
+        found = []
+        for name in sorted(set(self.operations) | helpers | DOOR):
+            for node in ast.walk(self.source.defs[name]):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                        and node.func.id in ("print", "input")):
+                    found.append("%s line %d: %s" % (name, node.lineno, node.func.id))
+                if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                        and (node.value.id, node.attr) in streams):
+                    found.append("%s line %d: %s.%s" % (name, node.lineno, node.value.id, node.attr))
+        self.assertEqual(found, [], "\n".join(["a body writes to the terminal:"] + found))
+
+    def test_the_door_raises_naming_the_operation_and_the_key(self):
+        """A key outside either type is the project's mistake, not a worker's
+        situation, so it raises rather than becoming a summary."""
+        module = load_module("dotdiw_door", SCRIPT)
+        self.assertTrue(issubclass(module.DoorError, TypeError))
+        with self.assertRaises(module.DoorError) as held:
+            module.invoke("operation.not-one", {})
+        self.assertIn("operation.not-one", str(held.exception))
+        op = "operation.name-the-work"
+        with self.assertRaises(module.DoorError) as held:
+            module.invoke(op, {"title": "x", "bogus": 1})
+        self.assertIn(op, str(held.exception))
+        self.assertIn('"bogus"', str(held.exception))
+        with self.assertRaises(module.DoorError) as held:
+            module.invoke(op, {})
+        self.assertIn(op, str(held.exception))
+        self.assertIn('"title"', str(held.exception))
+        # The response is held the same way on the way out: a body that steps
+        # outside its type is caught before anything is shown or logged.
+        op = "operation.teach-the-conventions"
+        original = module.TeachTheConventions
+        self.addCleanup(setattr, module, "TeachTheConventions", original)
+        for response, key in (
+                ({"status": "completed", "summary": "s", "text": "t", "extra": 1}, '"extra"'),
+                ({"status": "completed"}, '"summary"'),
+                ({"status": "done", "summary": "s"}, '"done"')):
+            module.TeachTheConventions = lambda request, out=response: out
+            with self.assertRaises(module.DoorError) as held:
+                module.invoke(op, {})
+            self.assertIn(op, str(held.exception))
+            self.assertIn(key, str(held.exception))
+        # And a response inside its type comes back as it was.
+        module.TeachTheConventions = original
+        self.assertEqual(module.invoke(op, {})["status"], "completed")
 
 
 def have_bd():

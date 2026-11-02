@@ -36,6 +36,7 @@ IMPLEMENTATION.md changed because the log disagreed with the summaries.
 | `embed_max.py`, `max_scale.py` | the same, scoring each formula by its closest part rather than one mean-pooled string |
 | `occasion.py` | whether capture ever had an occasion to fire: twenty-two of thirty titles were already covered |
 | `harness/witness.py` | from 0.3.0: scores a round from the runs' own witness logs through the contract in `../contracts`, so "discovery fired" is what the contract calls `valid` or `caveated` and not a judgement made by hand; earlier rounds have no logs and are not re-scored |
+| `time_create.py` | from 0.5.0: the create path's wall time, ten runs of `dotdiw create` against ten of bare `bd create` in the same tracker, so that the difference is dotdiw's own part; the law is one second |
 
 ## The runs
 
@@ -54,6 +55,19 @@ covered by one.
 eleven fixtures with the same prompts and fresh agents, measuring one wording
 change each time. Each is one sample of eleven from a stochastic model, so the
 trend across them is worth more than any single figure.
+
+## The create path
+
+The one law with a number: `dotdiw create` under one second, since it runs
+before every piece of work. `measure/time_create.py` times ten creates through
+dotdiw and ten through the bare tracker in the same adopted repository under
+an isolated home, on an idle machine; `results/time-create.txt` holds the
+runs. On 2026-11-02, back to back on one machine: 0.4.1 median 0.922 s with
+the tracker alone at 0.448 s, so dotdiw's own part 0.474 s; the one door
+(0.5.0) 0.893 s with the tracker at 0.452 s, its own part 0.441 s. The door
+costs nothing the harness can see, and the index built once per process gives
+a little back. A sample taken while anything else runs is load: one read
+1.042 s with two test suites running and was discarded.
 
 ## Caveats, and two things removed
 
