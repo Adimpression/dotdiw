@@ -167,8 +167,8 @@ praxisModel:
       dotdiw never commits or pushes. The formula commit is the bearer's act,
       which the project asks for.
     - >
-      dotdiw changes nothing outside the repository except bd's usage-metrics
-      setting, and says so.
+      dotdiw changes nothing outside the repository except the usage-metrics
+      setting of a tracker that has one, and says so.
     - >
       A surfaced formula is a procedure to follow or to decline knowingly, not
       an order.
@@ -291,9 +291,9 @@ praxisModel:
             requiredProof:
               - >
                 The invocation log shows `dotdiw create` as the first dotdiw
-                command for this work, and bd shows the issue it created.
+                command for this work, and the tracker shows the item it created.
             betrayalRisk: >
-              The issue is created with `bd create` directly, so the work
+              The item is created in the tracker directly, so the work
               looks named while nothing was matched.
           - transitionId: transition.work-named-to-procedure-poured
             fromState: named
@@ -313,7 +313,7 @@ praxisModel:
             authorizedBy:
               - duty.read-what-surfaces
             requiredProof:
-              - bd shows each step closed, none before the steps it needs.
+              - The tracker shows each step closed, none before the steps it needs.
             betrayalRisk: >
               Steps are closed in one batch at the end, so the tracking shows
               a procedure followed that was not.

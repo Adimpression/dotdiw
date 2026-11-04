@@ -20,11 +20,11 @@ holds. An agent reads `learn` once per session, and repetition only becomes
 visible several tasks later, by which point that text is out of context.
 
 **The mechanism.** Repetition is already recorded. Every task went through
-`dotdiw create`, so the titles are in beads. When discovery returns nothing above
+`dotdiw create`, so the titles are in the tracker. When discovery returns nothing above
 the floor, that is a miss; mark it. When several misses score high against each
 other, that is a repeated procedure with no formula, scored by the same ranker.
 
-**What already ships.** `bd mol distill <epic-id> [name]` turns an existing epic
+**What already ships.** Under beads, `mol distill <epic-id> [name]` turns an existing epic
 into a formula, and takes `--output <dir>` — the lever for placing it next to the
 code. Its defaults are the old `.beads/formulas/` locations, so dotdiw must always
 pass `--output`.

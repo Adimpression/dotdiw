@@ -10,10 +10,13 @@ purpose: >
   decides when a log is allowed to say the promise was kept.
 
   What the log can and cannot see. Both sources are dotdiw's own witness log,
-  .beads/witness.jsonl, written only when the project or the worker turned it
-  on and never transmitted. beadsIssues covers closes that went through
-  dotdiw; a step closed with bd directly is invisible to it, so a story can be
-  incomplete through no fault of the work. A pour is attributed to the create
+  ~/.dotdiw/<key>/witness.jsonl, written only when the project or the worker
+  turned it on and never transmitted. beadsIssues, named in 0.3.0 for the
+  tracker of that day and kept so that one log reads under one contract
+  across versions, covers closes that went through dotdiw, whichever tracker
+  answered; a step closed in the tracker itself, outside dotdiw, is invisible
+  to it, so a story can be incomplete through no fault of the work. A pour is
+  attributed to the create
   that surfaced its formula, failing that to the most recently named work; a
   pour the log cannot place is exactly what this contract exists to refuse.
 sourceSemanticStack:

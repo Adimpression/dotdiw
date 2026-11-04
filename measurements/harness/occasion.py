@@ -4,14 +4,20 @@ Capture is for work no formula covers. Replay every create title each live run
 actually typed, and see which of them surfaced nothing -- those are the only
 moments at which authoring a formula was the right move.
 """
-import importlib.util, importlib.machinery, json, os, subprocess, sys
 
-spec = importlib.util.spec_from_loader("dd", importlib.machinery.SourceFileLoader(
-    "dd", "../dotdiw"))
-dd = importlib.util.module_from_spec(spec); spec.loader.exec_module(dd)
+import importlib.machinery
+import importlib.util
+import json
+import os
+import subprocess
 
-S = os.environ.get("DOTDIW_SIM_ROOT",
-    "./sim-root")
+spec = importlib.util.spec_from_loader(
+    "dd", importlib.machinery.SourceFileLoader("dd", "../dotdiw")
+)
+dd = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dd)
+
+S = os.environ.get("DOTDIW_SIM_ROOT", "./sim-root")
 REAL = "/opt/homebrew/Cellar/dotdiw/0.1.0/bin/dotdiw"
 
 runs = {}
@@ -54,8 +60,10 @@ for rid in sorted(titles):
         else:
             uncovered += 1
             print("   NONE  %-62s" % t[:62])
-print("\n%d create titles: %d a formula covered, %d nothing covered"
-      % (covered + uncovered, covered, uncovered))
+print(
+    "\n%d create titles: %d a formula covered, %d nothing covered"
+    % (covered + uncovered, covered, uncovered)
+)
 
 # and for the uncovered ones, was a DAG built by hand?
 print("\nIssue shape in each live run (was any procedure built by hand?):")
@@ -63,8 +71,12 @@ for rid in sorted(runs):
     proj, state, d = runs[rid]
     if state != "live":
         continue
-    p = subprocess.run([REAL, "list", "--all", "--json", "--brief", "-n", "300"],
-                       cwd=d, capture_output=True, text=True)
+    p = subprocess.run(
+        [REAL, "list", "--all", "--json", "--brief", "-n", "300"],
+        cwd=d,
+        capture_output=True,
+        text=True,
+    )
     try:
         rows = json.loads(p.stdout)
     except ValueError:
@@ -72,5 +84,7 @@ for rid in sorted(runs):
     mol = sum(1 for r in rows if r.get("issue_type") == "molecule")
     kids = sum(1 for r in rows if r.get("parent"))
     flat = len(rows) - mol - kids
-    print("  %s %-14s %2d issues: %d poured molecule(s), %d steps under them, "
-          "%d flat and unparented" % (rid, proj, len(rows), mol, kids, flat))
+    print(
+        "  %s %-14s %2d issues: %d poured molecule(s), %d steps under them, "
+        "%d flat and unparented" % (rid, proj, len(rows), mol, kids, flat)
+    )

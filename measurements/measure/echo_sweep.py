@@ -5,20 +5,25 @@ phrasings of one procedure, which is exactly the population the nudge is for.
 Negatives: two example titles from DIFFERENT formulas in the same project.
 Word weights come from each project's own background, as at runtime.
 """
-import importlib.util, importlib.machinery, os, sys, glob
+
+import glob
+import importlib.machinery
+import importlib.util
+import os
 
 spec = importlib.util.spec_from_loader(
-    "dd", importlib.machinery.SourceFileLoader("dd", "../dotdiw"))
-dd = importlib.util.module_from_spec(spec); spec.loader.exec_module(dd)
+    "dd", importlib.machinery.SourceFileLoader("dd", "../dotdiw")
+)
+dd = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dd)
 
-S = os.environ.get("DOTDIW_SIM_ROOT",
-    "./sim-root")
+S = os.environ.get("DOTDIW_SIM_ROOT", "./sim-root")
 PROJECTS = [S + "/sim/acme-api"] + sorted(glob.glob(S + "/matrix/*/live"))
 
 GRID = [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
 
-pairs = []   # (threshold-independent) (cover, same_formula)
-fires = []   # (title, n_hits_at_threshold...) for the ECHO_MIN rule
+pairs = []  # (threshold-independent) (cover, same_formula)
+fires = []  # (title, n_hits_at_threshold...) for the ECHO_MIN rule
 for root in PROJECTS:
     if not os.path.isdir(root):
         continue
@@ -34,14 +39,16 @@ for root in PROJECTS:
         words = dd.toks(e)
         total = sum(idx.weight(w) for w in words) or 1.0
         covs = []
-        for k, (j, t) in enumerate(others):
+        for k, (j, _t) in enumerate(others):
             held = sum(idx.weight(w) for w in words if (k + 1) in T.holders(w))
             covs.append((held / total, j == i))
         pairs.extend(covs)
         fires.append(covs)
 
-print("%d pairs: %d same-formula, %d different"
-      % (len(pairs), sum(1 for _, s in pairs if s), sum(1 for _, s in pairs if not s)))
+print(
+    "%d pairs: %d same-formula, %d different"
+    % (len(pairs), sum(1 for _, s in pairs if s), sum(1 for _, s in pairs if not s))
+)
 print()
 print(" ECHO   pair-recall  pair-FP   fires-correctly  fires-wrongly")
 for th in GRID:
@@ -58,5 +65,7 @@ for th in GRID:
                 good += 1
             else:
                 bad += 1
-    print(" %.2f    %3d/%-3d      %3d/%-4d   %2d/%-2d            %d"
-          % (th, tp, pos, fp, neg, good, len(fires), bad))
+    print(
+        " %.2f    %3d/%-3d      %3d/%-4d   %2d/%-2d            %d"
+        % (th, tp, pos, fp, neg, good, len(fires), bad)
+    )

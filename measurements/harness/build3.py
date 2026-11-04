@@ -4,28 +4,35 @@ State never appears in a path, and the (project, state) -> run number mapping
 is shuffled under a fixed seed so adjacent run directories are unrelated
 projects. An agent that walks up one level sees r01..r33 and learns nothing.
 """
-import os, random, shutil, subprocess, sys
+
+import os
+import random
+import shutil
+import subprocess
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import domains3
 
-S = os.environ.get("DOTDIW_SIM_ROOT",
-    "./sim-root")
+S = os.environ.get("DOTDIW_SIM_ROOT", "./sim-root")
 OLD = ["ramen-shop", "paws-shelter", "tinybill", "edgeops", "corpsec"]
 DOTDIW = "../dotdiw"
 RUNS = S + "/runs3"
 
 JOBS = {
- "ramen-shop": "Add a new dish, a yuzu shio bowl, to the autumn menu.",
- "paws-shelter": "A stray collie was found on Quarry Rise and brought in this morning. Take her in.",
- "tinybill": "Cut the 0.3 release.",
- "edgeops": "Patch the kernel on the us-west-2 node without dropping traffic.",
- "corpsec": "Record the transfer of 500 ordinary shares from R. Osei to M. Lindqvist, approved by the board on 2026-05-13.",
+    "ramen-shop": "Add a new dish, a yuzu shio bowl, to the autumn menu.",
+    "paws-shelter": "A stray collie was found on Quarry Rise and brought in this morning. Take her in.",
+    "tinybill": "Cut the 0.3 release.",
+    "edgeops": "Patch the kernel on the us-west-2 node without dropping traffic.",
+    "corpsec": "Record the transfer of 500 ordinary shares from R. Osei to M. Lindqvist, approved by the board on 2026-05-13.",
 }
 for k, v in domains3.NEW.items():
     JOBS[k] = v["job"]
 
+
 def sh(args, cwd, quiet=True):
     return subprocess.run(args, cwd=cwd, capture_output=quiet, text=True)
+
 
 def read_old(proj):
     """Base files and formulas from the first matrix, read off disk."""
@@ -42,16 +49,18 @@ def read_old(proj):
             forms[os.path.relpath(p, f)] = open(p, encoding="utf-8").read()
     return files, forms
 
+
 def write(root, rel, body):
     p = os.path.join(root, rel)
     os.makedirs(os.path.dirname(p) or root, exist_ok=True)
     with open(p, "w", encoding="utf-8") as fh:
         fh.write(body)
 
+
 def build(root, state, files, forms):
     os.makedirs(root, exist_ok=True)
     if state == "cold":
-        return                                  # the project has not started
+        return  # the project has not started
     sh(["git", "init", "-q", "."], root)
     sh(["git", "config", "user.email", "team@example.invalid"], root)
     sh(["git", "config", "user.name", "The team"], root)
@@ -61,13 +70,14 @@ def build(root, state, files, forms):
     sh(["git", "commit", "-qm", "the project as it stands"], root)
     if state == "warm":
         return
-    r = sh([DOTDIW, "init"], root)
+    sh([DOTDIW, "init"], root)
     sh(["git", "add", "-A"], root)
     sh(["git", "commit", "-qm", "dotdiw init: workflow discovery and tracking"], root)
     for rel, body in sorted(forms.items()):
         write(root, rel, body)
     sh(["git", "add", "-A"], root)
     sh(["git", "commit", "-qm", "formulas for the things we repeat"], root)
+
 
 if __name__ == "__main__":
     projects = OLD + list(domains3.NEW)

@@ -8,7 +8,7 @@ modelPurpose: >
   than a hope. The thin promise is ../product.yaml; this file is POA's
   internal source and mirrors the operation material that ../praxis.yaml owns.
 createdAt: "2026-11-01T00:00:00+08:00"
-updatedAt: "2026-11-02T18:00:00+08:00"
+updatedAt: "2026-11-03T12:00:00+08:00"
 
 product:
   productId: product.dotdiw
@@ -154,6 +154,32 @@ realWorldModel:
         - answered
       ownedByDutyIds:
         - duty.put-all-four-under-one-name
+    - objectId: object.tracker
+      name: Tracker
+      definition: >
+        The store that holds the work: items with a status, a priority and a
+        parent, the needs between them, and the steps a formula was poured
+        into. Reached only through the inner door, and answered for by one
+        adapter.
+      lifecycleStates:
+        - unopened
+        - open
+      ownedByDutyIds:
+        - duty.put-all-four-under-one-name
+    - objectId: object.tracker-adapter
+      name: Tracker adapter
+      definition: >
+        One implementation of the tracker interface, registered under a name.
+        local is a store in the standard library's sqlite under the
+        workspace's keyed directory; beads is the tracker of every version
+        before 0.6.0, with everything that contains it moved inside; another
+        is loaded by name from the home. A request names one, else the
+        workspace's key does, else local answers.
+      lifecycleStates:
+        - registered
+        - chosen
+      ownedByDutyIds:
+        - duty.put-all-four-under-one-name
   interactions:
     - interactionId: interaction.start-work
       name: Start work
@@ -218,9 +244,9 @@ realWorldModel:
       name: Run any command
       description: >
         The housekeeping dotdiw does on its own around whatever command it was
-        given: bd's metrics turned off, an earlier adoption undone, the
-        conventions re-declared where bd rewrote them. Each is a file read and
-        at most one small write.
+        given: the tracker's metrics turned off where it has any, an earlier
+        adoption undone, the conventions re-declared where an earlier version's
+        tracker rewrote them. Each is a file read and at most one small write.
       participantObjectIds:
         - object.repository
         - object.conventions
@@ -232,8 +258,9 @@ realWorldModel:
     - interactionId: interaction.forward-command
       name: Forward a tracker command
       description: >
-        Someone runs a tracker command through dotdiw. It reaches beads
-        unchanged and comes back without bd's name in it.
+        Someone runs a tracker command through dotdiw. The chosen adapter
+        answers the ones the interface has; under beads every other reaches
+        the tracker unchanged and comes back without its name in it.
       participantObjectIds:
         - object.tracker-command
       expectedRealWorldDuration:
@@ -265,6 +292,49 @@ realWorldModel:
       expectedRealWorldDuration:
         class: under-1s
         explanation: Text compiled into the tool, printed.
+    - interactionId: interaction.answer-through-adapter
+      name: Answer through the chosen adapter
+      description: >
+        A body asks the tracker for something, an item created, a need
+        added, steps poured, an item closed, shown, listed or updated, the
+        ready set, and the adapter the request names answers, else the
+        workspace's, else local.
+      participantObjectIds:
+        - object.tracker
+        - object.tracker-adapter
+        - object.work
+      expectedRealWorldDuration:
+        class: mixed
+        explanation: >
+          The local store answers in the same breath; the beads adapter in
+          the tracker process's time; a hosted tracker in its network's.
+    - interactionId: interaction.choose-tracker
+      name: Choose a tracker
+      description: >
+        Someone lists the registered adapters, makes one the workspace's, or
+        checks one against the conformance suite at its declared target.
+      participantObjectIds:
+        - object.tracker-adapter
+        - object.repository
+      expectedRealWorldDuration:
+        class: mixed
+        explanation: >
+          Listing and choosing are a line in the checkout's config; a check
+          runs the whole suite against the adapter and takes what it takes.
+    - interactionId: interaction.move-workspace
+      name: Move a workspace between trackers
+      description: >
+        Every item, status, reason and need of a workspace is read from one
+        adapter and written to another; the source is never changed.
+      participantObjectIds:
+        - object.tracker
+        - object.tracker-adapter
+        - object.work
+      expectedRealWorldDuration:
+        class: over-or-equal-1s
+        explanation: >
+          One item at a time through two adapters; a workspace of hundreds
+          takes seconds.
   invariants:
     - invariantId: invariant.work-starts-named
       name: Work starts named
@@ -325,8 +395,9 @@ realWorldModel:
         Adoption and use leave nothing in the repository but the formulas and
         the declaration. Everything the tracker keeps lives under the user's
         home in a directory of dotdiw's own name, keyed to the checkout, and
-        the one other thing changed on the machine -- bd's usage-metrics
-        setting, turned off -- is said. Nothing of the tracker's enters git.
+        the one other thing changed on the machine -- a tracker's usage-metrics
+        setting, turned off where it has one -- is said. Nothing of the
+        tracker's enters git.
       rationale: >
         v0.1.0 passed on a hook override and a Dolt remote without saying so;
         every version before 0.4.0 left the tracker's state in the tree. What
@@ -365,16 +436,23 @@ realWorldModel:
     - invariantId: invariant.one-name-for-all-four
       name: One name for all four
       statement: >
-        Everything the tracker does is reachable under dotdiw's name, and bd's
-        name is in nothing dotdiw says: not in the stream, not in the files
-        written for agents, not in the version reported, not in a message of
-        its own. It appears only inside the names of bd's own things on the
-        machine -- its config file, its state directory, its variable. The
-        rewrite of the stream is on the word bd; what bd's own report says of
-        itself passes through.
+        Everything the tracker does is reachable under dotdiw's name. An
+        adapter's name appears only where the worker chose or asked for it:
+        the list of adapters, the choice of one, the tracker line of the
+        version reported, the refusal of a name that is not registered, and
+        the one notice that a choice was written for a checkout adopted
+        before there was one to make. No other notice, no error and no file
+        written for agents names an adapter or the product behind it;
+        adapters return records and dotdiw says what it has to say. The one
+        stream that passes through
+        is a forwarded command's, under the beads adapter, with the word bd
+        rewritten; what that product's own report says of itself passes
+        through, and its name survives inside the names of its own things
+        on the machine -- its config file, its state directory, its variable.
       rationale: >
-        A worker who has to know that beads is underneath has two tools to
-        learn, and the files agents read would teach them the wrong name.
+        A worker who did not choose a tracker has one tool to learn, and the
+        files agents read teach that name; a worker who chose beads or jira
+        by name may be told that name back.
       severity: high
       objectIds:
         - object.tracker-command
@@ -431,6 +509,8 @@ realWorldModel:
         - object.repository
         - object.conventions
         - object.tracker-command
+        - object.tracker
+        - object.tracker-adapter
       interactionIds:
         - interaction.start-work
         - interaction.pour-procedure
@@ -441,6 +521,40 @@ realWorldModel:
         - interaction.forward-command
         - interaction.find-procedure
         - interaction.learn
+        - interaction.answer-through-adapter
+        - interaction.choose-tracker
+        - interaction.move-workspace
+      enforcedByStepIds: []
+      guardedByAntiTraceIds: []
+    - invariantId: invariant.one-tracker-door
+      name: One tracker door
+      statement: >
+        A body reaches a tracker only through the inner door, by the
+        operation's id, with the request and the response held to their
+        types. The adapter that answers is the one the request names, else
+        the workspace's, else local. An adapter returns records: it never
+        writes to the terminal, prompts, or reads it, and nothing it holds
+        is made in the repository's tree. The answer is held to its type down
+        to the values: a record's fields, each item of a list, the values of
+        an enum, and a completed answer holds the record its callers read. An
+        adapter loaded from the home that raises, or answers outside the
+        interface, is a failed response naming it and the operation in one
+        line; a shipped adapter's mistake is the project's, and raises.
+      rationale: >
+        Swapping the tracker per request is safe only when nothing but the
+        door knows which adapter answered, and when no adapter can print its
+        own prose past the presenter -- or its traceback, which is prose
+        about the adapter and not about the worker's situation.
+      severity: high
+      objectIds:
+        - object.tracker
+        - object.tracker-adapter
+        - object.work
+        - object.molecule
+      interactionIds:
+        - interaction.answer-through-adapter
+        - interaction.choose-tracker
+        - interaction.move-workspace
       enforcedByStepIds: []
       guardedByAntiTraceIds: []
   networkBoundaries:
@@ -457,12 +571,14 @@ realWorldModel:
         A match printed after the work began is a runbook nobody opened. The
         match must come back in the same breath as the title.
       userVisibleImpact: The applying formulas appear under the created work item, immediately.
-    - boundaryId: boundary.dotdiw-to-beads
-      name: dotdiw to beads
+    - boundaryId: boundary.dotdiw-to-tracker
+      name: dotdiw to the tracker
       description: >
-        dotdiw forwards the tracker's own commands to beads, a local
-        subprocess, and rewrites its name in what comes back.
-      interactionId: interaction.pour-procedure
+        dotdiw reaches the tracker through an adapter behind the inner door:
+        a store in its own process, the tracker binary as a local subprocess,
+        or a hosted tracker over its network. Typed records cross; a
+        forwarded command's stream crosses only under the beads adapter.
+      interactionId: interaction.answer-through-adapter
       realWorldProcess: A pour becomes one tracker issue per step.
       realWorldLatencyClass: mixed
       separationAllowed: true
@@ -524,17 +640,19 @@ realWorldModel:
       separationAllowed: false
       consistencyExpectation: strong
       causalityJustification: >
-        Metrics must be off before the first bd command of the run, and a hook
+        Metrics must be off before the first tracker command of the run, and a hook
         override must be gone before the worker's next commit; neither can be
         deferred past the command it precedes.
       userVisibleImpact: Nothing, except a notice the first time something was turned off or undone.
     - boundaryId: boundary.command-to-tracker
       name: Command to tracker
       description: >
-        A command the worker typed reaches beads as a local subprocess and its
-        output comes back through dotdiw's rewrite.
+        A command the worker typed reaches the tracker: the interface's own
+        are answered by the chosen adapter; under beads any other reaches the
+        binary as a local subprocess and its output comes back through
+        dotdiw's rewrite.
       interactionId: interaction.forward-command
-      realWorldProcess: The tracker runs the command; dotdiw streams the answer back without bd's name.
+      realWorldProcess: The tracker runs the command; dotdiw streams the answer back without the tracker's name.
       realWorldLatencyClass: mixed
       separationAllowed: true
       consistencyExpectation: read-your-writes
@@ -832,6 +950,67 @@ realWorldModel:
             - transition.conventions-undeclared-to-declared
       cescWitnessExpectations: []
       status: draft
+    - lifecycleContractId: lifecycle.tracker
+      title: A tracker
+      objectId: object.tracker
+      objectName: Tracker
+      purpose: Govern how a workspace's tracker comes to be open behind the inner door; POA-internal.
+      praxisDutyRefs: []
+      invariantRefs:
+        - invariant.one-tracker-door
+      states:
+        - stateId: unopened
+          meaning: The adapter that would answer has no store for the workspace's key.
+        - stateId: open
+          meaning: The adapter has a store for the key and answers every operation of the interface for it.
+      transitions:
+        - transitionId: transition.tracker-unopened-to-open
+          fromState: unopened
+          toState: open
+          lawfulWhen: A repository is adopted, or a workspace is moved onto an adapter that has no store for it yet.
+          authorizedBy:
+            - duty.put-all-four-under-one-name
+          requiredProof:
+            - A store under the keyed directory for a local adapter, or the adapter's own for a hosted one; the first create answered.
+          betrayalRisk: A store made in the repository's tree.
+      forbiddenTransitions: []
+      poaBindings:
+        - operationId: operation.open-tracker
+          transitionIds:
+            - transition.tracker-unopened-to-open
+      cescWitnessExpectations: []
+      status: draft
+    - lifecycleContractId: lifecycle.tracker-adapter
+      title: A tracker adapter
+      objectId: object.tracker-adapter
+      objectName: Tracker adapter
+      purpose: Govern how an adapter comes to answer for a workspace; POA-internal.
+      praxisDutyRefs: []
+      invariantRefs:
+        - invariant.one-tracker-door
+        - invariant.one-name-for-all-four
+      states:
+        - stateId: registered
+          meaning: Known to the registry under its name, shipped or loaded from the home, its table complete.
+        - stateId: chosen
+          meaning: Named in the checkout's config as the workspace's, or named by the request being answered.
+      transitions:
+        - transitionId: transition.tracker-adapter-registered-to-chosen
+          fromState: registered
+          toState: chosen
+          lawfulWhen: dotdiw init --tracker or dotdiw tracker use names it, or a request carries its name.
+          authorizedBy:
+            - duty.put-all-four-under-one-name
+          requiredProof:
+            - The name in dotdiw.tracker, or on the request; the next operation answered by it.
+          betrayalRisk: A name that is not registered accepted into the config, so every later command fails.
+      forbiddenTransitions: []
+      poaBindings:
+        - operationId: operation.use-tracker
+          transitionIds:
+            - transition.tracker-adapter-registered-to-chosen
+      cescWitnessExpectations: []
+      status: draft
 
 objectives:
   - objectiveId: objective.procedures-surface-when-work-starts
@@ -847,7 +1026,7 @@ objectives:
     description: >
       Management, declaration, sharing and discovery under one command, so no
       task ever requires typing anything else.
-    successMeaning: A worker never has to know that beads or git are underneath.
+    successMeaning: A worker never has to know which tracker, or that git, is underneath.
 
 duties:
   - dutyId: duty.surface-procedures-when-work-starts
@@ -921,10 +1100,11 @@ duties:
       change nothing outside it that is not said.
     scope: >
       Covers init with the tracker under the home keyed to the checkout,
-      declaring the conventions, renaming bd in files an earlier version's
-      tracker wrote, naming the declaration files as the worker's to commit,
-      putting right what an earlier version left and naming the command for
-      what is the worker's to remove, and turning bd's metrics off.
+      declaring the conventions, renaming the tracker in files an earlier
+      version's tracker wrote, naming the declaration files as the worker's to
+      commit, putting right what an earlier version left and naming the
+      command for what is the worker's to remove, and turning the tracker's
+      metrics off where it has any.
     nonGoals:
       - Installing hooks, remotes or anything per project.
       - Committing on the worker's behalf.
@@ -944,21 +1124,24 @@ duties:
       - invariant.nothing-outside-the-repository
       - invariant.tool-never-commits
       - invariant.one-name-for-all-four
-    version: 0.3.0
+    version: 0.6.0
   - dutyId: duty.put-all-four-under-one-name
     title: Put all four under one name
     intent: >
       Let everything the tracker does be reached under dotdiw's name, so no
-      task ever requires typing bd, and so the tracker's own commands carry
-      what the project asks for where people actually run them.
+      task ever requires typing the tracker's own name, and so the tracker's
+      own commands carry what the project asks for where people actually run
+      them.
     scope: >
-      Covers forwarding every command dotdiw does not own to beads unchanged,
-      rewriting bd's name in what comes back, resolving a formula id to its
-      file for cook, and letting doctor, lint and remember carry the
-      conventions check, the handmade notice and the nudge towards a formula.
+      Covers answering the tracker's commands through the adapter the checkout
+      chose, forwarding every command dotdiw does not own to beads unchanged
+      where that is the adapter, with its name rewritten in what comes back,
+      resolving a formula id to its file for cook, and letting doctor, lint
+      and remember carry the conventions check, the handmade notice and the
+      nudge towards a formula.
     nonGoals:
       - Changing what any tracker command does.
-      - Hiding that beads exists from anyone who asks.
+      - Hiding which tracker is underneath from anyone who asks.
     criticality: high
     status: active
     objectiveIds:
@@ -971,7 +1154,7 @@ duties:
       - interaction.forward-command
     invariantIds:
       - invariant.one-name-for-all-four
-    version: 0.3.0
+    version: 0.6.0
   - dutyId: duty.teach-without-a-project
     title: Teach without a project
     intent: >
@@ -981,7 +1164,7 @@ duties:
       Covers dotdiw learn and bare dotdiw: the four capabilities, the two
       conventions, and the commands, as one text.
     nonGoals:
-      - Teaching bd's own commands; bd's help does that.
+      - Teaching the tracker's own commands; its help does that.
     criticality: medium
     status: active
     objectiveIds:
@@ -1062,7 +1245,7 @@ journeys:
         match being printed, the figure the SLO is about.
     networkBoundaryIds:
       - boundary.create-to-match
-      - boundary.dotdiw-to-beads
+      - boundary.dotdiw-to-tracker
     status: active
     version: 0.3.0
   - journeyId: journey.write-a-procedure-down
@@ -1133,13 +1316,13 @@ journeys:
     purpose: Day 1 in a project is one command, the repository holds only what the project shares on purpose, and what the tool does on somebody's behalf is said.
     trigger: Someone runs dotdiw init, or runs any dotdiw command in a repository an earlier version adopted.
     preconditions:
-      - Day 0 happened; dotdiw and beads are on the machine.
+      - Day 0 happened; dotdiw is on the machine, and so is any tracker the checkout chooses in place of the store it brings.
     primaryFlow:
-      - A key is written into the checkout's .git/config and the tracker is initialised under the home at that key, in stealth mode with hooks and agent files declined; nothing of it is in the repository.
-      - The conventions are declared in the instruction files, which are created when absent, and bd is renamed in any an earlier version's tracker wrote.
+      - A key and the tracker's name are written into the checkout's .git/config and the tracker is initialised under the home at that key, in stealth mode with hooks and agent files declined where it has them; nothing of it is in the repository.
+      - The conventions are declared in the instruction files, which are created when absent, and the tracker is renamed in any an earlier version's tracker wrote.
       - The declaration files are listed as the worker's to commit, with the one command.
       - A hook override left by v0.1.0 is unset; a tracker left in the tree by any earlier version is replaced by one under the home with the same prefix, on the first command, and the command that removes the in-tree copy is named.
-      - bd's usage metrics are turned off before any bd command, and announced once.
+      - The tracker's usage metrics, where it has any, are turned off before any command of its own, and announced once.
     completionCriteria:
       - The tracker made no commit and nothing of its own is in the tree.
       - The key is in .git/config and the state is under the home; worktrees of the checkout share it.
@@ -1153,7 +1336,7 @@ journeys:
     failureBoundaries:
       - A core.hooksPath the project chose for itself is left alone.
       - Outside a git repository, init refuses and creates nothing.
-      - A plain bd typed in the repository finds no tracker; everything goes through dotdiw, which is the promise.
+      - The tracker's own command typed in the repository finds no tracker; everything goes through dotdiw, which is the promise.
     nonGoals:
       - Committing the edited files.
       - Repairing what was already pushed into a repository's history.
@@ -1188,32 +1371,36 @@ journeys:
       - boundary.adoption
       - boundary.run-any-command
     status: active
-    version: 0.3.0
+    version: 0.6.0
   - journeyId: journey.run-a-tracker-command
     dutyId: duty.put-all-four-under-one-name
     title: Run a tracker command
     description: >
-      Someone runs a command dotdiw does not own. It reaches beads unchanged,
-      interactive prompts included, and comes back without bd's name. Where the
-      command is one people reach for instead of check or learn, the
-      conventions check and the handmade notice ride along; where it is a
+      Someone runs a command dotdiw does not own. Under beads it reaches the
+      tracker unchanged, interactive prompts included, and comes back without
+      the tracker's name; under the store dotdiw brings, the tracker's own
+      commands are answered from it, help is the conventions text, and any
+      other is refused as unsupported.
+      Where the command is one people reach for instead of check or learn,
+      the conventions check and the handmade notice ride along; where it is a
       memory that reads like a procedure, the nudge does.
-    purpose: No task ever requires typing bd, and the project's conventions are checked where people actually look.
+    purpose: No task ever requires typing the tracker's own name, and the project's conventions are checked where people actually look.
     trigger: Someone runs dotdiw with a command it does not own.
     preconditions:
-      - Day 0 happened; beads is on the machine.
+      - Day 0 happened; the checkout's tracker is on the machine, or reachable.
     primaryFlow:
       - For cook, the formula id is resolved to the file it lives in, wherever that is in the tree.
-      - The command runs in beads, through a pty when the terminal is interactive, and bd's name is rewritten in the stream.
+      - The command runs in the chosen adapter; under beads through a pty when the terminal is interactive, with the tracker's name rewritten in the stream.
       - For doctor and lint, the conventions check and the handmade notice follow the tracker's own report; for remember, a memory that reads like a procedure is answered with the formula new line.
     completionCriteria:
-      - The tracker's exit code and output are the worker's, with bd's name replaced.
+      - The tracker's exit code and output are the worker's, with the tracker's name replaced.
       - A doctor or lint run shows the project's convention problems under the tracker's report.
     variants:
-      - beads is not installed, and the worker is told how to install it.
+      - The chosen tracker is not installed, and the worker is told how to install it.
+      - Under an adapter without a pass-through, --help, -h and help print the conventions text, as bare dotdiw does.
       - A close of a step of a poured molecule is written to the witness log when the log is on.
     failureBoundaries:
-      - A word that is bd's name inside the worker's own text is rewritten too; the rewrite is on the word, not on meaning.
+      - Under beads, a word that is the tracker's name inside the worker's own text is rewritten too; the rewrite is on the word, not on meaning.
     nonGoals:
       - Interpreting the command or changing its arguments, beyond resolving a formula path for cook.
     inputObjectIds:
@@ -1240,7 +1427,7 @@ journeys:
     networkBoundaryIds:
       - boundary.command-to-tracker
     status: active
-    version: 0.3.0
+    version: 0.6.0
   - journeyId: journey.find-a-held-procedure
     dutyId: duty.keep-procedures-findable
     title: Find a held procedure
@@ -1330,6 +1517,162 @@ journeys:
       - boundary.learn-to-text
     status: active
     version: 0.3.0
+  - journeyId: journey.answer-through-the-tracker
+    dutyId: duty.put-all-four-under-one-name
+    title: Answer through the chosen tracker
+    description: >
+      A body asks the tracker for something and the chosen adapter answers, through the inner door, in typed records.
+    purpose: Every tracker operation has one door, and the adapter behind it can be swapped per request.
+    trigger: A body of dotdiw needs the tracker.
+    preconditions:
+      - The repository is adopted and its workspace has a key.
+      - The adapter that would answer is registered.
+    primaryFlow:
+      - The request names an adapter, or the workspace's key does, or local answers.
+      - The door holds the request to its type and calls the adapter's callable for the operation.
+      - The adapter answers with records, which the door holds to the response type.
+    completionCriteria:
+      - The response is the operation's, whichever adapter answered.
+      - Nothing was printed by the adapter.
+    variants:
+      - The adapter has no store for the workspace yet and opens one first.
+    failureBoundaries:
+      - A request naming an adapter that is not registered fails with the registered names.
+    nonGoals:
+      - Choosing an adapter for the worker.
+    inputObjectIds:
+      - object.tracker-adapter
+      - object.work
+    outputObjectIds:
+      - object.tracker
+      - object.work
+      - object.molecule
+    invariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+      - invariant.one-name-for-all-four
+    stepIds:
+      - step.open-tracker
+      - step.describe-tracker
+      - step.create-item
+      - step.add-need
+      - step.pour-steps
+      - step.close-item
+      - step.show-item
+      - step.list-items
+      - step.update-item
+      - step.ready-items
+    sliIds: []
+    sloIds: []
+    goldenTraceIds: []
+    antiGoldenTraceIds: []
+    timing:
+      realWorldLatencyClass: mixed
+      syncExpectation: mixed
+      causalJustification: >
+        The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.
+    networkBoundaryIds:
+      - boundary.dotdiw-to-tracker
+    status: active
+    version: 0.6.0
+  - journeyId: journey.choose-a-tracker
+    dutyId: duty.put-all-four-under-one-name
+    title: Choose a tracker
+    description: >
+      Someone sees which adapters are registered, makes one the workspace's, or checks one against the suite that defines an adapter.
+    purpose: A tracker is chosen in the open, by name, and proven before it is trusted.
+    trigger: Someone wants a workspace on a tracker other than the default, or wants to know which it is on.
+    preconditions:
+      - The repository is adopted.
+    primaryFlow:
+      - dotdiw tracker list prints each registered adapter, its version, and which the workspace uses.
+      - dotdiw tracker use <name> writes dotdiw.tracker into the checkout's config and opens the store.
+      - dotdiw tracker check <name> runs the conformance suite against the adapter's declared target.
+    completionCriteria:
+      - The workspace's config names a registered adapter.
+      - A checked adapter passed every operation, or the failing one is named.
+    variants:
+      - init --tracker <name> chooses at adoption.
+    failureBoundaries:
+      - A name that is not registered is refused with the registered names and nothing is written.
+    nonGoals:
+      - Installing a hosted tracker's credentials; the adapter reads its own.
+    inputObjectIds:
+      - object.tracker-adapter
+      - object.repository
+    outputObjectIds:
+      - object.tracker-adapter
+      - object.tracker
+    invariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+      - invariant.one-name-for-all-four
+    stepIds:
+      - step.list-trackers
+      - step.use-tracker
+      - step.check-tracker
+    sliIds: []
+    sloIds: []
+    goldenTraceIds: []
+    antiGoldenTraceIds: []
+    timing:
+      realWorldLatencyClass: mixed
+      syncExpectation: synchronous
+      causalJustification: >
+        Listing and choosing are a line in the checkout's config and answer at once; a check runs the whole suite and takes what the adapter takes.
+    networkBoundaryIds:
+      - boundary.dotdiw-to-tracker
+    status: active
+    version: 0.6.0
+  - journeyId: journey.move-a-workspace
+    dutyId: duty.put-all-four-under-one-name
+    title: Move a workspace between trackers
+    description: >
+      Everything a workspace holds in one adapter is written into another, and the source is left as it was.
+    purpose: "Changing trackers loses nothing: items, statuses, reasons and needs cross over."
+    trigger: A workspace on one adapter is wanted on another.
+    preconditions:
+      - Both adapters are registered.
+      - The target has, or can open, a store for the workspace.
+    primaryFlow:
+      - dotdiw tracker migrate <from> <to> lists everything in the source.
+      - Open items are created in the target, then closed ones with their reasons, then the needs.
+      - Ids are kept where the target accepts them; otherwise the mapping is recorded in the target's meta.
+    completionCriteria:
+      - Every item of the source exists in the target with its status, reason and needs.
+      - The source is unchanged.
+      - Run again, nothing changes.
+    variants:
+      - The target already holds some of the items, which are left alone.
+    failureBoundaries:
+      - A target that refuses an item stops the move with the item named; what was written stays, and the next run continues.
+    nonGoals:
+      - Keeping two trackers in step afterwards.
+    inputObjectIds:
+      - object.tracker
+      - object.work
+    outputObjectIds:
+      - object.tracker
+      - object.work
+    invariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+      - invariant.one-name-for-all-four
+    stepIds:
+      - step.migrate-workspace
+    sliIds: []
+    sloIds: []
+    goldenTraceIds: []
+    antiGoldenTraceIds: []
+    timing:
+      realWorldLatencyClass: over-or-equal-1s
+      syncExpectation: synchronous
+      causalJustification: >
+        One item at a time through two adapters; the command runs to completion and reports the count.
+    networkBoundaryIds:
+      - boundary.dotdiw-to-tracker
+    status: active
+    version: 0.6.0
 
 steps:
   - stepId: step.name-the-work
@@ -1548,7 +1891,7 @@ steps:
     title: Declare the conventions
     given: The instruction files may not exist yet, or were written by the tracker under an earlier version, naming it and saying nothing about where work starts.
     when: init finishes, and again after every create, because an earlier version's tracker writes those files again on setup, doctor --fix and upgrades.
-    then: bd is renamed to dotdiw in every file the tracker wrote for agents, the declaration of where work starts and where procedures live is written between its markers in CLAUDE.md and AGENTS.md, and bd's own git policy in those files is given the one exception the project asks for -- committing a formula.
+    then: The tracker is renamed to dotdiw in every file an earlier version's tracker wrote for agents, the declaration of where work starts and where procedures live is written between its markers in CLAUDE.md and AGENTS.md, and the tracker's own git policy in those files is given the one exception the project asks for -- committing a formula.
     thenAssertions:
       - CLAUDE.md and AGENTS.md say where work starts, between the markers, and name dotdiw.
       - A file that already carries the declaration is left byte-for-byte alone.
@@ -1615,14 +1958,15 @@ steps:
   - stepId: step.turn-metrics-off
     journeyId: journey.adopt-a-repository
     sequence: 5
-    title: Turn bd's metrics off
-    given: bd ships its anonymous usage metrics on, and dotdiw is about to run a bd command.
+    title: Turn the tracker's metrics off
+    given: The beads tracker ships its anonymous usage metrics on, and dotdiw is about to run a command of its own; the store dotdiw brings has none.
     when: Any dotdiw command runs, --version included.
-    then: bd's config says metrics are off before the first bd command runs, and the first time it was dotdiw that turned them off it says so.
+    then: Whenever a run reaches the beads tracker, chosen or not, its config says metrics are off before its first command runs, and the first time it was dotdiw that turned them off it says so; a run that reaches no adapter with metrics does nothing and says nothing.
     thenAssertions:
-      - No event is queued by bd on the run that turns them off.
+      - No event is queued by the tracker on the run that turns them off.
+      - A checkout on local that lists, checks, chooses or moves to beads still has them off before beads is first asked anything.
       - Later runs are silent.
-      - bd metrics on is undone by the next run.
+      - Metrics turned back on by hand are turned off again by the next run.
     relatedObjectIds:
       - object.repository
     relatedInteractionIds:
@@ -1638,7 +1982,7 @@ steps:
     title: Forward to the tracker
     given: A command dotdiw does not own, or one of its own that is the tracker's underneath -- create, init, mol pour, cook.
     when: dotdiw runs it.
-    then: beads runs the command with the worker's terminal, through a pty when it is interactive, and every occurrence of bd's name in the stream is rewritten to dotdiw on the way out; the exit code is the tracker's.
+    then: Under beads the command runs with the worker's terminal, through a pty when it is interactive, every occurrence of the tracker's name in the stream is rewritten to dotdiw on the way out, and the exit code is the tracker's; under an adapter with no pass-through, list, ready, show, close, update and dep add are answered from its records, --help, -h and help with the conventions text as bare dotdiw gives it, and any other command is refused as unsupported.
     thenAssertions:
       - Interactive prompts still work.
       - A word split across two reads is still rewritten.
@@ -1662,7 +2006,7 @@ steps:
     then: The committed formula files are listed with git, parsed, and indexed with the project's own tracked text as background, so that everyday words in this project score as everyday.
     thenAssertions:
       - Only git-tracked formula files are indexed; an uncommitted one is invisible here.
-      - The background is capped so that a create stays faster than the bd call it follows.
+      - The background is capped so that a create stays faster than the tracker call it follows.
       - A Python without tomllib, or a SQLite without FTS5, is reported and the run stops rather than answering that the project holds nothing.
     relatedObjectIds:
       - object.formula
@@ -1745,6 +2089,297 @@ steps:
     relatedInvariantIds:
       - invariant.one-door
     expectedUserVisibleOutcome: The teaching text.
+    status: active
+  - stepId: step.open-tracker
+    journeyId: journey.answer-through-the-tracker
+    sequence: 1
+    title: Open the workspace's tracker
+    given: A workspace key, and an adapter that would answer.
+    when: A body needs the tracker and the adapter has no store for the key yet, or a workspace is moved onto the adapter.
+    then: The adapter has a store for the key and answers for it.
+    thenAssertions:
+      - Nothing is made in the repository's tree.
+      - A second open changes nothing.
+    relatedObjectIds:
+      - object.tracker
+      - object.tracker-adapter
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: None; the first operation is answered.
+    status: active
+    stateTransitions:
+      - objectId: object.tracker
+        fromState: unopened
+        toState: open
+  - stepId: step.describe-tracker
+    journeyId: journey.answer-through-the-tracker
+    sequence: 2
+    title: Describe an adapter
+    given: A registered adapter.
+    when: A body or the worker asks what it is.
+    then: Its name, version, capabilities and check target come back as a record.
+    thenAssertions:
+      - The record never carries a credential.
+      - The capabilities say whether needs are native or kept in a sidecar.
+    relatedObjectIds:
+      - object.tracker-adapter
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: Through tracker list, one line per adapter.
+    status: active
+  - stepId: step.create-item
+    journeyId: journey.answer-through-the-tracker
+    sequence: 3
+    title: Create an item
+    given: An open tracker.
+    when: A body asks for an item with a title, a kind, a priority and perhaps a parent.
+    then: The item exists, open, with an id, and comes back as a record.
+    thenAssertions:
+      - The id carries the workspace prefix where the adapter honours one.
+      - The parent must exist, or the create fails naming it.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The item's id, through whichever command asked for it.
+    status: active
+  - stepId: step.add-need
+    journeyId: journey.answer-through-the-tracker
+    sequence: 4
+    title: Add a need between items
+    given: Two items.
+    when: A body says one needs the other.
+    then: The edge exists and shows on both items.
+    thenAssertions:
+      - A need that would close a cycle is refused.
+      - A need on an item that does not exist is refused naming it.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: None of its own; the pour reports the count.
+    status: active
+  - stepId: step.pour-steps
+    journeyId: journey.answer-through-the-tracker
+    sequence: 5
+    title: Pour steps under a root
+    given: A parsed formula and an open tracker.
+    when: A body pours it.
+    then: A root item names the formula, and one item per step exists under it with its needs as edges.
+    thenAssertions:
+      - The order is enforced by the edges, not hoped for.
+      - The step ids come back in the formula's order.
+    relatedObjectIds:
+      - object.tracker
+      - object.molecule
+      - object.formula
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The root id and the count of steps, as mol pour prints today.
+    status: active
+  - stepId: step.close-item
+    journeyId: journey.answer-through-the-tracker
+    sequence: 6
+    title: Close an item with a reason
+    given: An open item.
+    when: A body closes it with a reason.
+    then: The item is closed and keeps the reason.
+    thenAssertions:
+      - Refused while an open need exists, with the blocking ids named.
+      - A poured root closes itself when its last step closes.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+      - object.molecule
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The closed id and its title, as close prints today.
+    status: active
+  - stepId: step.show-item
+    journeyId: journey.answer-through-the-tracker
+    sequence: 7
+    title: Show one item
+    given: An id.
+    when: A body asks for the item.
+    then: The record comes back with its needs, its children and its reason if closed.
+    thenAssertions:
+      - An id that does not exist fails naming it.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The item, as show prints today.
+    status: active
+  - stepId: step.list-items
+    journeyId: journey.answer-through-the-tracker
+    sequence: 8
+    title: List items
+    given: An open tracker.
+    when: A body asks for the open items, or all of them, perhaps under a parent.
+    then: The records come back, open first, newest last.
+    thenAssertions:
+      - The list is what the index and the handmade notice read; nothing else of the tracker's is read for them.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The list, as list prints today.
+    status: active
+  - stepId: step.update-item
+    journeyId: journey.answer-through-the-tracker
+    sequence: 9
+    title: Update an item's fields
+    given: An item.
+    when: A body changes its title, status, priority, parent or claim.
+    then: The fields are changed and the record comes back.
+    thenAssertions:
+      - A status outside the set is refused.
+      - Closing through update is refused; close is the one way to close.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The item, as update prints today.
+    status: active
+  - stepId: step.ready-items
+    journeyId: journey.answer-through-the-tracker
+    sequence: 10
+    title: The ready set
+    given: An open tracker.
+    when: A body asks what can be worked on.
+    then: The open items with no open need come back.
+    thenAssertions:
+      - An item whose need was closed is in the set at once.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The list, as ready prints today.
+    status: active
+  - stepId: step.list-trackers
+    journeyId: journey.choose-a-tracker
+    sequence: 1
+    title: List the registered adapters
+    given: An adopted repository.
+    when: dotdiw tracker list runs.
+    then: Each registered adapter is printed with its version, and the workspace's is marked.
+    thenAssertions:
+      - An adapter loaded from the home is listed with where it was loaded from.
+      - Nothing is written.
+    relatedObjectIds:
+      - object.tracker-adapter
+    relatedInteractionIds:
+      - interaction.choose-tracker
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: One line per adapter, the chosen one marked.
+    status: active
+  - stepId: step.use-tracker
+    journeyId: journey.choose-a-tracker
+    sequence: 2
+    title: Make an adapter the workspace's
+    given: A registered adapter.
+    when: dotdiw tracker use <name> runs, or init --tracker <name>.
+    then: Its store is open, and then dotdiw.tracker names it in the checkout's config.
+    thenAssertions:
+      - An unknown name is refused with the registered names, and nothing is written.
+      - An adapter whose store does not open leaves the checkout's choice as it was.
+      - A module under the home that raises on load, or whose table is out of shape, is listed as not loaded and refused by name with the reason in one line.
+      - Nothing of the tracker's enters the tree.
+    relatedObjectIds:
+      - object.tracker-adapter
+      - object.repository
+      - object.tracker
+    relatedInteractionIds:
+      - interaction.choose-tracker
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The adapter now in use, in one line.
+    status: active
+    stateTransitions:
+      - objectId: object.tracker-adapter
+        fromState: registered
+        toState: chosen
+  - stepId: step.check-tracker
+    journeyId: journey.choose-a-tracker
+    sequence: 3
+    title: Check an adapter against the suite
+    given: A registered adapter with a declared check target.
+    when: dotdiw tracker check <name> runs.
+    then: The conformance scenario runs against the target and each operation is reported pass or fail.
+    thenAssertions:
+      - Never against live work unasked; the target is the adapter's to declare.
+      - A failing adapter is named with the operation that failed.
+    relatedObjectIds:
+      - object.tracker-adapter
+      - object.tracker
+    relatedInteractionIds:
+      - interaction.choose-tracker
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: One line per operation, and the verdict.
+    status: active
+  - stepId: step.migrate-workspace
+    journeyId: journey.move-a-workspace
+    sequence: 1
+    title: Move a workspace's work to another adapter
+    given: Two registered adapters, the source holding the workspace's work.
+    when: dotdiw tracker migrate <from> <to> runs.
+    then: Open items, then closed ones with their reasons, then the needs are written into the target.
+    thenAssertions:
+      - The source is unchanged.
+      - Ids are kept where the target accepts them, else a mapping is recorded under the workspace.
+      - Run twice, the second run changes nothing.
+      - A write the target refuses, an item, a need, a status or a close, fails the move and names it; what was written stays recorded.
+      - The next run makes only the items not yet made, and finishes the needs, statuses and closes of those an earlier run left.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+    relatedInteractionIds:
+      - interaction.move-workspace
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The counts moved, and the mapping's path if one was needed.
     status: active
 
 experience:
@@ -2678,6 +3313,69 @@ updates:
     migrationPlan: null
     approvalStatus: draft
     createdAt: "2026-11-01T22:30:00+08:00"
+  - changeId: change.the-tracker-behind-a-door-of-its-own
+    changeType: model-update
+    targetRefs:
+      - object.tracker
+      - object.tracker-adapter
+      - interaction.answer-through-adapter
+      - interaction.choose-tracker
+      - interaction.move-workspace
+      - boundary.dotdiw-to-tracker
+      - invariant.one-tracker-door
+      - invariant.one-name-for-all-four
+      - journey.answer-through-the-tracker
+      - journey.choose-a-tracker
+      - journey.move-a-workspace
+      - journey.run-a-tracker-command
+      - journey.adopt-a-repository
+    summary: >
+      The tracker is an interface of ten operations behind a door of its own,
+      answered by an adapter chosen per request, else per checkout, else the
+      store dotdiw brings. Two adapters ship: local, one sqlite file under the
+      workspace's keyed directory and the default for a new adoption, and
+      beads, the tracker of every version before 0.6.0, with everything that
+      contained it moved inside and its bytes kept. A third, for a hosted
+      tracker, is loaded by name from the home and proved against a stub.
+      Choosing and moving are journeys of their own; a name appears only where
+      it was chosen. Nothing a worker who chose nothing sees changes.
+    reason: >
+      Eight steps crossed to one tracker by name, through two runners and a
+      stream rewrite that no record set apart from dotdiw's own work. Behind
+      one door the interface is the record, every adapter is held to the same
+      types and the same scenario, and the tracker can be chosen, or none.
+    compatibility: strengthening
+    impactAssessment:
+      affectedDuties:
+        - duty.put-all-four-under-one-name
+        - duty.adopt-without-reaching-outside
+      affectedJourneys:
+        - journey.answer-through-the-tracker
+        - journey.choose-a-tracker
+        - journey.move-a-workspace
+        - journey.run-a-tracker-command
+        - journey.adopt-a-repository
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.one-tracker-door
+        - invariant.one-name-for-all-four
+        - invariant.nothing-outside-the-repository
+      riskLevel: medium
+      riskExplanation: >
+        A new adoption's work goes into the store dotdiw brings rather than the
+        tracker of every version before; a checkout adopted earlier is kept on
+        that tracker, so what it prints and holds is unchanged.
+    migrationPlan: >
+      A checkout adopted by 0.4.0 or 0.5.0 holds one adapter's store and no
+      choice; its first 0.6.0 command writes dotdiw.tracker for it and says so
+      once. dotdiw tracker migrate <from> <to> moves a workspace between
+      adapters, parents before children, ids kept where the target accepts
+      them and mapped in a record under the workspace where it does not; the
+      source is never written, a second run moves nothing, and a run a target
+      refused part of is finished by the next.
+    approvalStatus: draft
+    createdAt: "2026-11-03T18:00:00+08:00"
 
 openQuestions:
   - questionId: question.hundreds-of-formulas

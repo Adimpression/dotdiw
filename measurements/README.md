@@ -36,7 +36,8 @@ IMPLEMENTATION.md changed because the log disagreed with the summaries.
 | `embed_max.py`, `max_scale.py` | the same, scoring each formula by its closest part rather than one mean-pooled string |
 | `occasion.py` | whether capture ever had an occasion to fire: twenty-two of thirty titles were already covered |
 | `harness/witness.py` | from 0.3.0: scores a round from the runs' own witness logs through the contract in `../contracts`, so "discovery fired" is what the contract calls `valid` or `caveated` and not a judgement made by hand; earlier rounds have no logs and are not re-scored |
-| `time_create.py` | from 0.5.0: the create path's wall time, ten runs of `dotdiw create` against ten of bare `bd create` in the same tracker, so that the difference is dotdiw's own part; the law is one second |
+| `time_create.py` | from 0.5.0: the create path's wall time, ten runs of `dotdiw create` against ten of bare `bd create` in the same tracker, so that the difference is dotdiw's own part; the law is one second. From 0.6.0 it times `create` under the shipped default adapter or the one `--tracker` names, and the bare tracker only under beads |
+| `mutate_tracker.py` | from 0.6.0: whether the tests that hold the tracker door bite -- twenty-eight mutations, each breaking one promised rule in a copy of the tracked files, each with the test that must fail on it; the table is in `results/mutation-tracker.txt`. The mutations name source lines as they stand, so a reformatting of `dotdiw` retargets them |
 
 ## The runs
 
@@ -68,6 +69,12 @@ the tracker alone at 0.448 s, so dotdiw's own part 0.474 s; the one door
 costs nothing the harness can see, and the index built once per process gives
 a little back. A sample taken while anything else runs is load: one read
 1.042 s with two test suites running and was discarded.
+
+On 2026-11-04, on a machine under other load and so not a reading of the law,
+alternating single runs put this tree 77 ms behind 0.5.0 under beads. A command
+that runs no tracker went from 56 ms on 0.5.0 to 101 ms, most of it compiling a
+longer script, which has no cached bytecode, on every run. The law has not been
+read on an idle machine since the typing.
 
 ## Caveats, and two things removed
 
