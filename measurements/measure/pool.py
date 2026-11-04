@@ -7,10 +7,14 @@ trial1's example-less ones as distractors -- into a single repository, with
 every domain's prose as one fixed background corpus so that formula count is
 the only thing that varies.
 """
-import glob, os, shutil, subprocess, sys, tomllib
 
-S = os.environ.get("DOTDIW_SIM_ROOT",
-    "./sim-root")
+import glob
+import os
+import shutil
+import subprocess
+import tomllib
+
+S = os.environ.get("DOTDIW_SIM_ROOT", "./sim-root")
 POOL = S + "/pool"
 
 FORMULA_SRC = (
@@ -26,11 +30,13 @@ PROSE_SRC = (
     + glob.glob(S + "/sim/acme-api/**/*.md", recursive=True)
 )
 
+
 def domain_of(p):
     for marker in ("/matrix/", "/runs4/", "/sim/"):
         if marker in p:
             return p.split(marker, 1)[1].split("/")[0]
     return "trial1"
+
 
 def build():
     shutil.rmtree(POOL, ignore_errors=True)
@@ -50,8 +56,6 @@ def build():
             continue
         seen.add(fid)
         # keep each formula under its own domain, at the depth it really sat at
-        sub = os.path.dirname(p).split("/")
-        tail = "/".join(sub[-2:]) if len(sub) > 1 else ""
         rel = os.path.join(domain_of(p), os.path.basename(p))
         dst = os.path.join(POOL, rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -62,9 +66,9 @@ def build():
     for p in sorted(set(PROSE_SRC)):
         if ".beads" in p or "/.git/" in p:
             continue
-        rel = os.path.join("prose", domain_of(p),
-                           os.path.basename(os.path.dirname(p)) + "-"
-                           + os.path.basename(p))
+        rel = os.path.join(
+            "prose", domain_of(p), os.path.basename(os.path.dirname(p)) + "-" + os.path.basename(p)
+        )
         dst = os.path.join(POOL, rel)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         try:
@@ -76,6 +80,7 @@ def build():
     subprocess.run(["git", "add", "-A"], cwd=POOL, capture_output=True)
     subprocess.run(["git", "commit", "-qm", "pooled"], cwd=POOL, capture_output=True)
     print("pool: %d formulas, %d prose documents" % (nf, np_))
+
 
 if __name__ == "__main__":
     build()

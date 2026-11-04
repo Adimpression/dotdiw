@@ -37,9 +37,11 @@ conditions:
       people use for the work, so `dotdiw check` finds it from them.
   - conditionId: condition.day-0-happened
     statement: >
-      dotdiw and beads are on the machine, once, the way git is; this checkout
-      was adopted once with `dotdiw init`, which every clone runs for itself,
-      since the tracker lives under the user's home and not in the repository.
+      dotdiw is on the machine, once, the way git is, and so is any tracker a
+      checkout chose in place of the store dotdiw brings; this checkout was
+      adopted once with `dotdiw init`, which every clone runs for itself,
+      since the tracker's state lives under the user's home and not in the
+      repository.
 boundaries:
   - boundaryId: boundary.shows-does-not-enforce
     statement: >
@@ -51,7 +53,7 @@ boundaries:
   - boundaryId: boundary.only-the-declared-moment
     statement: >
       Nothing surfaces for work that begins any other way -- by editing a file,
-      cutting a branch, or typing `bd create` directly.
+      cutting a branch, or creating the item in the tracker directly.
     whyItMatters: >
       The declared moment is the mechanism, not a note about one. Where work
       may begin elsewhere, the discipline was skipped, not the mechanism broken.
@@ -75,8 +77,8 @@ boundaries:
       the declaration of where work starts. The tracker's state lives under
       the user's home in a directory of dotdiw's own name, keyed to the
       checkout by one line in its own `.git/config`, and the one other change
-      on the machine -- bd's anonymous usage metrics turned off -- is said
-      aloud the first time.
+      on the machine -- the anonymous usage metrics of a tracker that has
+      them, turned off -- is said aloud the first time.
     whyItMatters: >
       v0.1.0 inherited a hook override and a Dolt remote from bd without saying
       so, and every version before 0.4.0 kept the tracker's state in the tree.
@@ -95,11 +97,14 @@ possibleCarriers:
     howEncountered: >
       CLAUDE.md and AGENTS.md state the convention, so an agent reads where
       work starts before it starts anything.
-  - carrierId: carrier.beads
-    name: beads, the issue tracker underneath
+  - carrierId: carrier.tracker
+    name: The tracker underneath, behind a door of its own
     carrierKind: software
     howEncountered: >
-      Holds the created work item and the poured steps. dotdiw forwards every
+      Holds the created work item and the poured steps: the store dotdiw
+      brings, one file under the home, or an adapter chosen by name -- beads,
+      the tracker of every version before 0.6.0, or one loaded from the home.
+      dotdiw reaches it in typed records only, and under beads forwards every
       other command to it under its own name.
 evidenceOrProof:
   - evidenceId: evidence.formula-named-at-create
@@ -155,7 +160,7 @@ falseSuccessRisks:
   - riskId: risk.a-diff-in-the-trackers-file
     statement: >
       A file the tracker committed is changed by dotdiw without being named in
-      its report, and the adopter reasons about bd.
+      its report, and the adopter reasons about the tracker.
     whatItWouldCounterfeit: >
       One name for all four, while the second name is what the repository
       makes them think about.
@@ -226,6 +231,25 @@ promiseChanges:
       notice, and where a clone could never use it anyway. Under the home it
       is keyed to the checkout, survives a move, is shared by worktrees, and
       is nobody else's.
+  - changeId: change.the-tracker-behind-a-door-of-its-own
+    summary: >
+      From 0.6.0 the tracker is an interface of ten operations behind a door
+      of its own, answered by an adapter chosen per request, else per
+      checkout, else the store dotdiw brings: `local`, one sqlite file under
+      `~/.dotdiw/<key>/`, the default for a new adoption. `beads`, the
+      tracker of every version before, is an adapter; a checkout adopted
+      earlier is kept on it by its first command, which says so once.
+      `dotdiw tracker` lists, chooses, checks and migrates; a tracker not on
+      the machine is a module under the home, proved by the one scenario that
+      defines an adapter. Nothing a worker who chose nothing sees changes,
+      and under beads the same commands print the same bytes.
+    compatibility: strengthening
+    rationale: >
+      Eight operations crossed to one tracker by name, and no record said
+      which calls were the tracker's and which were dotdiw's. Behind one door
+      the interface is the record: every adapter is held to the same types by
+      the door and to the same scenario by the suite, and a worker can choose
+      a tracker, or none, without dotdiw changing.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

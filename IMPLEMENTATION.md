@@ -616,3 +616,181 @@ Kept here from the README, where it stood until 0.4.1: an adopter wants what
       change `change.every-operation-through-one-door`, with no migration
       since nothing a worker sees changes. `promise_bindings.py` stays the
       import-only shim the conformance harness calls through.
+
+## 2026-11-03: the tracker behind a door of its own
+
+- [x] What dotdiw asks of a tracker is an interface of the IDL: ten
+      operations -- open, describe, create, add a need, pour steps, close,
+      show, list, update, ready -- with typed requests and responses, and a
+      second door, `invoke_tracker`, generated into `dotdiw` between its own
+      markers by the same finisher. The adapter that answers is chosen per
+      request, else by `dotdiw.tracker` in the checkout's `.git/config`, else
+      by the one store the workspace holds, else `local`. An unknown name is
+      a failed response that lists the registered ones.
+- [x] Two adapters ship inside the file. `local` is one sqlite file,
+      `~/.dotdiw/<key>/dotdiw.sqlite`, items, edges and meta, ids
+      `<prefix>-<four of a-z0-9>`; it composes a pour itself and closes a
+      poured root when its last step closes. `beads` is the tracker of every
+      version before, moved inside an adapter with everything that existed
+      only to contain it: the two runners, the pty, the stream rewrite, the
+      stealth flags, the metrics file, `BEADS_DIR`. Open, create and pour
+      run its own commands with the worker's terminal when the request
+      carries one, so its bytes are its own; everything else answers quietly
+      through its JSON. Nothing outside the adapter runs the binary, and
+      `test_promise.py` holds that from the source.
+- [x] The default is `local` for a new adoption. A checkout adopted by 0.4.0
+      or 0.5.0 holds a beads store and no choice: its first 0.6.0 command
+      writes `dotdiw.tracker = beads` and says so once. Under beads the
+      twenty commands print the bytes 0.5.0 printed, ids normalised;
+      `--version` gained the tracker line and `learn` the tracker paragraph.
+- [x] Under the store dotdiw brings, `list`, `ready`, `show`, `close`,
+      `update` and `dep add` are answered from its records in the shape the
+      tracker printed; `--help`, `-h` and `help` print the conventions text,
+      as bare `dotdiw` does, since the tracker's help is the pass-through's
+      to give; any other command is refused in one line.
+- [x] `dotdiw tracker list`, `use`, `check` and `migrate`; `init --tracker`;
+      `--tracker` and `DOTDIW_TRACKER` for one command. A migration lists
+      the source, creates parents before children, keeps an id where the
+      target accepts it and records the mapping in
+      `~/.dotdiw/<key>/migration-<from>-to-<to>.json` where it does not,
+      adds the needs, sets the statuses and closes in passes; run again it
+      moves nothing, and the source is never written.
+- [x] A tracker that is not on the machine is a module under
+      `~/.dotdiw/trackers/<name>.py` exposing `TRACKER`. `trackers/jira.py`
+      is one: Jira Cloud over its REST API, issue links as needs, credentials
+      from the environment or its own file under the home, proved against a
+      stub in `test_jira.py` and never run against a live site.
+- [x] `trackers/README.md` says how an adapter is written: the module and
+      the two names it is handed, the table and what registration refuses,
+      the records and what the check expects of each operation, the three
+      rules that are the adapter's, credentials, the check, the choice and
+      the one file to ship. `trackers/write-tracker-adapter.formula.toml`
+      holds the same steps, so naming the work surfaces them; `dotdiw check`
+      finds seven formulas. The README at the root does not point there.
+- [x] A loaded adapter's mistake is the worker's situation, not the
+      project's: an operation or extra that raises, or an answer outside
+      the interface, is a failed response in one line naming the adapter,
+      the operation and the error, `adapter-failed` in every tracker
+      response's reasons; a module under the home that raises on load, or
+      whose table is out of shape, is listed by `tracker list` as not
+      loaded and refused by name with the reason. A shipped adapter's
+      mistake raises as before. Found by trying it: a raising adapter had
+      printed a traceback.
+- [x] One scenario defines an adapter. `test_tracker.py` runs it, the one
+      `tracker check` runs, through the door against every adapter present,
+      then moves a filled workspace between every ordered pair and back. The
+      contract's story is valid under `local` with no binary on the path.
+      `measurements/measure/mutate_tracker.py` breaks one promised rule at a
+      time; fourteen of fourteen are caught, after one test was sharpened by
+      the mutation that first survived it.
+- [x] A create through `local` takes 0.134 s at the median; through `beads`
+      0.903 s against 0.893 s on 0.5.0, the binary alone 0.42 s, the law
+      under one second on both. The runs are in `measurements/results/`.
+- [x] The records: the tracker and its adapters as objects of the model, the
+      boundary generalised, the interface's operations bound once per
+      adapter in the IDL, and the change recorded as strengthening with its
+      migration plan; the README says what a worker sees, which is nothing
+      new unless they choose a tracker. Forty-two operations, a hundred and three
+      types.
+
+Not in 0.6.0: beads stays a dependency of the tap's formula, so that a
+checkout on it changes nothing by upgrading. 0.7.0 makes it optional, drops
+it from the formula, and names it only where it was chosen.
+
+## 2026-11-04: typed from the IDL, formatted and linted
+
+- [x] Every request, response and shared record of the IDL is a class in
+      `dotdiw`: 93 `TypedDict`s generated by `poa/finish-idl.py` between
+      markers of their own, beside the two doors, the required fields
+      `Required`, the rest absent or `None` as the doors read them, every
+      inline enum a `Literal`. The bodies take and answer those classes,
+      and the shipped adapters answer the interface's, which mypy holds at
+      check time. An adapter's answer is also held at run time, since a
+      loaded one is not checked by anything else.
+      `test_promise.py` regenerates the region and compares it, and holds
+      every class to the IDL's fields and required keys.
+- [x] Every function in `dotdiw` is annotated, 155 of them, and `mypy
+      --strict` passes on the tool, `promise_bindings.py`, the Jira adapter
+      and the generator; the tests are checked with the tool's types and not
+      annotated. From 1709 findings to none, by typing rather than by
+      silencing: no `type: ignore`, five casts, each saying why.
+- [x] Three things the types found. Twenty-one bodies read `root` from a
+      request the IDL did not require it on; the IDL now requires it there.
+      `update-item` refuses a status of `closed` it could not, by its own
+      type, be asked for; the request's enum now admits it. A shared failure
+      constant was copied into responses of every type; `failed_as` builds
+      one in the caller's own type instead, and `tracker_unknown`,
+      `adapter_failed` and `beads_failed` answer in the caller's type too.
+- [x] The tree is formatted and linted with ruff, line length 100, every
+      finding fixed: 391 to none across 42 files, the generated regions kept
+      out of the formatter. The Python floor is 3.11, written in
+      `pyproject.toml` beside the tools' versions; `uv.lock` pins them and
+      `.python-version` pins 3.12, the tap's interpreter. The `tomllib`
+      fallback for older interpreters is gone with the floor.
+- [x] `check-promise-artifacts.formula.toml` is version 4, with a lint step
+      and a type step; `test_promise.py` holds `pyproject.toml`'s version to
+      the version line. The four suites pass under 3.12 and 3.14; the mutations, retargeted at
+      the formatted source, are each caught; the
+      IDL's fourteen checks, the contract, its five replays, the sweep and
+      the conformance harness's 426 pass.
+
+## 2026-11-04: a move that finishes, answers held to their values
+
+- [x] `tracker migrate` keeps a record of what is finished, not only what was
+      made. The mapping is saved as each item is made, so a run that dies does
+      not make that item twice. Needs already written and items with nothing
+      left to write are recorded beside it, and the next run finishes the
+      needs, statuses and closes of every item not yet finished, whichever run
+      made it. A need, status or close the target refuses fails the move and
+      names it, where before the answer was ignored and the move reported
+      completed. A closed item the target will not close because its need is
+      still open fails the same way. A finished move writes nothing on a
+      second run.
+- [x] The tracker door holds an adapter's answer to its type down to the
+      values: a record's fields, each item of a list, the values of an enum,
+      and a completed answer must hold the record its callers read. From a
+      loaded adapter a wrong value is the same one line as any other failure,
+      where before it passed the door and raised wherever it was first read.
+      The classes generated from the IDL are what it checks against, through
+      a `responseType` the generator adds to each row of the door's table.
+- [x] Metrics go off before bd is first asked anything in a run, whichever
+      adapter the checkout chose. The door does it the first time it reaches
+      an adapter that offers `metrics-off`, so `tracker list`, `check`, `use`
+      and `migrate` under local are covered, and the notice is still said
+      once. A run that never reaches bd never runs it.
+- [x] The local adapter takes the write lock before its first read in every
+      write, with `BEGIN IMMEDIATE`, so that what a check saw still holds when
+      its write commits, across processes. A store another writer holds past
+      the five seconds it waits is a failed response in one line.
+- [x] The checkout's choice is written after the store opens, so a switch that
+      fails leaves the checkout on the tracker that works.
+- [x] A formula's steps may need steps declared after them; declaration order
+      is no part of a formula. A need naming no step is `step-not-found`, a
+      cycle among the steps is `cycle`, a new reason on pour-steps and
+      pour-procedure, and neither writes anything. All three adapters.
+- [x] A description given to `create` is saved on the item, carried through
+      `name-the-work` to `create-item`; under beads it already was, as typed.
+- [x] `--json` under an adapter that answers in records prints JSON on
+      `create`, `close`, `update`, `dep add` and `mol pour`, as it already did
+      on `list`, `ready` and `show`. `list` and `ready` draw a tree to any depth,
+      in the lines the tracker draws, and an item in a loop of parents is still
+      printed.
+- [x] The Jira adapter searches through `/rest/api/3/search/jql` and its
+      `nextPageToken`, the legacy endpoint being marked as being removed in
+      Atlassian's OpenAPI document; the stub answers the legacy one with 410.
+      It assigns through `PUT /issue/{key}/assignee` with `accountId`, the
+      form that document gives. A close with no transition to done, or an
+      update with none to the status asked, is refused and leaves the issue as
+      it was, and a close is read back before it is reported. Priority 0 stays
+      0. An issue already in the status category asked for needs no transition.
+- [x] The conformance scenario asks these of every adapter: priority 0 kept, a
+      need on a later step, `step-not-found`, `cycle`, and a refused pour
+      writing nothing. Fourteen more mutations, one per rule, are each caught;
+      the table is in `measurements/results/mutation-tracker.txt`.
+- [ ] The one-second law read on an idle machine. Alternating single runs under
+      other load put this tree 77 ms behind 0.5.0 under beads, 1.011 s against
+      0.934 s; a command that runs no tracker went from 56 ms to 101 ms, most of
+      it compiling a longer script on every run. The runs are in
+      `measurements/results/time-create.txt`.
+- [ ] `show` does not print a description and `tracker migrate` does not carry
+      one, since the item record has no such field.

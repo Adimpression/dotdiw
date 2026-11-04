@@ -8,25 +8,30 @@ formula was never the right move, so measuring zero of them says nothing.
 This state is the one where it is: real work, several steps, repeatable, and
 outside the formula set.
 """
-import os, shutil, sys
+
+import os
+import shutil
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import build3, domains3
+import build3
+import domains3
 
 S = build3.S
 RUNS = S + "/runs4"
 
 UNCOVERED = {
- "ramen-shop":    "Hire and train a new kitchen hand. We have had three leave in a year and every time it is a scramble.",
- "paws-shelter":  "Run a weekend fundraising open day at the shelter next month.",
- "tinybill":      "Someone has reported a security vulnerability in the amount parser, privately, by email. Handle it.",
- "edgeops":       "Bring a new region, eu-central-1, into the fleet.",
- "corpsec":       "The company is moving office. Change the registered office address.",
- "vinyl-press":   "A new label, Coldharbour, wants to put work through us. Take them on as a customer.",
- "clinic-rota":   "A patient has put in a written complaint about a missed diagnosis. Take it through to a response.",
- "seed-bank":     "CAL-01882 is down to 140 seeds in store, below the distribution threshold. Regenerate it.",
- "tidepool":      "The quarterly hydrographic station data refresh is due. Do it.",
- "grange-farm":   "The sprayer needs its NSTS test and both operator certificates are up for renewal.",
- "archive-fonds": "A freedom of information request has come in about the 1974 boundary review papers. Answer it.",
+    "ramen-shop": "Hire and train a new kitchen hand. We have had three leave in a year and every time it is a scramble.",
+    "paws-shelter": "Run a weekend fundraising open day at the shelter next month.",
+    "tinybill": "Someone has reported a security vulnerability in the amount parser, privately, by email. Handle it.",
+    "edgeops": "Bring a new region, eu-central-1, into the fleet.",
+    "corpsec": "The company is moving office. Change the registered office address.",
+    "vinyl-press": "A new label, Coldharbour, wants to put work through us. Take them on as a customer.",
+    "clinic-rota": "A patient has put in a written complaint about a missed diagnosis. Take it through to a response.",
+    "seed-bank": "CAL-01882 is down to 140 seeds in store, below the distribution threshold. Regenerate it.",
+    "tidepool": "The quarterly hydrographic station data refresh is due. Do it.",
+    "grange-farm": "The sprayer needs its NSTS test and both operator certificates are up for renewal.",
+    "archive-fonds": "A freedom of information request has come in about the 1974 boundary review papers. Answer it.",
 }
 
 if __name__ == "__main__":

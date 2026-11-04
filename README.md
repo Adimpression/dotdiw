@@ -47,10 +47,12 @@ flowchart LR
     style V fill:#eceff1,stroke:#546e7a,color:#263238
 ```
 
-Three of them you already have. An issue tracker that honours dependencies does
-management and declaration. Git does sharing. **Discovery is the one nothing
-provides** — and it is the one that decides whether the other three matter,
-because a procedure nobody finds is a procedure nobody follows.
+Three of them are covered already. An issue tracker that honours dependencies
+does management and declaration, and dotdiw brings one: a single file under
+your home, or the tracker you already use, if you name it. Git does sharing.
+**Discovery is the one nothing provides** — and it is the one that decides
+whether the other three matter, because a procedure nobody finds is a
+procedure nobody follows.
 
 `dotdiw` adds discovery, and puts all four under one name so no task ever
 requires typing anything else.
@@ -366,18 +368,27 @@ owns only what is its own.
 - `carrier.yaml`, `reliant-enactments/` -- who may stand in the product's
   position, and one real occasion of reliance.
 - `poa/product-model.yaml` and `operation-idl.json` -- the governed source and
-  the operation algebra derived from it: twenty-five operations, each traced
-  to a duty, a step and a lawful lifecycle transition. `poa/finish-idl.py`
-  finishes every derivation from `poa/idl-additions.json` and
-  `poa/idl-patches.json`: the real command-line bindings, the calls between
-  operations, the tracker and git calls that cross the boundary, the fields
-  of every request and response; and it writes the door into `dotdiw`.
+  the operation algebra derived from it: forty-two operations, each traced
+  to a duty, a step and a lawful lifecycle transition, ten of them the
+  tracker interface an adapter answers. `poa/finish-idl.py` finishes every
+  derivation from `poa/idl-additions.json` and `poa/idl-patches.json`: the
+  real command-line bindings, the calls between operations, the tracker and
+  git calls that cross the boundary, one binding per adapter for each
+  operation of the interface, the fields of every request and response; and
+  it writes both doors and the record types into `dotdiw`, every request,
+  response and shared record of the IDL as a class the bodies and the
+  adapters are typed by.
 - `promise_bindings.py` -- every operation bound to its one body in `dotdiw`,
-  under the IDL's name. `dotdiw` is shaped by it: one function per operation,
-  nothing shared between them but infrastructure, every operation invoked
-  through one door generated from the IDL, which holds the request and the
-  response to their types, and `main()` only routes. `test_promise.py` holds
-  the file to that from its source alone, the door regenerated and compared.
+  under the IDL's name, and each operation of the tracker interface to the
+  adapter that answers it. `dotdiw` is shaped by it: one function per
+  operation, nothing shared between them but infrastructure, every operation
+  invoked through one door generated from the IDL, which holds the request
+  and the response to their types; the tracker behind a second door of the
+  same making, where an adapter answers in records and nothing but an
+  adapter runs a tracker; and `main()` only routes. `test_promise.py` holds
+  the file to that from its source alone, both doors and the types
+  regenerated and compared; `test_tracker.py` runs the one scenario that defines an adapter
+  against every adapter present.
 - `contracts/`, `events/` -- the witness contract: which observed events are
   allowed to count as "work was named and its procedure surfaced", proved
   against this tool's own 0.2.1 release, a run recorded with the witness log
@@ -393,38 +404,37 @@ Once per machine, the way git is installed:
 brew install adimpression/tap/dotdiw
 ```
 
-The formula installs dotdiw and the tracker it runs on. `dotdiw` itself is a
-single Python file depending only on the standard library; on `PATH` it works
-just as well.
+The formula installs dotdiw, and with it the one tracker a checkout may choose
+in place of the store dotdiw brings. `dotdiw` itself is a single Python file
+depending only on the standard library, Python 3.11 or later; on `PATH` it
+works just as well, with that store.
 The Homebrew formula lives in
 [Adimpression/homebrew-tap](https://github.com/Adimpression/homebrew-tap), not
 in this repository.
 
 ### What `dotdiw init` does
 
-`init` writes one line of its own into the checkout's `.git/config`,
-`dotdiw.workspace`, a random key, and makes the tracker under
-`~/.dotdiw/<key>/`; the tracker records its role beside the key, maintainer,
-the answer it would otherwise ask for. Every dotdiw command finds it there, so
-nothing of the tracker's is in the repository: no files, no hooks, no remote,
-no commit. What is left in the repository is dotdiw's declaration of where
-work starts, in `CLAUDE.md` and `AGENTS.md`, named as yours to commit; the
-command it prints leaves the tree clean. The key survives a move and worktrees
-share it. A fresh clone has none, so every clone runs `dotdiw init` once, and
-`create` says so until it has. A `BEADS_DIR` of your own is overridden for the
-tracker dotdiw runs. Outside a git repository `init` refuses.
+`init` writes two lines of its own into the checkout's `.git/config`:
+`dotdiw.workspace`, a random key, and `dotdiw.tracker`, the tracker this
+checkout uses, `local` unless `init --tracker <name>` chose another. The
+tracker's state lives under `~/.dotdiw/<key>/`: one sqlite file for the
+store dotdiw brings, or whatever the chosen tracker keeps there. Every dotdiw
+command finds it there, so nothing of the tracker's is in the repository: no
+files, no hooks, no remote, no commit. What is left in the repository is
+dotdiw's declaration of where work starts, in `CLAUDE.md` and `AGENTS.md`,
+named as yours to commit; the command it prints leaves the tree clean. The
+key survives a move and worktrees share it. A fresh clone has none, so every
+clone runs `dotdiw init` once, and `create` says so until it has. Outside a
+git repository `init` refuses.
 
 A repository adopted by an earlier version is upgraded by its first dotdiw
 command: the key is written, a tracker is made under the home with the same
 prefix, and the command runs. Earlier tasks are not carried over; dotdiw says
 so once, and names the one command that removes the unused `.beads/` from the
-tree. It never runs that command and never edits the old copy. What `init`
+tree. It never runs that command and never edits the old copy. A checkout
+adopted by 0.4.0 or 0.5.0 keeps the tracker its work is in: the first 0.6.0
+command there writes `dotdiw.tracker` for it and says so once. What `init`
 did in each earlier version is in [IMPLEMENTATION.md](IMPLEMENTATION.md).
-
-Every run also turns the tracker's anonymous usage metrics off before
-anything else runs: `metrics.disabled: true` in `~/.config/bd/config.yaml`.
-That is per machine, not per repository, and the one thing dotdiw changes
-outside `~/.dotdiw`. It says so the first time.
 
 The one file dotdiw writes that is opt-in is the witness log,
 `~/.dotdiw/<key>/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that
@@ -435,10 +445,52 @@ those lines may be read as the promise kept. It is local, append-only, never
 transmitted, and never in the repository. A step closed outside dotdiw never
 reaches it, and the contract says so. Off, it writes nothing.
 
+## Choosing a tracker
+
+Nothing changes unless you choose one. A new adoption uses `local`, the store
+dotdiw brings: one sqlite file under `~/.dotdiw/<key>/`, nothing to install
+and nothing running. `dotdiw tracker list` names what is registered and which
+this checkout uses. `init --tracker <name>` chooses at adoption and `dotdiw
+tracker use <name>` afterwards, leaving the work in the old one where it is;
+`dotdiw tracker migrate <from> <to>` moves it, parents before children, needs
+and close reasons with them, ids kept where the target accepts them and mapped
+in a file under the workspace where it does not, and never writes to the
+source. If the target refuses any write the move fails and names it, and the
+next run finishes what the first left. One command can go elsewhere with `--tracker <name>` or
+`DOTDIW_TRACKER`. A tracker's name appears where you chose or asked for it:
+in that list, on the line that says a checkout is adopted, on the tracker
+line of `--version`, and once, in the notice that a checkout adopted before
+there was a choice has been kept on the tracker its work is in. Nothing else
+dotdiw says names one.
+
+`beads` is the tracker every version before 0.6.0 ran on, kept as an adapter
+so that a checkout adopted earlier goes on exactly as it was: the same
+commands print the same bytes. Under it every command dotdiw does not own
+runs in the tracker unchanged, interactive prompts included, and `dotdiw
+--help` lists them; the tracker records its role beside the key, maintainer,
+the answer it would otherwise ask for; a `BEADS_DIR` of your own is
+overridden for the tracker dotdiw runs; and any run that reaches the tracker,
+chosen or not, turns its anonymous usage metrics off before asking it anything,
+`metrics.disabled: true` in `~/.config/bd/config.yaml`, per machine, the one
+thing dotdiw changes outside `~/.dotdiw`, said the first time. The store dotdiw brings has no
+metrics and no commands beyond the tracker's own, `list`, `ready`, `show`,
+`close`, `update` and `dep add`; `--help` prints what bare `dotdiw` prints,
+and anything else it refuses by name.
+
+A tracker that is not on this machine is a module under
+`~/.dotdiw/trackers/<name>.py` exposing `TRACKER`, the ten operations of the
+interface as callables; `dotdiw tracker check <name>` runs the scenario that
+defines an adapter against the project or board the module declares for it,
+and says what fails. `trackers/jira.py` in this repository is one, for Jira
+Cloud, its credentials read from the environment or from
+`~/.dotdiw/trackers/jira.json` and never from a repository; it is proved
+against a stub of the API in `test_jira.py`, and against nothing live.
+
 ## Commands
 
 ```bash
 dotdiw init                                  # adopt it: the tracker under your home, keyed to this checkout; the conventions declared
+dotdiw init --tracker <name>                 # ...on a tracker you name, instead of the store dotdiw brings
 dotdiw create "<what you're about to do>"    # where all work starts
 dotdiw formula new "<what it's for>"         # write a procedure down
 dotdiw formula new "..." --from <id>         # ...with steps from work already done
@@ -446,10 +498,37 @@ dotdiw formula list                          # what this project holds
 dotdiw mol pour <id>                         # instantiate it as tracked, ordered steps
 dotdiw check                                 # whether every formula here can be found
 dotdiw learn                                 # all of it, for whoever found the command
+dotdiw tracker list                          # what is registered, and which this checkout uses
+dotdiw tracker use <name>                    # choose afterwards; the work in the old one stays
+dotdiw tracker migrate <from> <to>           # move it; the source is left as it was
+dotdiw tracker check <name>                  # prove an adapter against the scenario that defines one
 ```
 
-Everything else is a tracker command and runs unchanged; `dotdiw --help`
-lists them. No task ever requires typing anything else.
+`list`, `ready`, `show`, `close`, `update` and `dep add` are the tracker's,
+answered by whichever one the checkout uses; under `beads` everything else
+runs in it unchanged. No task ever requires typing anything else.
+
+## Working on it
+
+The tree is typed, formatted and linted, and `pyproject.toml` holds the
+configuration; `uv` runs the tools from the locked dev group, so nothing
+is installed by hand:
+
+```bash
+uv run ruff format --check . && uv run ruff check .
+```
+
+```bash
+uv run mypy
+```
+
+`dotdiw` is annotated throughout and checked strictly; the tests are checked
+with the types the tool declares. Every request, response and shared record
+of the IDL is a class in `dotdiw`, generated by `poa/finish-idl.py` between
+its own markers, so a body that answers with a field or a reason the IDL
+does not name fails the type check before it fails the door. The four
+suites run with `python3 -m unittest`; `check-promise-artifacts.formula.toml`
+is the whole sequence, re-derivation and conformance included.
 
 ## The name
 

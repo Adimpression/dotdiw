@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Six more domains for the eleven-project matrix. Same shape as the first
 five: the project's own files, two or three formulas in natural places, and
 one job that a formula covers."""
@@ -6,11 +5,11 @@ one job that a formula covers."""
 NEW = {}
 
 NEW["vinyl-press"] = {
- "job": "A 500-unit repress of the Hollow Coast LP is booked for the week of the 14th. "
-        "Get it set up: the lacquer is already cut and on the shelf, the order is confirmed, "
-        "and press 2 is free. Work out what has to happen and get it moving.",
- "files": {
-  "README.md": """# Northgate Pressing
+    "job": "A 500-unit repress of the Hollow Coast LP is booked for the week of the 14th. "
+    "Get it set up: the lacquer is already cut and on the shelf, the order is confirmed, "
+    "and press 2 is free. Work out what has to happen and get it moving.",
+    "files": {
+        "README.md": """# Northgate Pressing
 
 A small vinyl pressing plant. Two presses, one lathe, one plating bath.
 We take orders from labels, cut lacquers, plate stampers and press records.
@@ -21,7 +20,7 @@ older Toolex and runs 7" best. Press 2 is the SMT and does the 12" work.
 Everything we press is logged against an order number. Nothing goes on a press
 without a signed test pressing.
 """,
-  "press/machines.md": """# The presses
+        "press/machines.md": """# The presses
 
 ## Press 1 (Toolex Alpha, 1979)
 Reliable on 7". The steam line needs twenty minutes to come up to pressure.
@@ -33,7 +32,7 @@ so the hopper gets checked at the start of every run.
 
 Changeover between formats is about ninety minutes, mostly mould swap.
 """,
-  "qc/standards.md": """# What we reject
+        "qc/standards.md": """# What we reject
 
 Every run gets a test pressing before the main run, and the label has to sign
 it off. After that we pull one in fifty off the line.
@@ -44,7 +43,7 @@ repeats on a second copy.
 
 A run that goes over 8% rejects gets stopped and the stampers get inspected.
 """,
-  "cutting/lacquers.md": """# Cutting
+        "cutting/lacquers.md": """# Cutting
 
 The lathe is a Neumann VMS-70. Lacquers come in from the supplier in boxes of
 ten and have a shelf life — a lacquer older than six weeks cuts badly.
@@ -55,7 +54,7 @@ level dropped or it will not track.
 Every lacquer is cut in pairs, A and B, and goes straight to plating. A
 lacquer left overnight before plating is a lacquer we re-cut.
 """,
-  "orders/backlog.md": """# Open orders
+        "orders/backlog.md": """# Open orders
 
 | Order | Label | Title | Units | Format | Status |
 |-------|-------|-------|-------|--------|--------|
@@ -66,7 +65,7 @@ lacquer left overnight before plating is a lacquer we re-cut.
 
 Lead time we quote is six weeks. We are running at eight.
 """,
-  "docs/suppliers.md": """# Suppliers
+        "docs/suppliers.md": """# Suppliers
 
 Pellets come from Hartwell in 25kg sacks — black compound only, we do not do
 colour. Order two weeks ahead; they have been short since the spring.
@@ -76,9 +75,9 @@ whoever the label has used, which is usually Pressplay or Dorne.
 
 Nickel for the plating bath comes from Vantage. Keep one spare anode.
 """,
- },
- "formulas": {
-  "press/new-run.formula.toml": '''formula = "mol-new-run"
+    },
+    "formulas": {
+        "press/new-run.formula.toml": """formula = "mol-new-run"
 description = "Set a pressing run up from a confirmed order: check the stampers and stock, book the press, cut and sign off a test pressing, then run and pack. Use when an order is ready to go on a press, or a repress has been booked."
 examples = [
   "Set up the Hollow Coast repress",
@@ -116,8 +115,8 @@ needs = ["test"]
 id = "pack"
 title = "Pack, label the boxes and book the courier"
 needs = ["run"]
-''',
-  "qc/reject-batch.formula.toml": '''formula = "mol-reject-batch"
+""",
+        "qc/reject-batch.formula.toml": """formula = "mol-reject-batch"
 description = "Deal with a run going over the reject limit: stop the press, work out whether it is the stampers, the compound or the machine, and decide what gets repressed. Use when rejects climb past eight percent, or inspection keeps finding the same fault."
 examples = [
   "Rejects are over ten percent on order 2412",
@@ -151,8 +150,8 @@ needs = ["decide"]
 id = "repress"
 title = "Repress the quarantined units"
 needs = ["decide"]
-''',
-  "cutting/cut-lacquer.formula.toml": '''formula = "mol-cut-lacquer"
+""",
+        "cutting/cut-lacquer.formula.toml": """formula = "mol-cut-lacquer"
 description = "Take a master from the label and get it cut and plated: check the programme length and level, cut both sides, and get the lacquers into the bath the same day. Use when a new title arrives for cutting, or a lacquer has to be re-cut."
 examples = [
   "Cut the lacquers for Winter Sides",
@@ -185,16 +184,16 @@ needs = ["cut"]
 id = "log"
 title = "Log the cut against the order"
 needs = ["cut"]
-''',
- },
+""",
+    },
 }
 
 NEW["clinic-rota"] = {
- "job": "Dr Adeyemi has gone off sick and will be out for at least the next two weeks. "
-        "She holds Monday and Thursday mornings plus the Wednesday minor surgery list. "
-        "Sort out the cover.",
- "files": {
-  "README.md": """# Fairbourne Medical Practice
+    "job": "Dr Adeyemi has gone off sick and will be out for at least the next two weeks. "
+    "She holds Monday and Thursday mornings plus the Wednesday minor surgery list. "
+    "Sort out the cover.",
+    "files": {
+        "README.md": """# Fairbourne Medical Practice
 
 A four-partner GP practice, about 9,400 patients. Two sites: the main surgery
 on Fairbourne Road and a branch at Carlow Street open three days a week.
@@ -205,7 +204,7 @@ nurse practitioner, two HCAs. Reception and admin are six people.
 This repository holds the practice's own working documents — the rota, patient
 recall lists, campaign plans and letter templates.
 """,
-  "rota/duty.md": """# Duty and session cover
+        "rota/duty.md": """# Duty and session cover
 
 The week runs as eighteen GP sessions. Every session needs a named clinician
 and a named duty doctor for on-the-day calls.
@@ -224,7 +223,7 @@ Friday PM: Whitlock
 Locum rates are agreed with Medacs and Castle. Partners cover each other
 unpaid for up to three sessions; past that we book a locum.
 """,
-  "patients/recalls.md": """# Recall lists
+        "patients/recalls.md": """# Recall lists
 
 Patients on long-term condition registers get called in on a cycle. The
 registers we hold:
@@ -238,7 +237,7 @@ registers we hold:
 Recalls go out by text first, then letter after two weeks, then a phone call.
 Anyone not seen after three attempts gets flagged to their usual GP.
 """,
-  "docs/immunisation.md": """# Immunisation
+        "docs/immunisation.md": """# Immunisation
 
 Childhood schedule runs through the nurse clinics. Uptake is reported monthly
 and we are below target on the pre-school booster.
@@ -250,7 +249,7 @@ appointments.
 
 Shingles and pneumococcal run year-round off the birthday list.
 """,
-  "docs/cqc.md": """# CQC and governance
+        "docs/cqc.md": """# CQC and governance
 
 Last inspection rated us Good overall, Requires Improvement on
 responsiveness — the complaint was telephone access at 8am.
@@ -261,7 +260,7 @@ clinical meeting. The log lives with the practice manager.
 Policies on review this year: safeguarding, chaperoning, infection control,
 and the business continuity plan.
 """,
-  "templates/letters.md": """# Letter templates
+        "templates/letters.md": """# Letter templates
 
 We keep these as text so they can be merged from the clinical system.
 
@@ -274,9 +273,9 @@ We keep these as text so they can be merged from the clinical system.
 
 Anything patient-facing goes past the practice manager before it goes out.
 """,
- },
- "formulas": {
-  "rota/cover-absence.formula.toml": '''formula = "mol-cover-absence"
+    },
+    "formulas": {
+        "rota/cover-absence.formula.toml": """formula = "mol-cover-absence"
 description = "Cover a clinician who is away: work out which sessions are uncovered, offer them internally, book a locum for what is left, then move the patients and tell them. Use when someone goes off sick, has taken leave at short notice or in an emergency, or a session is suddenly unstaffed."
 examples = [
   "Dr Adeyemi is off sick for two weeks",
@@ -310,8 +309,8 @@ needs = ["internal", "locum"]
 id = "notice"
 title = "Put a notice up and brief reception"
 needs = ["patients"]
-''',
-  "patients/recall-round.formula.toml": '''formula = "mol-recall-round"
+""",
+        "patients/recall-round.formula.toml": """formula = "mol-recall-round"
 description = "Run a round of recalls against a long-term condition register: pull the list of who is due, text them, letter the ones who do not answer, then flag whoever is still unseen. Use when a register is due its cycle, or uptake on a review has slipped."
 examples = [
   "Run the diabetes recalls for this quarter",
@@ -345,8 +344,8 @@ needs = ["letter"]
 id = "flag"
 title = "Flag anyone still unseen to their usual GP"
 needs = ["call"]
-''',
-  "docs/flu-campaign.formula.toml": '''formula = "mol-flu-campaign"
+""",
+        "docs/flu-campaign.formula.toml": """formula = "mol-flu-campaign"
 description = "Run the seasonal vaccination campaign: order the stock, build the eligible cohorts, book the Saturday clinics, invite patients and report uptake. Use when the autumn campaign is starting or uptake in a cohort needs pushing."
 examples = [
   "Start the flu campaign for this autumn",
@@ -379,15 +378,15 @@ needs = ["clinics"]
 id = "report"
 title = "Report uptake and chase the cohorts that are behind"
 needs = ["invite"]
-''',
- },
+""",
+    },
 }
 
 NEW["seed-bank"] = {
- "job": "A box of 40 landrace barley samples has arrived from the Orkney collector, "
-        "with a handwritten list and no accession numbers. Get them into the bank properly.",
- "files": {
-  "README.md": """# Caldermoor Seed Bank
+    "job": "A box of 40 landrace barley samples has arrived from the Orkney collector, "
+    "with a handwritten list and no accession numbers. Get them into the bank properly.",
+    "files": {
+        "README.md": """# Caldermoor Seed Bank
 
 A regional seed bank holding landrace and heritage crop varieties for the
 north and the islands. About 4,100 accessions, mostly cereals and brassicas.
@@ -398,7 +397,7 @@ asks and can use them.
 
 Nothing enters the cold store without a germination figure against it.
 """,
-  "accessions/register.md": """# The register
+        "accessions/register.md": """# The register
 
 Every accession gets a number: CAL-NNNNN, sequential, never reused. The
 register records the number, the species, the local name, who collected it,
@@ -411,7 +410,7 @@ people.
 Current gaps in the register: 112 accessions with no germination figure, 40 of
 them from the 2019 Hebrides trip.
 """,
-  "lab/germination.md": """# Germination testing
+        "lab/germination.md": """# Germination testing
 
 Standard test is 100 seeds on moist filter paper, four replicates of 25, at
 20C with a 12-hour photoperiod. Counted at 7 and 14 days.
@@ -425,7 +424,7 @@ figures come out meaninglessly low.
 Dormant samples get a second test after six months before we call them
 non-viable.
 """,
-  "docs/storage.md": """# Storage
+        "docs/storage.md": """# Storage
 
 Two stores. Active collection at 4C for material we send out; base collection
 at -18C for long-term.
@@ -436,7 +435,7 @@ Seed goes in at 6-7% moisture content, dried down in the cabinet at 15C and
 Containers: laminated foil for base, screw-top jars for active. Every
 container carries the accession number and the pack date.
 """,
-  "docs/distribution.md": """# Sending samples out
+        "docs/distribution.md": """# Sending samples out
 
 We send to growers, researchers, community seed libraries and other banks.
 Requests come in by email and go on the request list.
@@ -449,7 +448,7 @@ Every sample goes out with the accession's passport data and a note asking for
 the grower's results back. Phytosanitary paperwork for anything leaving the
 country.
 """,
-  "collections/grains.md": """# Cereal collections
+        "collections/grains.md": """# Cereal collections
 
 Barley is the bulk of what we hold — 1,340 accessions, mostly six-row
 landraces from the islands. Bere barley alone is 210 accessions.
@@ -461,9 +460,9 @@ Rye: 70.
 The island material is the part nobody else holds, and the part we are most
 behind on testing.
 """,
- },
- "formulas": {
-  "accessions/accession.formula.toml": '''formula = "mol-accession"
+    },
+    "formulas": {
+        "accessions/accession.formula.toml": """formula = "mol-accession"
 description = "Bring a collection into the bank and onto the register: count what actually arrived, give each sample a number, record the passport data, dry it down and put it into store. Use when a box of seed arrives, when a deposit comes in from a collector, grower or seed library, or when material turns up without numbers."
 examples = [
   "A box of barley samples has arrived from Orkney",
@@ -502,8 +501,8 @@ needs = ["dry"]
 id = "store"
 title = "Pack and place into the base and active stores"
 needs = ["test", "passport"]
-''',
-  "lab/viability-test.formula.toml": '''formula = "mol-viability-test"
+""",
+        "lab/viability-test.formula.toml": """formula = "mol-viability-test"
 description = "Test whether an accession is still alive: set up the replicates, count at seven and fourteen days, and either clear it for store or put it on the regeneration list. Use when an accession has no figure, is due a retest, or came out low the first time."
 examples = [
   "Test the 2019 Hebrides accessions, they have no figures",
@@ -536,8 +535,8 @@ needs = ["count7"]
 id = "decide"
 title = "Clear for store, or put on the regeneration list"
 needs = ["count14"]
-''',
-  "docs/send-sample.formula.toml": '''formula = "mol-send-sample"
+""",
+        "docs/send-sample.formula.toml": """formula = "mol-send-sample"
 description = "Send seed to someone who has asked for it: check there is enough in store to spare, pack the sample, put the passport data with it and the paperwork if it is leaving the country. Use when a request comes in from a grower, a researcher or another bank."
 examples = [
   "A grower in Caithness wants bere barley",
@@ -571,14 +570,14 @@ needs = ["pack"]
 id = "send"
 title = "Send it and log the distribution"
 needs = ["passport", "phyto"]
-''',
- },
+""",
+    },
 }
 
 NEW["tidepool"] = {
- "job": "Build 4.2 is cut and green on CI. Get it out to the App Store and Play Store.",
- "files": {
-  "README.md": """# Tidepool
+    "job": "Build 4.2 is cut and green on CI. Get it out to the App Store and Play Store.",
+    "files": {
+        "README.md": """# Tidepool
 
 A tide and surf forecast app. iOS and Android, shared Kotlin Multiplatform
 core, native UI on both sides.
@@ -589,7 +588,7 @@ subscription tier for the 10-day forecast and offline charts.
 Releases go out roughly every three weeks on a train. Hotfixes go out whenever
 they have to.
 """,
-  "app/README.md": """# Build and run
+        "app/README.md": """# Build and run
 
     ./gradlew :core:build
     ./gradlew :android:assembleRelease
@@ -602,7 +601,7 @@ Station data is vendored from the hydrographic offices and refreshed quarterly.
 A station whose datum changes will silently produce wrong heights, so the
 refresh has its own checks.
 """,
-  "docs/release-train.md": """# The release train
+        "docs/release-train.md": """# The release train
 
 Branch cut on a Monday, soak on internal testing for two days, then phased
 rollout. Android goes to 10% for a day, then 50%, then 100%. iOS goes to
@@ -617,7 +616,7 @@ paywall smoke-tested on both platforms against the sandbox.
 Release notes go in store metadata and on the changelog page. Someone has to
 actually write them.
 """,
-  "docs/crash-triage.md": """# Crash triage
+        "docs/crash-triage.md": """# Crash triage
 
 Crashes come in through Sentry. We look at crash-free sessions daily; the line
 we hold is 99.5%.
@@ -630,7 +629,7 @@ Known recurring: the chart renderer OOMs on very old Android devices when the
 10-day view is opened twice; the tide station picker crashes if location
 permission is revoked while the app is backgrounded.
 """,
-  "store/metadata.md": """# Store listings
+        "store/metadata.md": """# Store listings
 
 Both listings carry the same six screenshots, generated from the UI test
 suite, and the same description text in seven locales.
@@ -642,7 +641,7 @@ once for background location without a clear enough justification string.
 Play has never rejected a build but has twice flagged the data safety form as
 inconsistent with what the app actually collects.
 """,
-  "docs/experiments.md": """# Experiments
+        "docs/experiments.md": """# Experiments
 
 Feature flags are server-driven, fetched at launch with a cached fallback. A
 flag that fails to fetch must default to off.
@@ -653,9 +652,9 @@ the annual subscription price test in Portugal only.
 An experiment that touches the paywall needs the subscription smoke test run
 against both stores' sandboxes before it goes above 10%.
 """,
- },
- "formulas": {
-  "docs/ship-build.formula.toml": '''formula = "mol-ship-build"
+    },
+    "formulas": {
+        "docs/ship-build.formula.toml": """formula = "mol-ship-build"
 description = "Get a build out to both stores: soak it on internal testing, check crashes and the paywall, update the listings, write the notes and start the phased rollout. Use when a build is cut and ready to go to users, or a version needs shipping."
 examples = [
   "Build 4.2 is ready for the stores",
@@ -692,8 +691,8 @@ title = "Write the release notes"
 id = "rollout"
 title = "Submit and start the phased rollout"
 needs = ["crashes", "paywall", "metadata", "notes"]
-''',
-  "docs/triage-crash.formula.toml": '''formula = "mol-triage-crash"
+""",
+        "docs/triage-crash.formula.toml": """formula = "mol-triage-crash"
 description = "Work a crash spike: find out whether it tracks a rollout and halt it if so, pin down the device and version it hits, fix or revert, and get the fix out. Use when crash-free sessions drop, a new crash climbs, or users start reporting the app closing."
 examples = [
   "Crash-free sessions dropped to 99.1 overnight",
@@ -727,8 +726,8 @@ needs = ["cause"]
 id = "ship"
 title = "Get the fix out and confirm the rate recovers"
 needs = ["fix"]
-''',
-  "store/store-rejection.formula.toml": '''formula = "mol-store-rejection"
+""",
+        "store/store-rejection.formula.toml": """formula = "mol-store-rejection"
 description = "Answer a store review rejection: read what guideline they actually cited, fix the app or the listing, reply in the review thread and resubmit. Use when Apple rejects a build, when Play flags the data safety form, or when a listing gets flagged in review."
 examples = [
   "Apple rejected 4.2 over the subscription terms",
@@ -762,15 +761,15 @@ needs = ["change"]
 id = "resubmit"
 title = "Resubmit and watch the review state"
 needs = ["reply"]
-''',
- },
+""",
+    },
 }
 
 NEW["grange-farm"] = {
- "job": "Heifer 118 is due to calve this week and it is her first. "
-        "She is in the far paddock. Get it organised.",
- "files": {
-  "README.md": """# Grange Farm
+    "job": "Heifer 118 is due to calve this week and it is her first. "
+    "She is in the far paddock. Get it organised.",
+    "files": {
+        "README.md": """# Grange Farm
 
 A mixed farm, 340 acres. Suckler herd of 70 Aberdeen Angus cross cows, 180
 acres of arable in a six-year rotation, the rest permanent pasture and a
@@ -781,7 +780,7 @@ Two of us full time, plus contractors for harvest and slurry.
 This repository holds the farm's working records: the herd book, the rotation,
 spray plans and the subsidy paperwork.
 """,
-  "livestock/herd.md": """# The herd
+        "livestock/herd.md": """# The herd
 
 70 suckler cows plus followers. Calving is split: forty in the spring block
 from late February, thirty in autumn from September.
@@ -795,7 +794,7 @@ first calver this year.
 Health plan: BVD accredited, Johne's testing annually, fluke drench in autumn,
 and a mineral bolus pre-calving.
 """,
-  "fields/rotation.md": """# Rotation
+        "fields/rotation.md": """# Rotation
 
 Six-year: winter wheat, winter barley, oilseed rape, winter wheat, spring
 beans, then a year of grass.
@@ -808,7 +807,7 @@ Field. Long Acre does not travel until April in a wet spring.
 
 Beans go in by mid-March or they do not yield.
 """,
-  "docs/spraying.md": """# Spraying
+        "docs/spraying.md": """# Spraying
 
 The sprayer is a 24m trailed, 3000 litre. NSTS tested in May, operator
 certificates current for both of us.
@@ -823,7 +822,7 @@ breach.
 
 T1 and T2 fungicide timings on the wheat are the two that cannot slip.
 """,
-  "docs/subsidy.md": """# Subsidy and stewardship
+        "docs/subsidy.md": """# Subsidy and stewardship
 
 The stewardship agreement covers the woodland block, two hedgerow options and
 a six-metre buffer strip along the brook. Annual claim window opens in March
@@ -836,7 +835,7 @@ complete, and the livestock numbers as at the census date.
 An inspection in 2023 found our hedgerow cutting dates undocumented. That cost
 us a deduction and it is not happening again.
 """,
-  "docs/machinery.md": """# Machinery
+        "docs/machinery.md": """# Machinery
 
 Two tractors: a 150hp for the heavy work and a 90hp for the yard and the
 grass. Combine is shared with the neighbour on a half-share.
@@ -846,9 +845,9 @@ front linkage pin and the sprayer needs its nozzles replaced this year.
 
 Slurry tanker and the muck spreader come with the contractor.
 """,
- },
- "formulas": {
-  "livestock/calving.formula.toml": '''formula = "mol-calving"
+    },
+    "formulas": {
+        "livestock/calving.formula.toml": """formula = "mol-calving"
 description = "Bring a cow or heifer through calving: get her in where she can be watched, check her and the calf through, make sure the calf gets colostrum, then tag and register it. Use when an animal is close to calving, is calving now, or a first calver needs watching."
 examples = [
   "Heifer 118 is due this week and it is her first",
@@ -887,8 +886,8 @@ needs = ["navel"]
 id = "book"
 title = "Write it up in the herd book"
 needs = ["tag"]
-''',
-  "fields/spray-window.formula.toml": '''formula = "mol-spray-window"
+""",
+        "fields/spray-window.formula.toml": """formula = "mol-spray-window"
 description = "Get a field sprayed inside the window it has: check the forecast and the buffers, work out the product and rate, do it, and write the application down. Use when a timing is coming up, a field needs doing before rain, or a fungicide spray cannot slip."
 examples = [
   "Long Acre needs its T1 before the weather turns",
@@ -926,8 +925,8 @@ needs = ["spray"]
 id = "wash"
 title = "Wash out and dispose of the washings properly"
 needs = ["spray"]
-''',
-  "docs/subsidy-claim.formula.toml": '''formula = "mol-subsidy-claim"
+""",
+        "docs/subsidy-claim.formula.toml": """formula = "mol-subsidy-claim"
 description = "Put the annual claim in: check the parcel map against what is actually cropped, evidence the stewardship options, make sure the records are complete, then submit before the window shuts. Use when the claim window opens, or an inspection is coming."
 examples = [
   "Get this year's claim in before mid-May",
@@ -958,15 +957,15 @@ title = "Take the livestock numbers as at the census date"
 id = "submit"
 title = "Submit the claim"
 needs = ["map", "options", "records", "stock"]
-''',
- },
+""",
+    },
 }
 
 NEW["archive-fonds"] = {
- "job": "The Pemberton solicitors' deposit has arrived: twelve boxes, unlisted, "
-        "with a covering letter and nothing else. Get it taken in.",
- "files": {
-  "README.md": """# Thornbury Record Office
+    "job": "The Pemberton solicitors' deposit has arrived: twelve boxes, unlisted, "
+    "with a covering letter and nothing else. Get it taken in.",
+    "files": {
+        "README.md": """# Thornbury Record Office
 
 A county record office. Roughly 4km of shelving, 900 fonds, from the twelfth
 century to last year.
@@ -977,7 +976,7 @@ room open four days a week.
 This repository holds our own working documents: the accession register,
 appraisal and digitisation policy, and the finding aids as we write them.
 """,
-  "fonds/register.md": """# Accession register
+        "fonds/register.md": """# Accession register
 
 Every deposit gets an accession number on arrival: ACC/YYYY/NNN. That number
 is assigned before anything is opened, and it stays with the material.
@@ -992,7 +991,7 @@ solicitors, 12 boxes).
 
 The backlog of unlisted material is about 180 linear metres.
 """,
-  "docs/appraisal.md": """# Appraisal
+        "docs/appraisal.md": """# Appraisal
 
 Not everything is kept. Appraisal happens after accession, never before —
 material is taken in whole, then assessed.
@@ -1007,7 +1006,7 @@ value, duplicates, and published material held by the library.
 Nothing is destroyed without the depositor's written agreement and a note on
 the file saying what went and why.
 """,
-  "docs/digitisation.md": """# Digitisation
+        "docs/digitisation.md": """# Digitisation
 
 Priority is condition first, demand second. Anything at risk gets digitised
 whether or not anyone asks for it.
@@ -1021,7 +1020,7 @@ have nothing to hang off.
 Copyright is checked before anything goes online. For solicitors' and
 business records that usually means it does not.
 """,
-  "finding-aids/README.md": """# Finding aids
+        "finding-aids/README.md": """# Finding aids
 
 One finding aid per fonds, ISAD(G) structure: fonds, series, file, item.
 
@@ -1035,7 +1034,7 @@ firms, and what kind of work they did.
 Half-finished finding aids are worse than none, because they look complete in
 the catalogue. Fonds-level first, then go deeper.
 """,
-  "docs/reading-room.md": """# Reading room
+        "docs/reading-room.md": """# Reading room
 
 Open Tuesday to Friday. Readers register once, with photo ID, and order up to
 five items at a time.
@@ -1047,9 +1046,9 @@ handling. A reader refused access gets told why and who to ask.
 Production is twice a day. Nothing leaves the strongroom without being signed
 out.
 """,
- },
- "formulas": {
-  "fonds/accession.formula.toml": '''formula = "mol-accession"
+    },
+    "formulas": {
+        "fonds/accession.formula.toml": """formula = "mol-accession"
 description = "Take a deposit in: give it a number before anything is opened, record the extent and the terms, check its condition, get it shelved and then write a fonds-level description. Use when material arrives from a depositor, or a box turns up unlisted and unnumbered."
 examples = [
   "Twelve boxes in from the Pemberton solicitors, unlisted",
@@ -1088,8 +1087,8 @@ needs = ["shelve"]
 id = "acknowledge"
 title = "Acknowledge the deposit to the depositor"
 needs = ["extent"]
-''',
-  "docs/digitise.formula.toml": '''formula = "mol-digitise"
+""",
+        "docs/digitise.formula.toml": """formula = "mol-digitise"
 description = "Get a series digitised: check the catalogue entry exists and the copyright allows it, assess condition, scan to the preservation standard, then attach the derivatives. Use when something is at risk, a reader keeps asking for it, or a series is scheduled for scanning."
 examples = [
   "Digitise the negatives before they deteriorate further",
@@ -1121,8 +1120,8 @@ needs = ["catalogue", "condition"]
 id = "attach"
 title = "Attach the derivatives to the catalogue entry"
 needs = ["scan", "copyright"]
-''',
-  "finding-aids/finding-aid.formula.toml": '''formula = "mol-finding-aid"
+""",
+        "finding-aids/finding-aid.formula.toml": """formula = "mol-finding-aid"
 description = "Write the finding aid for a fonds: research the creating body, describe top-down from fonds to series to file, set the access conditions and publish it. Use when an accession needs listing, or something in the backlog is being catalogued at last."
 examples = [
   "List ACC/2026/017, it is still in the backlog",
@@ -1161,6 +1160,6 @@ needs = ["series"]
 id = "publish"
 title = "Publish it to the catalogue"
 needs = ["files", "access"]
-''',
- },
+""",
+    },
 }

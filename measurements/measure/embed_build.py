@@ -8,27 +8,37 @@ only shows that an indexed string finds itself.
 
 nomic-embed-text wants its task prefixes; documents and queries get theirs.
 """
-import importlib.machinery, importlib.util, io, json, os, subprocess, sys
 
-spec = importlib.util.spec_from_loader("dd", importlib.machinery.SourceFileLoader(
-    "dd", "../dotdiw"))
-dd = importlib.util.module_from_spec(spec); spec.loader.exec_module(dd)
+import importlib.machinery
+import importlib.util
+import json
+import os
+import subprocess
+import sys
 
-S = os.environ.get("DOTDIW_SIM_ROOT",
-    "./sim-root")
+spec = importlib.util.spec_from_loader(
+    "dd", importlib.machinery.SourceFileLoader("dd", "../dotdiw")
+)
+dd = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dd)
+
+S = os.environ.get("DOTDIW_SIM_ROOT", "./sim-root")
 sys.path.insert(0, S)
-from cover_sweep import NEG
+from cover_sweep import NEG  # noqa: E402  the sim root joins the path just above
 
 POOL = S + "/pool"
 MODEL = S + "/embedmodel/nomic.gguf"
 NEGS = [t for v in NEG.values() for t in v]
 
+
 def flat(s):
     return " ".join(str(s).split())
+
 
 def doc_text(f, drop=None):
     ex = [e for k, e in enumerate(f["examples"]) if k != drop]
     return flat("%s %s %s %s" % (f["words"], f["where"], f["desc"], " ".join(ex)))
+
 
 forms = dd.load_formulas(POOL)
 texts, meta = [], []
@@ -50,24 +60,44 @@ for k, q in enumerate(NEGS):
     meta.append(("neg", k, None))
 
 inp = S + "/embed_in.txt"
-with io.open(inp, "w", encoding="utf-8") as fh:
+with open(inp, "w", encoding="utf-8") as fh:
     fh.write("\n".join(texts) + "\n")
-print("%d texts to embed (%d formulas, %d leave-one-out docs, %d positives, %d negatives)"
-      % (len(texts), len(forms),
-         sum(1 for m in meta if m[0] == "doc_loo"),
-         sum(1 for m in meta if m[0] == "pos"),
-         sum(1 for m in meta if m[0] == "neg")))
+print(
+    "%d texts to embed (%d formulas, %d leave-one-out docs, %d positives, %d negatives)"
+    % (
+        len(texts),
+        len(forms),
+        sum(1 for m in meta if m[0] == "doc_loo"),
+        sum(1 for m in meta if m[0] == "pos"),
+        sum(1 for m in meta if m[0] == "neg"),
+    )
+)
 
 out = subprocess.run(
-    ["llama-embedding", "-m", MODEL, "-f", inp,
-     "--embd-output-format", "json", "--pooling", "mean",
-     "-c", "2048", "-b", "2048", "--embd-normalize", "2"],
-    capture_output=True, text=True)
+    [
+        "llama-embedding",
+        "-m",
+        MODEL,
+        "-f",
+        inp,
+        "--embd-output-format",
+        "json",
+        "--pooling",
+        "mean",
+        "-c",
+        "2048",
+        "-b",
+        "2048",
+        "--embd-normalize",
+        "2",
+    ],
+    capture_output=True,
+    text=True,
+)
 if out.returncode != 0:
     sys.stderr.write(out.stderr[-3000:])
     sys.exit(1)
 data = json.loads(out.stdout)["data"]
 assert len(data) == len(texts), (len(data), len(texts))
-json.dump({"meta": meta, "vec": [d["embedding"] for d in data]},
-          open(S + "/embed.json", "w"))
+json.dump({"meta": meta, "vec": [d["embedding"] for d in data]}, open(S + "/embed.json", "w"))
 print("wrote %d vectors, dim %d" % (len(data), len(data[0]["embedding"])))

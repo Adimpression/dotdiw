@@ -38,6 +38,21 @@
       "compatibility": "strengthening",
       "createdAt": "2026-11-02T18:00:00+08:00",
       "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.the-tracker-behind-a-door-of-its-own",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.tracker-door",
+        "boundary.dotdiw-to-tracker",
+        "invariant.one-tracker-door"
+      ],
+      "summary": "Put the tracker behind a door of its own: the ten operations of a tracker interface, with typed requests and responses, generated into dotdiw as a second table and answered by an adapter chosen per request, else per workspace, else the shipped default, with one implementation binding per adapter for each. Two adapters ship: local, a sqlite store under the workspace's keyed directory and the default for a new adoption, and beads, the tracker of every version before, kept to its bytes; a third, for Jira Cloud, is loaded by name from the home and proved against a stub. Four operations list, choose, check and migrate. Migration plan: a workspace adopted by an earlier version is pinned to beads by its first command and told so once; nothing a worker who chose nothing sees changes, and under beads the same twenty commands print the same bytes; dotdiw tracker migrate moves a workspace between adapters, ids kept where the target accepts them and mapped in a record under the workspace where it does not, the source never written.",
+      "reason": "Eight bodies reached one tracker by name through two runners and a stream rewrite, and the IDL named the product and its calls without an interface a second tracker could answer. Behind a door of its own the interface is the record: every adapter is held to the same types by the door and to the same scenario by the conformance suite, the bodies cross nowhere but the door, and a worker can choose a tracker, or none, without dotdiw changing.",
+      "compatibility": "strengthening",
+      "createdAt": "2026-11-03T18:00:00+08:00",
+      "approvalStatus": "draft"
     }
   ],
   "eventStructureContracts": [
@@ -426,6 +441,295 @@
           "summary": "How many ordered children it has."
         }
       ]
+    },
+    {
+      "typeId": "type.tracker-item",
+      "name": "TrackerItem",
+      "kind": "record",
+      "description": "One item of the tracker as an adapter returns it: what every tracker operation reads and writes, whichever adapter answers.",
+      "fields": [
+        {
+          "name": "id",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The adapter's id for the item; opaque to dotdiw, prefixed where the adapter honours the workspace prefix."
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The title as given."
+        },
+        {
+          "name": "kind",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "task, epic, chore or what the adapter calls them; task when unsaid."
+        },
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "open",
+              "in_progress",
+              "blocked",
+              "closed"
+            ]
+          },
+          "required": true,
+          "summary": "open, in_progress, blocked or closed."
+        },
+        {
+          "name": "priority",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "0 is highest; 2 when unsaid."
+        },
+        {
+          "name": "parent",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The parent's id, when the item is a child."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Why it was closed, when it was."
+        },
+        {
+          "name": "needs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Ids of the items this one needs closed first.",
+          "cardinality": "many"
+        },
+        {
+          "name": "createdAt",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "When it was made, as the adapter states it."
+        },
+        {
+          "name": "updatedAt",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "When it last changed, as the adapter states it."
+        }
+      ]
+    },
+    {
+      "typeId": "type.tracker-edge",
+      "name": "TrackerEdge",
+      "kind": "record",
+      "description": "A need between two items: the first cannot close while the second is open.",
+      "fields": [
+        {
+          "name": "id",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The item that needs."
+        },
+        {
+          "name": "needs",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The item it needs closed first."
+        }
+      ]
+    },
+    {
+      "typeId": "type.tracker-step",
+      "name": "TrackerStep",
+      "kind": "record",
+      "description": "One step of a formula as handed to the tracker to pour: its id within the formula, its title and the step ids it needs.",
+      "fields": [
+        {
+          "name": "id",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The step's id in the formula."
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The step's title."
+        },
+        {
+          "name": "needs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Step ids this one needs, by the formula.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    {
+      "typeId": "type.tracker-info",
+      "name": "TrackerInfo",
+      "kind": "record",
+      "description": "What an adapter says of itself: its name and version, where it came from, and what it can do.",
+      "fields": [
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The registered name: local, beads, or the name it was loaded under."
+        },
+        {
+          "name": "version",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The adapter's own version, or the product's behind it."
+        },
+        {
+          "name": "origin",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "shipped",
+              "loaded"
+            ]
+          },
+          "required": true,
+          "summary": "Inside dotdiw, or loaded by name from the home."
+        },
+        {
+          "name": "source",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The file it was loaded from, when loaded."
+        },
+        {
+          "name": "nativeNeeds",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Whether the product behind it holds needs itself, or the adapter keeps them in a sidecar."
+        },
+        {
+          "name": "checkTarget",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where tracker check may create and close items: a project, a board, a throwaway store; absent, the check refuses to run."
+        },
+        {
+          "name": "extras",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "What the adapter offers beyond the interface, by name; forward, for the beads adapter's pass-through.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    {
+      "typeId": "type.tracker-check-result",
+      "name": "TrackerCheckResult",
+      "kind": "record",
+      "description": "One operation of the conformance scenario as it ran against an adapter.",
+      "fields": [
+        {
+          "name": "operation",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The operation id."
+        },
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "pass",
+              "fail"
+            ]
+          },
+          "required": true,
+          "summary": "Whether the adapter answered as the interface says."
+        },
+        {
+          "name": "detail",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "What failed, when it did."
+        }
+      ]
     }
-  ]
+  ],
+  "openQuestions": []
 }

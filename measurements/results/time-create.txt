@@ -14,3 +14,40 @@ dotdiw's own part: 0.441 s (median less median)
 The baseline taken before the door was written, the same day with the same
 harness from a scratch directory, on a quieter machine: 0.4.1 median 0.822 s,
 min 0.803, max 0.853; bd create alone median 0.409 s.
+
+Two runs of measure/time_create.py on 2026-11-03, back to back on an idle
+machine, the same interpreter, the tracker behind its door (the branch
+tracker-behind-its-own-door, version line 0.6.0), one run per shipped
+adapter.
+
+dotdiw with the local adapter (the default for a new adoption):
+dotdiw create: median 0.134 s, min 0.132, max 0.136 (10 runs)
+no bare tracker to time: the store is one sqlite file, answered in process
+
+dotdiw with the beads adapter (--tracker beads):
+dotdiw create: median 0.903 s, min 0.853, max 0.948 (10 runs)
+bd create alone: median 0.424 s, min 0.405, max 0.451 (10 runs)
+dotdiw's own part: 0.480 s (median less median)
+
+Under beads the create path runs bd twice, the create itself and the list
+behind the handmade notice; under local both are queries, which is where the
+difference comes from. The law is under one second on both.
+
+2026-11-04, alternating single runs of two versions, fifteen rounds, on a
+machine that was not idle (load average near 5, an IDE and an emulator running),
+so the difference is what these say and the figures themselves are not a
+reading of the law:
+dotdiw 0.5.0, tracker beads: median 0.934 s, min 0.852, max 1.160
+this tree, tracker beads:    median 1.011 s, min 0.921, max 1.410
+Both run bd twice on a create. ten runs of this tree under local at the same
+load: median 0.174 s, min 0.172, max 0.197.
+
+Where the difference comes from, alternating `dotdiw learn`, which runs no
+tracker, twenty-four rounds; the script has no cached bytecode, so it is
+compiled on every run:
+0.5.0:                  median 56.0 ms; compile 11.3 ms, top level 12.3 ms
+the tracker door:       median 86.0 ms; compile 23.9 ms, top level 17.1 ms
+typed and formatted:    median 98.5 ms; compile 30.8 ms, top level 20.4 ms
+this tree:              median 101.4 ms; compile 33.1 ms, top level 21.5 ms
+
+The law has not been read on an idle machine since the typing.

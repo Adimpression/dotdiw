@@ -1,5 +1,5 @@
 formula = "mol-check-promise-artifacts"
-description = "Re-derive and check the files that write dotdiw's promise down and bind the program to them: validate the thin Product with pd, the Praxis against its schema, and the POA source model; derive operation-idl.json and finish it with poa/finish-idl.py; validate and check the IDL; check the witness contract and replay its golden and anti-golden traces; sweep the journeys; run the promise tests and the adoption tests; run the gRPC conformance harness with Buf. Use when product.yaml, praxis.yaml, poa/product-model.yaml, the IDL additions or patches, a contract, a fixture or dotdiw itself changes, when a release changes what dotdiw does or promises, or when poa check, a replay, the sweep, conform or a test fails."
+description = "Re-derive and check the files that write dotdiw's promise down and bind the program to them: validate the thin Product with pd, the Praxis against its schema, and the POA source model; derive operation-idl.json and finish it with poa/finish-idl.py, which writes the doors and the record types into dotdiw; validate and check the IDL; check the witness contract and replay its golden and anti-golden traces; sweep the journeys; format, lint and type-check the tree with ruff and mypy through uv; run the promise tests and the adoption tests; run the gRPC conformance harness with Buf. Use when product.yaml, praxis.yaml, poa/product-model.yaml, the IDL additions or patches, a contract, a fixture or dotdiw itself changes, when a release changes what dotdiw does or promises, or when poa check, a replay, the sweep, conform or a test fails."
 examples = [
   "Re-derive the operation IDL",
   "Check the promise artifacts",
@@ -8,8 +8,10 @@ examples = [
   "Update the praxis after a release",
   "dotdiw changed, is it still bound to its operations",
   "Run the gRPC conformance harness",
+  "Lint and type-check the tree",
+  "mypy fails",
 ]
-version = 3
+version = 4
 type = "workflow"
 
 # Written after running this sequence twice by hand on 2026-11-01, and again
@@ -27,6 +29,12 @@ type = "workflow"
 # inside it: promise_bindings.py resolves the operation names without loading
 # dotdiw until a body is called, and is copied into the generated Python root,
 # which is the one directory conform puts on its import path.
+#
+# Version 4: the tree is typed from the IDL and linted. finish-idl.py writes the
+# record types into dotdiw beside the doors, so a derive that changes a type
+# changes the classes the bodies are checked against; ruff and mypy run from the
+# locked dev group through uv, and a tree that does not pass them is not one to
+# commit.
 
 [[steps]]
 id = "product"
@@ -71,6 +79,16 @@ title = "Sweep journeys through operations, bindings and the contract: `~/poa sw
 needs = ["idl", "contract"]
 
 [[steps]]
+id = "lint"
+title = "Format and lint the tree: `uv run ruff format --check .` then `uv run ruff check .`, nothing reported; the generated regions of dotdiw are kept out of the formatter and left as finish-idl.py wrote them"
+needs = ["finish"]
+
+[[steps]]
+id = "types"
+title = "Type-check the tree: `uv run mypy`, no issues in every file pyproject.toml names; a body that answers with a field or a reason the IDL does not declare fails here before it fails the door"
+needs = ["finish"]
+
+[[steps]]
 id = "promise"
 title = "Hold the program to the IDL: `python3 -I test_promise.py` (the sort of every definition, the calls and external calls against the bodies, the bindings, and a real run with the witness log on that the contract calls valid), then `python3 -I test_dotdiw.py` (adoption under the home, the repair, the upgrade of earlier adoptions, and metrics)"
 needs = ["idl"]
@@ -83,4 +101,4 @@ needs = ["idl"]
 [[steps]]
 id = "readme"
 title = "If the counts or the file list changed, fix the README section 'The promise, written down' so it still says what is true"
-needs = ["sweep", "replay", "promise", "conform", "product", "praxis"]
+needs = ["sweep", "replay", "promise", "conform", "product", "praxis", "lint", "types"]

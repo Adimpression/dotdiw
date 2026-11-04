@@ -1,5 +1,5 @@
 formula = "mol-make-pull-request"
-description = "Commit and push in this project as a pull request, a PR: decide what belongs in the commit, sweep the staged change for credentials and personal data, check the conventions still hold, move the version line when a release ships the change, write a message that says what is now true, then commit — one commit per branch, its message the pull request's description — and get it onto the remote only once somebody has asked for a push and named where it goes. Use when you are about to commit, when you have changes to land, when you are writing a commit message, when something needs pushing, or when a pull request is to be created."
+description = "Commit and push in this project as a pull request, a PR: confirm there is one branch besides main and that this is it, decide what belongs in the commit, sweep the staged change for credentials and personal data, check the conventions still hold, move the version line when a release ships the change, write a message that says what is now true in plain sentences with a first line that fits the line, review it as the reader will, then commit — one commit per branch, its message the pull request's description — and get it onto the remote only once somebody has asked for a push and named where it goes. Use when you are about to commit, when you have changes to land, when you are writing a commit message, when something needs pushing, or when a pull request is to be created."
 examples = [
   "Commit what I just changed",
   "Write the commit message for this change",
@@ -9,19 +9,22 @@ examples = [
   "Squash the branch into one commit",
   "Amend the commit with this change",
   "Bump the version for the release",
+  "Rewrite the commit message plainly",
+  "Fix the pull request title",
   "Create the PR",
   "Open a pull request for this change",
 ]
-version = 6
+version = 7
 type = "workflow"
 
-# Reading the diff was the first step in version 1, and using the formula showed
-# it is never outstanding: this surfaces on `create`, and by the time you have
-# named the work you have already looked. What is still open at that moment is
-# the decision about what belongs in this commit, which is not the same thing.
+[[steps]]
+id = "branch"
+title = "Confirm there is one and only one branch besides main or master, the one this work is on; if there is none or more than one, stop and ask the user which it is before touching anything"
+
 [[steps]]
 id = "scope"
 title = "Decide what belongs in this commit and what stays out of it"
+needs = ["branch"]
 
 [[steps]]
 id = "sweep"
@@ -35,24 +38,23 @@ needs = ["scope"]
 
 [[steps]]
 id = "message"
-title = "Write the message: what is now true, why, and the number behind any claim it makes"
+title = "Write the message in plain sentences a reviewer reads once: what is now true, why, and the number behind any claim it makes; nothing the implementation log already carries at length"
 needs = ["scope"]
 
-# Version 6: the one-door change went to its pull request with the version
-# line still reading 0.4.1, and main had to be rewritten to carry it. The
-# number is part of the change that earns it.
 [[steps]]
 id = "version"
 title = "If a release ships this change, the version line in `dotdiw` moves in this commit, with the change that earns it -- a release is never a second pull request for the number"
 needs = ["scope"]
 
-# Version 5: the branch is the pull request, and the pull request's description
-# is the commit's message. GitHub prefills a one-commit pull request from that
-# message; a second commit on the branch means a description typed by hand.
+[[steps]]
+id = "review"
+title = "Read the message again as the reviewer will: check every claim and number against the staged change, and rewrite any sentence that is not clear and true on one reading"
+needs = ["message"]
+
 [[steps]]
 id = "single"
-title = "One commit per branch: amend or squash into the one that is there, never add a second. Its first line is the pull request's title and its body the description, so the message is written to stand as that"
-needs = ["message"]
+title = "One commit per branch: amend or squash into the one that is there, never add a second. Its first line is the pull request's title and its body the description, so the message is written to stand as that -- and the first line is 72 characters or fewer, because GitHub cuts a longer one at 69 and pushes the rest into the description"
+needs = ["review"]
 
 [[steps]]
 id = "commit"
@@ -64,9 +66,6 @@ id = "verify"
 title = "Confirm the tree is clean and read the commit back, to see what actually went in"
 needs = ["commit"]
 
-# Version 2 ended at the commit, so pushing had no procedure and happened twice
-# without one. A commit is yours to make. A push publishes, and publishing is
-# not yours to decide.
 [[steps]]
 id = "asked"
 title = "Stop unless a push was actually asked for. Having just committed is not a request to push, and neither is permission to commit"
@@ -92,9 +91,6 @@ id = "landed"
 title = "Read back what actually landed on the remote, and say so"
 needs = ["push"]
 
-# A push to a branch prints the pull request link and it was buried in the
-# report every time. The link is the next action; it goes at the top of what
-# you say, on its own line, not in a closing paragraph.
 [[steps]]
 id = "present"
 title = "If the push was to a branch, give the pull request link first and on its own line, before anything else you report"

@@ -7,42 +7,56 @@ earlier measurements flattered themselves.
 The question is narrow: is there any cutoff at which recall stays near bm25's
 0.93 and silence does NOT collapse as formula count rises?
 """
-import os
-import json, random, statistics, sys
 
-S = os.environ.get("DOTDIW_SIM_ROOT",
-    "./sim-root")
+import json
+import os
+import random
+import statistics
+
+S = os.environ.get("DOTDIW_SIM_ROOT", "./sim-root")
 d = json.load(open(S + "/embed.json"))
 meta, vec = d["meta"], d["vec"]
 
 docs, loo, pos, negs = {}, {}, [], []
-for (kind, a, b), v in zip(meta, vec):
-    if kind == "doc":      docs[a] = v
-    elif kind == "doc_loo": loo[(a, b)] = v
-    elif kind == "pos":     pos.append((a, b, v))
-    else:                   negs.append(v)
+for (kind, a, b), v in zip(meta, vec, strict=True):
+    if kind == "doc":
+        docs[a] = v
+    elif kind == "doc_loo":
+        loo[(a, b)] = v
+    elif kind == "pos":
+        pos.append((a, b, v))
+    else:
+        negs.append(v)
 
 NF = len(docs)
 TOP_N = 3
-def dot(a, b):
-    return sum(x * y for x, y in zip(a, b))
 
-print("%d formula documents, %d positives, %d negatives, dim %d\n"
-      % (NF, len(pos), len(negs), len(vec[0])))
+
+def dot(a, b):
+    return sum(x * y for x, y in zip(a, b, strict=True))
+
+
+print(
+    "%d formula documents, %d positives, %d negatives, dim %d\n"
+    % (NF, len(pos), len(negs), len(vec[0]))
+)
 
 # where do the two populations actually sit?
 best_pos, best_neg = [], []
 allf = list(range(NF))
 for i, j, q in pos:
-    best_pos.append(max(dot(q, loo[(i, j)] if k == i else docs[k])
-                        for k in allf))
+    best_pos.append(max(dot(q, loo[(i, j)] if k == i else docs[k]) for k in allf))
 for q in negs:
     best_neg.append(max(dot(q, docs[k]) for k in allf))
 print("best-match cosine at all %d formulas:" % NF)
-print("  real titles      median %.3f   10th pct %.3f"
-      % (statistics.median(best_pos), sorted(best_pos)[len(best_pos) // 10]))
-print("  uncovered titles median %.3f   90th pct %.3f"
-      % (statistics.median(best_neg), sorted(best_neg)[9 * len(best_neg) // 10]))
+print(
+    "  real titles      median %.3f   10th pct %.3f"
+    % (statistics.median(best_pos), sorted(best_pos)[len(best_pos) // 10])
+)
+print(
+    "  uncovered titles median %.3f   90th pct %.3f"
+    % (statistics.median(best_neg), sorted(best_neg)[9 * len(best_neg) // 10])
+)
 
 GRID = [3, 8, 12, 20, 30, 44, 56]
 CUTS = [0.50, 0.55, 0.60, 0.65, 0.70, 0.75]
@@ -56,13 +70,15 @@ for N in GRID:
     for _ in range(K if N < NF else 1):
         sub = allf if N >= NF else rng.sample(allf, N)
         subset = set(sub)
-        ok = {c: 0 for c in CUTS}; tot = 0
+        ok = {c: 0 for c in CUTS}
+        tot = 0
         for i, j, q in pos:
             if i not in subset:
                 continue
             tot += 1
-            scored = sorted(((dot(q, loo[(i, j)] if k == i else docs[k]), k)
-                             for k in sub), reverse=True)
+            scored = sorted(
+                ((dot(q, loo[(i, j)] if k == i else docs[k]), k) for k in sub), reverse=True
+            )
             for c in CUTS:
                 top = [k for s, k in scored if s >= c][:TOP_N]
                 ok[c] += i in top
