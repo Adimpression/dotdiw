@@ -1,8 +1,7 @@
-# Written on 2026-11-03 from the two adapters inside dotdiw and the one in
-# this folder. The steps are the sections of README.md beside this file; the
-# README says what each one takes, and this is what makes them pourable.
+# The steps are the sections of README.md beside this file. The README says what
+# each one takes, and this file lets `dotdiw mol pour` track them.
 formula = "mol-write-tracker-adapter"
-description = "Write an adapter for a tracker dotdiw does not ship, as one module under ~/.dotdiw/trackers/<name>.py that answers the ten operations of the tracker interface in records, prove it with dotdiw tracker check, choose it on a checkout and ship the one file. Use when a team's work lives in a tracker dotdiw has no adapter for -- Linear, GitHub Issues, Jira elsewhere, a database of your own -- when a tracker is to be put behind dotdiw, or when tracker check fails on an adapter."
+description = "Write an adapter for a tracker dotdiw does not ship, as one file, <name>.py, that answers the ten operations of the tracker interface in records, prove it with dotdiw tracker check, choose it on a checkout and ship it as a package named dotdiw-tracker-<name>. Use when a team's work lives in a tracker dotdiw has no adapter for -- Linear, GitHub Issues, Jira elsewhere, a database of your own -- when a tracker is to be put behind dotdiw, or when tracker check fails on an adapter."
 examples = [
   "Write a tracker adapter",
   "Write a tracker adapter for Linear",
@@ -11,18 +10,20 @@ examples = [
   "Connect dotdiw to the tracker we use",
   "A new tracker module under the home",
   "Ship a custom tracker",
+  "Package a tracker adapter for Homebrew",
+  "Release dotdiw-tracker-linear",
   "tracker check fails on our adapter",
 ]
-version = 1
+version = 2
 type = "workflow"
 
 [[steps]]
 id = "template"
-title = "Copy trackers/jira.py to ~/.dotdiw/trackers/<name>.py, the name lowercase letters, digits and hyphens, and keep its shape: one function per operation, the TRACKER table at the end, nothing printed"
+title = "Run dotdiw tracker new <name>, where the name uses lowercase letters, digits and hyphens, and keep the shape of the file it writes: one function per operation, the TRACKER table at the end, nothing printed"
 
 [[steps]]
 id = "table"
-title = "Fill the table: info with name, version, nativeNeeds and checkTarget; the ten operations by id, each a callable of one request; extras empty; store optional"
+title = "Fill the table: info with name, version, interface, nativeNeeds and checkTarget; the ten operations by id, each a callable of one request; extras empty; store optional"
 needs = ["template"]
 
 [[steps]]
@@ -37,7 +38,7 @@ needs = ["table"]
 
 [[steps]]
 id = "check"
-title = "Run dotdiw tracker list, then dotdiw tracker check <name> against the declared target, and fix each failing operation until ten of ten pass"
+title = "Run dotdiw tracker check ./<name>.py against the declared target, and fix each failing operation until ten of ten pass"
 needs = ["records", "credentials"]
 
 [[steps]]
@@ -52,5 +53,5 @@ needs = ["check"]
 
 [[steps]]
 id = "ship"
-title = "Copy the one file to every machine's ~/.dotdiw/trackers/; nothing in dotdiw changes"
+title = "Ship it as a package named dotdiw-tracker-<name> that depends on dotdiw and installs the one file under share/dotdiw/trackers, run the check by path in CI, and confirm dotdiw tracker list shows it from there"
 needs = ["choose", "stub"]

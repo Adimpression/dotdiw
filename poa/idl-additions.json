@@ -53,6 +53,20 @@
       "compatibility": "strengthening",
       "createdAt": "2026-11-03T18:00:00+08:00",
       "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.a-tracker-ships-by-convention",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.tracker-door",
+        "invariant.one-tracker-door"
+      ],
+      "summary": "A module is looked for in the home directory and then in share/dotdiw/trackers beside the tool; it says which interface it was written for, and any other is refused by name when it loads; dotdiw tracker check takes a file by path; dotdiw tracker new writes the file to start from, generated from the interface. Two operations ship a tracker. The tap's formula no longer installs beads. Migration plan: a module written for 0.6.0 declares no interface and is read as interface 1; a checkout on beads goes on working while the binary is on the machine, and is told the one command when it is not.",
+      "reason": "A tracker could only be copied by hand into the home directory, which a package manager cannot write to, and nothing said which interface a module was written for.",
+      "compatibility": "strengthening",
+      "createdAt": "2026-11-05T12:00:00+08:00",
+      "approvalStatus": "draft"
     }
   ],
   "eventStructureContracts": [
@@ -639,6 +653,15 @@
           "summary": "The adapter's own version, or the product's behind it."
         },
         {
+          "name": "interface",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The tracker interface it was written for; a module that says nothing was written for interface 1."
+        },
+        {
           "name": "origin",
           "valueType": {
             "kind": "enum-inline",
@@ -648,7 +671,7 @@
             ]
           },
           "required": true,
-          "summary": "Inside dotdiw, or loaded by name from the home."
+          "summary": "Inside dotdiw, or loaded by name from the home directory or share/dotdiw/trackers."
         },
         {
           "name": "source",

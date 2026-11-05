@@ -39,12 +39,15 @@ import importlib.util
 import io
 import json
 import os
+import py_compile
 import re
+import shlex
 import shutil
 import sqlite3
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from typing import TYPE_CHECKING
 
@@ -823,17 +826,15 @@ class TheName(unittest.TestCase):
         lines = p.stdout.strip().split("\n")
         self.assertEqual(len(lines), 2, p.stdout)
         self.assertRegex(lines[1], r"^  tracker beads \d+(\.\d+)+$")
-        self.assertNotIn("0.6.0", lines[1], "the tracker underneath, not this tool")
+        self.assertNotIn("0.7.0", lines[1], "the tracker underneath, not this tool")
 
     def test_without_the_tracker_the_message_is_the_install_command(self):
-        """Nothing on PATH but the system: one line, Day 0's command, exit 127."""
+        """Nothing on PATH but the system: one line, the command for the tracker
+        this checkout chose, exit 127."""
         self.repo.dotdiw("init", "--prefix", "t")
         code, out = self.repo.dotdiw("list", env=dict(self.repo.env, PATH="/usr/bin:/bin"))
         self.assertEqual(code, 127, out)
-        self.assertIn(
-            "dotdiw is not fully installed. Run: brew install adimpression/tap/dotdiw", out
-        )
-        self.assertNotRegex(out, r"(?<![\w./-])(bd|beads)(?![\w-])")
+        self.assertEqual(out.strip(), "dotdiw: beads is not installed. Run: brew install beads")
 
     def test_the_rename_says_what_is_now_true(self):
         """A file an earlier version's tracker wrote for agents names dotdiw afterwards, and the line says how many."""
@@ -1467,7 +1468,7 @@ title = "The first step"
         self.assertIn("this repository is adopted; its tracker is", out)
 
         code, out = self.dotdiw("--version")
-        self.assertEqual(out.strip().split("\n")[1], "  tracker local 0.6.0", out)
+        self.assertEqual(out.strip().split("\n")[1], "  tracker local 0.7.0", out)
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap")
         self.assertEqual(code, 0, out)
@@ -1588,6 +1589,194 @@ TRACKER = {"info": {"name": "boom", "version": "0", "checkTarget": "scratch"},
 """
 
 
+# A small adapter that passes the scenario: the operations as impl_<name>, so
+# that a test can pour them into the file `tracker new` writes.
+ACME_BODIES = """import json
+import os
+
+
+def _ok(**kw):
+    return dict({"status": "completed", "summary": "ok", "exitCode": 0}, **kw)
+
+
+def _no(reason):
+    return {"status": "failed", "summary": reason, "reason": reason, "exitCode": 1}
+
+
+def acme_store(root):
+    return os.path.join(dotdiw_workspace(root), "acme.json")
+
+
+def _load(root):
+    with open(acme_store(root), encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _save(root, data):
+    with open(acme_store(root), "w", encoding="utf-8") as fh:
+        json.dump(data, fh)
+
+
+def _make(data, title, **given):
+    data["count"] += 1
+    ident = given.pop("id", None) or "%s-%d" % (data["prefix"], data["count"])
+    item = {"id": ident, "title": title, "kind": "task", "status": "open", "priority": 2,
+            "parent": None, "reason": None, "needs": []}
+    item.update({k: v for k, v in given.items() if v is not None})
+    data["items"][ident] = item
+    return item
+
+
+def _reaches(data, start, goal):
+    seen, todo = set(), [start]
+    while todo:
+        at = todo.pop()
+        if at == goal:
+            return True
+        if at not in seen:
+            seen.add(at)
+            todo.extend(data["items"][at]["needs"])
+    return False
+
+
+def _open(data, ids):
+    return [i for i in ids if data["items"][i]["status"] != "closed"]
+
+
+def impl_open_tracker(request):
+    path = acme_store(request["root"])
+    made = not os.path.exists(path)
+    if made:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        _save(request["root"], {"prefix": request.get("prefix") or "acme", "count": 0, "items": {}})
+    return _ok(created=made, path=path)
+
+
+def impl_describe_tracker(request):
+    path = acme_store(request["root"]) if request.get("root") else None
+    info = {"name": "acme", "version": "1.0.0", "origin": "loaded"}
+    return _ok(info=info, path=path if path and os.path.exists(path) else None)
+
+
+def impl_create_item(request):
+    data = _load(request["root"])
+    parent = request.get("parent")
+    if parent and parent not in data["items"]:
+        return _no("parent-not-found")
+    item = _make(data, request["title"], id=request.get("id"), kind=request.get("kind"),
+                 priority=request.get("priority"), parent=parent)
+    _save(request["root"], data)
+    return _ok(item=item)
+
+
+def impl_add_need(request):
+    data = _load(request["root"])
+    ident, needs = request["id"], request["needs"]
+    if ident not in data["items"] or needs not in data["items"]:
+        return _no("item-not-found")
+    if _reaches(data, needs, ident):
+        return _no("cycle")
+    if needs not in data["items"][ident]["needs"]:
+        data["items"][ident]["needs"].append(needs)
+        _save(request["root"], data)
+    return _ok(edge={"id": ident, "needs": needs})
+
+
+def impl_show_item(request):
+    data = _load(request["root"])
+    item = data["items"].get(request["id"])
+    if item is None:
+        return _no("item-not-found")
+    kids = [i for i in data["items"].values() if i["parent"] == request["id"]]
+    return _ok(item=item, children=kids)
+
+
+def impl_list_items(request):
+    data = _load(request["root"])
+    items = list(data["items"].values())
+    if request.get("scope") != "all":
+        items = [i for i in items if i["status"] != "closed"]
+    if request.get("parent"):
+        items = [i for i in items if i["parent"] == request["parent"]]
+    return _ok(items=items[: request.get("limit") or len(items)])
+
+
+def impl_ready_items(request):
+    data = _load(request["root"])
+    return _ok(items=[i for i in data["items"].values()
+                      if i["status"] != "closed" and not _open(data, i["needs"])])
+
+
+def impl_close_item(request):
+    data = _load(request["root"])
+    item = data["items"].get(request["id"])
+    if item is None:
+        return _no("item-not-found")
+    kids = [i["id"] for i in data["items"].values() if i["parent"] == item["id"]]
+    blockers = _open(data, item["needs"] + kids)
+    if blockers:
+        return {"status": "blocked", "summary": "blocked", "blockedBy": blockers, "exitCode": 1}
+    item.update(status="closed", reason=request.get("closeReason"))
+    _save(request["root"], data)
+    return _ok(item=item, closedIds=[item["id"]])
+
+
+def impl_update_item(request):
+    if request.get("status") == "closed":
+        return _no("close-through-update")
+    if request.get("status") not in (None, "open", "in_progress", "blocked"):
+        return _no("bad-status")
+    data = _load(request["root"])
+    item = data["items"].get(request["id"])
+    if item is None:
+        return _no("item-not-found")
+    for key in ("title", "status", "priority", "parent"):
+        if request.get(key) is not None:
+            item[key] = request[key]
+    _save(request["root"], data)
+    return _ok(item=item)
+
+
+def impl_pour_steps(request):
+    steps = request.get("steps") or []
+    if not steps:
+        return _no("no-steps")
+    known = {s["id"] for s in steps}
+    needs = {s["id"]: list(s.get("needs") or []) for s in steps}
+    if any(n not in known for ns in needs.values() for n in ns):
+        return _no("step-not-found")
+    left = set(known)
+    while left:
+        free = {s for s in left if not set(needs[s]) & left}
+        if not free:
+            return _no("cycle")
+        left -= free
+    data = _load(request["root"])
+    root = _make(data, request["title"], kind="molecule")
+    made = {s["id"]: _make(data, s["title"], parent=root["id"]) for s in steps}
+    for s in steps:
+        made[s["id"]]["needs"] = [made[n]["id"] for n in needs[s["id"]]]
+    _save(request["root"], data)
+    return _ok(rootId=root["id"], stepIds=[made[s["id"]]["id"] for s in steps])
+
+
+"""
+ACME = (
+    ACME_BODIES
+    + """TRACKER = {
+    "info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": []},
+    "operations": {
+        "operation.%s" % name.replace("_", "-"): globals()["impl_" + name]
+        for name in ("open_tracker", "describe_tracker", "create_item", "add_need", "pour_steps",
+                     "close_item", "show_item", "list_items", "update_item", "ready_items")
+    },
+    "extras": {},
+    "store": acme_store,
+}
+"""
+)
+
+
 class TheTrackerCommands(unittest.TestCase):
     """Choosing in the open: list names the adapters and marks the
     checkout's, use writes the choice and opens the store, check proves an
@@ -1664,7 +1853,7 @@ class TheTrackerCommands(unittest.TestCase):
         lines = [line for line in out.splitlines() if line.strip()]
         self.assertEqual(len(lines), 2, out)
         self.assertRegex(lines[0], r"^  beads\s+not installed\s+shipped$")
-        self.assertRegex(lines[1], r"^  local\s+0\.6\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(lines[1], r"^  local\s+0\.7\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.repo.dotdiw("tracker", "check", "local", env=env)
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 10, out)
@@ -1682,7 +1871,10 @@ class TheTrackerCommands(unittest.TestCase):
         self.assertEqual(code, 1, out)
         code, out = self.repo.dotdiw("tracker", env=env)
         self.assertEqual(code, 2, out)
-        self.assertIn("tracker list | use <name> | check <name> | migrate <from> <to>", out)
+        self.assertIn(
+            "tracker list | use <name> | check <name or path> | new <name> | migrate <from> <to>",
+            out,
+        )
         code, out = self.repo.dotdiw("tracker", "migrate", "local", "local", env=env)
         self.assertEqual(code, 1, out)
         self.assertIn("local is the source and the target both", out)
@@ -1749,7 +1941,7 @@ class TheTrackerCommands(unittest.TestCase):
         self.assertEqual(moved[steps["Install cleanly from the tap"]]["parent"], root)
         self.assertEqual(moved[root]["kind"], "molecule")
         self.assertEqual(
-            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 0.6.0"
+            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 0.7.0"
         )
 
         code, out = repo.dotdiw("tracker", "migrate", "beads", "local")
@@ -1790,6 +1982,1350 @@ class TheTrackerCommands(unittest.TestCase):
 
 
 @unittest.skipUnless(have_bd(), "bd is not installed")
+class PrefixCase(unittest.TestCase):
+    """A copy of the tool installed in a temporary prefix laid out as Homebrew
+    lays one out, with a home directory and a repository of its own."""
+
+    def setUp(self):
+        self.top = tempfile.mkdtemp(prefix="dotdiw-prefix-")
+        self.addCleanup(shutil.rmtree, self.top, True)
+        self.home = os.path.join(self.top, "home")
+        self.repo = os.path.join(self.top, "repo")
+        self.prefix = os.path.join(self.top, "prefix")
+        self.homed = os.path.join(self.home, ".dotdiw", "trackers")
+        self.shared = os.path.join(self.prefix, "share", "dotdiw", "trackers")
+        os.makedirs(self.repo)
+        os.makedirs(self.home)
+        for args in (["init", "-q", "."], ["config", "user.email", "t@example.invalid"]):
+            subprocess.run(["git"] + args, cwd=self.repo, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "T"], cwd=self.repo, capture_output=True)
+        self.tool = self.install(os.path.join(self.prefix, "bin", "dotdiw"))
+
+    def install(self, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        shutil.copy(DOTDIW, path)
+        return path
+
+    def module(self, directory, name, text):
+        os.makedirs(directory, exist_ok=True)
+        # Bytecode is matched by size and second: a same-sized edit could run the old file.
+        shutil.rmtree(os.path.join(directory, "__pycache__"), ignore_errors=True)
+        path = os.path.join(directory, name + ".py")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return path
+
+    def run_tool(self, *args, tool=None, cwd=None, env=None, flags=("-I",)):
+        p = subprocess.run(
+            [sys.executable, *flags, tool or self.tool] + list(args),
+            cwd=cwd or self.repo,
+            env=dict({"HOME": self.home, "PATH": "/usr/bin:/bin"}, **(env or {})),
+            capture_output=True,
+            text=True,
+        )
+        return p.returncode, p.stdout + p.stderr
+
+    def line_of(self, name, out):
+        return [line for line in out.splitlines() if line.startswith("  %s " % name)]
+
+    def left_in_the_home_directory(self):
+        try:
+            return os.listdir(os.path.join(self.home, ".dotdiw"))
+        except OSError:
+            return []
+
+
+# A check by path and then ordinary work in one process, as the bindings allow.
+IN_ONE_PROCESS = """
+import json
+import sys
+
+sys.path.insert(0, %(here)r)
+import promise_bindings as bound
+
+dotdiw = bound.load_dotdiw()
+root, path, first = %(root)r, %(path)r, %(first)r
+
+
+def who():
+    out = bound.DescribeTracker({"tracker": "acme"})
+    module = sys.modules.get("dotdiw_tracker_acme")
+    return {
+        "version": (out.get("info") or {}).get("version"),
+        "reason": out.get("reason"),
+        "module": module.__file__ if module else None,
+        "tried": "acme" in dotdiw.LOAD_TRIED,
+        "failed": dotdiw.LOAD_FAILED.get("acme"),
+    }
+
+
+before = who() if first else None
+checked = bound.CheckTracker({"root": root, "name": "acme", "path": path})
+print(
+    json.dumps(
+        {
+            "before": before,
+            "summary": checked["summary"],
+            "passed": checked.get("passed"),
+            "after": who(),
+            "bytecode": sys.dont_write_bytecode,
+        }
+    )
+)
+"""
+
+
+class ACheckByPathLeavesTheProcessAsItWas(PrefixCase):
+    """Through the bindings a process outlives a check. Whatever a file checked by
+    path did to the registry would go on answering ordinary work."""
+
+    def candidate(self, text=None):
+        return self.module(
+            os.path.join(self.repo, "sub"), "acme", text or ACME.replace("1.0.0", "9.9.9")
+        )
+
+    def in_one_process(self, path, first=True):
+        p = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                IN_ONE_PROCESS
+                % {
+                    "here": os.path.dirname(DOTDIW),
+                    "root": self.repo,
+                    "path": path,
+                    "first": first,
+                },
+            ],
+            cwd=self.repo,
+            env={"HOME": self.home, "PATH": "/usr/bin:/bin"},
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stderr)
+        ran = json.loads(p.stdout.splitlines()[-1])
+        self.assertFalse(ran["bytecode"], "writing bytecode comes back on")
+        return ran
+
+    def assert_the_installed_file_answers(self, who):
+        self.assertEqual(who["version"], "1.0.0", who)
+        self.assertEqual(who["module"], os.path.realpath(os.path.join(self.homed, "acme.py")), who)
+        self.assertFalse(who["tried"], who)
+        self.assertIsNone(who["failed"], who)
+
+    def test_the_adapter_that_was_answering_answers_again(self):
+        self.module(self.homed, "acme", ACME)
+        ran = self.in_one_process(self.candidate())
+        self.assert_the_installed_file_answers(ran["before"])
+        self.assertTrue(ran["passed"], ran)
+        self.assert_the_installed_file_answers(ran["after"])
+
+    def test_an_adapter_not_loaded_yet_still_loads_from_its_own_file(self):
+        self.module(self.homed, "acme", ACME)
+        ran = self.in_one_process(self.candidate(), first=False)
+        self.assertTrue(ran["passed"], ran)
+        self.assert_the_installed_file_answers(ran["after"])
+
+    def test_a_file_that_failed_the_scenario_is_gone_too(self):
+        self.module(self.homed, "acme", ACME)
+        start = "def impl_create_item(request):\n"
+        ran = self.in_one_process(
+            self.candidate(ACME.replace(start, start + '    raise RuntimeError("no")\n'))
+        )
+        self.assertFalse(ran["passed"], ran)
+        self.assert_the_installed_file_answers(ran["after"])
+
+    def test_a_file_that_did_not_load_takes_nothing_away(self):
+        self.module(self.homed, "acme", ACME)
+        ran = self.in_one_process(self.candidate("def broken(:\n"))
+        self.assertIn("did not load", ran["summary"])
+        self.assert_the_installed_file_answers(ran["after"])
+
+    def test_a_file_that_did_not_load_counts_against_nothing(self):
+        self.module(self.homed, "acme", ACME)
+        ran = self.in_one_process(self.candidate("def broken(:\n"), first=False)
+        self.assertIn("did not load", ran["summary"])
+        self.assert_the_installed_file_answers(ran["after"])
+
+    def test_with_nothing_installed_no_adapter_is_left_under_that_name(self):
+        ran = self.in_one_process(self.candidate(), first=False)
+        self.assertTrue(ran["passed"], ran)
+        self.assertEqual(ran["after"]["reason"], "tracker-unknown", ran)
+        self.assertIsNone(ran["after"]["module"], ran)
+
+    def test_a_failure_already_recorded_is_still_said(self):
+        self.module(self.homed, "acme", "def broken(:\n")
+        ran = self.in_one_process(self.candidate())
+        self.assertEqual(ran["before"]["reason"], "adapter-failed", ran)
+        self.assertTrue(ran["passed"], ran)
+        self.assertEqual(ran["after"], ran["before"])
+
+
+class ThePlanFormula(PrefixCase):
+    """What track-items-plan-file.formula.toml promises about a plan's order and its
+    text. The walk is the layout its steps name, on each tracker at hand."""
+
+    def steps(self):
+        path = os.path.join(os.path.dirname(DOTDIW), "track-items-plan-file.formula.toml")
+        with open(path, "rb") as fh:
+            return {step["id"]: step["title"] for step in tomllib.load(fh)["steps"]}
+
+    def made(self, title, *args, env=None):
+        code, out = self.run_tool("create", title, *args, env=env)
+        self.assertEqual(code, 0, out)
+        return group1(r"Created issue: (\S+)", out)
+
+    def refused(self, ident, env=None):
+        code, out = self.run_tool("close", ident, env=env)
+        self.assertNotEqual(code, 0, out)
+
+    def closed(self, ident, env=None):
+        code, out = self.run_tool("close", ident, env=env)
+        self.assertEqual(code, 0, out)
+
+    def ready(self, env=None):
+        code, out = self.run_tool("ready", env=env)
+        self.assertEqual(code, 0, out)
+        return out
+
+    def walk(self, tracker, env=None):
+        code, out = self.run_tool("init", "--tracker", tracker, env=env)
+        self.assertEqual(code, 0, out)
+        root = self.made("The plan", env=env)
+        first = self.made("Phase one", "--parent", root, env=env)
+        second = self.made("Phase two", "--parent", root, env=env)
+        code, out = self.run_tool("dep", "add", second, first, env=env)
+        self.assertEqual(code, 0, out)
+        sooner = self.made("Build the worker", "--parent", first, env=env)
+        later = self.made("Ship the worker", "--parent", second, env=env)
+        code, out = self.run_tool("dep", "add", later, first, env=env)
+        self.assertEqual(code, 0, out)
+        out = self.ready(env)
+        self.assertIn(sooner, out)
+        self.assertNotIn(later, out)
+        self.refused(later, env)
+        self.refused(first, env)  # a phase does not close over its open items
+        self.closed(sooner, env)
+        self.closed(first, env)
+        self.assertIn(later, self.ready(env))
+        self.closed(later, env)
+        self.closed(second, env)
+        self.closed(root, env)
+
+    def test_the_layout_keeps_the_order_under_local(self):
+        self.walk("local")
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_the_layout_keeps_the_order_under_beads(self):
+        self.walk("beads", {"PATH": "%s:/usr/bin:/bin" % os.path.dirname(shutil.which("bd") or "")})
+
+    def test_a_child_does_not_take_on_its_parents_needs_under_local(self):
+        """Why the formula writes the edge. Should this change, the formula can drop it."""
+        code, out = self.run_tool("init", "--tracker", "local")
+        self.assertEqual(code, 0, out)
+        before = self.made("Phase one")
+        parent = self.made("Phase two")
+        code, out = self.run_tool("dep", "add", parent, before)
+        self.assertEqual(code, 0, out)
+        self.assertIn(self.made("Ship the worker", "--parent", parent), self.ready())
+
+    def test_the_formula_writes_the_edge_and_verifies_it(self):
+        steps = self.steps()
+        self.assertIn("`dep add` each item of a later phase", steps["items"])
+        self.assertIn("`dotdiw ready` lists no item of a later phase", steps["verify"])
+        self.assertIn("`dotdiw close` on one is refused", steps["verify"])
+
+    def test_the_plan_file_keeps_each_items_text(self):
+        steps = self.steps()
+        self.assertIn("keep the item's full text where it is", steps["point"])
+        self.assertIn("every item's full text", steps["verify"])
+
+
+class ThePlacesAModuleIsFound(PrefixCase):
+    """A package cannot write to a home directory, so a module is also found in
+    share/dotdiw/trackers beside the tool. A shipped name comes first, then the
+    home directory, then share."""
+
+    def test_a_module_beside_bin_is_found_and_answers(self):
+        path = self.module(self.shared, "acme", ACME)
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("loaded, from %s" % path, self.line_of("acme", out)[0])
+        code, out = self.run_tool("tracker", "check", "acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("✓ acme passed 10 of 10.", out)
+        code, out = self.run_tool("init", "--tracker", "acme", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        code, out = self.run_tool("create", "Work on acme")
+        self.assertEqual(code, 0, out)
+        code, out = self.run_tool("list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Work on acme", out)
+
+    def test_the_home_directory_comes_first(self):
+        self.module(self.shared, "acme", ACME.replace('"1.0.0"', '"1.0.0-shared"'))
+        path = self.module(self.homed, "acme", ACME.replace('"1.0.0"', '"1.0.0-home"'))
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        lines = self.line_of("acme", out)
+        self.assertEqual(len(lines), 1, out)
+        self.assertIn("1.0.0-home", lines[0])
+        self.assertIn(path, lines[0])
+
+    def test_a_shipped_name_comes_before_both(self):
+        for directory in (self.homed, self.shared):
+            self.module(directory, "local", 'raise RuntimeError("never run")\n')
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertRegex(self.line_of("local", out)[0], r"shipped")
+        self.assertNotIn("did not load", out)
+
+    def test_a_keg_reads_the_directory_above_cellar(self):
+        keg = self.install(os.path.join(self.prefix, "Cellar", "dotdiw", "9.9", "bin", "dotdiw"))
+        os.makedirs(os.path.join(self.prefix, "opt"))
+        os.symlink(
+            os.path.join("..", "Cellar", "dotdiw", "9.9"),
+            os.path.join(self.prefix, "opt", "dotdiw"),
+        )
+        os.remove(self.tool)
+        os.symlink(os.path.join("..", "Cellar", "dotdiw", "9.9", "bin", "dotdiw"), self.tool)
+        path = self.module(self.shared, "acme", ACME)
+        for tool in (keg, self.tool, os.path.join(self.prefix, "opt", "dotdiw", "bin", "dotdiw")):
+            with self.subTest(tool=tool):
+                code, out = self.run_tool("tracker", "list", tool=tool)
+                self.assertEqual(code, 0, out)
+                self.assertIn(path, self.line_of("acme", out)[0])
+
+    def test_a_tool_outside_a_bin_directory_reads_only_the_home_directory(self):
+        checkout = self.install(os.path.join(self.top, "checkout", "dotdiw"))
+        self.module(os.path.join(self.top, "share", "dotdiw", "trackers"), "acme", ACME)
+        code, out = self.run_tool("tracker", "list", tool=checkout)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.line_of("acme", out), [], out)
+
+    def test_a_broken_module_does_not_fall_through_to_a_later_directory(self):
+        self.module(self.homed, "acme", "def broken(:\n")
+        self.module(self.shared, "acme", ACME)
+        code, out = self.run_tool("tracker", "use", "acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("dotdiw: acme did not load from %s" % self.homed, out)
+        self.assertNotIn("Traceback", out)
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("did not load", self.line_of("acme", out)[0])
+
+    def test_a_store_that_raises_is_no_traceback(self):
+        """Asking which adapter holds a store reaches every registered adapter,
+        when a checkout has no choice written, so one module's mistake there must
+        not stop another answering."""
+        boom = ACME.replace(
+            'return os.path.join(dotdiw_workspace(root), "acme.json")',
+            'raise RuntimeError("the store has a bug")',
+        )
+        self.module(self.homed, "acme", boom)
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("(this checkout)", self.line_of("local", out)[0])
+
+    def test_another_interface_is_one_line_from_the_command_line(self):
+        self.module(
+            self.shared,
+            "acme",
+            ACME.replace('"checkTarget": "scratch",', '"checkTarget": "scratch", "interface": 99,'),
+        )
+        code, out = self.run_tool("tracker", "use", "acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("written for tracker interface 99; this dotdiw supports interface 1", out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(len([s for s in out.splitlines() if s.strip()]), 1, out)
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("did not load", self.line_of("acme", out)[0])
+
+    def test_a_file_is_checked_by_path_without_installing_it(self):
+        path = self.module(os.path.join(self.repo, "sub"), "acme", ACME)
+        code, out = self.run_tool("tracker", "check", "./sub/acme.py")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out.count("  pass  operation."), 10, out)
+        self.assertIn("\u2713 acme passed 10 of 10.", out)
+        self.assertEqual(self.left_in_the_home_directory(), [], "nothing is installed")
+        self.assertEqual(os.listdir(os.path.dirname(path)), ["acme.py"], "nothing beside it")
+
+    def test_a_check_by_path_reads_the_file_and_not_its_bytecode(self):
+        """Bytecode is matched by size and second, so a same-sized edit within one
+        second still looks current. The file is what gets checked, and what is
+        cached beside it stays as it was."""
+        start = "def impl_create_item(request):\n"
+        broken = '    raise RuntimeError("edited")\n'
+        working = "    pass".ljust(len(broken) - 1) + "\n"
+        path = self.module(self.repo, "acme", ACME.replace(start, start + working))
+        cached = importlib.util.cache_from_source(path)
+        py_compile.compile(
+            path,
+            cfile=cached,
+            doraise=True,
+            invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP,
+        )
+        with open(cached, "rb") as fh:
+            held = fh.read()
+        when = os.stat(path)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(ACME.replace(start, start + broken))
+        os.utime(path, ns=(when.st_atime_ns, when.st_mtime_ns))
+        self.assertEqual(os.stat(path).st_size, when.st_size)
+        code, out = self.run_tool("tracker", "check", "./acme.py")
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL  operation.create-item", out)
+        self.assertIn("edited", out)
+        with open(cached, "rb") as fh:
+            self.assertEqual(fh.read(), held)
+
+    def test_what_a_checked_file_imports_leaves_no_bytecode_beside_it(self):
+        """While the file loads, and while the scenario runs."""
+        directory = os.path.join(self.repo, "sub")
+        for name in ("helper_at_load", "helper_later"):
+            self.module(directory, name, "VALUE = 1\n")
+        start = "def impl_create_item(request):\n"
+        self.module(
+            directory,
+            "acme",
+            "import os\nimport sys\n\n"
+            "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\n"
+            "import helper_at_load\n\n" + ACME.replace(start, start + "    import helper_later\n"),
+        )
+        code, out = self.run_tool("tracker", "check", "./sub/acme.py")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(
+            sorted(os.listdir(directory)), ["acme.py", "helper_at_load.py", "helper_later.py"]
+        )
+
+    def test_a_word_ending_in_py_is_a_file_in_the_current_directory(self):
+        self.module(self.repo, "acme", ACME)
+        code, out = self.run_tool("tracker", "check", "acme.py")
+        self.assertEqual(code, 0, out)
+        self.assertIn("\u2713 acme passed 10 of 10.", out)
+
+    def test_a_file_is_checked_outside_any_repository(self):
+        outside = os.path.join(self.top, "outside")
+        self.module(outside, "acme", ACME)
+        code, out = self.run_tool("tracker", "check", "./acme.py", cwd=outside)
+        self.assertEqual(code, 0, out)
+        self.assertIn("\u2713 acme passed 10 of 10.", out)
+
+    def test_a_path_is_what_is_checked_when_the_name_is_also_installed(self):
+        self.module(self.homed, "acme", "def broken(:\n")
+        self.module(self.repo, "acme", ACME)
+        code, out = self.run_tool("tracker", "check", "./acme.py")
+        self.assertEqual(code, 0, out)
+        self.assertIn("\u2713 acme passed 10 of 10.", out)
+
+    def test_a_file_whose_operations_all_raise_gets_a_line_each(self):
+        raising = "OPERATIONS = %r\n" % sorted(
+            "operation.%s" % n
+            for n in (
+                "open-tracker",
+                "describe-tracker",
+                "create-item",
+                "add-need",
+                "pour-steps",
+                "close-item",
+                "show-item",
+                "list-items",
+                "update-item",
+                "ready-items",
+            )
+        )
+        raising += (
+            "def _raises(request):\n"
+            '    raise NotImplementedError("not yet")\n'
+            'TRACKER = {"info": {"name": "acme", "version": "0", "checkTarget": "scratch"},\n'
+            '           "operations": {op: _raises for op in OPERATIONS}}\n'
+        )
+        self.module(self.repo, "acme", raising)
+        code, out = self.run_tool("tracker", "check", "./acme.py")
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.count("  FAIL  operation."), 10, out)
+        self.assertIn("\u2717 acme failed at operation.open-tracker", out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(self.left_in_the_home_directory(), [])
+
+    def test_a_file_that_cannot_be_checked_is_one_line(self):
+        self.module(self.repo, "broken", "def broken(:\n")
+        self.module(self.repo, "notatracker", "VALUE = 1\n")
+        self.module(self.repo, "Bad_Name", ACME)
+        self.module(self.repo, "local", ACME)
+        for word, says in (
+            ("./gone.py", "is not a file"),
+            ("./broken.py", "broken did not load from "),
+            ("./notatracker.py", "holds no TRACKER table"),
+            ("./Bad_Name.py", "lowercase letters, digits and hyphens"),
+            ("./local.py", "is the name of an adapter built into dotdiw"),
+        ):
+            with self.subTest(word=word):
+                code, out = self.run_tool("tracker", "check", word)
+                self.assertEqual(code, 1, out)
+                self.assertIn(says, out)
+                self.assertNotIn("Traceback", out)
+                self.assertEqual(len([s for s in out.splitlines() if s.strip()]), 1, out)
+
+    def test_a_name_outside_the_rule_stays_refused(self):
+        self.module(self.shared, "acme", ACME)
+        code, out = self.run_tool("tracker", "use", "../trackers/acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("is not a tracker here", out)
+
+    def test_a_package_leaves_nothing_in_the_directory_packages_share(self):
+        keg = os.path.join(self.prefix, "Cellar", "dotdiw-tracker-acme", "1", "share", "trackers")
+        real = self.module(keg, "acme", ACME)
+        os.makedirs(self.shared)
+        os.symlink(real, os.path.join(self.shared, "acme.py"))
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn(os.path.join(self.shared, "acme.py"), self.line_of("acme", out)[0])
+        self.assertEqual(os.listdir(self.shared), ["acme.py"])
+
+
+class TheFileATrackerStartsFrom(PrefixCase):
+    """dotdiw tracker new writes one file: the ten operations raising until
+    they are filled, and the table that declares them. The check says which are
+    left, and filled in it passes."""
+
+    OPERATIONS = (
+        "open_tracker",
+        "describe_tracker",
+        "create_item",
+        "add_need",
+        "pour_steps",
+        "close_item",
+        "show_item",
+        "list_items",
+        "update_item",
+        "ready_items",
+    )
+
+    def written(self, *where):
+        with open(os.path.join(self.repo, *where), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_it_is_written_and_fails_one_line_per_operation(self):
+        code, out = self.run_tool("tracker", "new", "acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("\u2713 Wrote acme.py", out)
+        self.assertIn("dotdiw tracker check ./acme.py", out)
+        self.assertEqual(self.left_in_the_home_directory(), [], "only the file is written")
+        self.assertEqual(os.listdir(self.repo).count("acme.py"), 1)
+        text = self.written("acme.py")
+        self.assertIn('"name": "acme"', text)
+        self.assertIn('"interface": 1', text)
+        self.assertNotIn("<NAME>", text)
+        for internal in ("correlationId", "trackerRef", "terminal", "printed", "resultRefs"):
+            self.assertNotIn(internal, text)
+        code, out = self.run_tool("tracker", "check", "./acme.py")
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.count("  FAIL  operation."), 10, out)
+        self.assertNotIn("Traceback", out)
+
+    def test_filled_in_it_passes(self):
+        code, out = self.run_tool("tracker", "new", "acme")
+        self.assertEqual(code, 0, out)
+        text = self.written("acme.py")
+        for name in self.OPERATIONS:
+            raising = 'raise NotImplementedError("%s")' % name
+            self.assertEqual(text.count(raising), 1, name)
+            text = text.replace(raising, "return impl_%s(request)" % name)
+        first = text.index("def open_tracker")
+        filled = text[:first] + ACME_BODIES + text[first:]
+        with open(os.path.join(self.repo, "acme.py"), "w", encoding="utf-8") as fh:
+            fh.write(filled)
+        code, out = self.run_tool("tracker", "check", "./acme.py")
+        self.assertEqual(code, 0, out)
+        self.assertIn("\u2713 acme passed 10 of 10.", out)
+        self.module(self.shared, "acme", filled)
+        code, out = self.run_tool("tracker", "check", "acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("\u2713 acme passed 10 of 10.", out)
+
+    def test_it_goes_where_it_is_told(self):
+        os.makedirs(os.path.join(self.repo, "one"))
+        os.makedirs(os.path.join(self.repo, "two"))
+        for args, where in ((("--at", "one"), "one"), (("--at=two",), "two")):
+            with self.subTest(args=args):
+                code, out = self.run_tool("tracker", "new", "acme", *args)
+                self.assertEqual(code, 0, out)
+                self.assertIn("\u2713 Wrote %s" % os.path.join(where, "acme.py"), out)
+                self.assertIn("dotdiw tracker check ./%s/acme.py" % where, out)
+                self.assertTrue(os.path.isfile(os.path.join(self.repo, where, "acme.py")))
+
+    def test_a_file_elsewhere_is_named_by_its_whole_path(self):
+        elsewhere = os.path.join(self.top, "elsewhere")
+        os.makedirs(elsewhere)
+        code, out = self.run_tool("tracker", "new", "acme", "--at", elsewhere)
+        self.assertEqual(code, 0, out)
+        self.assertIn("\u2713 Wrote %s" % os.path.join(elsewhere, "acme.py"), out)
+        self.assertIn("dotdiw tracker check %s says" % os.path.join(elsewhere, "acme.py"), out)
+        self.assertNotIn("..", out)
+
+    def test_at_with_nothing_after_it_is_refused(self):
+        for args in (("foo", "--at"), ("foo", "--at=")):
+            with self.subTest(args=args):
+                code, out = self.run_tool("tracker", "new", *args)
+                self.assertEqual(code, 2, out)
+                self.assertIn("tracker list | use", out)
+                self.assertEqual(os.listdir(self.repo), [".git"])
+
+    def test_it_needs_no_repository(self):
+        outside = os.path.join(self.top, "outside")
+        os.makedirs(outside)
+        code, out = self.run_tool("tracker", "new", "acme", cwd=outside)
+        self.assertEqual(code, 0, out)
+        self.assertTrue(os.path.isfile(os.path.join(outside, "acme.py")))
+
+    def test_what_it_refuses_is_one_line_and_writes_nothing(self):
+        with open(os.path.join(self.repo, "taken.py"), "w", encoding="utf-8") as fh:
+            fh.write("# already here\n")
+        for args, says in (
+            (("taken",), "already exists"),
+            (("Bad_Name",), "lowercase letters, digits and hyphens"),
+            (("../acme",), "lowercase letters, digits and hyphens"),
+            (("local",), "is the name of an adapter built into dotdiw"),
+            (("beads",), "is the name of an adapter built into dotdiw"),
+            (("acme", "--at", "nowhere"), "nowhere"),
+        ):
+            with self.subTest(args=args):
+                before = sorted(os.listdir(self.repo))
+                code, out = self.run_tool("tracker", "new", *args)
+                self.assertEqual(code, 1, out)
+                self.assertIn(says, out)
+                self.assertNotIn("Traceback", out)
+                self.assertEqual(len([s for s in out.splitlines() if s.strip()]), 1, out)
+                self.assertEqual(sorted(os.listdir(self.repo)), before)
+        self.assertEqual(self.written("taken.py"), "# already here\n")
+        code, out = self.run_tool("tracker", "new")
+        self.assertEqual(code, 2, out)
+        self.assertIn("new <name>", out)
+
+
+class WithoutTheBeadsBinary(unittest.TestCase):
+    """Beads is optional. With no binary a new adoption and a day's work pass
+    under the store dotdiw brings, and a checkout that chose beads is told the
+    one command, in one line, whatever it asked for."""
+
+    SAID = "dotdiw: beads is not installed. Run: brew install beads"
+
+    def setUp(self):
+        self.repo = Repo(tracker=None)
+        self.addCleanup(self.repo.close)
+        self.env = dict(self.repo.env, PATH="/usr/bin:/bin")
+
+    def on_beads_with_the_binary_gone(self):
+        code, out = self.repo.dotdiw("init", "--tracker", "beads", "--prefix", "b")
+        self.assertEqual(code, 0, out)
+        code, out = self.repo.dotdiw("create", "Before it went away")
+        self.assertEqual(code, 0, out)
+        return group1(r"Created issue: (\S+)", out)
+
+    def test_a_day_of_work_needs_no_binary(self):
+        code, out = self.repo.dotdiw("init", "--prefix", "w", env=self.env)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.repo.config("dotdiw.tracker"), "local")
+        code, out = self.repo.dotdiw("create", "A piece of work", env=self.env)
+        self.assertEqual(code, 0, out)
+        ident = group1(r"Created issue: (\S+)", out)
+        for args in (("list",), ("ready",), ("show", ident), ("close", ident)):
+            code, out = self.repo.dotdiw(*args, env=self.env)
+            self.assertEqual(code, 0, out)
+        code, out = self.repo.dotdiw("tracker", "list", env=self.env)
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^  beads\s+not installed\s+shipped$")
+        code, out = self.repo.dotdiw("--version", env=self.env)
+        self.assertEqual(code, 0, out)
+        self.assertIn("tracker local", out)
+        self.assertNotIn("not installed", out)
+
+    def test_choosing_beads_with_no_binary_writes_nothing(self):
+        for args in (("init", "--tracker", "beads", "--prefix", "b"), ("tracker", "use", "beads")):
+            with self.subTest(args=args):
+                code, out = self.repo.dotdiw(*args, env=self.env)
+                self.assertNotEqual(code, 0, out)
+                self.assertEqual(out.strip(), self.SAID)
+                self.assertEqual(self.repo.config("dotdiw.tracker"), "")
+                self.assertEqual(os.listdir(self.repo.path), [".git"], "nothing in the tree")
+
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_a_checkout_on_beads_is_told_the_one_command(self):
+        ident = self.on_beads_with_the_binary_gone()
+        for args in (
+            ("create", "After it went away"),
+            ("list",),
+            ("ready",),
+            ("show", ident),
+            ("close", ident),
+            ("update", ident, "--title", "New"),
+            ("dep", "add", ident, ident),
+            ("mol", "pour", "mol-anything"),
+            ("frobnicate",),
+            ("tracker", "check", "beads"),
+        ):
+            with self.subTest(args=args):
+                code, out = self.repo.dotdiw(*args, env=self.env)
+                self.assertNotEqual(code, 0, out)
+                self.assertEqual(out.strip(), self.SAID)
+        code, out = self.repo.dotdiw("tracker", "list", env=self.env)
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^  beads\s+not installed\s+shipped\s+\(this checkout\)$")
+        code, out = self.repo.dotdiw("--version", env=self.env)
+        self.assertEqual(code, 0, out)
+
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_steps_from_work_on_a_tracker_that_is_gone_says_so(self):
+        ident = self.on_beads_with_the_binary_gone()
+        code, out = self.repo.dotdiw("formula", "new", "Repeat it", "--from", ident, env=self.env)
+        self.assertEqual(code, 127, out)
+        self.assertEqual(out.strip(), self.SAID)
+        self.assertNotIn("repeat-it.formula.toml", os.listdir(self.repo.path))
+
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_the_work_is_there_when_the_binary_comes_back(self):
+        self.on_beads_with_the_binary_gone()
+        code, out = self.repo.dotdiw("list", env=self.env)
+        self.assertNotEqual(code, 0, out)
+        code, out = self.repo.dotdiw("list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Before it went away", out)
+
+
+class TheScenarioOnAnAdapterThatFails(PrefixCase):
+    """An operation that could not be tried says why, in words."""
+
+    def test_a_later_operation_says_an_earlier_one_did_not_pass(self):
+        code, out = self.run_tool("tracker", "new", "acme")
+        self.assertEqual(code, 0, out)
+        code, out = self.run_tool("tracker", "check", "./acme.py")
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("KeyError", out)
+        self.assertIn("create-item", [s for s in out.splitlines() if "add-need" in s][0])
+
+
+class TheCommandsPrinted(PrefixCase):
+    """A printed command is there to be run, whatever a directory is called."""
+
+    def test_the_check_after_tracker_new_runs_as_printed(self):
+        for at in ("new adapters", "it's $HOME; (a)", os.path.join(self.top, "out side")):
+            with self.subTest(at=at):
+                directory = os.path.join(self.repo, at)
+                os.makedirs(directory)
+                code, out = self.run_tool("tracker", "new", "acme", "--at", at)
+                self.assertEqual(code, 0, out)
+                line = next(line for line in out.splitlines() if "tracker check" in line)
+                words = shlex.split(line.split(" says which")[0])
+                self.assertEqual(words[:3], ["dotdiw", "tracker", "check"], line)
+                self.assertEqual(len(words), 4, line)
+                self.assertTrue(
+                    os.path.samefile(
+                        os.path.join(self.repo, words[3]), os.path.join(directory, "acme.py")
+                    ),
+                    line,
+                )
+                code, out = self.run_tool(*words[1:])
+                self.assertEqual(code, 1, out)  # 2 would be the usage error
+                self.assertIn("FAIL  operation.", out)
+
+    def test_the_git_add_after_formula_new_runs_as_printed(self):
+        for at in ("my procedures", "it's $HOME; (a)"):
+            with self.subTest(at=at):
+                os.makedirs(os.path.join(self.repo, at))
+                code, out = self.run_tool("formula", "new", "Cut a release", "--at", at)
+                self.assertEqual(code, 0, out)
+                line = next(line for line in out.splitlines() if "git add" in line)
+                words = shlex.split(line.split("Then:")[1])
+                self.assertEqual(words[:2], ["git", "add"], line)
+                self.assertEqual(words[3], "&&", line)
+                added = subprocess.run(words[:3], cwd=self.repo, capture_output=True, text=True)
+                self.assertEqual(added.returncode, 0, added.stderr)
+
+
+class WhatAModuleGetsWrong(PrefixCase):
+    """A module is someone else's code. Whatever it gets wrong is said in one
+    line, the command's exit says so, and the worker's checkout stays as it was."""
+
+    ELSEWHERE = (
+        (
+            'return os.path.join(dotdiw_workspace(root), "acme.json")',
+            'return os.path.join(os.path.expanduser("~"), "acme-elsewhere.json")',
+        ),
+        ('    "store": acme_store,\n', ""),
+    )
+
+    def acme(self, *changes, directory=None, name="acme"):
+        text = ACME
+        for old, new in changes:
+            self.assertIn(old, text)
+            text = text.replace(old, new)
+        return self.module(directory or self.homed, name, text)
+
+    def key(self, name="dotdiw.workspace"):
+        return subprocess.run(
+            ["git", "config", "--local", "--get", name],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    def in_the_tree(self):
+        return sorted(os.listdir(self.repo))
+
+    def test_the_check_leaves_the_checkout_alone_when_git_dir_is_set(self):
+        """A hook runs with GIT_DIR exported, and the scratch repository is
+        still the scratch one."""
+        code, out = self.run_tool("init", "--tracker", "local")
+        self.assertEqual(code, 0, out)
+        key = self.key()
+        code, out = self.run_tool("create", "Work that must stay found")
+        self.assertEqual(code, 0, out)
+        path = self.acme(directory=self.top)
+        git_dir = os.path.join(self.repo, ".git")
+        for args in (("tracker", "check", path), ("tracker", "check", "local")):
+            with self.subTest(args=args):
+                code, out = self.run_tool(*args, env={"GIT_DIR": git_dir})
+                self.assertEqual(code, 0, out)
+                self.assertIn("passed 10 of 10", out)
+                self.assertEqual(self.key(), key)
+                self.assertEqual(self.key("dotdiw.tracker"), "local")
+        code, out = self.run_tool("list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Work that must stay found", out)
+
+    def test_a_module_that_exits_on_load_is_refused(self):
+        path = self.module(self.homed, "quitter", "import sys\nsys.exit(0)\n")
+        code, out = self.run_tool("tracker", "check", path)
+        self.assertEqual(code, 1, out)
+        self.assertIn("quitter did not load from", out)
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("did not load", self.line_of("quitter", out)[0])
+        self.assertTrue(self.line_of("local", out), out)
+
+    def test_an_operation_that_exits_fails_the_check(self):
+        path = self.acme(
+            (
+                "def impl_create_item(request):\n",
+                "def impl_create_item(request):\n    raise SystemExit(0)\n",
+            ),
+            directory=self.top,
+        )
+        code, out = self.run_tool("tracker", "check", path)
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"FAIL  operation.create-item: .*SystemExit")
+        self.assertEqual(len(re.findall(r"(?m)^  (?:pass|FAIL)  ", out)), 10, out)
+
+    def test_a_chosen_module_that_exits_does_not_silence_a_command(self):
+        self.acme()
+        self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+        self.module(self.homed, "acme", "import sys\nsys.exit(0)\n")
+        for args in (("create", "Named"), ("list",), ("tracker", "new", "other", "--at", self.top)):
+            with self.subTest(args=args):
+                code, out = self.run_tool(*args)
+                if args[0] != "tracker":
+                    self.assertEqual(code, 1, out)
+                    self.assertIn("acme did not load from", out)
+                else:
+                    self.assertEqual(code, 0, out)
+
+    def test_a_metrics_extra_that_exits_does_not_stop_the_work(self):
+        self.acme(
+            ('"extras": {},', '"extras": {"metrics-off": quit_now},'),
+            ("TRACKER = {", "def quit_now(request):\n    raise SystemExit(0)\n\n\nTRACKER = {"),
+        )
+        self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+        code, out = self.run_tool("create", "Named")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Created issue", out)
+
+    def test_init_says_why_the_store_did_not_open_and_stops(self):
+        stop = (
+            "def impl_open_tracker(request):\n",
+            "def impl_open_tracker(request):\n    return %s\n",
+        )
+        for answer, said in (
+            ('_no("store-unwritable")', "store-unwritable"),
+            (
+                '{"status": "failed", "summary": "the site is down", "exitCode": 1}',
+                "the site is down",
+            ),
+        ):
+            with self.subTest(said=said):
+                self.acme((stop[0], stop[1] % answer))
+                code, out = self.run_tool("init", "--tracker", "acme")
+                self.assertEqual(code, 1, out)
+                self.assertIn(said, out)
+                self.assertNotIn("\u2713", out)
+                self.assertEqual(self.in_the_tree(), [".git"])
+                self.assertEqual(self.key("dotdiw.tracker"), "")
+                code, out = self.run_tool("tracker", "use", "acme")
+                self.assertEqual(code, 1, out)
+                self.assertIn(said, out)
+
+    def test_init_stops_at_a_name_nothing_answers_to(self):
+        code, out = self.run_tool("init", "--tracker", "typo")
+        self.assertEqual(code, 1, out)
+        self.assertIn("typo is not a tracker here", out)
+        self.assertNotIn("\u2713", out)
+        self.assertEqual(self.in_the_tree(), [".git"])
+
+    def test_an_exit_code_left_out_is_read_from_the_status(self):
+        ok = 'return dict({"status": "completed", "summary": "ok", "exitCode": 0}, **kw)'
+        no = 'return {"status": "failed", "summary": reason, "reason": reason, "exitCode": 1}'
+        for extra in ("", ', "exitCode": None'):
+            with self.subTest(extra=extra):
+                path = self.acme(
+                    (ok, 'return dict({"status": "completed", "summary": "ok"%s}, **kw)' % extra),
+                    (
+                        no,
+                        'return {"status": "failed", "summary": reason, "reason": reason%s}'
+                        % extra,
+                    ),
+                )
+                code, out = self.run_tool("tracker", "check", path)
+                self.assertEqual(code, 0, out)
+                self.assertIn("acme passed 10 of 10", out)
+                code, out = self.run_tool("init", "--tracker", "acme")
+                self.assertEqual(code, 0, out)
+                code, out = self.run_tool("create", "Named")
+                self.assertEqual(code, 0, out)
+                self.assertIn("Created issue", out)
+                code, out = self.run_tool("create", "Orphan", "--parent", "nowhere")
+                self.assertEqual(code, 1, out)
+                self.assertNotIn("Traceback", out)
+
+    def test_an_exit_code_against_the_status_is_refused(self):
+        said = "a failed answer cannot exit 0"
+        path = self.acme(
+            (
+                'return {"status": "failed", "summary": reason, "reason": reason, "exitCode": 1}',
+                'return {"status": "failed", "summary": reason, "reason": reason, "exitCode": 0}',
+            )
+        )
+        code, out = self.run_tool("tracker", "check", path)
+        self.assertEqual(code, 1, out)
+        self.assertIn(said, out)
+        self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+        code, out = self.run_tool("create", "Orphan", "--parent", "nowhere")
+        self.assertEqual(code, 1, out)
+        self.assertIn(said, out)
+        self.acme(
+            (
+                'return dict({"status": "completed", "summary": "ok", "exitCode": 0}, **kw)',
+                'return dict({"status": "completed", "summary": "ok", "exitCode": 3}, **kw)',
+            )
+        )
+        code, out = self.run_tool("tracker", "check", path)
+        self.assertEqual(code, 1, out)
+        self.assertIn("a completed answer cannot exit 3", out)
+
+    def test_a_forward_extra_is_held_to_the_same_rule(self):
+        for answer, code_wanted in (
+            ('{"status": "completed", "summary": "did"}', 0),
+            ('{"status": "failed", "summary": "no", "exitCode": None}', 1),
+            ('{"status": "failed", "summary": "no", "exitCode": 0}', 1),
+            ('{"status": "failed", "summary": "no", "exitCode": "2"}', 1),
+        ):
+            with self.subTest(answer=answer):
+                self.acme(
+                    ('"extras": {},', '"extras": {"forward": forward},'),
+                    (
+                        "TRACKER = {",
+                        "def forward(request):\n    return %s\n\n\nTRACKER = {" % answer,
+                    ),
+                )
+                self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+                code, out = self.run_tool("frobnicate")
+                self.assertEqual(code, code_wanted, out)
+                self.assertNotIn("Traceback", out)
+
+    def test_a_module_that_keeps_nothing_under_the_workspace_is_adopted(self):
+        self.acme(*self.ELSEWHERE)
+        code, out = self.run_tool("init", "--tracker", "acme")
+        self.assertEqual(code, 0, out)
+        code, out = self.run_tool("create", "Named")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Created issue", out)
+        code, out = self.run_tool("list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Named", out)
+        self.module(self.homed, "acme", "def broken(:\n")
+        code, out = self.run_tool("list")
+        self.assertEqual(code, 1, out)
+        self.assertIn("acme did not load from", out)
+
+    def test_a_shipped_tracker_with_no_store_is_still_not_adopted(self):
+        code, out = self.run_tool("init", "--tracker", "local")
+        self.assertEqual(code, 0, out)
+        shutil.rmtree(os.path.join(self.home, ".dotdiw", self.key()))
+        code, out = self.run_tool("list")
+        self.assertEqual(code, 1, out)
+        self.assertIn("not adopted", out)
+
+    def test_use_says_when_the_choice_could_not_be_written(self):
+        self.acme()
+        self.assertEqual(self.run_tool("init", "--tracker", "local")[0], 0)
+        lock = os.path.join(self.repo, ".git", "config.lock")
+        with open(lock, "w", encoding="utf-8"):
+            pass
+        code, out = self.run_tool("tracker", "use", "acme")
+        os.unlink(lock)
+        self.assertEqual(code, 1, out)
+        self.assertEqual(
+            out.strip(), "dotdiw: could not write dotdiw.tracker into this repository's git config."
+        )
+        self.assertEqual(self.key("dotdiw.tracker"), "local")
+
+    def test_a_store_that_answers_no_path_is_no_traceback(self):
+        self.acme(
+            ('    "store": acme_store,\n', '    "store": odd_store,\n'),
+            (
+                "TRACKER = {",
+                'def odd_store(root):\n    return ["not", "a", "path"]\n\n\nTRACKER = {',
+            ),
+        )
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Traceback", out)
+        self.assertTrue(self.line_of("acme", out), out)
+
+    def test_a_module_cannot_say_it_shipped(self):
+        """The loader says where a module came from, whatever the module says:
+        its mistakes stay its own, and the list prints where it really is."""
+        path = self.acme(
+            (
+                '"info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": []},',
+                '"info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": [],'
+                ' "origin": "shipped", "source": "/nowhere"},',
+            ),
+            (
+                'info = {"name": "acme", "version": "1.0.0", "origin": "loaded"}',
+                'info = {"name": "acme", "version": "1.0.0", "origin": "shipped", "source": "/nowhere"}',
+            ),
+            (
+                "def impl_create_item(request):\n",
+                'def impl_create_item(request):\n    raise RuntimeError("a bug")\n',
+            ),
+        )
+        self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+        code, out = self.run_tool("create", "Named")
+        self.assertEqual(code, 1, out)
+        self.assertIn("acme failed inside create-item: RuntimeError: a bug", out)
+        self.assertNotIn("Traceback", out)
+        code, out = self.run_tool("tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertRegex(self.line_of("acme", out)[0], r"loaded, from %s" % re.escape(path))
+
+    def test_a_failed_create_says_why(self):
+        self.assertEqual(self.run_tool("init")[0], 0)
+        code, out = self.run_tool("create", "Orphan", "--parent", "nowhere")
+        self.assertEqual(code, 1, out)
+        self.assertIn("nowhere", out)
+
+    def test_a_module_may_use_the_whole_standard_library(self):
+        """A dataclass looks its module up by name while the module loads."""
+        path = self.module(
+            self.top,
+            "acme",
+            "from __future__ import annotations\n"
+            "from dataclasses import dataclass\n\n\n"
+            "@dataclass\nclass Held:\n    count: int = 0\n\n\n" + ACME,
+        )
+        code, out = self.run_tool("tracker", "check", path)
+        self.assertEqual(code, 0, out)
+        self.assertIn("acme passed 10 of 10", out)
+
+    def test_the_check_with_nowhere_to_work_is_one_line(self):
+        path = self.acme(directory=self.top)
+        with open(os.path.join(self.home, ".dotdiw"), "w", encoding="utf-8"):
+            pass
+        scratch = os.path.join(self.top, "tmp")
+        os.makedirs(scratch)
+        code, out = self.run_tool("tracker", "check", path, env={"TMPDIR": scratch})
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(len(out.strip().splitlines()), 1, out)
+        self.assertEqual(os.listdir(scratch), [])
+
+    def test_the_check_is_not_fooled_under_optimisation(self):
+        path = self.acme(
+            (
+                "def impl_ready_items(request):\n",
+                "def impl_ready_items(request):\n    return _ok(items=[])\n",
+            ),
+            directory=self.top,
+        )
+        code, out = self.run_tool("tracker", "check", path, flags=("-I", "-O"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL  operation.ready-items", out)
+
+    def test_a_file_that_is_no_adapter_runs_once_in_a_command(self):
+        ran = os.path.join(self.top, "ran")
+        run_it = "with open(%r, 'a') as fh:\n    fh.write('x')\n" % ran
+        for name, tail in (("raises", "raise RuntimeError('no')\n"), ("tableless", "")):
+            for args in (("tracker", "list"), ("list",), ("--version",)):
+                with self.subTest(name=name, args=args):
+                    if os.path.exists(ran):
+                        os.unlink(ran)
+                    self.module(self.homed, name, run_it + tail)
+                    self.run_tool(*args, env={"DOTDIW_TRACKER": name})
+                    with open(ran, encoding="utf-8") as fh:
+                        self.assertEqual(fh.read(), "x")
+            os.unlink(os.path.join(self.homed, name + ".py"))
+
+    def test_glob_characters_in_the_home_hide_nothing(self):
+        home = os.path.join(self.top, "ho[me]")
+        self.acme(directory=os.path.join(home, ".dotdiw", "trackers"))
+        code, out = self.run_tool("tracker", "list", env={"HOME": home})
+        self.assertEqual(code, 0, out)
+        self.assertTrue(self.line_of("acme", out), out)
+
+    def test_a_number_that_is_not_a_number_says_so(self):
+        path = self.acme(
+            (
+                '"info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": []},',
+                '"info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": [],'
+                ' "interface": "1"},',
+            ),
+            directory=self.top,
+        )
+        code, out = self.run_tool("tracker", "check", path)
+        self.assertEqual(code, 1, out)
+        self.assertIn("written for tracker interface '1'; this dotdiw supports interface 1", out)
+        self.assertNotIn("DoorError", out)
+
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_an_old_tree_does_not_move_a_checkout_off_its_module(self):
+        self.acme(*self.ELSEWHERE)
+        self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+        os.makedirs(os.path.join(self.repo, ".beads"))
+        code, out = self.run_tool("create", "Named", env={"PATH": os.environ["PATH"]})
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.key("dotdiw.tracker"), "acme")
+        self.assertNotIn("earlier version", out)
+
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_the_check_of_beads_leaves_the_checkout_as_it_was(self):
+        self.assertEqual(self.run_tool("init", "--tracker", "local")[0], 0)
+
+        def what_git_holds():
+            held = []
+            for rel in ("config", os.path.join("info", "exclude")):
+                with open(os.path.join(self.repo, ".git", rel), encoding="utf-8") as fh:
+                    held.append(fh.read())
+            return held
+
+        before = what_git_holds()
+        for env in ({}, {"GIT_DIR": os.path.join(self.repo, ".git")}):
+            with self.subTest(env=env):
+                code, out = self.run_tool(
+                    "tracker", "check", "beads", env=dict(env, PATH=os.environ["PATH"])
+                )
+                self.assertEqual(code, 0, out)
+                self.assertEqual(what_git_holds(), before)
+
+    def test_a_failed_create_says_what_the_adapter_said(self):
+        self.acme(
+            (
+                "def impl_create_item(request):\n",
+                "def impl_create_item(request):\n"
+                '    return {"status": "failed", "summary": "quota exceeded", "exitCode": 1}\n',
+            )
+        )
+        self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+        code, out = self.run_tool("create", "Named")
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.strip(), "dotdiw: quota exceeded")
+
+    def test_a_forward_extra_that_prints_nothing_is_shown(self):
+        for answer, code_wanted, said in (
+            (
+                '{"status": "failed", "summary": "the forward failed", "exitCode": 4}',
+                4,
+                "the forward failed",
+            ),
+            ('{"status": "completed", "summary": "ok", "output": "its answer"}', 0, "its answer"),
+        ):
+            with self.subTest(said=said):
+                self.acme(
+                    ('"extras": {},', '"extras": {"forward": forward},'),
+                    (
+                        "TRACKER = {",
+                        "def forward(request):\n    return %s\n\n\nTRACKER = {" % answer,
+                    ),
+                )
+                self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+                code, out = self.run_tool("frobnicate")
+                self.assertEqual(code, code_wanted, out)
+                self.assertIn(said, out)
+
+    def test_a_failure_of_use_is_said_once(self):
+        self.acme(
+            (
+                "def impl_open_tracker(request):\n",
+                'def impl_open_tracker(request):\n    raise RuntimeError("no")\n',
+            )
+        )
+        code, out = self.run_tool("tracker", "use", "acme")
+        self.assertEqual(code, 1, out)
+        self.assertEqual(len(out.strip().splitlines()), 1, out)
+        self.assertIn("acme failed inside open-tracker", out)
+
+    def test_the_conventions_are_checked_under_a_module_that_keeps_nothing(self):
+        self.acme(*self.ELSEWHERE)
+        self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+        for rel in ("CLAUDE.md", "AGENTS.md"):
+            os.unlink(os.path.join(self.repo, rel))
+        code, out = self.run_tool("check")
+        self.assertEqual(code, 1, out)
+        self.assertIn("CLAUDE.md", out)
+
+    def test_steps_from_work_are_refused_when_the_tracker_cannot_answer(self):
+        code, out = self.run_tool("--tracker", "typo", "formula", "new", "Repeat it", "--from", "x")
+        self.assertEqual(code, 1, out)
+        self.assertIn("typo is not a tracker here", out)
+        self.assertEqual(os.listdir(self.repo), [".git"])
+
+    def test_a_name_only_asked_for_does_not_adopt_a_checkout(self):
+        self.acme()
+        self.run_tool("init", "--tracker", "typo")
+        self.assertNotEqual(self.key(), "")
+        code, out = self.run_tool("--tracker", "acme", "list")
+        self.assertEqual(code, 1, out)
+        self.assertIn("not adopted", out)
+
+    def test_an_exit_code_git_would_read_as_zero_is_refused(self):
+        path = self.acme(
+            (
+                'return {"status": "failed", "summary": reason, "reason": reason, "exitCode": 1}',
+                'return {"status": "failed", "summary": reason, "reason": reason, "exitCode": 256}',
+            ),
+            directory=self.top,
+        )
+        code, out = self.run_tool("tracker", "check", path)
+        self.assertEqual(code, 1, out)
+        self.assertIn("a failed answer cannot exit 256", out)
+
+    def test_a_second_init_keeps_the_prefix_under_local(self):
+        self.assertEqual(self.run_tool("init", "--tracker", "local", "--prefix", "aaa")[0], 0)
+        self.assertEqual(self.run_tool("init", "--prefix", "bbb")[0], 0)
+        code, out = self.run_tool("create", "Named")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Created issue: aaa-", out)
+
+    def test_a_choice_that_could_not_be_pinned_is_not_said_to_be(self):
+        self.assertEqual(self.run_tool("init", "--tracker", "local")[0], 0)
+        subprocess.run(["git", "config", "--unset", "dotdiw.tracker"], cwd=self.repo)
+        lock = os.path.join(self.repo, ".git", "config.lock")
+        with open(lock, "w", encoding="utf-8"):
+            pass
+        code, out = self.run_tool("list")
+        os.unlink(lock)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("is written in .git/config", out)
+        code, out = self.run_tool("list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("is written in .git/config", out)
+
+    def test_formula_new_with_a_flag_and_nothing_after_it_is_refused(self):
+        self.assertEqual(self.run_tool("init")[0], 0)
+        for flag in ("--at", "--from"):
+            with self.subTest(flag=flag):
+                code, out = self.run_tool("formula", "new", "Repeat it", flag)
+                self.assertEqual(code, 2, out)
+                self.assertNotIn("repeat-it.formula.toml", os.listdir(self.repo))
+
+    def test_a_priority_that_is_no_number_is_one_line(self):
+        self.assertEqual(self.run_tool("init", "--prefix", "w")[0], 0)
+        code, out = self.run_tool("create", "Named")
+        ident = group1(r"Created issue: (\S+)", out)
+        code, out = self.run_tool("update", ident, "-p", "high")
+        self.assertEqual(code, 1, out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(len(out.strip().splitlines()), 1, out)
+        self.assertIn("high", out)
+
+    def test_a_failed_close_does_not_read_as_a_failed_list(self):
+        path = self.acme(
+            (
+                "def impl_close_item(request):\n",
+                'def impl_close_item(request):\n    return _no("nope")\n',
+            ),
+            directory=self.top,
+        )
+        code, out = self.run_tool("tracker", "check", path)
+        self.assertEqual(code, 1, out)
+        self.assertIn(
+            "FAIL  operation.list-items: cannot be tried until operation.close-item passes", out
+        )
+
+    def test_the_scenario_holds_what_the_other_commands_rely_on(self):
+        """Ten of ten is what compatible means, so what `migrate`, `list` and
+        `mol pour` rely on is in it."""
+        for why, old, new, operation in (
+            (
+                "a need already there is refused",
+                '    if needs not in data["items"][ident]["needs"]:\n',
+                '    if needs in data["items"][ident]["needs"]:\n'
+                '        return _no("cycle")\n'
+                '    if needs not in data["items"][ident]["needs"]:\n',
+                "add-need",
+            ),
+            (
+                "scope is read only under a parent",
+                '    if request.get("scope") != "all":\n',
+                '    if request.get("scope") != "all" and request.get("parent"):\n',
+                "list-items",
+            ),
+            (
+                "parent is read only with scope all",
+                '    if request.get("parent"):\n'
+                '        items = [i for i in items if i["parent"] == request["parent"]]\n',
+                '    if request.get("parent") and request.get("scope") == "all":\n'
+                '        items = [i for i in items if i["parent"] == request["parent"]]\n',
+                "list-items",
+            ),
+            (
+                "limit is ignored",
+                'return _ok(items=items[: request.get("limit") or len(items)])',
+                "return _ok(items=items)",
+                "list-items",
+            ),
+            (
+                "any status is taken",
+                '    if request.get("status") == "closed":\n'
+                '        return _no("close-through-update")\n'
+                '    if request.get("status") not in (None, "open", "in_progress", "blocked"):\n'
+                '        return _no("bad-status")\n',
+                '    if request.get("status") == "closed":\n'
+                '        return _no("close-through-update")\n',
+                "update-item",
+            ),
+            (
+                "a poured root is no molecule",
+                'root = _make(data, request["title"], kind="molecule")',
+                'root = _make(data, request["title"])',
+                "pour-steps",
+            ),
+            (
+                "an item comes back with no kind",
+                '"kind": "task", ',
+                "",
+                "create-item",
+            ),
+        ):
+            with self.subTest(why=why):
+                path = self.acme((old, new), directory=self.top)
+                code, out = self.run_tool("tracker", "check", path)
+                self.assertEqual(code, 1, out)
+                self.assertIn("FAIL  operation.%s" % operation, out)
+
+
 class TheUpgradePin(unittest.TestCase):
     """A workspace adopted before there was a choice of tracker holds one
     adapter's store and no choice: the first command answers through that
@@ -1992,16 +3528,25 @@ BEYOND = [
 
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class TheBytesUnderBeads(unittest.TestCase):
-    """Under the beads adapter, the seventeen commands print what 0.5.0
-    printed, byte for byte once the random parts are named: the promise that
-    nothing a worker sees changes with the tracker behind its door."""
+    """Under the beads adapter, the seventeen commands print what an earlier
+    version printed, byte for byte once the random parts are named: the promise
+    that nothing a worker sees changes with the tracker behind its door."""
 
     def test_the_seventeen_commands_print_what_0_5_0_printed(self):
-        before = dotdiw_at("v0.5.0")
+        self.prints_what("v0.5.0")
+
+    def test_the_seventeen_commands_print_what_0_6_0_printed(self):
+        self.prints_what("v0.6.0")
+
+    def prints_what(self, tag):
+        before = dotdiw_at(tag)
         if before is None:
-            self.skipTest("v0.5.0 is not in this clone's history")
+            self.skipTest("%s is not in this clone's history" % tag)
+        had = getattr(
+            load_module("dotdiw_at_" + tag.replace(".", "_"), before), "LEARN_TRACKER", ""
+        )
         added = load_module("dotdiw_learn_tracker").LEARN_TRACKER
-        twins = [Twin(before), Twin(DOTDIW, learn_tracker=added)]
+        twins = [Twin(before, learn_tracker=had), Twin(DOTDIW, learn_tracker=added)]
         for t in twins:
             self.addCleanup(t.close)
         differences = []
@@ -2023,8 +3568,8 @@ class TheBytesUnderBeads(unittest.TestCase):
                 got.append((code, out, err))
             if got[0] != got[1]:
                 differences.append(
-                    "%s:\n--- 0.5.0 ---\n%s%s\n--- now ---\n%s%s"
-                    % (" ".join(args), got[0][1], got[0][2], got[1][1], got[1][2])
+                    "%s:\n--- %s ---\n%s%s\n--- now ---\n%s%s"
+                    % (" ".join(args), tag, got[0][1], got[0][2], got[1][1], got[1][2])
                 )
         self.assertEqual(differences, [], "\n\n".join(differences))
 

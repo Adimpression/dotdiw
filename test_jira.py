@@ -17,6 +17,7 @@ printed.
 """
 
 import base64
+import glob
 import http.server
 import importlib.machinery
 import importlib.util
@@ -55,6 +56,7 @@ class StubJira:
         self.page_size = 100  # the most a search answers with, whatever is asked
         self.tokens = []  # the nextPageToken of each search that sent one
         self.no_way_to = set()  # status categories no transition reaches
+        self.refuse_children = False  # whether a create under a parent is refused
 
     def issue(self, key):
         fields = self.issues.get(key)
@@ -139,6 +141,9 @@ class StubJira:
             if not answer["isLast"]:
                 answer["nextPageToken"] = "t%d" % (start + size)
             return 200, answer
+        if rest == ["issue"] and method == "POST" and self.refuse_children:
+            if body["fields"].get("parent"):
+                return 400, {"errors": {"parent": "That parent cannot have children."}}
         if rest == ["issue"] and method == "POST":
             fields = (body or {}).get("fields") or {}
             project = (fields.get("project") or {}).get("key")
@@ -341,6 +346,11 @@ def load_adapter():
     return module
 
 
+class TheTable(unittest.TestCase):
+    def test_it_says_which_interface_it_was_written_for(self):
+        self.assertEqual(load_adapter().TRACKER["info"]["interface"], 1)
+
+
 class TheHostedAdapter(unittest.TestCase):
     """Loaded by name from the home, checked against its declared project,
     and a checkout adopted on it; the stub sees only that project and no
@@ -352,6 +362,51 @@ class TheHostedAdapter(unittest.TestCase):
         self.home = Home(self.site)
         self.addCleanup(self.home.close)
 
+    def installed_by_a_package(self):
+        """The tool and the adapter laid out as Homebrew lays them out, with
+        nothing under the home directory."""
+        prefix = tempfile.mkdtemp(prefix="dotdiw-jira-prefix-")
+        self.addCleanup(shutil.rmtree, prefix, True)
+        tool = os.path.join(prefix, "bin", "dotdiw")
+        shared = os.path.join(prefix, "share", "dotdiw", "trackers")
+        os.makedirs(os.path.dirname(tool))
+        os.makedirs(shared)
+        shutil.copy(DOTDIW, tool)
+        shutil.copy(ADAPTER, os.path.join(shared, "jira.py"))
+        shutil.rmtree(os.path.join(self.home.home, ".dotdiw"))
+        return tool, os.path.join(shared, "jira.py")
+
+    def run_tool(self, tool, *args, env=None):
+        p = subprocess.run(
+            [sys.executable, "-I", tool] + list(args),
+            cwd=self.home.path,
+            env=env or self.home.env,
+            capture_output=True,
+            text=True,
+        )
+        return p.returncode, p.stdout + p.stderr
+
+    def test_it_passes_the_check_from_where_a_package_puts_it(self):
+        tool, path = self.installed_by_a_package()
+        code, out = self.run_tool(tool, "tracker", "list")
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^  jira\s+.*loaded, from %s$" % re.escape(path))
+        code, out = self.run_tool(tool, "tracker", "check", "jira")
+        self.assertEqual(code, 0, out)
+        self.assertIn("\u2713 jira passed 10 of 10.", out)
+
+    def test_it_is_listed_with_no_credentials_and_no_network(self):
+        """What a package's test block sees under `brew test`."""
+        tool, path = self.installed_by_a_package()
+        env = {"HOME": self.home.home, "PATH": "/usr/bin:/bin"}
+        before = len(self.site.stub.requests)
+        code, out = self.run_tool(tool, "tracker", "list", env=env)
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^  jira\s+.*loaded, from %s$" % re.escape(path))
+        self.assertNotIn("did not load", out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(len(self.site.stub.requests), before, "nothing reached the site")
+
     def test_it_is_listed_from_the_home_and_passes_the_check(self):
         code, out = self.home.dotdiw("tracker", "list")
         self.assertEqual(code, 0, out)
@@ -359,7 +414,7 @@ class TheHostedAdapter(unittest.TestCase):
             out,
             r"(?m)^  jira\s+0\.1, site 1001\.0\.0-stub\s+loaded, from .*/\.dotdiw/trackers/jira\.py$",
         )
-        self.assertRegex(out, r"(?m)^  local\s+0\.6\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(out, r"(?m)^  local\s+0\.7\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.home.dotdiw("tracker", "check", "jira")
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 10, out)
@@ -449,6 +504,37 @@ class TheHostedAdapter(unittest.TestCase):
         self.assertEqual(stub.tokens, ["t2", "t4"])
         self.assertIn(("GET", "/rest/api/3/search/jql"), stub.requests)
         self.assertNotIn(("GET", "/rest/api/3/search"), stub.requests)
+
+    def test_a_second_open_changes_nothing(self):
+        self.adopted()
+        store = glob.glob(os.path.join(self.home.home, ".dotdiw", "*", "jira.json"))[0]
+        code, out = self.home.dotdiw("init", "--prefix", "other")
+        self.assertEqual(code, 0, out)
+        with open(store, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["project"], "DEMO")
+        self.assertIn("DEMO-1", self.made("Still here"))
+
+    def test_a_pour_jira_refuses_partway_is_one_line(self):
+        self.adopted()
+        formula = "pour-it.formula.toml"
+        with open(os.path.join(self.home.path, formula), "w", encoding="utf-8") as fh:
+            fh.write(
+                'formula = "mol-pour-it"\n'
+                'description = "Pour it. Use when testing a refusal partway through a pour."\n'
+                '[[steps]]\nid = "one"\ntitle = "One"\n'
+                '[[steps]]\nid = "two"\ntitle = "Two"\nneeds = ["one"]\n'
+            )
+        subprocess.run(["git", "add", formula], cwd=self.home.path, env=self.home.env)
+        subprocess.run(["git", "commit", "-qm", "f"], cwd=self.home.path, env=self.home.env)
+        stub = self.site.stub
+        stub.refuse_children = True
+        code, out = self.home.dotdiw("mol", "pour", "mol-pour-it")
+        stub.refuse_children = False
+        self.assertEqual(code, 1, out)
+        self.assertIn("That parent cannot have children", out)
+        self.assertNotIn("DoorError", out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(len(out.strip().splitlines()), 1, out)
 
     def test_a_close_with_no_way_to_done_is_refused(self):
         """No transition reaches done: nothing is reported closed, the issue

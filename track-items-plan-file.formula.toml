@@ -1,0 +1,44 @@
+formula = "mol-track-items-plan-file"
+description = "Put a written plan's items into the tracker as ordered issues: one root, one child per phase, one grandchild per item carrying the item's full text, each phase blocked by the one before it and each item by the phase before its own, and the plan file pointed at the ids with every item's text still in it. Use when a plan file has checkbox items, when you are asked to create tasks from a plan, or when a checklist has to become tracked work."
+examples = [
+  "Track the items of a plan file in the tracker",
+  "Create tasks as per the implementation plan",
+  "Use dotdiw for all items in the plan",
+  "Break the plan down into tracked issues",
+  "Put the plan file in the tracker",
+]
+version = 2
+type = "workflow"
+
+# The plan file keeps what a tracker does not hold -- the facts, the
+# decisions, the limits -- and each item's full text, which not every tracker's
+# `show` prints. Once the items are in the tracker, the checkboxes come out of
+# the file.
+[[steps]]
+id = "read"
+title = "Read the plan file: its phases are the `##` sections of work, in order; its items the checkbox bullets under them. Sections of facts, decisions and limits are not items"
+
+[[steps]]
+id = "root"
+title = "Create the root issue: the plan's title as title, its summary and the plan file's name as description"
+needs = ["read"]
+
+[[steps]]
+id = "phases"
+title = "Create one child per phase with `--parent <root>`, in order, and `dep add` each to the phase before it, so a phase cannot close before the one ahead of it"
+needs = ["root"]
+
+[[steps]]
+id = "items"
+title = "Create one grandchild per item under its phase: the item's first sentence as title, ignoring any period inside backticks, its full text as description. Then `dep add` each item of a later phase to the phase before its own, because under some trackers a child does not take on its parent's needs"
+needs = ["phases"]
+
+[[steps]]
+id = "point"
+title = "In the plan file, replace each checkbox with the item's issue id and keep the item's full text where it is, because not every tracker's `dotdiw show` prints a description. Add one section that names the root issue, gives `dotdiw show <root>` as the way to read the order and the state, and has a table of phase, issue and item count"
+needs = ["items"]
+
+[[steps]]
+id = "verify"
+title = "Read the tree back with `dotdiw show` on the root and on each phase: every item present, each phase blocking the next. `dotdiw ready` lists no item of a later phase, and `dotdiw close` on one is refused while the phase before it is open; if it closes, add the missing need and reopen it with `dotdiw update <id> --status open`. In the plan file no checkbox is left and every item's full text stands beside its id"
+needs = ["point"]

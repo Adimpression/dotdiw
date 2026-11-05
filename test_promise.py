@@ -35,12 +35,14 @@ the pass-through's runner alone.
 """
 
 import ast
+import copy
 import importlib.machinery
 import importlib.util
 import inspect
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -71,6 +73,7 @@ INFRASTRUCTURE = {
     "forget_workspace",
     "tracker_name",
     "adopted",
+    "checkout_adopted",
     "toks",
     "load_formula",
     "no_fts5",
@@ -99,6 +102,8 @@ TRACKER = {
     "record_kinds",
     "hold_value",
     "register_tracker",
+    "tracker_dirs",
+    "tracker_file",
     "load_tracker",
     "tracker_with_store",
     "resolve_tracker",
@@ -107,6 +112,7 @@ TRACKER = {
     "adapter_failed",
     "invoke_tracker",
     "hold_tracker_response",
+    "settle_exit_code",
     "invoke_extra",
 }
 
@@ -198,12 +204,13 @@ INTERFACE = {
     "show_use",
     "show_check_tracker",
     "show_migrate",
+    "show_new_tracker",
 }
 
 # Module-level definitions that are part of exactly one operation's body.
 HELPERS = {
     "WriteFormula": {"Titles", "slug", "past_titles", "steps_from"},
-    "CheckTracker": {"conformance_scenario"},
+    "CheckTracker": {"conformance_scenario", "candidate_registered"},
 }
 
 # What runs a tracker or git command, and the dependency it crosses into.
@@ -815,6 +822,10 @@ class TheCalls(unittest.TestCase):
         out = module.CommitFormula({"root": HERE, "path": "x.formula.toml"})
         self.assertEqual(out["status"], "blocked")
         self.assertIn("git add x.formula.toml", out["command"])
+        spaced = module.CommitFormula({"root": HERE, "path": "a b/x.formula.toml"})
+        self.assertEqual(shlex.split(spaced["command"])[:3], ["git", "add", "a b/x.formula.toml"])
+        unnamed = module.CommitFormula({"root": HERE})
+        self.assertIn("git add <the formula file> &&", unnamed["command"])
         self.assertEqual(self.source.commands("CommitFormula"), [])
 
 
@@ -833,6 +844,55 @@ class TheDoor(unittest.TestCase):
         cls.source = Source()
         cls.operations = bodies_of(cls.idl)
 
+    def test_the_interface_number_moves_by_decision(self):
+        """A change to what a module has to answer stops the finisher until
+        someone has decided whether to raise the number. A change to the words
+        does not, and neither does a change outside the interface."""
+        finish = load_module("finish_idl_under_test", FINISH)
+        patches = finish.load(finish.PATCHES)
+        self.assertEqual(
+            finish.interface_digest(self.idl),
+            patches["trackerInterface"]["digest"],
+            "the interface's types changed; run python3 -I poa/finish-idl.py and decide",
+        )
+        self.assertIsNone(finish.interface_changed(self.idl, patches))
+
+        def changed(type_id, change):
+            idl = copy.deepcopy(self.idl)
+            change(next(t for t in idl["types"] if t["typeId"] == type_id))
+            return idl
+
+        words = changed(
+            "type.create-item-request", lambda t: t["fields"][0].update(summary="Other words.")
+        )
+        self.assertIsNone(finish.interface_changed(words, patches))
+        elsewhere = changed(
+            "type.write-formula-request",
+            lambda t: t["fields"].append(
+                {
+                    "name": "more",
+                    "valueType": {"kind": "scalar", "scalar": "string"},
+                    "required": False,
+                }
+            ),
+        )
+        self.assertIsNone(finish.interface_changed(elsewhere, patches))
+        for type_id in ("type.create-item-request", "type.tracker-item"):
+            with self.subTest(type=type_id):
+                added = changed(
+                    type_id,
+                    lambda t: t["fields"].append(
+                        {
+                            "name": "more",
+                            "valueType": {"kind": "scalar", "scalar": "string"},
+                            "required": False,
+                        }
+                    ),
+                )
+                said = finish.interface_changed(added, patches)
+                self.assertIn(finish.interface_digest(added), said)
+                self.assertIn("interface %d" % patches["trackerInterface"]["number"], said)
+
     def test_the_table_is_a_fresh_generation_from_the_idl(self):
         """The region between the markers is what finish-idl writes today."""
         finish = load_module("finish_idl_under_test", FINISH)
@@ -846,6 +906,16 @@ class TheDoor(unittest.TestCase):
             text[start:end],
             finish.door_source(self.idl),
             "the door's table is not what operation-idl.json generates; "
+            "run python3 -I poa/finish-idl.py",
+        )
+        self.assertEqual(text.count(finish.SKELETON_OPEN), 1)
+        self.assertEqual(text.count(finish.SKELETON_CLOSE), 1)
+        start = text.index(finish.SKELETON_OPEN)
+        end = text.index(finish.SKELETON_CLOSE) + len(finish.SKELETON_CLOSE)
+        self.assertEqual(
+            text[start:end],
+            finish.skeleton_source(self.idl),
+            "the file a tracker starts from is not what operation-idl.json generates; "
             "run python3 -I poa/finish-idl.py",
         )
         self.assertEqual(text.count(finish.TRACKER_OPEN), 1)
@@ -1439,6 +1509,85 @@ class TheTrackerDoor(unittest.TestCase):
         self.assertEqual(info["origin"], "loaded")
         self.assertTrue(info["source"].endswith("mine.py"))
 
+    def test_a_module_says_which_interface_it_was_written_for(self):
+        """Absent means 1, so a module written for 0.6.0 goes on working. Any
+        number this tool does not speak is refused by name when it loads, not
+        halfway through an operation."""
+        m = self.module
+        home = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, home, True)
+        os.environ["HOME"] = home
+        self.addCleanup(os.environ.__setitem__, "HOME", os.path.expanduser("~"))
+        trackers = os.path.join(home, ".dotdiw", "trackers")
+        os.makedirs(trackers)
+
+        def module(name, declared):
+            with open(os.path.join(trackers, name + ".py"), "w", encoding="utf-8") as fh:
+                fh.write("OPERATIONS = %r\n" % sorted(m.TRACKER_DOOR))
+                fh.write(
+                    "def _answer(operation):\n"
+                    "    def operation_(request):\n"
+                    "        return {'status': 'completed', 'summary': operation, 'exitCode': 0}\n"
+                    "    return operation_\n"
+                    "TRACKER = {'info': {'name': %r, 'version': '1'%s},\n"
+                    "           'operations': {op: _answer(op) for op in OPERATIONS}}\n"
+                    % (name, ", 'interface': %r" % (declared,) if declared != "absent" else "")
+                )
+
+        module("unsaid", "absent")
+        module("said", m.TRACKER_INTERFACE)
+        module("later", m.TRACKER_INTERFACE + 1)
+        module("flag", True)
+        self.assertTrue(m.load_tracker("unsaid"))
+        self.assertTrue(m.load_tracker("said"))
+        self.assertFalse(m.load_tracker("later"))
+        self.assertIn(
+            "written for tracker interface %d; this dotdiw supports interface %d"
+            % (m.TRACKER_INTERFACE + 1, m.TRACKER_INTERFACE),
+            m.LOAD_FAILED["later"],
+        )
+        self.assertFalse(m.load_tracker("flag"))
+        out = m.invoke_tracker("operation.ready-items", {"root": self.root, "tracker": "later"})
+        self.assertEqual((out["status"], out["reason"]), ("failed", "adapter-failed"))
+        self.assertTrue(out["summary"].startswith("later did not load from "), out["summary"])
+        by_name = {t["name"]: t for t in m.ListTrackers({"root": self.root})["trackers"]}
+        self.assertEqual(by_name["later"]["version"], "did not load")
+
+    def test_the_guide_fills_the_table_of_the_starting_file(self):
+        """Pasted into the file `tracker new` writes, the guide's table names
+        what is there."""
+        m = self.module
+        with open(os.path.join(HERE, "trackers", "README.md"), encoding="utf-8") as fh:
+            guide = fh.read()
+        pairs = re.findall(r'"(operation\.[a-z-]+)": ([a-z_]+),', guide)
+        self.assertEqual(len(pairs), 10)
+        for operation, function in pairs:
+            self.assertIn('"%s": %s,' % (operation, function), m.TRACKER_SKELETON)
+            self.assertIn("def %s(request: Record)" % function, m.TRACKER_SKELETON)
+        self.assertNotIn('"store": store', guide)
+
+    def test_a_shipped_table_speaks_the_interface(self):
+        m = self.module
+        for table in (m.BEADS, m.LOCAL):
+            self.assertEqual(table["info"]["interface"], m.TRACKER_INTERFACE)
+        table = dict(m.LOCAL)
+        table["info"] = dict(table["info"], interface=m.TRACKER_INTERFACE + 1)
+        with self.assertRaisesRegex(m.DoorError, "written for tracker interface"):
+            m.register_tracker("elsewhere", table)
+        self.assertNotIn("elsewhere", m.TRACKERS)
+
+    def test_the_starting_file_is_in_the_registry_shape(self):
+        m = self.module
+        space: dict[str, Any] = {}
+        exec(compile(m.TRACKER_SKELETON.replace("<NAME>", "acme"), "acme.py", "exec"), space)
+        table = space["TRACKER"]
+        self.assertEqual(table["info"]["interface"], m.TRACKER_INTERFACE)
+        self.assertEqual(table["info"]["name"], "acme")
+        self.assertEqual(set(table["operations"]), set(m.TRACKER_DOOR))
+        table["info"].setdefault("origin", "loaded")
+        m.register_tracker("acme", table)
+        self.assertIn("acme", m.TRACKERS)
+
     def test_a_loaded_adapter_that_fails_is_refused_in_one_line(self):
         """An adapter under the home that raises inside an operation or an
         extra, or answers outside the interface, is its author's mistake and
@@ -1536,13 +1685,15 @@ class TheName(unittest.TestCase):
 
     It may appear in the source only as the name of one of bd's own things:
     the executables, bd's config file, its formula directory, its state
-    directory and the files it writes for agents. Every other string literal
-    that carries the word is a sentence a worker would read, and fails here
-    with the line it is on. Docstrings are the maintainers' and are not read.
+    directory and the files it writes for agents. One sentence may name it, to
+    a checkout that chose it: the line that says how to install it. Every other
+    string literal that carries the word is a sentence a worker would read, and
+    fails here with the line it is on. Docstrings are the maintainers' and are
+    not read.
     """
 
     WORD = re.compile(r"(?i)(?<![a-z0-9_])(bd|beads)(?![a-z0-9_])")
-    NAMES = {"bd", "beads"}
+    NAMES = {"bd", "beads", "beads is not installed. Run: brew install beads"}
     PATHS = ("~/.config/bd/config.yaml", "~/.beads/formulas", ".cursor/rules/beads.mdc", ".beads")
 
     def test_bd_is_named_only_as_a_thing_of_its_own(self):
