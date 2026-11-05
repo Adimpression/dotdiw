@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""A Jira Cloud adapter for dotdiw's tracker interface: the proof that the
-interface fits a tracker that is not on this machine.
+"""A Jira Cloud adapter for dotdiw's tracker interface: a worked example on a
+tracker hosted elsewhere, tested against a stub of its API.
 
-Install it by name under the home, and dotdiw loads it when a request, a
-checkout or `tracker use` names it:
+Install it with `brew install adimpression/tap/dotdiw-tracker-jira`, or copy the
+file to `~/.dotdiw/trackers/`, and dotdiw loads it when `--tracker`, a checkout's
+choice or `tracker use` names it:
 
     mkdir -p ~/.dotdiw/trackers && cp trackers/jira.py ~/.dotdiw/trackers/jira.py
-    dotdiw tracker list                      # jira is listed, from that path
+    dotdiw tracker list                      # jira is listed, from where it was found
     dotdiw init --tracker jira --prefix PROJ # this checkout's work goes to project PROJ
 
 Credentials never touch dotdiw: this module reads them from the environment,
@@ -332,8 +333,8 @@ def jira_open(request: Request) -> Response:
         return dict(NO_WORKSPACE)
     created = not os.path.exists(path)
     project = (
-        (request.get("prefix") or "").upper()
-        or (project_of(root) if not created else None)
+        (project_of(root) if not created else None)  # a second open changes nothing
+        or (request.get("prefix") or "").upper()
         or os.environ.get("JIRA_PROJECT")
     )
     if not project:
@@ -415,7 +416,7 @@ def jira_create(request: Request) -> Response:
         made = call("POST", "/rest/api/3/issue", {"fields": fields})
         issue = held(made["key"])
     except JiraError as e:
-        if request.get("parent") and e.status in (400, 404):
+        if request.get("parent") and e.status in (400, 404) and fetch(request["parent"]) is None:
             return {
                 "status": "failed",
                 "reason": "parent-not-found",
@@ -788,6 +789,7 @@ TRACKER = {
     "info": {
         "name": "jira",
         "version": VERSION,
+        "interface": 1,
         "origin": "loaded",
         "nativeNeeds": True,
         "checkTarget": os.environ.get("JIRA_CHECK_PROJECT"),

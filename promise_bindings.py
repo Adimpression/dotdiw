@@ -94,6 +94,8 @@ BINDINGS = (
     "UseTracker",
     "CheckTracker",
     "MigrateWorkspace",
+    "ShipATracker",
+    "WriteTracker",
 )
 
 

@@ -37,7 +37,7 @@ IMPLEMENTATION.md changed because the log disagreed with the summaries.
 | `occasion.py` | whether capture ever had an occasion to fire: twenty-two of thirty titles were already covered |
 | `harness/witness.py` | from 0.3.0: scores a round from the runs' own witness logs through the contract in `../contracts`, so "discovery fired" is what the contract calls `valid` or `caveated` and not a judgement made by hand; earlier rounds have no logs and are not re-scored |
 | `time_create.py` | from 0.5.0: the create path's wall time, ten runs of `dotdiw create` against ten of bare `bd create` in the same tracker, so that the difference is dotdiw's own part; the law is one second. From 0.6.0 it times `create` under the shipped default adapter or the one `--tracker` names, and the bare tracker only under beads |
-| `mutate_tracker.py` | from 0.6.0: whether the tests that hold the tracker door bite -- twenty-eight mutations, each breaking one promised rule in a copy of the tracked files, each with the test that must fail on it; the table is in `results/mutation-tracker.txt`. The mutations name source lines as they stand, so a reformatting of `dotdiw` retargets them |
+| `mutate_tracker.py` | from 0.6.0: whether the tests that hold the tracker door bite -- a hundred and five mutations, each breaking one promised rule in a copy of the tracked files, each with the test that must fail on it; the table is in `results/mutation-tracker.txt`. The mutations name source lines as they stand, so a reformatting of `dotdiw` retargets them |
 
 ## The runs
 
@@ -71,10 +71,15 @@ a little back. A sample taken while anything else runs is load: one read
 1.042 s with two test suites running and was discarded.
 
 On 2026-11-04, on a machine under other load and so not a reading of the law,
-alternating single runs put this tree 77 ms behind 0.5.0 under beads. A command
-that runs no tracker went from 56 ms on 0.5.0 to 101 ms, most of it compiling a
-longer script, which has no cached bytecode, on every run. The law has not been
-read on an idle machine since the typing.
+alternating single runs put what became 0.6.0 77 ms behind 0.5.0 under beads. A
+command that runs no tracker went from 56 ms on 0.5.0 to 101 ms, about half of it
+compiling a longer script, which has no cached bytecode, on every run.
+
+On 2026-11-05, with an emulator on the same machine using up to two and a half
+cores, and so not a reading of the law, alternating single runs read 0.869 s on
+0.5.0, 0.934 s on 0.6.0 and 0.933 s on 0.7.0 under beads at the median, and about
+0.2 s under local. With the emulator busier they read 1.028 s, 1.083 s and 1.081 s.
+0.7.0 costs nothing against 0.6.0.
 
 ## Caveats, and two things removed
 

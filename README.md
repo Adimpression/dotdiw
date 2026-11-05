@@ -368,16 +368,16 @@ owns only what is its own.
 - `carrier.yaml`, `reliant-enactments/` -- who may stand in the product's
   position, and one real occasion of reliance.
 - `poa/product-model.yaml` and `operation-idl.json` -- the governed source and
-  the operation algebra derived from it: forty-two operations, each traced
+  the operation algebra derived from it: forty-four operations, each traced
   to a duty, a step and a lawful lifecycle transition, ten of them the
   tracker interface an adapter answers. `poa/finish-idl.py` finishes every
   derivation from `poa/idl-additions.json` and `poa/idl-patches.json`: the
   real command-line bindings, the calls between operations, the tracker and
   git calls that cross the boundary, one binding per adapter for each
-  operation of the interface, the fields of every request and response; and
-  it writes both doors and the record types into `dotdiw`, every request,
-  response and shared record of the IDL as a class the bodies and the
-  adapters are typed by.
+  operation of the interface, the fields of every request and response. It
+  also writes into `dotdiw` both doors, the file a tracker starts from, and one
+  class for every request, response and shared record of the IDL, which the
+  bodies and the adapters inside it are typed by.
 - `promise_bindings.py` -- every operation bound to its one body in `dotdiw`,
   under the IDL's name, and each operation of the tracker interface to the
   adapter that answers it. `dotdiw` is shaped by it: one function per
@@ -404,10 +404,11 @@ Once per machine, the way git is installed:
 brew install adimpression/tap/dotdiw
 ```
 
-The formula installs dotdiw, and with it the one tracker a checkout may choose
-in place of the store dotdiw brings. `dotdiw` itself is a single Python file
-depending only on the standard library, Python 3.11 or later; on `PATH` it
-works just as well, with that store.
+The formula installs dotdiw and everything it needs to run. `dotdiw` itself is a
+single Python file that needs only the standard library, Python 3.11 or later,
+and it brings its own store for the work, so copied onto your `PATH` it works
+just as well. To use another tracker instead of that store, install it
+separately and choose it by name.
 The Homebrew formula lives in
 [Adimpression/homebrew-tap](https://github.com/Adimpression/homebrew-tap), not
 in this repository.
@@ -457,15 +458,18 @@ and close reasons with them, ids kept where the target accepts them and mapped
 in a file under the workspace where it does not, and never writes to the
 source. If the target refuses any write the move fails and names it, and the
 next run finishes what the first left. One command can go elsewhere with `--tracker <name>` or
-`DOTDIW_TRACKER`. A tracker's name appears where you chose or asked for it:
-in that list, on the line that says a checkout is adopted, on the tracker
-line of `--version`, and once, in the notice that a checkout adopted before
-there was a choice has been kept on the tracker its work is in. Nothing else
-dotdiw says names one.
+`DOTDIW_TRACKER`. A tracker's name appears where you chose or asked for it: in
+the `tracker` commands, on the line that says a checkout is adopted, on the
+tracker line of `--version`, in a line saying what is wrong with the one a
+checkout chose or with a name you gave, and once, in the notice that a checkout
+adopted before there was a choice has been kept on the tracker its work is in.
+Nothing else dotdiw says names one.
 
 `beads` is the tracker every version before 0.6.0 ran on, kept as an adapter
-so that a checkout adopted earlier goes on exactly as it was: the same
-commands print the same bytes. Under it every command dotdiw does not own
+so that a checkout adopted earlier goes on as it was: the commands of a day's
+work print the same bytes. It needs its own binary, installed with
+`brew install beads`. A checkout on beads without the binary is told that command
+in one line. Under beads every command dotdiw does not own
 runs in the tracker unchanged, interactive prompts included, and `dotdiw
 --help` lists them; the tracker records its role beside the key, maintainer,
 the answer it would otherwise ask for; a `BEADS_DIR` of your own is
@@ -477,14 +481,21 @@ metrics and no commands beyond the tracker's own, `list`, `ready`, `show`,
 `close`, `update` and `dep add`; `--help` prints what bare `dotdiw` prints,
 and anything else it refuses by name.
 
-A tracker that is not on this machine is a module under
-`~/.dotdiw/trackers/<name>.py` exposing `TRACKER`, the ten operations of the
-interface as callables; `dotdiw tracker check <name>` runs the scenario that
-defines an adapter against the project or board the module declares for it,
-and says what fails. `trackers/jira.py` in this repository is one, for Jira
-Cloud, its credentials read from the environment or from
-`~/.dotdiw/trackers/jira.json` and never from a repository; it is proved
-against a stub of the API in `test_jira.py`, and against nothing live.
+A tracker not built into dotdiw is one file, `<name>.py`, exposing a table,
+`TRACKER`, that holds the ten operations of the interface as callables.
+`dotdiw tracker new <name>` writes the file to start from. dotdiw finds it in
+`~/.dotdiw/trackers/`, or in `share/dotdiw/trackers/` beside the `bin/` it runs
+from, where a package named `dotdiw-tracker-<name>` installs it.
+`dotdiw tracker check <name>`, or `dotdiw tracker check ./<name>.py` before it is
+installed, runs the scenario that defines an adapter, in a scratch workspace or
+against the project or board the module declares for it, and says what fails. A
+file written for another interface is refused in one line that names it.
+
+`trackers/jira.py` in this repository is an adapter for Jira Cloud, installed
+with `brew install adimpression/tap/dotdiw-tracker-jira`. It reads its credentials
+from the environment or from `~/.dotdiw/trackers/jira.json`, never from a
+repository. It is tested against a stub of the API in `test_jira.py` and against
+nothing live.
 
 ## Commands
 
@@ -501,12 +512,13 @@ dotdiw learn                                 # all of it, for whoever found the 
 dotdiw tracker list                          # what is registered, and which this checkout uses
 dotdiw tracker use <name>                    # choose afterwards; the work in the old one stays
 dotdiw tracker migrate <from> <to>           # move it; the source is left as it was
-dotdiw tracker check <name>                  # prove an adapter against the scenario that defines one
+dotdiw tracker check <name or path>          # prove an adapter against the scenario that defines one
+dotdiw tracker new <name>                    # write the file a tracker of your own starts from
 ```
 
 `list`, `ready`, `show`, `close`, `update` and `dep add` are the tracker's,
-answered by whichever one the checkout uses; under `beads` everything else
-runs in it unchanged. No task ever requires typing anything else.
+answered by whichever one the checkout uses. No task ever requires typing
+anything else.
 
 ## Working on it
 

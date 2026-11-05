@@ -1082,6 +1082,12 @@
       "externalCalls": [
         {
           "dependencyId": "dependency.git",
+          "operationRef": "product.git::rev-parse --local-env-vars",
+          "callPurpose": "Which variables would turn git on another repository, hidden while the scratch repository is in use.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
           "operationRef": "product.git::init",
           "callPurpose": "A scratch repository for the check, keyed to a scratch workspace under the home, removed after the run; never live work.",
           "failurePropagation": "propagate"
@@ -1172,6 +1178,21 @@
     },
     "operation.move-a-workspace": {
       "visibility": "external-facing"
+    },
+    "operation.ship-a-tracker": {
+      "visibility": "external-facing",
+      "tracesTo": {
+        "interactionIds": [
+          "interaction.ship-tracker"
+        ],
+        "boundaryIds": [
+          "boundary.new-to-file"
+        ]
+      }
+    },
+    "operation.write-tracker": {
+      "kind": "command",
+      "visibility": "supporting"
     }
   },
   "types": {
@@ -1886,7 +1907,8 @@
             "values": [
               "no-title",
               "exists",
-              "unwritable"
+              "unwritable",
+              "not-installed"
             ]
           },
           "required": false,
@@ -4367,7 +4389,16 @@
             "scalar": "string"
           },
           "required": true,
-          "summary": "A registered adapter's name."
+          "summary": "A registered adapter's name, or the stem of the file given by path."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "A file to load and check, when it is not installed; name is then its stem."
         }
       ]
     },
@@ -4402,7 +4433,11 @@
             "values": [
               "tracker-unknown",
               "adapter-failed",
-              "no-check-target"
+              "no-check-target",
+              "no-such-file",
+              "bad-name",
+              "shipped-name",
+              "not-installed"
             ]
           },
           "required": false,
@@ -4543,6 +4578,15 @@
           },
           "required": false,
           "summary": "The adapter, for use and check."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "A file to load and check, when it is not installed; name is then its stem."
         }
       ]
     },
@@ -4601,7 +4645,11 @@
               "adapter-failed",
               "no-check-target",
               "not-a-repository",
-              "key-not-written"
+              "key-not-written",
+              "no-such-file",
+              "bad-name",
+              "shipped-name",
+              "not-installed"
             ]
           },
           "required": false,
@@ -4728,6 +4776,120 @@
           "summary": "The repository the interface resolved, for the tracker door to read the workspace's adapter from."
         }
       ]
+    },
+    "type.ship-a-tracker-request": {
+      "fields": [
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The tracker's name: lowercase letters, digits and hyphens, starting with a letter."
+        },
+        {
+          "name": "directory",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where to write the file; the current directory by default."
+        }
+      ]
+    },
+    "type.ship-a-tracker-response": {
+      "fields": [
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The file written."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "bad-name",
+              "shipped-name",
+              "exists",
+              "unwritable"
+            ]
+          },
+          "required": false,
+          "summary": "Why the operation failed, when it did."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    "type.write-tracker-request": {
+      "fields": [
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The tracker's name: lowercase letters, digits and hyphens, starting with a letter."
+        },
+        {
+          "name": "directory",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where to write the file; the current directory by default."
+        }
+      ]
+    },
+    "type.write-tracker-response": {
+      "fields": [
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The file written."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "bad-name",
+              "shipped-name",
+              "exists",
+              "unwritable"
+            ]
+          },
+          "required": false,
+          "summary": "Why the operation failed, when it did."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
     }
   },
   "externalProductDependencies": [
@@ -4735,7 +4897,7 @@
       "dependencyId": "dependency.beads",
       "productId": "product.beads",
       "productName": "beads (bd)",
-      "reason": "beads is the issue tracker that ships underneath: it holds the work items, cooks and pours formulas, and owns every command dotdiw forwards. dotdiw adds discovery and hides the second name. It is reached only through the beads adapter, behind the tracker door; the interface is what dotdiw's bodies see.",
+      "reason": "beads is a tracker a checkout may choose, installed on its own: under that choice it holds the work items, cooks and pours formulas, and owns every command dotdiw forwards. dotdiw adds discovery and hides the second name. It is reached only through the beads adapter, behind the tracker door; the interface is what dotdiw's bodies see.",
       "boundarySemantics": "A local subprocess on the same machine, run by the beads adapter alone, told where its state lives through BEADS_DIR: ~/.dotdiw/<key>/.beads under the user's home, keyed to the checkout. It runs in its stealth mode with hooks and agent files declined, so it commits nothing, writes nothing into the repository and configures no remote. The adapter turns its usage metrics off before the first call, rewrites its name in everything it prints, and otherwise changes nothing it does. It has no POA IDL; the commands below are what the adapter calls.",
       "calledOperations": [
         "create",
@@ -5362,7 +5524,7 @@
       "affordance": {
         "label": "dotdiw tracker",
         "shape": "See, choose or check the adapter a workspace's work goes through.",
-        "command": "dotdiw tracker list | use <name> | check <name>",
+        "command": "dotdiw tracker list | use <name> | check <name or path>",
         "inputMapping": [
           {
             "from": "list | use | check",
@@ -5373,6 +5535,11 @@
             "from": "<name>",
             "to": "name",
             "notes": "A registered adapter, for use and check."
+          },
+          {
+            "from": "<path>",
+            "to": "path",
+            "notes": "A word with a slash in it, or ending in .py, is a file to check; name is then its stem."
           }
         ]
       },
@@ -5451,6 +5618,42 @@
         ],
         "explanation": "The first line is the tool's identity and no operation; the second is what the adapter says of itself, and the command line prints it as returned."
       }
+    },
+    {
+      "bindingId": "binding.cli-tracker-new",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.ship-a-tracker",
+      "affordance": {
+        "label": "dotdiw tracker new",
+        "shape": "Write the file a tracker starts from.",
+        "command": "dotdiw tracker new <name> [--at <directory>]",
+        "inputMapping": [
+          {
+            "from": "<name>",
+            "to": "name",
+            "notes": "The tracker's name, and the file's stem."
+          },
+          {
+            "from": "--at <directory>",
+            "to": "directory",
+            "notes": "The current directory by default."
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.put-all-four-under-one-name"
+        ],
+        "journeyIds": [
+          "journey.ship-a-tracker"
+        ],
+        "stepIds": [
+          "step.write-tracker"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
+      }
     }
   ],
   "projections": [
@@ -5503,5 +5706,9 @@
   "adapters": [
     "beads",
     "local"
-  ]
+  ],
+  "trackerInterface": {
+    "number": 1,
+    "digest": "f04d61445a6509f5"
+  }
 }

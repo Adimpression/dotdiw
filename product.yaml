@@ -103,7 +103,8 @@ possibleCarriers:
     howEncountered: >
       Holds the created work item and the poured steps: the store dotdiw
       brings, one file under the home, or an adapter chosen by name -- beads,
-      the tracker of every version before 0.6.0, or one loaded from the home.
+      the tracker of every version before 0.6.0, or one loaded by name from the
+      home directory or from where a package installed it.
       dotdiw reaches it in typed records only, and under beads forwards every
       other command to it under its own name.
 evidenceOrProof:
@@ -250,6 +251,19 @@ promiseChanges:
       the interface is the record: every adapter is held to the same types by
       the door and to the same scenario by the suite, and a worker can choose
       a tracker, or none, without dotdiw changing.
+  - changeId: change.a-tracker-ships-by-convention
+    summary: >
+      From 0.7.0 a tracker ships as dotdiw-tracker-<name>, a package holding
+      one file that installs under share/dotdiw/trackers beside the tool. It is
+      compatible when dotdiw tracker check passes every operation, and it says
+      which interface it was written for. dotdiw tracker new writes the file to
+      start from. The tap's formula no longer installs beads: a checkout that
+      chose it is told brew install beads when the binary is missing.
+    compatibility: strengthening
+    rationale: >
+      A tracker could only be copied by hand into the home directory, which a
+      package manager cannot write to, and nothing said which interface a
+      module was written for.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

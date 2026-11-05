@@ -1016,6 +1016,81 @@
       ]
     },
     {
+      "operationId": "operation.ship-a-tracker",
+      "name": "ShipATracker",
+      "summary": "Orchestrate the Ship a tracker journey from source artifacts to product-visible completion.",
+      "kind": "orchestration",
+      "status": "active",
+      "visibility": "external-facing",
+      "criticality": "high",
+      "tracesTo": {
+        "dutyIds": [
+          "duty.put-all-four-under-one-name"
+        ],
+        "journeyIds": [
+          "journey.ship-a-tracker"
+        ],
+        "stepIds": [
+          "step.write-tracker"
+        ],
+        "sliIds": [],
+        "sloIds": [],
+        "goldenTraceIds": [],
+        "antiGoldenTraceIds": [],
+        "objectIds": [
+          "object.tracker-adapter"
+        ],
+        "interactionIds": [
+          "interaction.ship-tracker"
+        ],
+        "invariantIds": [
+          "invariant.one-door",
+          "invariant.one-tracker-door"
+        ],
+        "boundaryIds": [
+          "boundary.new-to-file"
+        ]
+      },
+      "timing": {
+        "realWorldLatencyClass": "under-1s",
+        "syncExpectation": "synchronous",
+        "networkSeparationAllowed": false,
+        "causalJustification": "dotdiw's own step here is one small file, written from text the tool already holds.\n"
+      },
+      "requestType": "type.ship-a-tracker-request",
+      "responseType": "type.ship-a-tracker-response",
+      "failureTypes": [
+        "type.artifact-not-found-error",
+        "type.open-question-blocked-error"
+      ],
+      "idempotency": {
+        "idempotencyClass": "naturally-idempotent",
+        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+      },
+      "preconditions": [
+        "dotdiw is installed."
+      ],
+      "postconditions": [
+        "The file passes every operation of the scenario.",
+        "dotdiw tracker list shows it from where the package put it."
+      ],
+      "calls": [
+        {
+          "operationId": "operation.write-tracker",
+          "callPurpose": "Compose operation.write-tracker as a governed journey step.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "derivedFrom": [
+        {
+          "sourceKind": "journey-completion",
+          "sourceRef": "journey.ship-a-tracker",
+          "reason": "Derived from journey completion criteria."
+        }
+      ]
+    },
+    {
       "operationId": "operation.name-the-work",
       "name": "NameTheWork",
       "summary": "Name the work: A work item is created under that title, and it is the first thing that has happened to the work.",
@@ -1541,7 +1616,8 @@
       ],
       "postconditions": [
         "The file is named <something>.formula.toml and sits in the tree, not in a formulas directory.",
-        "Steps and their needs are TOML, not prose."
+        "Steps and their needs are TOML, not prose.",
+        "Steps asked from work on a tracker whose binary is missing are refused in one line, and nothing is written."
       ],
       "calls": [
         {
@@ -1767,7 +1843,8 @@
       "postconditions": [
         "git lists the formula.",
         "dotdiw check no longer reports it as uncommitted.",
-        "dotdiw did not make the commit."
+        "dotdiw did not make the commit.",
+        "The command it prints runs as printed, whatever the directory is called."
       ],
       "calls": [],
       "derivedFrom": [
@@ -1848,7 +1925,8 @@
         "The key is in .git/config and the state is under the home at that key, with no sync remote.",
         "core.hooksPath is not set.",
         "Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing, unless the tracker's own re-init flags were given.",
-        "The tracker's own output is shown, under dotdiw's name."
+        "The tracker's own output is shown, under dotdiw's name.",
+        "A tracker that does not open stops the adoption. What it said is shown, no choice is written and nothing is declared."
       ],
       "calls": [
         {
@@ -2334,7 +2412,7 @@
       "postconditions": [
         "Interactive prompts still work.",
         "A word split across two reads is still rewritten.",
-        "Without the tracker on the machine, the worker is told the install command, brew install adimpression/tap/dotdiw, and the exit code is 127.",
+        "Without the tracker on the machine, the worker is told in one line how to install the tracker this checkout chose, and the exit code is 127.",
         "The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts."
       ],
       "calls": [
@@ -2788,7 +2866,7 @@
     {
       "operationId": "operation.open-tracker",
       "name": "OpenTracker",
-      "summary": "Open the workspace's tracker: The adapter has a store for the key and answers for it.",
+      "summary": "Open the workspace's tracker: The adapter has a store for this checkout and answers for it.",
       "kind": "command",
       "status": "active",
       "visibility": "internal-only",
@@ -3683,7 +3761,7 @@
         "An adopted repository."
       ],
       "postconditions": [
-        "An adapter loaded from the home is listed with where it was loaded from.",
+        "A loaded adapter is listed with where it was loaded from, the home directory looked in first, then share/dotdiw/trackers beside the tool.",
         "Nothing is written."
       ],
       "calls": [
@@ -3784,7 +3862,8 @@
       "postconditions": [
         "An unknown name is refused with the registered names, and nothing is written.",
         "An adapter whose store does not open leaves the checkout's choice as it was.",
-        "A module under the home that raises on load, or whose table is out of shape, is listed as not loaded and refused by name with the reason in one line.",
+        "A choice that could not be written is said in one line, and the checkout stays on the tracker it had.",
+        "A module that raises on load, whose table is out of shape, or that declares an interface this tool does not support, is listed as not loaded and refused in one line that names it and gives the reason.",
         "Nothing of the tracker's enters the tree."
       ],
       "calls": [
@@ -3868,11 +3947,16 @@
         "explanation": "Given the same source artifacts, the product-visible result is deterministic."
       },
       "preconditions": [
-        "A registered adapter with a declared check target."
+        "A registered adapter with a declared check target, or a file holding one."
       ],
       "postconditions": [
         "Never against live work unasked; the target is the adapter's to declare.",
-        "A failing adapter is named with the operation that failed."
+        "A failing adapter is named with the operation that failed.",
+        "A file checked by path is left as it was, and nothing is written beside it.",
+        "A file checked by path is read as it stands, whatever bytecode is cached beside it.",
+        "After a check by path, the adapter of that name, its module and what the loader remembers of it are as they were.",
+        "The checkout the check was asked from is not touched, whatever GIT_DIR says.",
+        "The scenario covers what the other commands rely on, a need already there, a scope, a limit, a parent under either scope, a status refused and the kind of a poured root among them."
       ],
       "calls": [
         {
@@ -3944,6 +4028,12 @@
         }
       ],
       "externalCalls": [
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::rev-parse --local-env-vars",
+          "callPurpose": "Which variables would turn git on another repository, hidden while the scratch repository is in use.",
+          "failurePropagation": "propagate"
+        },
         {
           "dependencyId": "dependency.git",
           "operationRef": "product.git::init",
@@ -4093,6 +4183,72 @@
           "operationRef": "product.git::rev-parse --show-toplevel",
           "callPurpose": "The checkout, when the request carries no root, for the tracker door to read the workspace's adapter from.",
           "failurePropagation": "propagate"
+        }
+      ]
+    },
+    {
+      "operationId": "operation.write-tracker",
+      "name": "WriteTracker",
+      "summary": "Write the file a tracker starts from: <name>.py is written in the directory given, else the current one, with the ten operations raising until they are filled and the table that declares them.",
+      "kind": "command",
+      "status": "active",
+      "visibility": "supporting",
+      "criticality": "high",
+      "tracesTo": {
+        "dutyIds": [
+          "duty.put-all-four-under-one-name"
+        ],
+        "journeyIds": [
+          "journey.ship-a-tracker"
+        ],
+        "stepIds": [
+          "step.write-tracker"
+        ],
+        "invariantIds": [
+          "invariant.one-door"
+        ],
+        "objectIds": [
+          "object.tracker-adapter"
+        ],
+        "interactionIds": [
+          "interaction.ship-tracker"
+        ],
+        "boundaryIds": [
+          "boundary.new-to-file"
+        ]
+      },
+      "timing": {
+        "realWorldLatencyClass": "under-1s",
+        "syncExpectation": "synchronous",
+        "networkSeparationAllowed": false,
+        "causalJustification": "The file is written from text the tool already holds. The work of filling it in is the author's, and no part of the interaction.\n"
+      },
+      "requestType": "type.write-tracker-request",
+      "responseType": "type.write-tracker-response",
+      "failureTypes": [
+        "type.artifact-not-found-error",
+        "type.open-question-blocked-error"
+      ],
+      "stateTransitions": [],
+      "idempotency": {
+        "idempotencyClass": "naturally-idempotent",
+        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+      },
+      "preconditions": [
+        "A name for the tracker."
+      ],
+      "postconditions": [
+        "A name with anything but lowercase letters, digits and hyphens, the name of a built-in adapter, or a file that exists is refused in one line and nothing is written.",
+        "The check command it prints runs as printed, whatever the directory is called.",
+        "The file is a fresh generation from the interface, and it loads.",
+        "Nothing outside the file is written."
+      ],
+      "calls": [],
+      "derivedFrom": [
+        {
+          "sourceKind": "gwt-step",
+          "sourceRef": "step.write-tracker",
+          "reason": "Derived from a product-visible GWT step."
         }
       ]
     }
@@ -5208,7 +5364,8 @@
             "values": [
               "no-title",
               "exists",
-              "unwritable"
+              "unwritable",
+              "not-installed"
             ]
           },
           "required": false,
@@ -9780,7 +9937,16 @@
             "scalar": "string"
           },
           "required": true,
-          "summary": "A registered adapter's name."
+          "summary": "A registered adapter's name, or the stem of the file given by path."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "A file to load and check, when it is not installed; name is then its stem."
         }
       ]
     },
@@ -9868,7 +10034,11 @@
             "values": [
               "tracker-unknown",
               "adapter-failed",
-              "no-check-target"
+              "no-check-target",
+              "no-such-file",
+              "bad-name",
+              "shipped-name",
+              "not-installed"
             ]
           },
           "required": false,
@@ -10065,6 +10235,154 @@
               "adapter-failed",
               "same-tracker",
               "item-refused"
+            ]
+          },
+          "required": false,
+          "summary": "Why the operation failed, when it did."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    {
+      "typeId": "type.write-tracker-request",
+      "name": "WriteTrackerRequest",
+      "kind": "record",
+      "description": "Request for WriteTracker.",
+      "fields": [
+        {
+          "name": "correlationId",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Stable caller-supplied correlation identifier."
+        },
+        {
+          "name": "sourceRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references used as operation inputs.",
+          "cardinality": "many"
+        },
+        {
+          "name": "trackerAdapterRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.tracker-adapter"
+          },
+          "required": false,
+          "summary": "Reference to object.tracker-adapter.",
+          "semanticSourceRefs": [
+            "object.tracker-adapter"
+          ]
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The tracker's name: lowercase letters, digits and hyphens, starting with a letter."
+        },
+        {
+          "name": "directory",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where to write the file; the current directory by default."
+        }
+      ]
+    },
+    {
+      "typeId": "type.write-tracker-response",
+      "name": "WriteTrackerResponse",
+      "kind": "record",
+      "description": "Response for WriteTracker.",
+      "fields": [
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "accepted",
+              "completed",
+              "blocked",
+              "failed"
+            ]
+          },
+          "required": true,
+          "summary": "Operation result status."
+        },
+        {
+          "name": "summary",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "Human-readable product outcome."
+        },
+        {
+          "name": "resultRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references produced or affected by the operation.",
+          "cardinality": "many"
+        },
+        {
+          "name": "openQuestionRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The file written."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "bad-name",
+              "shipped-name",
+              "exists",
+              "unwritable"
             ]
           },
           "required": false,
@@ -11426,6 +11744,15 @@
           },
           "required": false,
           "summary": "The adapter, for use and check."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "A file to load and check, when it is not installed; name is then its stem."
         }
       ]
     },
@@ -11537,7 +11864,11 @@
               "adapter-failed",
               "no-check-target",
               "not-a-repository",
-              "key-not-written"
+              "key-not-written",
+              "no-such-file",
+              "bad-name",
+              "shipped-name",
+              "not-installed"
             ]
           },
           "required": false,
@@ -11731,6 +12062,154 @@
               "adapter-failed",
               "same-tracker",
               "item-refused"
+            ]
+          },
+          "required": false,
+          "summary": "Why the operation failed, when it did."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false
+        }
+      ]
+    },
+    {
+      "typeId": "type.ship-a-tracker-request",
+      "name": "ShipATrackerRequest",
+      "kind": "record",
+      "description": "Request for ShipATracker.",
+      "fields": [
+        {
+          "name": "correlationId",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Stable caller-supplied correlation identifier."
+        },
+        {
+          "name": "sourceRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references used as operation inputs.",
+          "cardinality": "many"
+        },
+        {
+          "name": "trackerAdapterRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.tracker-adapter"
+          },
+          "required": false,
+          "summary": "Reference to object.tracker-adapter.",
+          "semanticSourceRefs": [
+            "object.tracker-adapter"
+          ]
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The tracker's name: lowercase letters, digits and hyphens, starting with a letter."
+        },
+        {
+          "name": "directory",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where to write the file; the current directory by default."
+        }
+      ]
+    },
+    {
+      "typeId": "type.ship-a-tracker-response",
+      "name": "ShipATrackerResponse",
+      "kind": "record",
+      "description": "Response for ShipATracker.",
+      "fields": [
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "accepted",
+              "completed",
+              "blocked",
+              "failed"
+            ]
+          },
+          "required": true,
+          "summary": "Operation result status."
+        },
+        {
+          "name": "summary",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "Human-readable product outcome."
+        },
+        {
+          "name": "resultRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references produced or affected by the operation.",
+          "cardinality": "many"
+        },
+        {
+          "name": "openQuestionRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The file written."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "bad-name",
+              "shipped-name",
+              "exists",
+              "unwritable"
             ]
           },
           "required": false,
@@ -12469,6 +12948,15 @@
           "summary": "The adapter's own version, or the product's behind it."
         },
         {
+          "name": "interface",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The tracker interface it was written for; a module that says nothing was written for interface 1."
+        },
+        {
           "name": "origin",
           "valueType": {
             "kind": "enum-inline",
@@ -12478,7 +12966,7 @@
             ]
           },
           "required": true,
-          "summary": "Inside dotdiw, or loaded by name from the home."
+          "summary": "Inside dotdiw, or loaded by name from the home directory or share/dotdiw/trackers."
         },
         {
           "name": "source",
@@ -12801,6 +13289,12 @@
       "toOperationId": "operation.migrate-workspace",
       "callKind": "synchronous",
       "reason": "Compose operation.migrate-workspace as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.ship-a-tracker",
+      "toOperationId": "operation.write-tracker",
+      "callKind": "synchronous",
+      "reason": "Compose operation.write-tracker as a governed journey step."
     },
     {
       "fromOperationId": "operation.name-the-work",
@@ -13157,6 +13651,18 @@
       "consistencyExpectation": "strong",
       "causalityJustification": "There is nothing to wait for; the text is in the binary.",
       "userVisibleImpact": "The four capabilities and the two conventions, in full."
+    },
+    {
+      "boundaryId": "boundary.new-to-file",
+      "name": "New to file",
+      "description": "The starting file for a tracker is written from text compiled into the tool.",
+      "interactionId": "interaction.ship-tracker",
+      "realWorldProcess": "Someone starts a tracker of their own.",
+      "realWorldLatencyClass": "under-1s",
+      "separationAllowed": false,
+      "consistencyExpectation": "strong",
+      "causalityJustification": "There is nothing to wait for; the text is in the tool, and the file is small.",
+      "userVisibleImpact": "The path written, and the check to run next."
     }
   ],
   "externalProductDependencies": [
@@ -13164,7 +13670,7 @@
       "dependencyId": "dependency.beads",
       "productId": "product.beads",
       "productName": "beads (bd)",
-      "reason": "beads is the issue tracker that ships underneath: it holds the work items, cooks and pours formulas, and owns every command dotdiw forwards. dotdiw adds discovery and hides the second name. It is reached only through the beads adapter, behind the tracker door; the interface is what dotdiw's bodies see.",
+      "reason": "beads is a tracker a checkout may choose, installed on its own: under that choice it holds the work items, cooks and pours formulas, and owns every command dotdiw forwards. dotdiw adds discovery and hides the second name. It is reached only through the beads adapter, behind the tracker door; the interface is what dotdiw's bodies see.",
       "boundarySemantics": "A local subprocess on the same machine, run by the beads adapter alone, told where its state lives through BEADS_DIR: ~/.dotdiw/<key>/.beads under the user's home, keyed to the checkout. It runs in its stealth mode with hooks and agent files declined, so it commits nothing, writes nothing into the repository and configures no remote. The adapter turns its usage metrics off before the first call, rewrites its name in everything it prints, and otherwise changes nothing it does. It has no POA IDL; the commands below are what the adapter calls.",
       "calledOperations": [
         "create",
@@ -13791,7 +14297,7 @@
       "affordance": {
         "label": "dotdiw tracker",
         "shape": "See, choose or check the adapter a workspace's work goes through.",
-        "command": "dotdiw tracker list | use <name> | check <name>",
+        "command": "dotdiw tracker list | use <name> | check <name or path>",
         "inputMapping": [
           {
             "from": "list | use | check",
@@ -13802,6 +14308,11 @@
             "from": "<name>",
             "to": "name",
             "notes": "A registered adapter, for use and check."
+          },
+          {
+            "from": "<path>",
+            "to": "path",
+            "notes": "A word with a slash in it, or ending in .py, is a file to check; name is then its stem."
           }
         ]
       },
@@ -13879,6 +14390,42 @@
           "step.describe-tracker"
         ],
         "explanation": "The first line is the tool's identity and no operation; the second is what the adapter says of itself, and the command line prints it as returned."
+      }
+    },
+    {
+      "bindingId": "binding.cli-tracker-new",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.ship-a-tracker",
+      "affordance": {
+        "label": "dotdiw tracker new",
+        "shape": "Write the file a tracker starts from.",
+        "command": "dotdiw tracker new <name> [--at <directory>]",
+        "inputMapping": [
+          {
+            "from": "<name>",
+            "to": "name",
+            "notes": "The tracker's name, and the file's stem."
+          },
+          {
+            "from": "--at <directory>",
+            "to": "directory",
+            "notes": "The current directory by default."
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.put-all-four-under-one-name"
+        ],
+        "journeyIds": [
+          "journey.ship-a-tracker"
+        ],
+        "stepIds": [
+          "step.write-tracker"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
     }
   ],
@@ -14012,6 +14559,17 @@
         "operation.migrate-workspace"
       ],
       "notes": "The body is dotdiw::MoveAWorkspace, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.ship-a-tracker",
+      "operationId": "operation.ship-a-tracker",
+      "implementationUnit": "promise_bindings::ShipATracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "calledOperationIds": [
+        "operation.write-tracker"
+      ],
+      "notes": "The body is dotdiw::ShipATracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.name-the-work",
@@ -14456,6 +15014,15 @@
         "operation.close-item"
       ],
       "notes": "The body is dotdiw::MigrateWorkspace, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.write-tracker",
+      "operationId": "operation.write-tracker",
+      "implementationUnit": "promise_bindings::WriteTracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "calledOperationIds": [],
+      "notes": "The body is dotdiw::WriteTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     }
   ],
   "projections": [
@@ -14615,6 +15182,20 @@
       "reason": "Eight bodies reached one tracker by name through two runners and a stream rewrite, and the IDL named the product and its calls without an interface a second tracker could answer. Behind a door of its own the interface is the record: every adapter is held to the same types by the door and to the same scenario by the conformance suite, the bodies cross nowhere but the door, and a worker can choose a tracker, or none, without dotdiw changing.",
       "compatibility": "strengthening",
       "createdAt": "2026-11-03T18:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.a-tracker-ships-by-convention",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.tracker-door",
+        "invariant.one-tracker-door"
+      ],
+      "summary": "A module is looked for in the home directory and then in share/dotdiw/trackers beside the tool; it says which interface it was written for, and any other is refused by name when it loads; dotdiw tracker check takes a file by path; dotdiw tracker new writes the file to start from, generated from the interface. Two operations ship a tracker. The tap's formula no longer installs beads. Migration plan: a module written for 0.6.0 declares no interface and is read as interface 1; a checkout on beads goes on working while the binary is on the machine, and is told the one command when it is not.",
+      "reason": "A tracker could only be copied by hand into the home directory, which a package manager cannot write to, and nothing said which interface a module was written for.",
+      "compatibility": "strengthening",
+      "createdAt": "2026-11-05T12:00:00+08:00",
       "approvalStatus": "draft"
     }
   ],

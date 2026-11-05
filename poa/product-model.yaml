@@ -8,7 +8,7 @@ modelPurpose: >
   than a hope. The thin promise is ../product.yaml; this file is POA's
   internal source and mirrors the operation material that ../praxis.yaml owns.
 createdAt: "2026-11-01T00:00:00+08:00"
-updatedAt: "2026-11-03T12:00:00+08:00"
+updatedAt: "2026-11-05T12:00:00+08:00"
 
 product:
   productId: product.dotdiw
@@ -173,8 +173,10 @@ realWorldModel:
         local is a store in the standard library's sqlite under the
         workspace's keyed directory; beads is the tracker of every version
         before 0.6.0, with everything that contains it moved inside; another
-        is loaded by name from the home. A request names one, else the
-        workspace's key does, else local answers.
+        is loaded by name from the home directory, or from share/dotdiw/trackers
+        beside the tool, where a package installs it, and says which interface
+        it was written for. A request names one, else the workspace's key does,
+        else local answers.
       lifecycleStates:
         - registered
         - chosen
@@ -335,6 +337,17 @@ realWorldModel:
         explanation: >
           One item at a time through two adapters; a workspace of hundreds
           takes seconds.
+    - interactionId: interaction.ship-tracker
+      name: Ship a tracker
+      description: >
+        Someone asks dotdiw for the file a tracker of their own starts from.
+      participantObjectIds:
+        - object.tracker-adapter
+      expectedRealWorldDuration:
+        class: under-1s
+        explanation: >
+          The file is written from text the tool already holds. The work of
+          filling it in is the author's, and no part of the interaction.
   invariants:
     - invariantId: invariant.work-starts-named
       name: Work starts named
@@ -439,9 +452,10 @@ realWorldModel:
         Everything the tracker does is reachable under dotdiw's name. An
         adapter's name appears only where the worker chose or asked for it:
         the list of adapters, the choice of one, the tracker line of the
-        version reported, the refusal of a name that is not registered, and
-        the one notice that a choice was written for a checkout adopted
-        before there was one to make. No other notice, no error and no file
+        version reported, the refusal of a name the worker gave, a line saying
+        what is wrong with the adapter a checkout chose, how to install it among
+        them, and the one notice that a choice was written for a checkout adopted before
+        there was one to make. No other notice, no error and no file
         written for agents names an adapter or the product behind it;
         adapters return records and dotdiw says what it has to say. The one
         stream that passes through
@@ -524,6 +538,7 @@ realWorldModel:
         - interaction.answer-through-adapter
         - interaction.choose-tracker
         - interaction.move-workspace
+        - interaction.ship-tracker
       enforcedByStepIds: []
       guardedByAntiTraceIds: []
     - invariantId: invariant.one-tracker-door
@@ -537,9 +552,13 @@ realWorldModel:
         is made in the repository's tree. The answer is held to its type down
         to the values: a record's fields, each item of a list, the values of
         an enum, and a completed answer holds the record its callers read. An
-        adapter loaded from the home that raises, or answers outside the
-        interface, is a failed response naming it and the operation in one
-        line; a shipped adapter's mistake is the project's, and raises.
+        exit code left out is read from the status, and one against the status
+        is outside the interface. A loaded adapter that raises, exits, or answers
+        outside the interface, is a failed response naming it and the operation
+        in one line; a module that
+        declares an interface this tool does not support is refused when it
+        loads, in one line that names it; a shipped adapter's mistake is the
+        project's, and raises.
       rationale: >
         Swapping the tracker per request is safe only when nothing but the
         door knows which adapter answered, and when no adapter can print its
@@ -555,6 +574,7 @@ realWorldModel:
         - interaction.answer-through-adapter
         - interaction.choose-tracker
         - interaction.move-workspace
+        - interaction.ship-tracker
       enforcedByStepIds: []
       guardedByAntiTraceIds: []
   networkBoundaries:
@@ -682,6 +702,16 @@ realWorldModel:
       consistencyExpectation: strong
       causalityJustification: There is nothing to wait for; the text is in the binary.
       userVisibleImpact: The four capabilities and the two conventions, in full.
+    - boundaryId: boundary.new-to-file
+      name: New to file
+      description: The starting file for a tracker is written from text compiled into the tool.
+      interactionId: interaction.ship-tracker
+      realWorldProcess: Someone starts a tracker of their own.
+      realWorldLatencyClass: under-1s
+      separationAllowed: false
+      consistencyExpectation: strong
+      causalityJustification: There is nothing to wait for; the text is in the tool, and the file is small.
+      userVisibleImpact: The path written, and the check to run next.
   # Object Lifecycle Contracts. lifecycle.work and lifecycle.formula mirror
   # ../praxis.yaml, which owns them; lifecycle.molecule and lifecycle.repository
   # are POA-internal, for the objects the tool itself moves. Operations bind to
@@ -1593,6 +1623,7 @@ journeys:
       - A checked adapter passed every operation, or the failing one is named.
     variants:
       - init --tracker <name> chooses at adoption.
+      - dotdiw tracker check <path> proves a file that is not installed.
     failureBoundaries:
       - A name that is not registered is refused with the registered names and nothing is written.
     nonGoals:
@@ -1673,6 +1704,51 @@ journeys:
       - boundary.dotdiw-to-tracker
     status: active
     version: 0.6.0
+  - journeyId: journey.ship-a-tracker
+    dutyId: duty.put-all-four-under-one-name
+    title: Ship a tracker
+    description: >
+      Someone writes a tracker adapter of their own and ships it so that others install it by name.
+    purpose: Let someone write a tracker dotdiw does not ship, check it, and publish it as a package others can install.
+    trigger: Someone wants dotdiw to work on a tracker it does not ship.
+    preconditions:
+      - dotdiw is installed.
+    primaryFlow:
+      - dotdiw tracker new <name> writes the file to start from.
+      - dotdiw tracker check ./<name>.py says which operations are left to answer.
+      - A package named dotdiw-tracker-<name> installs the file under share/dotdiw/trackers.
+    completionCriteria:
+      - The file passes every operation of the scenario.
+      - dotdiw tracker list shows it from where the package put it.
+    variants:
+      - The file is copied to ~/.dotdiw/trackers with no package; that directory is looked in first.
+    failureBoundaries:
+      - A name with anything but lowercase letters, digits and hyphens, the name of a built-in adapter, or a file that exists is refused and nothing is written.
+    nonGoals:
+      - A registry of trackers; dotdiw reads no package's name.
+      - A repository choosing an adapter; a clone cannot make dotdiw run its code.
+    inputObjectIds:
+      - object.tracker-adapter
+    outputObjectIds:
+      - object.tracker-adapter
+    invariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    stepIds:
+      - step.write-tracker
+    sliIds: []
+    sloIds: []
+    goldenTraceIds: []
+    antiGoldenTraceIds: []
+    timing:
+      realWorldLatencyClass: under-1s
+      syncExpectation: synchronous
+      causalJustification: >
+        dotdiw's own step here is one small file, written from text the tool already holds.
+    networkBoundaryIds:
+      - boundary.new-to-file
+    status: active
+    version: 0.7.0
 
 steps:
   - stepId: step.name-the-work
@@ -1797,6 +1873,7 @@ steps:
     thenAssertions:
       - The file is named <something>.formula.toml and sits in the tree, not in a formulas directory.
       - Steps and their needs are TOML, not prose.
+      - Steps asked from work on a tracker whose binary is missing are refused in one line, and nothing is written.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -1845,6 +1922,7 @@ steps:
       - git lists the formula.
       - dotdiw check no longer reports it as uncommitted.
       - dotdiw did not make the commit.
+      - The command it prints runs as printed, whatever the directory is called.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -1872,6 +1950,7 @@ steps:
       - core.hooksPath is not set.
       - Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing, unless the tracker's own re-init flags were given.
       - The tracker's own output is shown, under dotdiw's name.
+      - A tracker that does not open stops the adoption. What it said is shown, no choice is written and nothing is declared.
     relatedObjectIds:
       - object.repository
     relatedInteractionIds:
@@ -1986,7 +2065,7 @@ steps:
     thenAssertions:
       - Interactive prompts still work.
       - A word split across two reads is still rewritten.
-      - Without the tracker on the machine, the worker is told the install command, brew install adimpression/tap/dotdiw, and the exit code is 127.
+      - Without the tracker on the machine, the worker is told in one line how to install the tracker this checkout chose, and the exit code is 127.
       - The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts.
     relatedObjectIds:
       - object.tracker-command
@@ -2096,7 +2175,7 @@ steps:
     title: Open the workspace's tracker
     given: A workspace key, and an adapter that would answer.
     when: A body needs the tracker and the adapter has no store for the key yet, or a workspace is moved onto the adapter.
-    then: The adapter has a store for the key and answers for it.
+    then: The adapter has a store for this checkout and answers for it.
     thenAssertions:
       - Nothing is made in the repository's tree.
       - A second open changes nothing.
@@ -2300,7 +2379,7 @@ steps:
     when: dotdiw tracker list runs.
     then: Each registered adapter is printed with its version, and the workspace's is marked.
     thenAssertions:
-      - An adapter loaded from the home is listed with where it was loaded from.
+      - A loaded adapter is listed with where it was loaded from, the home directory looked in first, then share/dotdiw/trackers beside the tool.
       - Nothing is written.
     relatedObjectIds:
       - object.tracker-adapter
@@ -2321,7 +2400,8 @@ steps:
     thenAssertions:
       - An unknown name is refused with the registered names, and nothing is written.
       - An adapter whose store does not open leaves the checkout's choice as it was.
-      - A module under the home that raises on load, or whose table is out of shape, is listed as not loaded and refused by name with the reason in one line.
+      - A choice that could not be written is said in one line, and the checkout stays on the tracker it had.
+      - A module that raises on load, whose table is out of shape, or that declares an interface this tool does not support, is listed as not loaded and refused in one line that names it and gives the reason.
       - Nothing of the tracker's enters the tree.
     relatedObjectIds:
       - object.tracker-adapter
@@ -2342,12 +2422,17 @@ steps:
     journeyId: journey.choose-a-tracker
     sequence: 3
     title: Check an adapter against the suite
-    given: A registered adapter with a declared check target.
-    when: dotdiw tracker check <name> runs.
+    given: A registered adapter with a declared check target, or a file holding one.
+    when: dotdiw tracker check <name> runs, or dotdiw tracker check <path> for a file not installed.
     then: The conformance scenario runs against the target and each operation is reported pass or fail.
     thenAssertions:
       - Never against live work unasked; the target is the adapter's to declare.
       - A failing adapter is named with the operation that failed.
+      - A file checked by path is left as it was, and nothing is written beside it.
+      - A file checked by path is read as it stands, whatever bytecode is cached beside it.
+      - After a check by path, the adapter of that name, its module and what the loader remembers of it are as they were.
+      - The checkout the check was asked from is not touched, whatever GIT_DIR says.
+      - The scenario covers what the other commands rely on, a need already there, a scope, a limit, a parent under either scope, a status refused and the kind of a poured root among them.
     relatedObjectIds:
       - object.tracker-adapter
       - object.tracker
@@ -2380,6 +2465,26 @@ steps:
       - invariant.one-door
       - invariant.one-tracker-door
     expectedUserVisibleOutcome: The counts moved, and the mapping's path if one was needed.
+    status: active
+  - stepId: step.write-tracker
+    journeyId: journey.ship-a-tracker
+    sequence: 1
+    title: Write the file a tracker starts from
+    given: A name for the tracker.
+    when: dotdiw tracker new <name> runs.
+    then: <name>.py is written in the directory given, else the current one, with the ten operations raising until they are filled and the table that declares them.
+    thenAssertions:
+      - A name with anything but lowercase letters, digits and hyphens, the name of a built-in adapter, or a file that exists is refused in one line and nothing is written.
+      - The check command it prints runs as printed, whatever the directory is called.
+      - The file is a fresh generation from the interface, and it loads.
+      - Nothing outside the file is written.
+    relatedObjectIds:
+      - object.tracker-adapter
+    relatedInteractionIds:
+      - interaction.ship-tracker
+    relatedInvariantIds:
+      - invariant.one-door
+    expectedUserVisibleOutcome: The path written, and the check to run next.
     status: active
 
 experience:
@@ -3376,6 +3481,50 @@ updates:
       refused part of is finished by the next.
     approvalStatus: draft
     createdAt: "2026-11-03T18:00:00+08:00"
+  - changeId: change.a-tracker-ships-by-convention
+    changeType: model-update
+    targetRefs:
+      - object.tracker-adapter
+      - interaction.ship-tracker
+      - invariant.one-tracker-door
+      - journey.choose-a-tracker
+      - journey.ship-a-tracker
+    summary: >
+      A tracker package is named dotdiw-tracker-<name>, installs its file under
+      share/dotdiw/trackers, passes dotdiw tracker check and states the interface
+      it was written for. A module is looked for in the home directory and then in
+      share/dotdiw/trackers beside the tool; dotdiw tracker check takes a file
+      by path; dotdiw tracker new writes the file to start from, generated from
+      the interface. The tap's formula no longer installs beads: a checkout that
+      chose it is told brew install beads when the binary is missing.
+    reason: >
+      A tracker could only be copied by hand into the home directory, which a
+      package manager cannot write to. Nothing said which interface a module
+      was written for, and starting one meant copying an adapter that talks to
+      a network.
+    compatibility: strengthening
+    impactAssessment:
+      affectedDuties:
+        - duty.put-all-four-under-one-name
+      affectedJourneys:
+        - journey.choose-a-tracker
+        - journey.ship-a-tracker
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.one-tracker-door
+      riskLevel: low
+      riskExplanation: >
+        Nothing changes for a worker on the store dotdiw brings. A module written
+        for 0.6.0 declares no interface and is read as interface 1.
+    migrationPlan: >
+      A module under the home directory goes on loading from there, and wins
+      over one a package installed under the same name. A checkout on beads goes
+      on working while the binary is on the machine. An upgrade leaves the binary
+      in place until Homebrew's periodic cleanup, which can remove it as unused;
+      brew install beads keeps it.
+    approvalStatus: draft
+    createdAt: "2026-11-05T12:00:00+08:00"
 
 openQuestions:
   - questionId: question.hundreds-of-formulas
