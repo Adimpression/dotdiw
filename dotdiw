@@ -5,10 +5,11 @@
 Everything the tracker does, under one name, plus the part no tracker ships:
 when work starts, the procedure that applies surfaces on its own.
 
-Four capabilities have to work in a project. The tracker covers management and
-declaration, git covers sharing, and this covers discovery. It owns the moment
-work starts -- `dotdiw create` -- and hands everything else to the tracker
-unchanged, so no task ever requires typing the tracker's own name.
+Four capabilities have to work in a project. A file in the repository covers
+declaration, the tracker covers management, git covers sharing, and this covers
+discovery. It owns the moment work starts -- `dotdiw create` -- and hands
+everything else to the tracker unchanged, so no task ever requires typing the
+tracker's own name.
 
 The tracker is behind a door of its own. An adapter answers the ten operations
 of the tracker interface, chosen per request, else per workspace, else the
@@ -94,6 +95,7 @@ class HeldFormula(TypedDict, total=False):
     description: Required[str]
     path: Required[str]
     examples: list[str] | None
+    verifyUsing: list[str] | None
 
 
 class FormulaExample(TypedDict, total=False):
@@ -114,8 +116,8 @@ class ConventionProblem(TypedDict, total=False):
 
 
 class HandmadeProcedure(TypedDict, total=False):
-    """A procedure carried out in the tracker and never declared: a parent that is not a molecule,
-    with ordered children, that no formula reaches.
+    """A procedure carried out in the tracker and never declared: a parent of kind task, with
+    ordered children, that no formula reaches.
     """
     workRef: Required[str]
     title: Required[str]
@@ -128,7 +130,7 @@ class TrackerItem(TypedDict, total=False):
     """
     id: Required[str]
     title: Required[str]
-    kind: str | None
+    kind: Literal["root", "task"] | None
     status: Required[Literal["open", "in_progress", "blocked", "closed"]]
     priority: int | None
     parent: str | None
@@ -136,6 +138,9 @@ class TrackerItem(TypedDict, total=False):
     needs: list[str] | None
     createdAt: str | None
     updatedAt: str | None
+    assignee: str | None
+    description: str | None
+    verifyUsing: list[str] | None
 
 
 class TrackerEdge(TypedDict, total=False):
@@ -167,6 +172,15 @@ class TrackerInfo(TypedDict, total=False):
     extras: list[str] | None
 
 
+class TrackerActor(TypedDict, total=False):
+    """Who a tracker would act as: the name it shows, its own id where it has one, and whether it
+    checked. A name anyone could give is not verified.
+    """
+    name: Required[str]
+    id: str | None
+    verified: Required[bool]
+
+
 class TrackerCheckResult(TypedDict, total=False):
     """One operation of the conformance scenario as it ran against an adapter."""
     operation: Required[str]
@@ -183,7 +197,6 @@ class NameTheWorkRequest(TypedDict, total=False):
     arguments: list[str] | None
     title: Required[str]
     tracker: str | None
-    kind: str | None
     priority: int | None
     parent: str | None
     description: str | None
@@ -255,6 +268,7 @@ class PourProcedureResponse(TypedDict, total=False):
     ] | None
     printed: bool | None
     tracker: str | None
+    verifyUsing: list[str] | None
 
 
 class NoticeHandmadeProceduresRequest(TypedDict, total=False):
@@ -390,6 +404,7 @@ class AdoptRepositoryResponse(TypedDict, total=False):
     ] | None
     printed: bool | None
     tracker: str | None
+    actor: TrackerActor | None
 
 
 class DeclareConventionsRequest(TypedDict, total=False):
@@ -652,6 +667,7 @@ class DescribeTrackerResponse(TypedDict, total=False):
     exitCode: int | None
     path: str | None
     tracker: str | None
+    actor: TrackerActor | None
 
 
 class CreateItemRequest(TypedDict, total=False):
@@ -663,10 +679,10 @@ class CreateItemRequest(TypedDict, total=False):
     tracker: str | None
     root: str | None
     title: Required[str]
-    kind: str | None
     priority: int | None
     parent: str | None
     description: str | None
+    verifyUsing: list[str] | None
     arguments: list[str] | None
     terminal: bool | None
     id: str | None
@@ -729,6 +745,8 @@ class PourStepsRequest(TypedDict, total=False):
     arguments: list[str] | None
     terminal: bool | None
     path: str | None
+    description: str | None
+    verifyUsing: list[str] | None
 
 
 class PourStepsResponse(TypedDict, total=False):
@@ -855,7 +873,7 @@ class UpdateItemResponse(TypedDict, total=False):
     item: TrackerItem | None
     reason: Literal[
         "tracker-unknown", "adapter-failed", "item-not-found", "bad-status",
-        "close-through-update", "not-installed", "no-workspace",
+        "assignee-not-found", "close-through-update", "not-installed", "no-workspace",
     ] | None
     exitCode: int | None
     tracker: str | None
@@ -923,6 +941,7 @@ class UseTrackerResponse(TypedDict, total=False):
     reason: Literal[
         "tracker-unknown", "adapter-failed", "not-a-repository", "key-not-written",
     ] | None
+    actor: TrackerActor | None
     exitCode: int | None
     previous: str | None
 
@@ -976,6 +995,7 @@ class MigrateWorkspaceResponse(TypedDict, total=False):
     mappingPath: str | None
     reason: Literal["tracker-unknown", "adapter-failed", "same-tracker", "item-refused"] | None
     exitCode: int | None
+    assigneesLeft: int | None
 
 
 class WriteTrackerRequest(TypedDict, total=False):
@@ -1011,7 +1031,6 @@ class StartNamedWorkRequest(TypedDict, total=False):
     description: str | None
     quiet: bool | None
     tracker: str | None
-    kind: str | None
     priority: int | None
     parent: str | None
 
@@ -1212,6 +1231,7 @@ class MoveAWorkspaceResponse(TypedDict, total=False):
     mappingPath: str | None
     reason: Literal["tracker-unknown", "adapter-failed", "same-tracker", "item-refused"] | None
     exitCode: int | None
+    assigneesLeft: int | None
 
 
 class ShipATrackerRequest(TypedDict, total=False):
@@ -1290,7 +1310,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "0.7.0"
+VERSION = "1.0.0"
 
 TOP_N = 3
 
@@ -1299,7 +1319,7 @@ TOP_N = 3
 # A fraction and not a score, because bm25's scale depends on how much text the
 # project has. An absolute threshold tuned on a documented project silences
 # every match in a project with one formula and one README, where bm25's idf is
-# zero by construction -- see the measurements in IMPLEMENTATION.md. Set to keep
+# zero by construction -- see the measurements in measurements/README.md. Set to keep
 # Bracketed by measurement on both sides: at 0.10 a coincidence gets through,
 # and at 0.20 a formula stops retrieving one of its own examples. A coincidence
 # costs a glance, silence costs the mechanism. Ordering is bm25's, as it was.
@@ -1311,7 +1331,7 @@ COVERAGE = 0.15
 # a deleted line, so recall is worth more than precision at this one job. It is
 # not worth anything at a harder one: two bare titles agree over almost
 # nothing, and matching them is not a way to notice a procedure being repeated.
-# Measured: see IMPLEMENTATION.md.
+# Measured: see measurements/README.md.
 SEED = 0.25
 
 # A procedure someone carried out in the tracker instead of declaring: a parent
@@ -1384,6 +1404,9 @@ CONVENTION_FILES = ("AGENTS.md", "CLAUDE.md")
 # Function words only would not do here: this block is the one place the two
 # conventions are stated to whoever shows up, so it names the command, the file
 # suffix, and why a formula beats a runbook.
+# Every adopted checkout rewrites its copy of this on its next create, as a change
+# in its own tree, and two versions in one team rewrite each other's. So a word
+# here changes last: it still says mol pour, which still works.
 CONVENTIONS = """%(open)s
 ## How work starts in this project
 
@@ -1480,8 +1503,11 @@ WITNESS_FILE = "witness.jsonl"
 # carries it as startedAt; the match's occurredAt is the other end.
 STARTED_AT = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
-# bd create flags that consume the next argument, so it is never the title.
+# bd create and update flags that consume the next argument, so it is never
+# the title, nor read as an option of its own.
 VALUE_FLAGS = {
+    "--title",
+    "-s",
     "-d",
     "--description",
     "-p",
@@ -1554,8 +1580,8 @@ PROCEDURAL = (
 LEARN = """%(p)s -- how work gets done in this project
 
 Four things have to work. Tools this project already has cover three; %(p)s
-adds the fourth and puts all of them under one name, so you never type
-anything else.
+adds the fourth and puts the tracker behind one command, so you never type the
+tracker's own name.
 
 1. MANAGEMENT -- start every piece of work here
 
@@ -1591,6 +1617,20 @@ anything else.
    Name it <something>.formula.toml and put it next to whatever it is about:
    services/billing/cut-release.formula.toml, not a folder of its own. The
    directory is matched too, so the path earns its keep.
+
+   A formula may also name the means to prove that its run did what it
+   claims, above its first step:
+
+     verify-using = [
+       "run:make smoke-test",
+       "git+https://git.example.invalid/acme/shop.git#RELEASING.md",
+       "https://status.example.invalid/billing",
+     ]
+
+   One line each: a command after run:, a file of a repository as a git+ URL
+   with its path after #, or a link. %(p)s shows them after a pour and checks
+   that each is well formed; whoever runs the formula proves the run with
+   them.
 
    You do not type that out. The moment you notice you are repeating yourself:
 
@@ -1639,7 +1679,7 @@ anything else.
    The examples are what people actually type. %(p)s checks that each one
    retrieves its own formula and tells you when it does not.
 
-   Run a formula:  %(p)s mol pour <formula-id>
+   Run a formula:  %(p)s formula pour <formula-id>
 
 %(tracker)s
 Check every formula in the repo:  %(p)s check
@@ -1660,6 +1700,14 @@ One command can go elsewhere: --tracker <name>, or DOTDIW_TRACKER.
 """
     % {"p": PROG},
 }
+
+# The paragraph on the means to prove a run, on its own, which a comparison with
+# an earlier version takes out.
+LEARN_VERIFY = LEARN[
+    LEARN.index("   A formula may also name the means") : LEARN.index(
+        "   You do not type that out."
+    )
+]
 
 # The paragraph above, on its own: what `learn` says since the tracker went
 # behind its door, which a comparison with an earlier version takes out.
@@ -1765,6 +1813,17 @@ def load_formula(root: str, rel: str) -> dict[str, Any] | None:
     # The directory is matchable text too: services/billing/ says "billing"
     # without the description having to repeat it.
     where = " ".join(re.split(r"[/\\._-]+", os.path.dirname(rel)))
+    # The means to prove a run: read, never matched, never run.
+    declared = data.get("verify-using")
+    values = [] if declared is None else declared if isinstance(declared, list) else [declared]
+    means: list[str] = []
+    unread: list[str] = []
+    for value in values:
+        why = verify_unread(value)
+        if why:
+            unread.append(why)
+        else:
+            means.append(value)
     steps = []
     for s in data.get("steps") or []:
         if isinstance(s, dict) and s.get("id"):
@@ -1784,6 +1843,8 @@ def load_formula(root: str, rel: str) -> dict[str, Any] | None:
         "words": name.replace("-", " "),
         "where": where,
         "steps": steps,
+        "verifyUsing": means,
+        "verifyUnread": unread,
     }
 
 
@@ -1811,12 +1872,106 @@ def steps_in_order(steps: list[Any]) -> list[Any]:
 
 def held_formula(f: dict[str, Any]) -> HeldFormula:
     """A formula as a response carries it: the IDL's HeldFormula record."""
-    return {
+    held: HeldFormula = {
         "formulaRef": f["id"],
         "name": f["name"],
         "description": f["desc"],
         "path": f["rel"],
         "examples": list(f["examples"]),
+    }
+    if f.get("verifyUsing"):
+        held["verifyUsing"] = list(f["verifyUsing"])
+    return held
+
+
+# The means to prove a run, as a formula names them under verify-using: one
+# line each, its form read from its prefix alone -- a command after run:, a
+# file of a repository as a git+https:// or git+ssh:// URL with its path after
+# #, or any other scheme:// link.
+VERIFY_FILES = ("git+https://", "git+ssh://")
+VERIFY_HEADING = "Verify using:"
+
+
+def verify_unread(value: Any) -> str | None:
+    """What keeps one value of verify-using from being read, or None."""
+    if not isinstance(value, str) or not value.strip():
+        return "verify-using holds a value that is not text"
+    if "\n" in value or "\r" in value:
+        return (
+            'verify-using value "%s" is longer than one line -- write one means to a line'
+            % (value.strip().splitlines()[0])
+        )
+    if value.startswith("run:"):
+        return None if value[4:].strip() else 'verify-using value "run:" names no command'
+    if value.startswith(VERIFY_FILES):
+        if value.partition("#")[2].strip("/ "):
+            return None
+        return (
+            'verify-using value "%s" names a repository and no file -- '
+            "put the file's path after #" % value
+        )
+    if re.match(r"[A-Za-z][A-Za-z0-9+.-]*://", value):
+        return None
+    return (
+        'verify-using value "%s" is in none of the forms -- start it with run:, '
+        "git+https:// or git+ssh://, or a link's scheme" % value
+    )
+
+
+def keep_verify_using(description: str | None, means: list[str]) -> str | None:
+    """A description with the means to prove a run kept as its last section,
+    one to a line: how a tracker that has a description and nothing more for
+    them keeps them. With no means, the description as given; one that would
+    read back as holding a section of its own gets an empty section after it,
+    so that read_verify_using gives every description back as it was."""
+    if means:
+        block = "\n".join([VERIFY_HEADING] + ["- " + m for m in means])
+        return description + "\n\n" + block if description else block
+    if not description or read_verify_using(description) == (description, []):
+        return description
+    return description + "\n\n" + VERIFY_HEADING
+
+
+def read_verify_using(text: str | None) -> tuple[str | None, list[str]]:
+    """The description as it was given, and the means keep_verify_using kept
+    in it: the last section headed Verify using:, at the start of the text or
+    after a blank line, whose lines to the end are each a means. A text with
+    no such section is all description."""
+    if not text:
+        return text, []
+    at = text.rfind("\n\n" + VERIFY_HEADING)
+    if at < 0 and not text.startswith(VERIFY_HEADING):
+        return text, []
+    start, description = (at + 2, text[:at]) if at >= 0 else (0, None)
+    rest = text[start + len(VERIFY_HEADING) :]
+    if not rest:
+        return description, []
+    lines = rest.split("\n")
+    if lines[0] or not all(line.startswith("- ") and len(line) > 2 for line in lines[1:]):
+        return text, []
+    return description, [line[2:] for line in lines[1:]]
+
+
+def repository_of(url: str) -> str:
+    """Host and path of a git URL in any of its forms, so that two naming one
+    repository compare equal: https://host/a/b.git, ssh://git@host:22/a/b and
+    git@host:a/b all read host/a/b."""
+    m = re.match(r"[A-Za-z][A-Za-z0-9+.-]*://(?:[^@/]*@)?([^/:]+)(?::\d+)?/(.*)", url)
+    if not m:
+        m = re.match(r"(?:[^@/]*@)?([^:/]+):(.*)", url)
+    if not m:
+        return url.lower()
+    path = m.group(2).strip("/")
+    path = path[:-4] if path.endswith(".git") else path
+    return ("%s/%s" % (m.group(1), path)).lower()
+
+
+def checkout_remotes(root: str) -> set[str]:
+    """The repositories this checkout's remotes name, read as repository_of reads them."""
+    return {
+        repository_of(line.split()[1])
+        for line in git(["remote", "-v"], root).splitlines()
+        if len(line.split()) >= 2
     }
 
 
@@ -2221,8 +2376,8 @@ def NoticeHandmadeProcedures(
 ) -> NoticeHandmadeProceduresResponse:
     """step.notice-handmade-procedures: procedures this project carried out but never declared.
 
-    Pouring a formula leaves a molecule behind. A parent that is not a molecule,
-    with several ordered children, is that same shape built by hand: the
+    Pouring a formula leaves a root behind. A parent that is not a root, with
+    several ordered children, is that same shape built by hand: the
     procedure exists, in the tracker, where nothing can match it against a
     title or pour it a second time. Unlike a guess at what two titles have in
     common, this cannot misfire -- the DAG is either there or it is not.
@@ -2245,7 +2400,7 @@ def NoticeHandmadeProcedures(
     found = []
     for pid, ks in sorted(kids.items(), key=lambda kv: -len(kv[1])):
         p = byid.get(pid) or {}
-        if p.get("kind") in ("molecule", "epic"):
+        if p.get("kind") == "root":
             continue
         if len(ks) < HANDMADE_STEPS:
             continue
@@ -2348,7 +2503,7 @@ def past_titles(
 ) -> list[str]:
     """The top-level work this project has named before.
 
-    Children of a poured molecule are left out: those titles came out of a
+    Children of a poured root are left out: those titles came out of a
     formula, so counting them as evidence that a formula is wanted is
     circular. `drop` removes one copy of a title -- the one `create` just made.
     """
@@ -2361,7 +2516,7 @@ def past_titles(
     for r in listed.get("items") or []:
         if r.get("parent"):
             continue
-        if r.get("kind") in ("molecule", "epic"):
+        if r.get("kind") == "root":
             continue
         t = " ".join(str(r.get("title") or "").split())
         if t:
@@ -2567,6 +2722,8 @@ def DescribeAndCheck(request: DescribeAndCheckRequest) -> DescribeAndCheckRespon
     ):
         probs.append(("formula", p, "outside the repo: the tracker finds it, nobody else does"))
 
+    remotes: set[str] | None = None
+    tracked: set[str] | None = None
     for f in forms + extra:
         n = len(f["desc"].split())
         if n < MIN_DESC_WORDS:
@@ -2599,6 +2756,28 @@ def DescribeAndCheck(request: DescribeAndCheckRequest) -> DescribeAndCheckRespon
                     % (len(f["examples"]), "" if len(f["examples"]) == 1 else "s", MIN_EXAMPLES),
                 )
             )
+        for what in f.get("verifyUnread") or []:
+            probs.append(("formula", f["rel"], what))
+        for value in f.get("verifyUsing") or []:
+            if not value.startswith(VERIFY_FILES):
+                continue
+            url, _, path = value.partition("#")
+            if remotes is None:
+                remotes = checkout_remotes(root)
+            if repository_of(url[len("git+") :]) not in remotes:
+                continue  # a file of another repository is shown as it is
+            if tracked is None:
+                tracked = {p for p in git(["ls-files", "-z"], root).split("\0") if p}
+            path = path.strip("/")
+            if path not in tracked and not any(p.startswith(path + "/") for p in tracked):
+                probs.append(
+                    (
+                        "formula",
+                        f["rel"],
+                        "verify-using names %s, which git does not track here -- commit it, "
+                        "or name the file that proves the run" % path,
+                    )
+                )
 
     for f in forms:
         for ex in f["examples"]:
@@ -2916,7 +3095,6 @@ def NameTheWork(request: NameTheWorkRequest) -> NameTheWorkResponse:
             "tracker": request.get("tracker"),
             "title": request["title"],
             "description": request.get("description"),
-            "kind": request.get("kind"),
             "priority": request.get("priority"),
             "parent": request.get("parent"),
             "arguments": args,
@@ -2965,6 +3143,8 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
             "formulaRef": r["formulaRef"] if found else ident,
             "title": formula.get("id") or ident,
             "steps": formula.get("steps") or [],
+            "description": formula.get("desc") or None,
+            "verifyUsing": list(formula.get("verifyUsing") or []),
             "path": os.path.join(root, r["path"]) if found else None,
             "arguments": list(request.get("arguments") or []),
             "terminal": True,
@@ -2977,6 +3157,7 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
         "formulaRef": r["formulaRef"] if found else None,
         "moleculeRef": poured.get("rootId") if found else None,
         "stepRefs": list(poured.get("stepIds") or []) if found else [],
+        "verifyUsing": list(formula.get("verifyUsing") or []) if found and code == 0 else None,
         "printed": bool(poured.get("printed")),
         "reason": poured.get("reason"),
         "tracker": poured.get("tracker"),
@@ -2995,7 +3176,6 @@ def StartNamedWork(request: StartNamedWorkRequest) -> StartNamedWorkResponse:
             "title": request.get("title"),
             "description": request.get("description"),
             "tracker": request.get("tracker"),
-            "kind": request.get("kind"),
             "priority": request.get("priority"),
             "parent": request.get("parent"),
         },
@@ -3410,6 +3590,13 @@ def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
                 "exitCode": 1,
             }
     created = bool(opened.get("created"))
+    # Said once, before any work is written: the worst failure here is writing to
+    # a tracker as the wrong person. An adapter that ran its own command spoke for
+    # itself.
+    actor = None
+    if created and not opened.get("printed"):
+        described = invoke_tracker("operation.describe-tracker", {"root": root, "tracker": name})
+        actor = described.get("actor")
     return {
         "status": "completed",
         "summary": "Adopted under %s." % ws if created else "Already adopted.",
@@ -3417,6 +3604,7 @@ def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
         "created": created,
         "tracker": name,
         "printed": bool(opened.get("printed")),
+        "actor": actor,
         "exitCode": 0,
     }
 
@@ -3500,8 +3688,9 @@ DOOR: dict[str, DoorSpec] = {
             "root",
         ),
         "response": (
-            "created", "exitCode", "openQuestionRefs", "printed", "reason",
-            "resultRefs", "status", "summary", "tracker", "workspace",
+            "actor", "created", "exitCode", "openQuestionRefs", "printed",
+            "reason", "resultRefs", "status", "summary", "tracker",
+            "workspace",
         ),
         "responseRequired": (
             "status", "summary",
@@ -3728,8 +3917,9 @@ DOOR: dict[str, DoorSpec] = {
             "fromTracker", "root", "toTracker",
         ),
         "response": (
-            "exitCode", "mapped", "mappingPath", "moved", "openQuestionRefs",
-            "reason", "resultRefs", "resumed", "status", "summary",
+            "assigneesLeft", "exitCode", "mapped", "mappingPath", "moved",
+            "openQuestionRefs", "reason", "resultRefs", "resumed", "status",
+            "summary",
         ),
         "responseRequired": (
             "status", "summary",
@@ -3745,8 +3935,9 @@ DOOR: dict[str, DoorSpec] = {
             "fromTracker", "toTracker",
         ),
         "response": (
-            "exitCode", "mapped", "mappingPath", "moved", "openQuestionRefs",
-            "reason", "resultRefs", "resumed", "status", "summary",
+            "assigneesLeft", "exitCode", "mapped", "mappingPath", "moved",
+            "openQuestionRefs", "reason", "resultRefs", "resumed", "status",
+            "summary",
         ),
         "responseRequired": (
             "status", "summary",
@@ -3755,8 +3946,8 @@ DOOR: dict[str, DoorSpec] = {
     "operation.name-the-work": {
         "body": "NameTheWork",
         "request": (
-            "arguments", "correlationId", "description", "kind", "parent",
-            "priority", "root", "sourceRefs", "title", "tracker", "workRef",
+            "arguments", "correlationId", "description", "parent", "priority",
+            "root", "sourceRefs", "title", "tracker", "workRef",
         ),
         "requestRequired": (
             "root", "title",
@@ -3813,7 +4004,7 @@ DOOR: dict[str, DoorSpec] = {
         "response": (
             "exitCode", "formulaRef", "moleculeRef", "openQuestionRefs",
             "printed", "reason", "resultRefs", "status", "stepRefs", "summary",
-            "tracker",
+            "tracker", "verifyUsing",
         ),
         "responseRequired": (
             "status", "summary",
@@ -3904,7 +4095,7 @@ DOOR: dict[str, DoorSpec] = {
     "operation.start-named-work": {
         "body": "StartNamedWork",
         "request": (
-            "arguments", "correlationId", "description", "formulaRef", "kind",
+            "arguments", "correlationId", "description", "formulaRef",
             "moleculeRef", "parent", "priority", "quiet", "root", "sourceRefs",
             "title", "tracker", "workRef",
         ),
@@ -3974,8 +4165,8 @@ DOOR: dict[str, DoorSpec] = {
             "name", "root",
         ),
         "response": (
-            "exitCode", "name", "openQuestionRefs", "previous", "reason",
-            "resultRefs", "status", "summary",
+            "actor", "exitCode", "name", "openQuestionRefs", "previous",
+            "reason", "resultRefs", "status", "summary",
         ),
         "responseRequired": (
             "status", "summary",
@@ -4195,7 +4386,7 @@ def witness_from(operation: str, request: Request, response: Response) -> None:
 # >>> tracker door generated from operation-idl.json by poa/finish-idl.py; do not edit
 # The interface a module says it was written for. It is raised, by decision in
 # poa/idl-patches.json, when a module written earlier cannot answer this one.
-TRACKER_INTERFACE = 1
+TRACKER_INTERFACE = 2
 
 # operation id -> the fields of its request, the required ones among them,
 # and the same for its response. The registered adapter answers.
@@ -4236,9 +4427,9 @@ TRACKER_DOOR: dict[str, TrackerDoorSpec] = {
     },
     "operation.create-item": {
         "request": (
-            "arguments", "correlationId", "description", "id", "kind",
-            "parent", "priority", "root", "sourceRefs", "terminal", "title",
-            "tracker", "trackerRef", "workRef",
+            "arguments", "correlationId", "description", "id", "parent",
+            "priority", "root", "sourceRefs", "terminal", "title", "tracker",
+            "trackerRef", "verifyUsing", "workRef",
         ),
         "requestRequired": (
             "title",
@@ -4259,7 +4450,7 @@ TRACKER_DOOR: dict[str, TrackerDoorSpec] = {
         ),
         "requestRequired": (),
         "response": (
-            "exitCode", "info", "openQuestionRefs", "path", "reason",
+            "actor", "exitCode", "info", "openQuestionRefs", "path", "reason",
             "resultRefs", "status", "summary", "tracker",
         ),
         "responseRequired": (
@@ -4299,9 +4490,9 @@ TRACKER_DOOR: dict[str, TrackerDoorSpec] = {
     },
     "operation.pour-steps": {
         "request": (
-            "arguments", "correlationId", "formulaRef", "moleculeRef", "path",
-            "root", "sourceRefs", "steps", "terminal", "title", "tracker",
-            "trackerRef",
+            "arguments", "correlationId", "description", "formulaRef",
+            "moleculeRef", "path", "root", "sourceRefs", "steps", "terminal",
+            "title", "tracker", "trackerRef", "verifyUsing",
         ),
         "requestRequired": (
             "formulaRef", "steps", "title",
@@ -4382,6 +4573,46 @@ from typing import Any
 Record = dict[str, Any]
 
 
+# A tracker with a title and a description and nothing more keeps the means to
+# prove a run as the last section of an item's description, one to a line;
+# these two write that section and read back exactly what they wrote. A
+# tracker with a field of its own may keep them there instead: show-item gives
+# back what pour-steps or create-item was given, however the tracker holds it.
+NEWLINE = chr(10)
+VERIFY_HEADING = "Verify using:"
+
+
+def keep_verify_using(description: str | None, means: list[str]) -> str | None:
+    """The description, with the means kept as its last section. With none,
+    the description as given, or followed by an empty section when it would
+    otherwise read back as holding one."""
+    if means:
+        block = NEWLINE.join([VERIFY_HEADING] + ["- " + m for m in means])
+        return description + NEWLINE * 2 + block if description else block
+    if not description or read_verify_using(description) == (description, []):
+        return description
+    return description + NEWLINE * 2 + VERIFY_HEADING
+
+
+def read_verify_using(text: str | None) -> tuple[str | None, list[str]]:
+    """The description as it was given, and the means kept in it: the last
+    section headed Verify using:, at the start or after a blank line, whose
+    lines to the end are each a means."""
+    if not text:
+        return text, []
+    at = text.rfind(NEWLINE * 2 + VERIFY_HEADING)
+    if at < 0 and not text.startswith(VERIFY_HEADING):
+        return text, []
+    start, description = (at + 2, text[:at]) if at >= 0 else (0, None)
+    rest = text[start + len(VERIFY_HEADING) :]
+    if not rest:
+        return description, []
+    lines = rest.split(NEWLINE)
+    if lines[0] or not all(line.startswith("- ") and len(line) > 2 for line in lines[1:]):
+        return text, []
+    return description, [line[2:] for line in lines[1:]]
+
+
 def open_tracker(request: Record) -> Record:
     """Open the workspace's tracker. The adapter has a store for this checkout
     and answers for it.
@@ -4399,7 +4630,7 @@ def describe_tracker(request: Record) -> Record:
     back as a record.
 
     Takes: root.
-    Answers: status*, summary*, info, reason, exitCode, path.
+    Answers: status*, summary*, info, reason, exitCode, path, actor.
     Reasons: tracker-unknown, adapter-failed, not-installed, no-workspace.
     """
     raise NotImplementedError("describe_tracker")
@@ -4409,7 +4640,7 @@ def create_item(request: Record) -> Record:
     """Create an item. The item exists, open, with an id, and comes back as a
     record.
 
-    Takes: root, title*, kind, priority, parent, description, id.
+    Takes: root, title*, priority, parent, description, verifyUsing, id.
     Answers: status*, summary*, item, reason, exitCode.
     Reasons: tracker-unknown, adapter-failed, no-workspace, parent-not-found,
     not-installed.
@@ -4429,10 +4660,11 @@ def add_need(request: Record) -> Record:
 
 
 def pour_steps(request: Record) -> Record:
-    """Pour steps under a root. A root item names the formula, and one item per
-    step exists under it with its needs as edges.
+    """Pour steps under a root. A root of kind root names the formula and carries
+    its description and its verify-using, and one item of kind task per step
+    exists under it with its needs as edges.
 
-    Takes: formulaRef*, root, title*, steps*, path.
+    Takes: formulaRef*, root, title*, steps*, path, description, verifyUsing.
     Answers: status*, summary*, rootId, stepIds, reason, exitCode.
     Reasons: tracker-unknown, adapter-failed, no-workspace, no-steps,
     step-not-found, not-installed, cycle.
@@ -4452,8 +4684,8 @@ def close_item(request: Record) -> Record:
 
 
 def show_item(request: Record) -> Record:
-    """Show one item. The record comes back with its needs, its children and its
-    reason if closed.
+    """Show one item. The record comes back with its needs, its children, its
+    reason if closed, and its description and verify-using as given.
 
     Takes: root, id*.
     Answers: status*, summary*, item, children, reason, exitCode.
@@ -4479,7 +4711,7 @@ def update_item(request: Record) -> Record:
     Takes: root, id*, title, status, priority, parent, assignee.
     Answers: status*, summary*, item, reason, exitCode.
     Reasons: tracker-unknown, adapter-failed, item-not-found, bad-status,
-    close-through-update, not-installed, no-workspace.
+    assignee-not-found, close-through-update, not-installed, no-workspace.
     """
     raise NotImplementedError("update_item")
 
@@ -4498,7 +4730,7 @@ TRACKER = {
     "info": {
         "name": "<NAME>",
         "version": "0.1.0",
-        "interface": 1,
+        "interface": 2,
         "nativeNeeds": True,
         "checkTarget": "scratch",
         "extras": [],
@@ -5037,7 +5269,8 @@ def UseTracker(request: UseTrackerRequest) -> UseTrackerResponse:
     """step.use-tracker: dotdiw.tracker names the adapter in the checkout's
     config and its store is open, through the adoption step, quietly; an
     unknown name is refused with the registered names and nothing is
-    written. The work in the adapter used before stays there."""
+    written. The work in the adapter used before stays there. Where the
+    tracker checked who it acts as, that name is said each time."""
     root, name = request["root"], request["name"]
     if not git(["rev-parse", "--is-inside-work-tree"], root).strip():
         return {
@@ -5063,12 +5296,19 @@ def UseTracker(request: UseTrackerRequest) -> UseTrackerResponse:
             else None,
             "exitCode": made["exitCode"],
         }
+    # The adoption asks only of a store it opened; one already open is
+    # written to as someone all the same.
+    actor = made.get("actor")
+    if not made.get("created"):
+        described = invoke_tracker("operation.describe-tracker", {"root": root, "tracker": name})
+        actor = described.get("actor")
     return {
         "status": "completed",
         "summary": "This checkout's tracker is %s%s."
         % (name, "" if previous in (None, name) else ", was %s" % previous),
         "name": name,
         "previous": previous if previous != name else None,
+        "actor": actor,
         "exitCode": 0,
     }
 
@@ -5141,8 +5381,13 @@ def conformance_scenario(
         )
         expect(bool(out.get("path")), "the store's path comes back once it is open")
 
+    # A description that reads like the means, and the means a move carries:
+    # an adapter gives both back exactly as given.
+    DESCRIBED = "Verify using:\n- a line of this description, not a means"
+    CARRIED = ["run:make check", "https://example.invalid/runs/2"]
+
     def create() -> None:
-        a = ask("create-item", title="First", kind="task", priority=0)
+        a = ask("create-item", title="First", priority=0)
         expect(
             a["status"] == "completed" and a.get("item", {}).get("id"),
             "an item comes back as a record: %s" % a.get("summary"),
@@ -5159,11 +5404,25 @@ def conformance_scenario(
             "a child carries its parent",
         )
         expect(
-            (b["item"].get("kind"), b["item"].get("priority")) == ("task", 2),
+            (b["item"].get("kind", "task"), b["item"].get("priority")) == ("task", 2),
             "kind is task and priority 2 when unsaid",
         )
         held["b"] = b["item"]["id"]
         held["c"] = ask("create-item", title="Third")["item"]["id"]
+        d = ask("create-item", title="Described", description=DESCRIBED)
+        expect(
+            ((d.get("item") or {}).get("description"), (d.get("item") or {}).get("verifyUsing"))
+            in ((DESCRIBED, None), (DESCRIBED, [])),
+            "a description that reads like the means comes back as given, with no means",
+        )
+        held["d"] = d["item"]["id"]
+        e = ask("create-item", title="Moved", description="Was a root.", verifyUsing=CARRIED)
+        expect(
+            ((e.get("item") or {}).get("description"), (e.get("item") or {}).get("verifyUsing"))
+            == ("Was a root.", CARRIED),
+            "the means a move carries come back as given",
+        )
+        held["e"] = e["item"]["id"]
         orphan = ask("create-item", title="Orphan", parent=nowhere)
         expect(
             orphan["status"] == "failed" and orphan.get("reason") == "parent-not-found",
@@ -5206,12 +5465,19 @@ def conformance_scenario(
             ask("show-item", id=nowhere).get("reason") == "item-not-found",
             "unknown is item-not-found",
         )
+        for key, given, means in (("d", DESCRIBED, []), ("e", "Was a root.", CARRIED)):
+            item = ask("show-item", id=held[key]).get("item") or {}
+            expect(
+                (item.get("description"), list(item.get("verifyUsing") or [])) == (given, means),
+                "an item's description and means come back from show as given",
+            )
 
     def listing() -> None:
         closed = held["closed"]
         out = ask("list-items", scope="all")
         expect(
-            {i["id"] for i in out.get("items") or []} == {held["a"], held["b"], held["c"]},
+            {i["id"] for i in out.get("items") or []}
+            == {held["a"], held["b"], held["c"], held["d"], held["e"]},
             "every item is listed",
         )
         under = ask("list-items", parent=held["a"], scope="all")
@@ -5226,7 +5492,8 @@ def conformance_scenario(
         )
         for scoped in (ask("list-items", scope="open"), ask("list-items")):
             expect(
-                {i["id"] for i in scoped.get("items") or []} == {held["a"], held["c"]},
+                {i["id"] for i in scoped.get("items") or []}
+                == {held["a"], held["c"], held["d"], held["e"]},
                 "open items are listed when asked and when unsaid, the closed one is not",
             )
         expect(len(ask("list-items", scope="all", limit=1).get("items") or []) == 1, "limit limits")
@@ -5291,7 +5558,20 @@ def conformance_scenario(
             {"id": "two", "title": "Two", "needs": ["one"]},
             {"id": "three", "title": "Three", "needs": ["two"]},
         ]
-        out = ask("pour-steps", formulaRef="mol-check", title="mol-check", steps=steps)
+        means = [
+            "run:make check",
+            "git+https://example.invalid/acme/shop.git#RELEASING.md",
+            "https://example.invalid/runs/1",
+        ]
+        said = "Verify using:\n- a line of the formula's description, not a means"
+        out = ask(
+            "pour-steps",
+            formulaRef="mol-check",
+            title="mol-check",
+            steps=steps,
+            description=said,
+            verifyUsing=means,
+        )
         expect(
             out["status"] == "completed" and len(out.get("stepIds") or []) == 3,
             "a root and three steps: %s" % out.get("summary"),
@@ -5302,8 +5582,14 @@ def conformance_scenario(
             {k["id"] for k in shown.get("children") or []} == {one, two, three},
             "the steps are the root's children",
         )
+        expect(shown["item"].get("kind") == "root", "the root is of kind root")
         expect(
-            shown["item"].get("kind") in ("molecule", "epic"), "the root is a molecule or an epic"
+            all(k.get("kind", "task") == "task" for k in shown.get("children") or []),
+            "every step is of kind task",
+        )
+        expect(
+            (shown["item"].get("description"), shown["item"].get("verifyUsing")) == (said, means),
+            "the root's description and verify-using come back exactly as given",
         )
         expect(ask("show-item", id=two)["item"].get("needs") == [one], "the order is in the edges")
         expect(
@@ -5508,7 +5794,8 @@ def CheckTracker(request: CheckTrackerRequest) -> CheckTrackerResponse:
 def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceResponse:
     """step.migrate-workspace: everything the source holds, written into the
     target -- open items first, then closed ones with their reasons, then
-    the needs -- and the source left as it was. Ids are asked for and kept
+    the needs -- each item read whole, its description and its means handed
+    over as given, and the source left as it was. Ids are asked for and kept
     where the target honours them. The record beside the stores says which
     items are made and which have nothing left to write, and is saved as
     each item is made, so a second run makes only what the record does not
@@ -5606,6 +5893,24 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
     for item in order:
         if item["id"] in ids:
             continue
+        # list-items need not carry a description or the means; show-item does.
+        shown = invoke_tracker(
+            "operation.show-item", {"root": root, "tracker": src, "id": item["id"]}
+        )
+        if shown["status"] != "completed" or not shown.get("item"):
+            save()
+            return {
+                "status": "failed",
+                "reason": shown.get("reason")
+                if shown.get("reason") in ("tracker-unknown", "adapter-failed")
+                else None,
+                "exitCode": 1,
+                "summary": "%s could not show %s: %s" % (src, item["id"], shown["summary"]),
+                "moved": moved,
+                "mapped": sum(1 for a, b in ids.items() if a != b),
+                "mappingPath": path,
+            }
+        whole = shown["item"]
         made = invoke_tracker(
             "operation.create-item",
             {
@@ -5613,9 +5918,10 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
                 "tracker": dst,
                 "id": item["id"],
                 "title": item["title"],
-                "kind": item.get("kind"),
                 "priority": item.get("priority"),
                 "parent": ids.get(item.get("parent")) if item.get("parent") else None,
+                "description": whole.get("description"),
+                "verifyUsing": list(whole.get("verifyUsing") or []) or None,
             },
         )
         if made["status"] != "completed" or not made.get("item"):
@@ -5690,6 +5996,7 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
         "resumed": resumed,
         "mapped": mapped,
         "mappingPath": path if unsettled else None,
+        "assigneesLeft": sum(1 for i in items if i.get("assignee")),
         "exitCode": 0,
     }
 
@@ -5783,6 +6090,7 @@ def MoveAWorkspace(request: MoveAWorkspaceRequest) -> MoveAWorkspaceResponse:
         "resumed": out.get("resumed"),
         "mapped": out.get("mapped"),
         "mappingPath": out.get("mappingPath"),
+        "assigneesLeft": out.get("assigneesLeft"),
         "reason": out.get("reason"),
         "exitCode": out["exitCode"],
     }
@@ -5946,18 +6254,25 @@ def beads_record(row: dict[str, Any]) -> TrackerItem:
         for d in row.get("dependencies") or []
         if (d.get("type") or d.get("dependency_type")) == "blocks"
     ]
-    return {
+    item: TrackerItem = {
         "id": str(row.get("id")),
         "title": str(row.get("title") or ""),
-        "kind": row.get("issue_type"),
+        "kind": "root" if row.get("issue_type") == "molecule" else "task",
         "status": status if status in BEADS_STATUSES else "open",
         "priority": row.get("priority"),
         "parent": row.get("parent"),
+        "assignee": row.get("assignee"),
         "reason": row.get("close_reason"),
         "needs": [n for n in needs if n],
         "createdAt": row.get("created_at"),
         "updatedAt": row.get("updated_at"),
     }
+    description, means = read_verify_using(row.get("description"))
+    if description is not None:
+        item["description"] = description
+    if means:
+        item["verifyUsing"] = means
+    return item
 
 
 def beads_failed(
@@ -6037,6 +6352,48 @@ def beads_open(request: OpenTrackerRequest) -> OpenTrackerResponse:
     }
 
 
+def beads_actor(root: str | None) -> TrackerActor | None:
+    """Who bd records: $BEADS_ACTOR, git's user.name or $USER, in that order.
+    Anyone can give any of them, so it is not verified."""
+    name = (
+        os.environ.get("BEADS_ACTOR")
+        or git(["config", "user.name"], root).strip()
+        or os.environ.get("USER")
+    )
+    return {"name": name, "verified": False} if name else None
+
+
+def beads_typed(args: list[str], root: str | None) -> tuple[list[str], str | None]:
+    """The arguments as typed, read option by option so that a value is never
+    taken for an option: an assignee of me as the name bd records, where bd
+    itself would keep the word, and a description kept the one way every
+    description is. With them, why they are refused when they ask for the type
+    a root has, which only a pour makes."""
+    out = list(args)
+    i = 0
+    while i < len(out):
+        a = out[i]
+        if a.startswith("-") and "=" in a:
+            flag, value = a.split("=", 1)
+            at = i
+        elif a in VALUE_FLAGS and i + 1 < len(out):
+            flag, value = a, out[i + 1]
+            at = i + 1
+        else:
+            i += 1
+            continue
+        if flag in ("-t", "--type") and value.strip().lower() == "molecule":
+            return out, "Only formula pour makes a root, so a type of molecule is refused."
+        if flag in ("-a", "--assignee") and value == "me":
+            actor = beads_actor(root)
+            value = actor["name"] if actor else value
+        elif flag in ("-d", "--description"):
+            value = keep_verify_using(value, []) or ""
+        out[at] = flag + "=" + value if at == i else value
+        i = at + 1
+    return out, None
+
+
 def beads_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
     """operation.describe-tracker: what this adapter is, and bd's own version."""
     if not beads_find():
@@ -6055,6 +6412,7 @@ def beads_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
             "checkTarget": "scratch",
             "extras": ["forward", "metrics-off"],
         },
+        "actor": beads_actor(request.get("root")),
         "path": store if store and os.path.isdir(store) else None,
         "exitCode": 0,
     }
@@ -6069,7 +6427,11 @@ def beads_create(request: CreateItemRequest) -> CreateItemResponse:
     if beads_env(root) is None:
         return failed_as(CreateItemResponse, *BEADS_NO_WORKSPACE)
     if request.get("terminal"):
-        args = list(request.get("arguments") or []) or [request["title"]]
+        args, refused = beads_typed(
+            list(request.get("arguments") or []) or [request["title"]], root
+        )
+        if refused:
+            return {"status": "failed", "exitCode": 1, "printed": False, "summary": refused}
         code, out, _ = beads_run(["create"] + args, root, True)
         if code != 0:
             return {
@@ -6089,7 +6451,7 @@ def beads_create(request: CreateItemRequest) -> CreateItemResponse:
                 "id": m.group(1),
                 "title": request["title"],
                 "status": "open",
-                "kind": request.get("kind"),
+                "kind": "task",
                 "priority": request.get("priority"),
                 "parent": request.get("parent"),
             }
@@ -6106,12 +6468,15 @@ def beads_create(request: CreateItemRequest) -> CreateItemResponse:
         "create",
         request["title"],
         "-t",
-        request.get("kind") or "task",
+        "task",
         "-p",
         str(2 if request.get("priority") is None else request["priority"]),
         "--json",
     ]
-    parent, description = request.get("parent"), request.get("description")
+    parent = request.get("parent")
+    description = keep_verify_using(
+        request.get("description"), list(request.get("verifyUsing") or [])
+    )
     if parent:
         argv += ["--parent", parent]
     if description:
@@ -6196,6 +6561,11 @@ def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
             }
         m = re.search(r"Root issue:\s+(\S+)", out + err)
         root_id = m.group(1) if m else None
+        if root_id is None:
+            # With --json, bd names the root in its answer instead.
+            answer = beads_json(out)
+            if answer and answer[0].get("new_epic_id"):
+                root_id = str(answer[0]["new_epic_id"])
         poured: list[str] = []
         if root_id:
             # The steps the pour made, so that the witness can record them
@@ -6207,6 +6577,27 @@ def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
                 poured = sorted(
                     str(x.get("id")) for x in beads_json(listing) if x.get("parent") == root_id
                 )
+        # bd's own pour gives the root the formula's description; the means to
+        # prove the run are kept as its last section, and a description that
+        # would read as holding them is kept so that it reads back as given.
+        kept = keep_verify_using(request.get("description"), list(request.get("verifyUsing") or []))
+        if root_id and kept != request.get("description"):
+            code, _, err = beads_quiet(["update", root_id, "--description", kept or ""], root)
+            if code != 0:
+                return {
+                    "status": "failed",
+                    "exitCode": code,
+                    "printed": bool(request.get("terminal")),
+                    "rootId": root_id,
+                    "stepIds": poured,
+                    "summary": "Poured %d steps under %s, and writing the means to prove "
+                    "its run onto it failed: %s"
+                    % (
+                        len(poured),
+                        root_id,
+                        " ".join(err.split()) or "the tracker exited %d" % code,
+                    ),
+                }
         return {
             "status": "completed",
             "summary": "Poured %d steps under %s." % (len(poured), root_id),
@@ -6229,13 +6620,15 @@ def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
         return {"status": "failed", "reason": "step-not-found", "exitCode": 1, "summary": str(e)}
     except ValueError as e:
         return {"status": "failed", "reason": "cycle", "exitCode": 1, "summary": str(e)}
-    made = beads_create({"root": root, "title": request["title"], "kind": "epic"})
-    item = made.get("item")
-    if made["status"] != "completed" or item is None:
-        return failed_as(
-            PourStepsResponse, made.get("reason"), made["summary"], made.get("exitCode") or 1
-        )
-    root_id = item["id"]
+    argv = ["create", request["title"], "-t", "molecule", "-p", "2", "--json"]
+    kept = keep_verify_using(request.get("description"), list(request.get("verifyUsing") or []))
+    if kept:
+        argv += ["-d", kept]
+    code, out, err = beads_quiet(argv, root)
+    rows = beads_json(out) if code == 0 else []
+    if not rows:
+        return beads_failed(PourStepsResponse, out, err, [])
+    root_id = str(rows[0].get("id"))
     ids: dict[str, str] = {}
     for s in ordered:
         needs = [n for n in s.get("needs") or []]
@@ -6367,6 +6760,7 @@ def beads_update(request: UpdateItemRequest) -> UpdateItemResponse:
         return failed_as(UpdateItemResponse, *BEADS_NO_WORKSPACE)
     argv = ["update", request["id"], "--json"]
     given: Mapping[str, Any] = request
+    flags: list[str] = []
     for key, flag in (
         ("title", "--title"),
         ("status", "-s"),
@@ -6375,7 +6769,8 @@ def beads_update(request: UpdateItemRequest) -> UpdateItemResponse:
         ("assignee", "-a"),
     ):
         if given.get(key) is not None:
-            argv += [flag, str(given[key])]
+            flags += [flag, str(given[key])]
+    argv += beads_typed(flags, root)[0]
     code, out, err = beads_quiet(argv, root)
     rows = beads_json(out) if code == 0 else []
     if not rows:
@@ -6420,6 +6815,16 @@ def beads_forward(request: Request) -> Response:
     if not beads_find():
         return failed_as(dict, *BEADS_NOT_INSTALLED)
     args = list(request.get("arguments") or [])
+    if args[:1] == ["update"]:
+        args, refused = beads_typed(args, request.get("root"))
+        if refused:
+            return {
+                "status": "failed",
+                "exitCode": 1,
+                "output": "",
+                "printed": False,
+                "summary": refused,
+            }
     code, out, _ = beads_run(args, request.get("root"), True)
     return {
         "status": "completed" if code == 0 else "failed",
@@ -6605,18 +7010,26 @@ def local_record(conn: sqlite3.Connection, row: sqlite3.Row) -> TrackerItem:
         r[0]
         for r in conn.execute("SELECT needs FROM edges WHERE id = ? ORDER BY needs", (row["id"],))
     ]
-    return {
+    item: TrackerItem = {
         "id": row["id"],
         "title": row["title"],
-        "kind": row["kind"],
+        # A store made before 1.0.0 holds its roots as molecule.
+        "kind": "root" if row["kind"] in ("root", "molecule") else "task",
         "status": row["status"],
         "priority": row["priority"],
         "parent": row["parent"],
+        "assignee": row["assignee"],
         "reason": row["reason"],
         "needs": needs,
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
+    description, means = read_verify_using(row["description"])
+    if description is not None:
+        item["description"] = description
+    if means:
+        item["verifyUsing"] = means
+    return item
 
 
 def local_blockers(conn: sqlite3.Connection, ident: str) -> list[str]:
@@ -6668,7 +7081,7 @@ def local_closing(
         parent = local_fetch(conn, row["parent"])
         if (
             parent
-            and parent["kind"] == "molecule"
+            and parent["kind"] in ("root", "molecule")
             and parent["status"] != "closed"
             and not local_blockers(conn, parent["id"])
         ):
@@ -6769,10 +7182,12 @@ def local_create(request: CreateItemRequest) -> CreateItemResponse:
                 (
                     ident,
                     request["title"],
-                    request.get("kind") or "task",
+                    "task",
                     2 if priority is None else int(priority),
                     parent,
-                    request.get("description"),
+                    keep_verify_using(
+                        request.get("description"), list(request.get("verifyUsing") or [])
+                    ),
                     now,
                     now,
                 ),
@@ -6830,8 +7245,9 @@ def local_need(request: AddNeedRequest) -> AddNeedResponse:
 
 
 def local_pour(request: PourStepsRequest) -> PourStepsResponse:
-    """operation.pour-steps: a molecule root named after the formula and one
-    item per step under it, each needing the steps it names; all or nothing."""
+    """operation.pour-steps: a root named after the formula, keeping its
+    description and the means to prove its run, and one item per step under
+    it, each needing the steps it names; all or nothing."""
     steps = list(request.get("steps") or [])
     if not steps:
         return {
@@ -6854,9 +7270,17 @@ def local_pour(request: PourStepsRequest) -> PourStepsResponse:
             now = local_now()
             root_id = local_new_id(conn)
             conn.execute(
-                "INSERT INTO items (id, title, kind, status, priority, created_at, updated_at) "
-                "VALUES (?, ?, 'molecule', 'open', 2, ?, ?)",
-                (root_id, request["title"], now, now),
+                "INSERT INTO items (id, title, kind, status, priority, description, "
+                "created_at, updated_at) VALUES (?, ?, 'root', 'open', 2, ?, ?, ?)",
+                (
+                    root_id,
+                    request["title"],
+                    keep_verify_using(
+                        request.get("description"), list(request.get("verifyUsing") or [])
+                    ),
+                    now,
+                    now,
+                ),
             )
             ids: dict[str, str] = {}
             for s in ordered:
@@ -7154,13 +7578,16 @@ def show_list(request: Request, response: Response) -> None:
         print(
             json.dumps(
                 [
-                    {
-                        "formula": f["formulaRef"],
-                        "name": f["name"],
-                        "path": f["path"],
-                        "description": f["description"],
-                        "examples": f["examples"],
-                    }
+                    dict(
+                        {
+                            "formula": f["formulaRef"],
+                            "name": f["name"],
+                            "path": f["path"],
+                            "description": f["description"],
+                            "examples": f["examples"],
+                        },
+                        **({"verifyUsing": f["verifyUsing"]} if f.get("verifyUsing") else {}),
+                    )
                     for f in forms
                 ],
                 indent=2,
@@ -7177,7 +7604,7 @@ def show_list(request: Request, response: Response) -> None:
                 d = d[: 69 - w] + "…"
             print("  %-*s  %s" % (w, f["formulaRef"], d))
             print("  %-*s  %s" % (w, "", f["path"]))
-        print("\nRun one: %s mol pour <id>" % PROG)
+        print("\nRun one: %s formula pour <id>" % PROG)
 
 
 def show_show(request: Request, response: Response) -> None:
@@ -7201,9 +7628,9 @@ def show_match(request: Request, response: Response) -> None:
         print("  %-*s  %s" % (w, "", f["path"]), file=sys.stderr)
     # One command. It used to print `cook --persist && mol wisp create`,
     # whose wisp is ephemeral and never synced via git -- which is
-    # management and sharing both given up. `mol pour` is the durable one,
-    # and it now cooks from the formula's own path first.
-    print("  Run it: %s mol pour %s" % (PROG, top[0]["formulaRef"]), file=sys.stderr)
+    # management and sharing both given up. `formula pour` is the durable one,
+    # and it cooks from the formula's own path first.
+    print("  Run it: %s formula pour %s" % (PROG, top[0]["formulaRef"]), file=sys.stderr)
 
 
 def show_notice(found: list[dict[str, Any]]) -> None:
@@ -7393,6 +7820,13 @@ def show_report(request: Request, response: Response) -> None:
         print("    %s" % request["command"])
 
 
+def show_actor(response: Response) -> None:
+    """Who the tracker acts as, where it checked; a name anyone could give is not said."""
+    actor = response.get("actor") or {}
+    if actor.get("verified"):
+        print("  Acting as %s." % actor["name"])
+
+
 def show_adopt(request: Request, response: Response) -> None:
     if request.get("quiet"):
         return  # whoever asked quietly says what it has to say
@@ -7420,6 +7854,7 @@ def show_adopt(request: Request, response: Response) -> None:
             "\u2713 Adopted. The tracker is %s, under %s"
             % (response["tracker"], response["workspace"])
         )
+        show_actor(response)
 
 
 def show_name(request: Request, response: Response) -> None:
@@ -7445,15 +7880,28 @@ def show_name(request: Request, response: Response) -> None:
 def show_pour(request: Request, response: Response) -> None:
     if response.get("reason") == "not-installed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
-    elif response["status"] != "completed" and not response.get("printed"):
+    elif response["status"] != "completed" and (
+        not response.get("printed") or response.get("moleculeRef")
+    ):
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
     elif response.get("moleculeRef") and not response.get("printed"):
         if "--json" in (request.get("arguments") or []):
             answer = {"rootId": response["moleculeRef"], "stepIds": response.get("stepRefs") or []}
+            if response.get("verifyUsing"):
+                answer["verifyUsing"] = response["verifyUsing"]
             print(json.dumps(answer, indent=2, ensure_ascii=False))
             return
         print("\u2713 Poured mol: created %d issues" % (len(response.get("stepRefs") or []) + 1))
         print("  Root issue: %s" % response["moleculeRef"])
+    means = response.get("verifyUsing") or []
+    if (
+        means
+        and response["status"] == "completed"
+        and "--json" not in (request.get("arguments") or [])
+    ):
+        print("Verify using:")
+        for value in means:
+            print("  %s" % value)
 
 
 def show_forward(request: Request, response: Response) -> None:
@@ -7567,6 +8015,8 @@ def show_forward(request: Request, response: Response) -> None:
                 "Created: %s \u00b7 Updated: %s"
                 % ((item.get("createdAt") or "")[:10], (item.get("updatedAt") or "")[:10])
             )
+            if item.get("assignee"):
+                print("Assignee: %s" % item["assignee"])
             if item.get("reason"):
                 print("Close reason: %s" % item["reason"])
             if item.get("parent"):
@@ -7632,6 +8082,7 @@ def show_use(request: Request, response: Response) -> None:
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
         return
     print("\u2713 This checkout's tracker is %s." % response["name"])
+    show_actor(response)
     if response.get("previous"):
         print(
             "  The work in %s stays there: %s tracker migrate %s %s moves it."
@@ -7670,6 +8121,11 @@ def show_migrate(request: Request, response: Response) -> None:
     print("\u2713 %s" % response["summary"])
     if response.get("mappingPath"):
         print("  The ids are recorded in %s." % response["mappingPath"])
+    left = response.get("assigneesLeft")
+    if left:
+        print(
+            "  Assignees do not carry over: %d item%s had one." % (left, "" if left == 1 else "s")
+        )
 
 
 def show_new_tracker(request: Request, response: Response) -> None:
@@ -7722,8 +8178,8 @@ def present(operation: str, request: Request, response: Response) -> None:
 
 
 def extract_query(argv: list[str]) -> tuple[str, str, dict[str, Any]]:
-    """Title, -d description and the fields the interface names -- kind,
-    priority, parent -- from a `create ...` argument list. The tracker
+    """Title, -d description and the fields the interface names -- priority
+    and parent -- from a `create ...` argument list. The tracker
     underneath reads the arguments as typed where it has a pass-through;
     an adapter that answers in records reads these."""
     title, desc, skip = "", "", False
@@ -7731,8 +8187,6 @@ def extract_query(argv: list[str]) -> tuple[str, str, dict[str, Any]]:
     named = {
         "-d": "description",
         "--description": "description",
-        "-t": "kind",
-        "--type": "kind",
         "-p": "priority",
         "--priority": "priority",
         "--parent": "parent",
@@ -7931,7 +8385,12 @@ def main() -> int:
         return 1
 
     # Pour from where the formula lives, instead of requiring it be moved there.
-    if argv[0] == "mol" and len(argv) > 2 and argv[1] == "pour":
+    # formula pour is what dotdiw teaches; mol pour is the older spelling of it.
+    if argv[:2] == ["formula", "pour"] and (len(argv) < 3 or argv[2].startswith("-")):
+        sys.stderr.write("%s formula pour <formula>\n" % PROG)
+        return 2
+
+    if len(argv) > 2 and argv[1] == "pour" and argv[0] in ("formula", "mol"):
         return int(
             invoke(
                 "operation.pour-procedure",

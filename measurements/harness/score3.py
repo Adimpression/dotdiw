@@ -138,7 +138,7 @@ for line in open(S + "/runmap3.tsv", encoding="utf-8"):
                 for c in inv
                 if c.startswith("formula new") and c.split()[2:3] in ([], ["--help"], ["-h"])
             ),
-            "pour": sum(1 for c in inv if c.startswith("mol pour")),
+            "pour": sum(1 for c in inv if c.startswith(("mol pour", "formula pour"))),
             "formula_list": len(fl),
             "authored": authored,
             "relocated": [f for f in now if f.startswith(".beads/formulas")],

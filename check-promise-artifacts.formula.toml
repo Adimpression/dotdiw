@@ -11,7 +11,12 @@ examples = [
   "Lint and type-check the tree",
   "mypy fails",
 ]
-version = 4
+verify-using = [
+  "run:~/poa check --idl operation-idl.json --product-model poa/product-model.yaml",
+  "run:~/poa sweep --product-model poa/product-model.yaml --idl operation-idl.json --include-cesc --cesc contracts/named-work-found-its-procedure.cesc.yaml --source poa/product-model.yaml",
+  "run:python3 -I test_promise.py",
+]
+version = 5
 type = "workflow"
 
 # Written after running this sequence twice by hand on 2026-11-01, and again
@@ -35,6 +40,11 @@ type = "workflow"
 # changes the classes the bodies are checked against; ruff and mypy run from the
 # locked dev group through uv, and a tree that does not pass them is not one to
 # commit.
+#
+# Version 5: the formula names the means to prove its run under verify-using.
+# Whoever closes the root runs them again: the IDL's checks against the model,
+# the sweep through the contract, and the promise tests that hold the program
+# to the IDL. dotdiw shows them after the pour and keeps them on the root.
 
 [[steps]]
 id = "product"

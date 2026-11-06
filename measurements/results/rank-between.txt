@@ -1,0 +1,28 @@
+One run of measure/rank_between.py 240506d on 2026-11-07: every title
+measure/verify.py was written against and every committed example, ranked
+through MatchFormulas under dotdiw 0.8.0 (240506d) and under the 1.0.0 tree,
+over this repository and a throwaway checkout of the README's example formula,
+whose verify-using names the means to prove its run in all three forms. The
+rankings compared are the formulaRef of each formula surfaced, in order.
+
+It stands in for measure/verify.py, which cannot run: the four-formula project
+it scores is not in the repository, and it calls load_formulas, background and
+problems, which dotdiw removed on 2026-11-01. A version that matches nothing
+new ranks every title as the version before it did.
+
+240506d is 0.8.0; the tree is 1.0.0
+this repository: 7 and 7 formulas, 71 titles, 0 ranked differently
+  titles that surfaced a formula: 63 under 0.8.0, 63 under 1.0.0
+  self-test under 0.8.0: clean
+  self-test under 1.0.0: clean
+the README's checkout: 1 and 1 formulas, 24 titles, 0 ranked differently
+  titles that surfaced a formula: 10 under 0.8.0, 10 under 1.0.0
+  self-test under 0.8.0: clean
+  self-test under 1.0.0: clean
+0 differences
+
+The run recorded here on 2026-11-06 read a field the answer does not carry,
+formula where a surfaced formula names itself by formulaRef, so it compared
+lists of nothing and its 0 differences showed only that the counts agreed. The
+script now refuses a surfaced formula without its formulaRef, and says how many
+titles surfaced one.

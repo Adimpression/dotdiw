@@ -67,6 +67,62 @@
       "compatibility": "strengthening",
       "createdAt": "2026-11-05T12:00:00+08:00",
       "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.pour-is-a-formula-command",
+      "changeType": "bind-implementation-and-interfaces",
+      "targetRefs": [
+        "idl.dotdiw",
+        "binding.cli-formula-pour",
+        "binding.cli-formula-pour-journey"
+      ],
+      "summary": "The command line for operation.pour-procedure, and for the third step of operation.start-named-work, is now dotdiw formula pour <formula>, which dotdiw's own messages tell people to use. dotdiw mol pour <formula> still runs the same operations and prints the same. The operations, the tracker interface's pour-steps and what an adapter answers keep their names, because adapter files already implement them. Migration plan: none; both commands work.",
+      "reason": "mol pour is a name from beads. The other formula commands are formula new, formula list and formula show, so pouring now sits with them.",
+      "compatibility": "additive",
+      "createdAt": "2026-11-06T08:12:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.a-tracker-says-who-it-acts-as",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.tracker-door",
+        "invariant.one-tracker-door"
+      ],
+      "summary": "A new type, type.tracker-actor, holds the account a tracker writes work under: a name, the tracker's own id for it, and whether the tracker confirmed it. describe-tracker may return it as actor, and adopt-repository and use-tracker return it too, after asking describe-tracker. The item record gains an optional assignee, update-item can fail with assignee-not-found, and the responses of a migration gain assigneesLeft. The beads adapter reads git's user.name, so that call is declared on every operation that reaches it. The tracker interface keeps number 1, with its digest recorded again. Migration plan: none; every new field is optional, and an adapter written for interface 1 still passes tracker check, ten of ten.",
+      "reason": "Jira and beads write work under someone's name, and no record said whose, so dotdiw could not say it before work was written under the wrong name.",
+      "compatibility": "additive",
+      "createdAt": "2026-11-06T08:12:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.kind-is-root-or-task",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.tracker-door",
+        "invariant.one-tracker-door"
+      ],
+      "summary": "The kind of type.tracker-item becomes an enum of root and task, task when unsaid: the root a pour made is root and every other item is task, whatever the tracker calls it. create-item takes no kind, and neither do start-named-work and name-the-work. The tracker interface is number 2, with its digest recorded again, and a module written for 1 is refused in one line that names it. Migration plan: an adapter declares interface 2 and reads its tracker's own types as task; a local store's roots, recorded as molecule before 1.0.0, read as root.",
+      "reason": "dotdiw reads the kind for one thing, telling a poured root from a parent someone built by hand. While the kind was open, a root could be a molecule or an epic, and an epic someone built by hand could not be told from one.",
+      "compatibility": "breaking",
+      "createdAt": "2026-11-06T19:40:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.a-formula-names-the-means-to-prove-its-run",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.door",
+        "projection.tracker-door"
+      ],
+      "summary": "type.held-formula gains verifyUsing, the means to prove a formula's run, as one-line strings. type.tracker-item gains description and verifyUsing, which pour-steps takes for the root, create-item takes for an item a move carries, and show-item returns exactly as given for any item; migrate-workspace reads each item whole with show-item and hands both over. The response of pour-procedure carries verifyUsing for the presenter, and a convention problem names a value check cannot read, one longer than a line, or a file of this repository that git does not track. Migration plan: none for formulas; the root's description and verifyUsing ride on tracker interface 2.",
+      "reason": "A formula said what to do and how its steps follow each other. Steps closed in order show that the order was kept; the means to prove show that the run did what the formula claims.",
+      "compatibility": "additive",
+      "createdAt": "2026-11-06T19:40:00+08:00",
+      "approvalStatus": "draft"
     }
   ],
   "eventStructureContracts": [
@@ -354,6 +410,19 @@
           "required": false,
           "summary": "The example titles the file declares, in its order.",
           "cardinality": "many"
+        },
+        {
+          "name": "verifyUsing",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The means to prove the formula's run, as the file declares them, in its order: run: commands, git+https:// or git+ssh:// files with the path after #, and links.",
+          "cardinality": "many"
         }
       ]
     },
@@ -399,7 +468,7 @@
             ]
           },
           "required": true,
-          "summary": "convention: an instruction file that does not say where work starts, or the tracker's directory tracked in git. formula: a formula that is uncommitted, outside the repository, too short to name a situation, still a scaffold, short of examples, or not retrieved by one of its examples."
+          "summary": "convention: an instruction file that does not say where work starts, or the tracker's directory tracked in git. formula: a formula that is uncommitted, outside the repository, too short to name a situation, still a scaffold, short of examples, not retrieved by one of its examples, or whose verify-using holds a value check cannot read, a value longer than one line, or a file of this repository that git does not track."
         },
         {
           "name": "where",
@@ -425,7 +494,7 @@
       "typeId": "type.handmade-procedure",
       "name": "HandmadeProcedure",
       "kind": "record",
-      "description": "A procedure carried out in the tracker and never declared: a parent that is not a molecule, with ordered children, that no formula reaches.",
+      "description": "A procedure carried out in the tracker and never declared: a parent of kind task, with ordered children, that no formula reaches.",
       "fields": [
         {
           "name": "workRef",
@@ -483,11 +552,14 @@
         {
           "name": "kind",
           "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
+            "kind": "enum-inline",
+            "values": [
+              "root",
+              "task"
+            ]
           },
           "required": false,
-          "summary": "task, epic, chore or what the adapter calls them; task when unsaid."
+          "summary": "root for the root a pour made, and task for every other item, whatever the tracker calls it; task when unsaid."
         },
         {
           "name": "status",
@@ -560,6 +632,37 @@
           },
           "required": false,
           "summary": "When it last changed, as the adapter states it."
+        },
+        {
+          "name": "assignee",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Who claims it, as the tracker shows them."
+        },
+        {
+          "name": "description",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "What the item says beyond its title, exactly as given; a root carries its formula's description."
+        },
+        {
+          "name": "verifyUsing",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The means to prove a run, one line each: a poured root's, or those a move carried with an item; show-item returns them exactly as given.",
+          "cardinality": "many"
         }
       ]
     },
@@ -712,6 +815,41 @@
           "required": false,
           "summary": "What the adapter offers beyond the interface, by name; forward, for the beads adapter's pass-through.",
           "cardinality": "many"
+        }
+      ]
+    },
+    {
+      "typeId": "type.tracker-actor",
+      "name": "TrackerActor",
+      "kind": "record",
+      "description": "Who a tracker would act as: the name it shows, its own id where it has one, and whether it checked. A name anyone could give is not verified.",
+      "fields": [
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The name the tracker shows; never an email address."
+        },
+        {
+          "name": "id",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The tracker's own id for them, where it has one."
+        },
+        {
+          "name": "verified",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true,
+          "summary": "True only where the tracker checked credentials; false for a name anyone could give."
         }
       ]
     },

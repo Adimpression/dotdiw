@@ -162,7 +162,13 @@ class EveryAdapterPresent(unittest.TestCase):
         rule: one that closes a blocked item is named at close-item."""
         m = self.present.m
         lax = {
-            "info": {"name": "lax", "version": "0", "origin": "shipped", "checkTarget": "lax"},
+            "info": {
+                "name": "lax",
+                "version": "0",
+                "interface": 2,
+                "origin": "shipped",
+                "checkTarget": "lax",
+            },
             "operations": dict(m.TRACKERS["local"]["operations"]),
             "extras": {},
             "store": m.TRACKERS["local"]["store"],
@@ -232,7 +238,7 @@ class Memory:
             return {
                 "status": "completed",
                 "summary": "memory",
-                "info": {"name": self.name, "version": "0", "origin": "loaded"},
+                "info": {"name": self.name, "version": "0", "interface": 2, "origin": "loaded"},
                 "exitCode": 0,
             }
 
@@ -313,6 +319,7 @@ class Memory:
             "info": {
                 "name": self.name,
                 "version": "0",
+                "interface": 2,
                 "origin": "loaded",
                 "checkTarget": "scratch",
             },
@@ -502,7 +509,7 @@ class MovingBetweenAdapters(unittest.TestCase):
             return self.present.ask(tracker, op, **r)
 
         self.assertEqual(ask("open-tracker", prefix="mv")["status"], "completed")
-        a = ask("create-item", title="Alpha", kind="task", priority=1)["item"]["id"]
+        a = ask("create-item", title="Alpha", priority=1)["item"]["id"]
         b = ask("create-item", title="Beta", parent=a)["item"]["id"]
         c = ask("create-item", title="Gamma", priority=3)["item"]["id"]
         self.assertEqual(ask("add-need", id=c, needs=b)["status"], "completed")
@@ -511,8 +518,19 @@ class MovingBetweenAdapters(unittest.TestCase):
             formulaRef="mol-mv",
             title="mol-mv",
             steps=[{"id": "x", "title": "Step X"}, {"id": "y", "title": "Step Y", "needs": ["x"]}],
+            description=self.POURED,
+            verifyUsing=self.MEANS,
         )
         self.assertEqual(poured["status"], "completed", poured)
+        self.assertEqual(
+            ask("create-item", title="Delta", description=self.DESCRIBED)["status"], "completed"
+        )
+        self.assertEqual(
+            ask("create-item", title="Epsilon", description="Moved once.", verifyUsing=self.MEANS)[
+                "status"
+            ],
+            "completed",
+        )
         self.assertEqual(ask("close-item", id=b, closeReason="beta done")["status"], "completed")
         self.assertEqual(ask("update-item", id=c, status="in_progress")["status"], "completed")
         self.assertEqual(
@@ -520,14 +538,29 @@ class MovingBetweenAdapters(unittest.TestCase):
         )
         return ask("list-items", scope="all")["items"]
 
+    # A root's description and means, a description that reads like the means,
+    # and an item a move carried them to: each arrives exactly as given.
+    POURED = "Verify using:\n- a line of the formula's description"
+    DESCRIBED = "Verify using:\n- a line of this description, not a means"
+    MEANS = ["run:make check", "https://example.invalid/runs/1"]
+
+    def carried(self, tracker, items):
+        """Each item's description and means, keyed by title, as show-item gives
+        them: list-items need not carry either."""
+        out = {}
+        for i in items:
+            item = self.present.ask(tracker, "show-item", id=i["id"])["item"]
+            out[i["title"]] = (item.get("description"), list(item.get("verifyUsing") or []))
+        return out
+
     @staticmethod
     def shape(items):
-        """What a move must keep, keyed by title: kind, status, reason, the
-        parent's title and the needs' titles."""
+        """What a move must keep, keyed by title: status, reason, the parent's
+        title and the needs' titles. A root moves as a task, which
+        question.how-migrate-copies-a-root leaves open."""
         title = {i["id"]: i["title"] for i in items}
         return {
             i["title"]: (
-                i["kind"] in ("molecule", "epic"),
                 i["status"],
                 i.get("reason"),
                 title.get(i.get("parent")),
@@ -560,6 +593,31 @@ class MovingBetweenAdapters(unittest.TestCase):
                         self.assertEqual(moved["moved"], len(before))
                         after = present.ask(dst, "list-items", scope="all")["items"]
                         self.assertEqual(self.shape(after), self.shape(before))
+                        self.assertEqual(
+                            {i["kind"] for i in after}, {"task"}, "a root moves as a task"
+                        )
+                        given = self.carried(src, before)
+                        self.assertEqual(given["mol-mv"], (self.POURED, self.MEANS))
+                        self.assertEqual(given["Delta"], (self.DESCRIBED, []))
+                        self.assertEqual(given["Epsilon"], ("Moved once.", self.MEANS))
+                        self.assertEqual(
+                            self.carried(dst, after),
+                            given,
+                            "a root's description and means arrive with it, as a task's",
+                        )
+                        onward = [n for n in present.names if n not in (src, dst)]
+                        if onward:
+                            again_out = m.invoke(
+                                "operation.migrate-workspace",
+                                {"root": present.repo, "fromTracker": dst, "toTracker": onward[0]},
+                            )
+                            self.assertEqual(again_out["status"], "completed", again_out["summary"])
+                            onto = present.ask(onward[0], "list-items", scope="all")["items"]
+                            self.assertEqual(
+                                self.carried(onward[0], onto),
+                                given,
+                                "a second move carries them again, %s to %s" % (dst, onward[0]),
+                            )
                         self.assertEqual(
                             present.ask(src, "list-items", scope="all")["items"],
                             before,

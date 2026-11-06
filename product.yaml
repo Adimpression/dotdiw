@@ -84,6 +84,15 @@ boundaries:
       so, and every version before 0.4.0 kept the tracker's state in the tree.
       What a tool does on somebody's behalf must be stated, and what is in the
       project must be only what the project shares on purpose.
+  - boundaryId: boundary.the-prover-uses-the-means
+    statement: >
+      dotdiw shows the means to prove a run and checks that each is well
+      formed. Running a command, reading a file and opening a link are the acts
+      of whoever proves the run.
+    whyItMatters: >
+      A formula is a file that anyone who commits may change. Whoever proves
+      the run chooses what runs on their machine, so a change to a formula
+      changes what is shown, and only that.
 possibleCarriers:
   - carrierId: carrier.dotdiw-cli
     name: The dotdiw command
@@ -131,6 +140,11 @@ evidenceOrProof:
       dotdiw itself wrote -- named, surfaced or silent, poured, closed -- and
       calls the story valid, or says in which way it is not. A claim that
       discovery fired answers to that contract and to nothing read by hand.
+  - evidenceId: evidence.check-holds-the-means-to-prove
+    statement: >
+      `dotdiw check` names every value of a formula's verify-using that it
+      cannot read, every value longer than one line, and every file of this
+      repository that a value names and git does not track.
 falseSuccessRisks:
   - riskId: risk.silence-read-as-nothing-applies
     statement: >
@@ -165,6 +179,12 @@ falseSuccessRisks:
     whatItWouldCounterfeit: >
       One name for all four, while the second name is what the repository
       makes them think about.
+  - riskId: risk.proved-by-what-is-gone
+    statement: >
+      A formula's verify-using names a file that a later change deleted or
+      moved, or a command that no longer proves what the formula claims.
+    whatItWouldCounterfeit: >
+      A proved run. The proof points at something that is no longer there.
 pressureNotes:
   - >
     Urgency pulls towards starting by doing. A one-second act that names the
@@ -264,6 +284,67 @@ promiseChanges:
       A tracker could only be copied by hand into the home directory, which a
       package manager cannot write to, and nothing said which interface a
       module was written for.
+  - changeId: change.pour-is-a-formula-command
+    summary: >
+      From 0.8.0, `dotdiw formula pour <id>` creates a formula's steps as
+      tracked items, and dotdiw's own messages tell people to use it. The old
+      command, `dotdiw mol pour <id>`, still works and prints the same. The
+      instructions dotdiw writes into `CLAUDE.md` and `AGENTS.md` still say
+      `mol pour`. dotdiw rewrites that text in every repository that uses it,
+      on the next `create`, so changing it would change files in every
+      repository at once, and teammates on different versions would keep
+      overwriting each other's copy.
+    compatibility: additive
+    rationale: >
+      `mol pour` is a name from beads. The other formula commands are
+      `formula new`, `formula list` and `formula show`, so pouring now sits
+      with them.
+  - changeId: change.a-tracker-says-who-it-acts-as
+    summary: >
+      From 0.8.0, dotdiw says which account a tracker writes work under, when
+      the tracker can confirm it. Jira confirms it from the API token, so
+      `init` names that account once and `tracker use` names it every time.
+      Beads takes its name from git or the environment, which anyone can set,
+      so dotdiw does not show it. Items now record who they are assigned to.
+      `show` prints it under local and Jira, and in Jira and beads,
+      `update -a me` assigns an item to the account the work is written under.
+      `tracker migrate` does not carry assignments over to the new tracker,
+      and says how many items had one.
+    compatibility: additive
+    rationale: >
+      Jira and beads write work under someone's name, and dotdiw never said
+      whose. The worst mistake is writing work under the wrong person's name
+      without anyone noticing.
+  - changeId: change.kind-is-root-or-task
+    summary: >
+      From 1.0.0, an item's kind is root or task. The root a pour makes is
+      root, and every other item is task, whatever the tracker calls it.
+      `create-item` takes no kind. The tracker interface is number 2, and an
+      adapter written for 1 is refused in one line that names it. A local
+      store made before 1.0.0 reads its roots, recorded as molecule, as root.
+    compatibility: breaking
+    rationale: >
+      dotdiw reads the kind for one thing, telling a poured root from a parent
+      someone built by hand. While the kind was open, a root could be a
+      molecule or an epic, and an epic someone built by hand could not be told
+      from one.
+  - changeId: change.a-formula-names-the-means-to-prove-its-run
+    summary: >
+      From 1.0.0, a formula can name the means to prove that its run did what
+      it claims, in a list called `verify-using`. Each value is one line: a
+      command after `run:`, a file in a repository as a `git+https://` or
+      `git+ssh://` URL with the file's path after `#`, or a link. dotdiw shows
+      the list after a pour and gives it to the tracker with the root, which
+      keeps it and returns it exactly as given, and `dotdiw tracker migrate`
+      carries it with the item. `dotdiw check` names a value it
+      cannot read, a value longer than one line, and a file of this repository
+      that git does not track. Whoever runs the formula proves the run with
+      these means.
+    compatibility: additive
+    rationale: >
+      A formula said what to do and how its steps follow each other. Steps
+      closed in order show that the order was kept; the means to prove show
+      that the run did what the formula claims.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

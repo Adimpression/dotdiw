@@ -17,6 +17,7 @@ carriers:
       - cannot make anyone follow what it surfaced
       - cannot match prose
       - cannot see a formula that is not committed
+      - cannot tell whether a run was proved
   - carrierId: projectInstructions
     carrierKind: hybrid
     carries: [workNaming]
@@ -31,6 +32,7 @@ substitutionEnvelope:
     - which formulas surface for a title
   notEquivalentFor:
     - whether the worker reads what surfaced
+    - whether the worker proved the run
   counterfeitEquivalenceRisk:
     - >
       the tracker's own create, typed directly: the work item exists and looks

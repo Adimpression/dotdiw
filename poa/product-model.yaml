@@ -8,7 +8,7 @@ modelPurpose: >
   than a hope. The thin promise is ../product.yaml; this file is POA's
   internal source and mirrors the operation material that ../praxis.yaml owns.
 createdAt: "2026-11-01T00:00:00+08:00"
-updatedAt: "2026-11-05T12:00:00+08:00"
+updatedAt: "2026-11-07T10:56:00+08:00"
 
 product:
   productId: product.dotdiw
@@ -23,8 +23,9 @@ lexicon:
     term: Formula
     definition: >
       A procedure written as a TOML file named <something>.formula.toml, kept
-      next to whatever it is about and committed: a description, examples, and
-      steps with which step needs which.
+      next to whatever it is about and committed: a description, examples,
+      steps with which step needs which, and, when it names them, the means to
+      prove its run.
     allowedAliases:
       - procedure
     forbiddenAliases:
@@ -78,6 +79,34 @@ lexicon:
       - lint
     examples:
       - "dotdiw check reports: 5 formulas, all discoverable."
+  - termId: term.root
+    term: Root
+    definition: >
+      The one item a pour makes to stand for the whole formula, with every
+      step as its child. Its kind is root; every other item's kind is task.
+    allowedAliases:
+      - poured root
+    forbiddenAliases:
+      - epic
+      - molecule
+    examples:
+      - dotdiw formula pour mol-cut-release makes a root titled mol-cut-release and one child per step.
+  - termId: term.verify-using
+    term: Verify-using
+    definition: >
+      The means to prove that a formula's run did what the formula claims: a
+      list of one-line strings in the formula, each a command after run:, a
+      file in a repository as a git+https:// or git+ssh:// URL with its path
+      after #, or a link. Whoever proves the run uses them; dotdiw shows them
+      and checks that each is well formed.
+    allowedAliases:
+      - the means to prove
+    forbiddenAliases:
+      - evidence
+      - attestation
+      - hook
+    examples:
+      - '"run:lint *.*" proves the code is clean.'
 
 ambiguityPolicy:
   principle: >
@@ -157,10 +186,10 @@ realWorldModel:
     - objectId: object.tracker
       name: Tracker
       definition: >
-        The store that holds the work: items with a status, a priority and a
-        parent, the needs between them, and the steps a formula was poured
-        into. Reached only through the inner door, and answered for by one
-        adapter.
+        The store that holds the work: items with a kind, root or task, a
+        status, a priority and a parent, the needs between them, and the
+        steps a formula was poured into. Reached only through the inner door,
+        and answered for by one adapter.
       lifecycleStates:
         - unopened
         - open
@@ -371,6 +400,8 @@ realWorldModel:
       statement: >
         A formula the project holds is one git tracks. Matching, listing and
         check treat an uncommitted formula as one person's, and check says so.
+        A file of this repository that a formula names under verify-using is
+        held the same way.
       rationale: >
         A procedure is available to everyone by being part of the project,
         not by anyone's local setup.
@@ -384,6 +415,7 @@ realWorldModel:
         - step.commit-formula
       guardedByAntiTraceIds:
         - antitrace.formula-held-by-one-person
+        - antitrace.proved-by-what-is-gone
     - invariantId: invariant.every-formula-finds-itself
       name: Every formula finds itself
       statement: >
@@ -576,6 +608,27 @@ realWorldModel:
         - interaction.move-workspace
         - interaction.ship-tracker
       enforcedByStepIds: []
+      guardedByAntiTraceIds: []
+    - invariantId: invariant.the-prover-uses-the-means
+      name: The prover uses the means
+      statement: >
+        dotdiw shows the means to prove a run, after the pour and with the root
+        in the tracker, and checks that each is well formed. Running a command,
+        reading a file and opening a link are the acts of whoever proves the
+        run.
+      rationale: >
+        A formula is a file that anyone who commits may change. Whoever proves
+        the run chooses what runs on their machine.
+      severity: critical
+      objectIds:
+        - object.formula
+        - object.molecule
+      interactionIds:
+        - interaction.pour-procedure
+        - interaction.check-discoverability
+      enforcedByStepIds:
+        - step.pour-procedure
+        - step.describe-and-check
       guardedByAntiTraceIds: []
   networkBoundaries:
     - boundaryId: boundary.create-to-match
@@ -867,7 +920,7 @@ realWorldModel:
         - duty.read-what-surfaces
       states:
         - stateId: poured
-          meaning: One tracker issue per step exists under a root that names the formula.
+          meaning: One tracker issue per step, each of kind task, exists under a root of kind root that names the formula.
         - stateId: complete
           meaning: Every step is closed and the root with it.
       transitions:
@@ -1054,9 +1107,9 @@ objectives:
   - objectiveId: objective.one-name-for-all-four
     title: One name for all four
     description: >
-      Management, declaration, sharing and discovery under one command, so no
-      task ever requires typing anything else.
-    successMeaning: A worker never has to know which tracker, or that git, is underneath.
+      Declaration, management, sharing and discovery under one command, so no
+      task ever requires typing the tracker's own name.
+    successMeaning: A worker never has to know which tracker is underneath.
 
 duties:
   - dutyId: duty.surface-procedures-when-work-starts
@@ -1066,10 +1119,11 @@ duties:
       and let the chosen one become tracked steps.
     scope: >
       Covers creating the work item, matching the title against the
-      committed formulas, printing the ones that apply, and pouring one; and
-      what rides along with every create because the tracker rewrites the
-      files agents read -- the conventions re-declared, procedures built by
-      hand noticed, the conventions check run quietly.
+      committed formulas, printing the ones that apply, and pouring one,
+      its means to prove the run kept with the root and shown after the
+      pour; and what rides along with every create because the tracker
+      rewrites the files agents read -- the conventions re-declared,
+      procedures built by hand noticed, the conventions check run quietly.
     nonGoals:
       - Enforcing that a surfaced formula is followed.
       - Surfacing anything for work that began some other way.
@@ -1095,7 +1149,8 @@ duties:
       Let a procedure be written where it belongs, checked against the words
       people use, and held by the project.
     scope: >
-      Covers formula new, the description and examples, dotdiw check, and the
+      Covers formula new, the description and examples, dotdiw check, which
+      also holds the means to prove a run to being well formed, and the
       commit that makes the project hold it; noticing a procedure the project
       carried out by hand and never declared, and a memory that reads like a
       procedure; and answering about the project's formulas -- listing them,
@@ -1256,6 +1311,7 @@ journeys:
     goldenTraceIds:
       - trace.release-found-its-procedure
       - trace.recorded-run-found-its-procedure
+      - trace.pour-named-the-means-to-prove-its-run
     antiGoldenTraceIds:
       - antitrace.procedure-poured-unnamed
       - antitrace.poured-what-never-surfaced
@@ -1467,7 +1523,7 @@ journeys:
       committed formula wherever it sits in the tree -- and not about the
       tracker's own two directories.
     purpose: A formula is found where it lives, so it never has to be moved or linked anywhere.
-    trigger: Someone runs formula list, formula show, mol pour or cook.
+    trigger: Someone runs formula list, formula show, formula pour, mol pour or cook.
     preconditions:
       - The repository is adopted.
     primaryFlow:
@@ -1801,11 +1857,13 @@ steps:
     sequence: 3
     title: Pour the procedure
     given: A formula surfaced for the named work.
-    when: The worker runs dotdiw mol pour with that formula.
+    when: The worker runs dotdiw formula pour with that formula.
     then: One tracked issue per step is created under a root, each blocked by the steps it needs.
     thenAssertions:
+      - dotdiw mol pour, the older spelling, does the same and prints the same.
       - A step cannot be closed before the steps it needs.
       - The root names the formula it was poured from.
+      - The formula's verify-using goes to the tracker with the root and is shown after the pour.
     relatedObjectIds:
       - object.work
       - object.formula
@@ -1815,6 +1873,7 @@ steps:
     relatedInvariantIds:
       - invariant.one-door
       - invariant.work-starts-named
+      - invariant.the-prover-uses-the-means
     expectedUserVisibleOutcome: The root issue id and the count of steps created.
     status: active
     stateTransitions:
@@ -1828,7 +1887,7 @@ steps:
     journeyId: journey.write-a-procedure-down
     sequence: 1
     title: Notice a procedure carried out by hand
-    given: The tracker holds a parent that is not a molecule, with three or more children and a blocks dependency among them -- a procedure built by hand.
+    given: The tracker holds a parent of kind task, with three or more children and a blocks dependency among them -- a procedure built by hand.
     when: dotdiw create, check, doctor or lint runs, and no committed formula reaches the parent's title.
     then: The procedure is named as carried out here and never declared, with its ordered step count and the formula new --from line that turns the work actually done into steps.
     thenAssertions:
@@ -1893,11 +1952,12 @@ steps:
     title: Describe it to be found, and check
     given: A written formula.
     when: The description and examples are written in the words people use for the work, and dotdiw check is run.
-    then: check reports whether the formula is found from each of its examples, each one taken out of the index while it is searched for, together with the other convention problems -- an uncommitted formula, a formula outside the repository, a description too short to name a situation, a scaffold still carrying TODO, too few examples, instruction files that do not say where work starts.
+    then: check reports whether the formula is found from each of its examples, each one taken out of the index while it is searched for, together with the other convention problems -- an uncommitted formula, a formula outside the repository, a description too short to name a situation, a scaffold still carrying TODO, too few examples, a verify-using value it cannot read or one longer than a line, a file of this repository that verify-using names and git does not track, instruction files that do not say where work starts.
     thenAssertions:
       - An example that fails is named, with the formula it should reach.
       - An uncommitted formula is reported as not yet held.
       - The same check runs quietly after every create, and after doctor and lint, printing only the first few problems.
+      - A verify-using value check cannot read, one longer than a line, and a file of this repository that a value names and git does not track are each named with the formula; the file is looked for in the checkout, and no remote is contacted.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -1905,6 +1965,7 @@ steps:
     relatedInvariantIds:
       - invariant.one-door
       - invariant.every-formula-finds-itself
+      - invariant.the-prover-uses-the-means
     expectedUserVisibleOutcome: One line per failing example, or one line saying every formula is discoverable.
     status: active
     stateTransitions:
@@ -1951,6 +2012,7 @@ steps:
       - Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing, unless the tracker's own re-init flags were given.
       - The tracker's own output is shown, under dotdiw's name.
       - A tracker that does not open stops the adoption. What it said is shown, no choice is written and nothing is declared.
+      - Where the tracker checked who it acts as, init names them once; a name anyone could give is not shown.
     relatedObjectIds:
       - object.repository
     relatedInteractionIds:
@@ -2059,7 +2121,7 @@ steps:
     journeyId: journey.run-a-tracker-command
     sequence: 1
     title: Forward to the tracker
-    given: A command dotdiw does not own, or one of its own that is the tracker's underneath -- create, init, mol pour, cook.
+    given: A command dotdiw does not own, or one of its own that is the tracker's underneath -- create, init, formula pour, mol pour, cook.
     when: dotdiw runs it.
     then: Under beads the command runs with the worker's terminal, through a pty when it is interactive, every occurrence of the tracker's name in the stream is rewritten to dotdiw on the way out, and the exit code is the tracker's; under an adapter with no pass-through, list, ready, show, close, update and dep add are answered from its records, --help, -h and help with the conventions text as bare dotdiw gives it, and any other command is refused as unsupported.
     thenAssertions:
@@ -2087,6 +2149,7 @@ steps:
       - Only git-tracked formula files are indexed; an uncommitted one is invisible here.
       - The background is capped so that a create stays faster than the tracker call it follows.
       - A Python without tomllib, or a SQLite without FTS5, is reported and the run stops rather than answering that the project holds nothing.
+      - A formula's verify-using is read with it and adds nothing to what a title reaches.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -2106,6 +2169,7 @@ steps:
     thenAssertions:
       - The answer is about the project, not about the tracker's own two directories.
       - A project with no formulas is told how to write one.
+      - With --json, each formula carries its verify-using.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -2138,7 +2202,7 @@ steps:
     sequence: 4
     title: Resolve a formula
     given: An id, a file name or a path that may name a committed formula.
-    when: mol pour, cook or formula show is given it.
+    when: formula pour, mol pour, cook or formula show is given it.
     then: It resolves to that formula's file in the tree, or to nothing, in which case the command is handed to the tracker as it was typed.
     thenAssertions:
       - The id, the file's base name and the repository-relative path all resolve.
@@ -2162,6 +2226,7 @@ steps:
     thenAssertions:
       - The text names dotdiw create as where work starts, the formula file and where it lives, the commit, and how a title is matched.
       - The text is the same in every project.
+      - The text says how a formula names the means to prove its run.
     relatedObjectIds: []
     relatedInteractionIds:
       - interaction.learn
@@ -2203,6 +2268,7 @@ steps:
     thenAssertions:
       - The record never carries a credential.
       - The capabilities say whether needs are native or kept in a sidecar.
+      - An adapter that can say who it acts as names them and says whether the tracker checked; never with an email address.
     relatedObjectIds:
       - object.tracker-adapter
     relatedInteractionIds:
@@ -2217,11 +2283,15 @@ steps:
     sequence: 3
     title: Create an item
     given: An open tracker.
-    when: A body asks for an item with a title, a kind, a priority and perhaps a parent.
+    when: A body asks for an item with a title, a priority and perhaps a parent, a description, and the means to prove a run that a move carries.
     then: The item exists, open, with an id, and comes back as a record.
     thenAssertions:
       - The id carries the workspace prefix where the adapter honours one.
       - The parent must exist, or the create fails naming it.
+      - The item's kind is task; only a pour makes a root.
+      - A create that asks the tracker for the type a root has is refused in one line.
+      - The description and the means come back from show exactly as given, a description that reads like the means included.
+      - What the worker typed reaches the tracker as typed, read option by option, so that a value is never taken for an option.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -2258,10 +2328,13 @@ steps:
     title: Pour steps under a root
     given: A parsed formula and an open tracker.
     when: A body pours it.
-    then: A root item names the formula, and one item per step exists under it with its needs as edges.
+    then: A root of kind root names the formula and carries its description and its verify-using, and one item of kind task per step exists under it with its needs as edges.
     thenAssertions:
       - The order is enforced by the edges, not hoped for.
       - The step ids come back in the formula's order.
+      - The root's description and verify-using come back from show exactly as given, however the adapter stores them, a description that reads like the means included.
+      - A pour that made a root and could not keep the means on it fails, naming the root in its answer and in the line said.
+      - An adapter that reads the formula's file through path ignores any key it does not know.
     relatedObjectIds:
       - object.tracker
       - object.molecule
@@ -2271,7 +2344,7 @@ steps:
     relatedInvariantIds:
       - invariant.one-door
       - invariant.one-tracker-door
-    expectedUserVisibleOutcome: The root id and the count of steps, as mol pour prints today.
+    expectedUserVisibleOutcome: The root id and the count of steps, as formula pour and mol pour print today.
     status: active
   - stepId: step.close-item
     journeyId: journey.answer-through-the-tracker
@@ -2300,7 +2373,7 @@ steps:
     title: Show one item
     given: An id.
     when: A body asks for the item.
-    then: The record comes back with its needs, its children and its reason if closed.
+    then: The record comes back with its needs, its children, its reason if closed, and its description and verify-using as given.
     thenAssertions:
       - An id that does not exist fails naming it.
     relatedObjectIds:
@@ -2342,6 +2415,8 @@ steps:
     thenAssertions:
       - A status outside the set is refused.
       - Closing through update is refused; close is the one way to close.
+      - An assignee of me is whoever the adapter acts as; any other is the tracker's own id for a person, never a name to search for, and a tracker that checks refuses one it does not know.
+      - An update that asks the tracker for the type a root has is refused in one line.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -2403,6 +2478,7 @@ steps:
       - A choice that could not be written is said in one line, and the checkout stays on the tracker it had.
       - A module that raises on load, whose table is out of shape, or that declares an interface this tool does not support, is listed as not loaded and refused in one line that names it and gives the reason.
       - Nothing of the tracker's enters the tree.
+      - Where the tracker checked who it acts as, tracker use names them each time; a name anyone could give is not shown.
     relatedObjectIds:
       - object.tracker-adapter
       - object.repository
@@ -2432,7 +2508,7 @@ steps:
       - A file checked by path is read as it stands, whatever bytecode is cached beside it.
       - After a check by path, the adapter of that name, its module and what the loader remembers of it are as they were.
       - The checkout the check was asked from is not touched, whatever GIT_DIR says.
-      - The scenario covers what the other commands rely on, a need already there, a scope, a limit, a parent under either scope, a status refused and the kind of a poured root among them.
+      - The scenario covers what the other commands rely on, a need already there, a scope, a limit, a parent under either scope, a status refused, a poured root's kind, root, every other item's, task, and, each returned as given, a root's description and verify-using, a description that reads like the means, and the means a move carries among them.
     relatedObjectIds:
       - object.tracker-adapter
       - object.tracker
@@ -2456,6 +2532,9 @@ steps:
       - Run twice, the second run changes nothing.
       - A write the target refuses, an item, a need, a status or a close, fails the move and names it; what was written stays recorded.
       - The next run makes only the items not yet made, and finishes the needs, statuses and closes of those an earlier run left.
+      - Assignees do not carry over, and the move says how many items had one.
+      - Each item is read whole with show-item, and its description and verify-using move with it exactly as given; a root's arrive on the task it becomes, and a second move carries them again.
+      - A root moves as a task; how migrate copies a root is question.how-migrate-copies-a-root.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -2898,6 +2977,52 @@ traces:
         - step.teach-the-conventions
       classificationReason: Nothing had to be installed or found; the text was the first thing.
       status: active
+    - traceId: trace.pour-named-the-means-to-prove-its-run
+      traceType: golden
+      title: A pour named the means to prove its run
+      description: >
+        2026-11-06, this repository on the 1.0.0 tree with beads underneath:
+        check-promise-artifacts, naming three means under verify-using, was
+        poured as trials-mol-yo5u with fourteen steps. bd's own output came
+        first and the means followed it, one to a line, and the root came back
+        through the door of kind root, with the formula's description and the
+        three means exactly as given, every step of kind task. The steps were
+        followed and closed, and the three means were run and passed before
+        the root closed.
+      dutyId: duty.surface-procedures-when-work-starts
+      journeyId: journey.start-named-work
+      scenario: The procedure that checks the promise's own artifacts names how its run is proved.
+      trigger: dotdiw formula pour mol-check-promise-artifacts
+      events:
+        - sequence: 1
+          title: Poured
+          event: The pour makes trials-mol-yo5u with fourteen steps and keeps the three means as the last section of the root's description.
+          stateBefore: The procedure surfaced.
+          stateAfter: The procedure is poured, its root carrying the means to prove its run.
+          observedOutcome: bd prints its pour, then dotdiw prints Verify using and the three means, one to a line.
+          elapsedTimeMs: 6975
+          relatedStepIds:
+            - step.pour-procedure
+        - sequence: 2
+          title: Read back
+          event: show-item returns the root of kind root with the formula's description and its three means exactly as given, and fourteen children of kind task.
+          observedOutcome: The means outlive the pour, kept the way beads keeps them.
+          relatedStepIds:
+            - step.pour-procedure
+        - sequence: 3
+          title: Proved
+          event: The fourteen steps are followed and closed; before the root closes, its three means are run, the IDL's checks, the sweep and the promise tests.
+          stateBefore: Every step closed.
+          stateAfter: The run is proved, and the root closes.
+          observedOutcome: poa check passes with no operation unbound, the sweep passes with no gaps, and test_promise passes its 48 tests.
+          elapsedTimeMs: 39523
+          relatedStepIds:
+            - step.pour-procedure
+      finalState: A run closed after the means its formula names had proved it.
+      validatesStepIds:
+        - step.pour-procedure
+      classificationReason: The means the formula names reached the worker at the pour and stayed on the root, so the run can be proved before it closes.
+      status: active
   antiGolden:
     - traceId: antitrace.procedure-poured-unnamed
       traceType: anti-golden
@@ -2906,7 +3031,7 @@ traces:
       dutyId: duty.surface-procedures-when-work-starts
       journeyId: journey.start-named-work
       scenario: Someone pours a formula they remember, straight from the tracker.
-      trigger: dotdiw mol pour without a preceding dotdiw create.
+      trigger: dotdiw formula pour without a preceding dotdiw create.
       events:
         - sequence: 1
           title: Poured unnamed
@@ -2931,7 +3056,7 @@ traces:
       dutyId: duty.surface-procedures-when-work-starts
       journeyId: journey.start-named-work
       scenario: The worker ignores the surfaced formula and pours one from memory.
-      trigger: dotdiw mol pour with a formula the create did not print.
+      trigger: dotdiw formula pour with a formula the create did not print.
       events:
         - sequence: 1
           title: Named and surfaced
@@ -3143,6 +3268,31 @@ traces:
         - invariant.only-committed-formulas-are-held
         - invariant.notice-stops-when-written
       classificationReason: The question was about the project and the answer was about two directories.
+      status: active
+    - traceId: antitrace.proved-by-what-is-gone
+      traceType: anti-golden
+      title: Proved by what is gone
+      description: >
+        A formula's verify-using names a report in this repository that a later
+        change deleted. The run is poured and closed, and the means to prove it
+        points at nothing.
+      dutyId: duty.keep-procedures-findable
+      journeyId: journey.write-a-procedure-down
+      scenario: A release formula names the scan report it is proved by, and a cleanup removes the report.
+      trigger: dotdiw check after the cleanup.
+      events:
+        - sequence: 1
+          title: Named before anyone pours
+          event: check names the formula and the file its verify-using names, which git no longer tracks.
+          observedOutcome: The formula is fixed where it lives before the next run relies on it.
+          relatedStepIds:
+            - step.describe-and-check
+      finalState: A proved run is counterfeited.
+      violatesStepIds:
+        - step.describe-and-check
+      violatesInvariantIds:
+        - invariant.only-committed-formulas-are-held
+      classificationReason: A proof that points at something gone counterfeits a proved run.
       status: active
 
 updates:
@@ -3525,6 +3675,228 @@ updates:
       brew install beads keeps it.
     approvalStatus: draft
     createdAt: "2026-11-05T12:00:00+08:00"
+  - changeId: change.pour-is-a-formula-command
+    changeType: model-update
+    targetRefs:
+      - objective.one-name-for-all-four
+      - journey.find-a-held-procedure
+      - step.pour-procedure
+      - step.pour-steps
+      - step.forward-to-the-tracker
+      - step.resolve-formula
+      - antitrace.procedure-poured-unnamed
+      - antitrace.poured-what-never-surfaced
+    summary: >
+      From 0.8.0, dotdiw formula pour <id> creates a formula's steps as
+      tracked items, and dotdiw's own messages tell people to use it. The old
+      command, dotdiw mol pour <id>, still works and prints the same. The
+      instructions dotdiw writes into CLAUDE.md and AGENTS.md still say mol
+      pour. The objective now lists declaration before management, and it and
+      the opening of learn say only that no task needs the tracker's own name.
+    reason: >
+      mol pour is a name from beads. The other formula commands are formula
+      new, formula list and formula show, so pouring now sits with them. The
+      objective used to say that no task needs anything else typed, but
+      formula new tells the worker to commit with git.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+        - duty.keep-procedures-findable
+        - duty.put-all-four-under-one-name
+        - duty.teach-without-a-project
+      affectedJourneys:
+        - journey.start-named-work
+        - journey.find-a-held-procedure
+        - journey.run-a-tracker-command
+        - journey.learn-the-conventions
+      affectedSlos: []
+      affectedTraces:
+        - antitrace.procedure-poured-unnamed
+        - antitrace.poured-what-never-surfaced
+      affectedInvariants:
+        - invariant.one-name-for-all-four
+      riskLevel: low
+      riskExplanation: >
+        Three hints and the opening of learn change their wording. mol pour
+        does exactly what it did, so scripts and habits that use it keep
+        working.
+    migrationPlan: >
+      None. Both commands work. The instructions in CLAUDE.md and AGENTS.md
+      keep saying mol pour, because dotdiw rewrites that text in every
+      repository that uses it on the next create, and teammates on different
+      versions would keep overwriting each other's copy.
+    approvalStatus: draft
+    createdAt: "2026-11-06T08:12:00+08:00"
+  - changeId: change.a-tracker-says-who-it-acts-as
+    changeType: model-update
+    targetRefs:
+      - object.tracker-adapter
+      - object.tracker
+      - step.describe-tracker
+      - step.adopt-repository
+      - step.use-tracker
+      - step.update-item
+      - step.migrate-workspace
+      - invariant.one-tracker-door
+    summary: >
+      From 0.8.0, dotdiw says which account a tracker writes work under, when
+      the tracker can confirm it. Jira confirms it from the API token, so init
+      names that account once and tracker use names it every time. Beads
+      takes its name from git or the environment, which anyone can set, so
+      dotdiw does not show it. Items now record who they are assigned to.
+      show prints it under local and Jira, and in Jira and beads,
+      update -a me assigns an item to the account the work is written under.
+      Any other assignee is the tracker's own id for a person; dotdiw never
+      searches for a person by name. tracker migrate does not carry
+      assignments over to the new tracker, and says how many items had one.
+    reason: >
+      Jira and beads write work under someone's name, and dotdiw never said
+      whose. The worst mistake is writing work under the wrong person's name
+      without anyone noticing, and finding a person by searching for a name
+      can pick the wrong one.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.adopt-without-reaching-outside
+        - duty.put-all-four-under-one-name
+      affectedJourneys:
+        - journey.adopt-a-repository
+        - journey.choose-a-tracker
+        - journey.answer-through-the-tracker
+        - journey.move-a-workspace
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.one-tracker-door
+      riskLevel: low
+      riskExplanation: >
+        Every new field is optional, so the tracker interface keeps number 1
+        and an adapter written for it still passes tracker check, ten of ten.
+        New lines appear only when there is something to say: show for an item
+        with an assignee under local and Jira, init and tracker use when the
+        tracker confirms the account, and tracker migrate when assignments were
+        left behind. Under beads, this change adds nothing to what the byte
+        test's commands print.
+    migrationPlan: >
+      None. An adapter that does not say which account it uses works as
+      before. Assignments do not carry over from one tracker to another, and
+      tracker migrate says how many items had one.
+    approvalStatus: draft
+    createdAt: "2026-11-06T08:12:00+08:00"
+  - changeId: change.kind-is-root-or-task
+    changeType: model-update
+    targetRefs:
+      - term.root
+      - object.tracker
+      - lifecycle.molecule
+      - step.pour-steps
+      - step.create-item
+      - step.notice-handmade-procedures
+      - step.check-tracker
+      - step.migrate-workspace
+      - invariant.one-tracker-door
+    summary: >
+      From 1.0.0, an item's kind is root or task. The root a pour makes is
+      root, and every other item is task, whatever the tracker calls it.
+      create-item takes no kind, and the notice about procedures built by hand
+      reads a parent of kind task. The tracker interface is number 2, and an
+      adapter written for 1 is refused in one line that names it. A local
+      store made before 1.0.0 reads its roots, recorded as molecule, as root.
+    reason: >
+      dotdiw reads the kind for one thing, telling a poured root from a parent
+      someone built by hand. While the kind was open, a root could be a
+      molecule or an epic, and an epic someone built by hand could not be told
+      from one.
+    compatibility: breaking
+    impactAssessment:
+      affectedDuties:
+        - duty.keep-procedures-findable
+        - duty.put-all-four-under-one-name
+      affectedJourneys:
+        - journey.write-a-procedure-down
+        - journey.answer-through-the-tracker
+        - journey.choose-a-tracker
+        - journey.move-a-workspace
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.one-tracker-door
+      riskLevel: medium
+      riskExplanation: >
+        Every adapter written for interface 1 is refused until its author ships
+        one written for 2; the adapters dotdiw ships move with it. A root that
+        tracker migrate moves arrives as a task until
+        question.how-migrate-copies-a-root is settled.
+    migrationPlan: >
+      An adapter's author declares interface 2, reads the root a pour made
+      back as root and every other item as task, and takes no kind on
+      create-item. A local store's roots, recorded as molecule before 1.0.0,
+      read as root.
+    approvalStatus: draft
+    createdAt: "2026-11-06T19:40:00+08:00"
+  - changeId: change.a-formula-names-the-means-to-prove-its-run
+    changeType: model-update
+    targetRefs:
+      - term.formula
+      - term.verify-using
+      - invariant.the-prover-uses-the-means
+      - invariant.only-committed-formulas-are-held
+      - step.index-the-project
+      - step.describe-and-check
+      - step.list-formulas
+      - step.pour-procedure
+      - step.pour-steps
+      - step.show-item
+      - step.create-item
+      - step.migrate-workspace
+      - step.check-tracker
+      - step.teach-the-conventions
+      - antitrace.proved-by-what-is-gone
+      - trace.pour-named-the-means-to-prove-its-run
+    summary: >
+      From 1.0.0, a formula can name the means to prove that its run did what
+      it claims, in a list called verify-using. Each value is one line: a
+      command after run:, a file in a repository as a git+https:// or
+      git+ssh:// URL with the file's path after #, or a link. A pour hands the
+      list to the tracker with the root, which keeps it and returns it exactly
+      as given, and shows it after the pour; tracker migrate carries it with
+      the item, as create-item takes it. check names a value it cannot
+      read, a value longer than one line, and a file of this repository that
+      git does not track. The list adds nothing to what a title reaches.
+    reason: >
+      A formula said what to do and how its steps follow each other. Steps
+      closed in order show that the order was kept; the means to prove show
+      that the run did what the formula claims.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+        - duty.keep-procedures-findable
+        - duty.teach-without-a-project
+      affectedJourneys:
+        - journey.start-named-work
+        - journey.write-a-procedure-down
+        - journey.find-a-held-procedure
+        - journey.learn-the-conventions
+        - journey.answer-through-the-tracker
+        - journey.move-a-workspace
+      affectedSlos: []
+      affectedTraces:
+        - antitrace.proved-by-what-is-gone
+        - trace.pour-named-the-means-to-prove-its-run
+      affectedInvariants:
+        - invariant.the-prover-uses-the-means
+        - invariant.only-committed-formulas-are-held
+        - invariant.one-tracker-door
+      riskLevel: low
+      riskExplanation: >
+        A formula without verify-using is read, matched, poured and shown as
+        before. The root's description and verify-using ride on the move to
+        tracker interface 2 that the kind of an item makes.
+    migrationPlan: null
+    approvalStatus: draft
+    createdAt: "2026-11-06T19:40:00+08:00"
 
 openQuestions:
   - questionId: question.hundreds-of-formulas
@@ -3565,3 +3937,22 @@ openQuestions:
       Kept open on 2026-11-01, consciously: the first candidate stands until
       the product owner decides otherwise; the second is the furthest this
       product's boundaries allow. Not blocking.
+  - questionId: question.how-migrate-copies-a-root
+    question: >
+      create-item takes no kind, so tracker migrate moves a root as a task, and
+      the notice about procedures built by hand can then name it. How does
+      migrate bring a root across as a root?
+    blocksChange: false
+    neededFrom: product-owner
+    targetRefs:
+      - step.migrate-workspace
+      - step.create-item
+    decisionNeeded:
+      - other
+    candidateResolutions:
+      - Migrate pours the root and its steps again through pour-steps, then sets their statuses, reasons and needs.
+      - The interface gains an operation that copies a root.
+    recommendedDefault: >
+      Kept open on 2026-11-06 on the maintainer's word: a root moves as a task,
+      its description and verify-using with it, until this is decided. Not
+      blocking.

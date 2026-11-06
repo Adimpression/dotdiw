@@ -6,20 +6,54 @@ adapter of your own is written the same way, and this file says how to write it
 and how to ship it.
 `write-tracker-adapter.formula.toml` beside it holds the same steps, so
 `dotdiw create "Write a tracker adapter for <name>"` surfaces them and
-`dotdiw mol pour mol-write-tracker-adapter` tracks them.
+`dotdiw formula pour mol-write-tracker-adapter` tracks them.
 
 ## What an adapter is
 
 One Python file, `<name>.py`, exposing one table, `TRACKER`. The name uses
-lowercase letters, digits and hyphens and starts with a letter. dotdiw looks for
-the file in `~/.dotdiw/trackers/`, then in `share/dotdiw/trackers/` beside the
-`bin/` it runs from. It loads the file when `--tracker`, `DOTDIW_TRACKER`, a
-checkout's choice or `dotdiw tracker use` names it, and `dotdiw tracker list`
-loads every one it finds.
+lowercase letters, digits and hyphens and starts with a letter.
 Before the module runs, two names are set on it: `dotdiw_workspace`, a
 callable of one root that returns the directory under `~/.dotdiw/` keyed to
 that checkout, where a store belongs; and `dotdiw_version`. The module
 imports nothing from dotdiw, and dotdiw reads nothing from it but the table.
+
+## How dotdiw holds a tracker
+
+**Registered, three ways.** Every one declares interface 2.
+
+- In the home: `~/.dotdiw/trackers/<name>.py`, looked in first.
+- From a package: `share/dotdiw/trackers/<name>.py` beside the `bin/` dotdiw
+  runs from, where a `dotdiw-tracker-<name>` package installs it.
+- By path, with `dotdiw tracker check ./<name>.py`: loaded for that check
+  alone, and registered nowhere afterwards.
+
+dotdiw loads the file when a request names it, and `dotdiw tracker list` loads
+every one it finds.
+
+**Chosen, by the first of four.** `--tracker <name>` on the command;
+`DOTDIW_TRACKER`; the checkout's `dotdiw.tracker` in `.git/config`, which
+`init --tracker` and `tracker use` write; the one adapter holding a store in
+the checkout's workspace.
+
+**Answering, two ways.** In records, one dict in and one out. Or, given
+`terminal` on open, create and pour, by running the tracker's own command on
+the worker's terminal and answering `printed` true. Extras, by name, cover what
+the interface does not.
+
+**Where the work lives, three ways.**
+
+- In a store under the checkout's workspace, the directory `dotdiw_workspace`
+  returns: keyed to one checkout, shared by its worktrees, and nobody else's.
+  No two people write the same item.
+- In a hosted tracker, shared by everyone who reaches it, as `jira.py`'s is.
+  `actor` says whose name the work goes under. dotdiw sends each change as it
+  is asked and holds no claim on an item: nothing in the interface refuses an
+  item someone else holds, and the tracker settles writes that cross.
+- Split: a hosted tracker with `nativeNeeds` false, whose adapter keeps the
+  needs in its store under the workspace. The items are everyone's, and each
+  checkout's needs are its own.
+
+The table does not say which of the three an adapter is.
 
 ## The steps
 
@@ -33,7 +67,7 @@ whole adapter to read beside it.
 **2. Fill the table.**
 
     TRACKER = {
-        "info": {"name": "<name>", "version": "0.1.0", "interface": 1,
+        "info": {"name": "<name>", "version": "0.1.0", "interface": 2,
                  "nativeNeeds": True, "checkTarget": "scratch", "extras": []},
         "operations": {
             "operation.open-tracker": open_tracker,
@@ -52,7 +86,8 @@ whole adapter to read beside it.
 
 `info` needs `name` and `version`; `origin` is set to `loaded` and `source` to
 the file's path when the module is loaded. `interface` is the number of the
-tracker interface the module was written for; without it dotdiw reads 1.
+tracker interface the module was written for, 2 for this dotdiw; without it
+dotdiw reads 1, and a module written for 1 is refused in one line that names it.
 `nativeNeeds` says whether the tracker holds needs itself or the adapter keeps
 them in a store of its own.
 `checkTarget` is where `dotdiw tracker check` may create and close items:
@@ -64,13 +99,15 @@ a simple adapter offers nothing.
 `operations` holds the ten operations of the interface by their ids, and
 nothing else, each a callable of exactly one parameter named `request`.
 `extras` holds callables of one `request` by name for what the interface does
-not cover: `beads` offers `forward` and `metrics-off`; without `forward`,
-`dotdiw --help` prints the conventions and any command dotdiw does not own is
-refused by name. `store`, a key you may add to the table, is a callable of one
-`root` returning the path of the adapter's store under that checkout's
-workspace; a checkout adopted before a choice was written is answered by the one
-adapter holding a store there. An adapter may keep nothing under the workspace:
-a checkout that chose it counts as adopted.
+not cover. dotdiw calls two by name: `forward`, with every command it does not
+own, and `metrics-off`, the first time a run reaches the adapter, before
+anything else is asked of it. Without `forward`, `dotdiw --help` prints the
+conventions and any command dotdiw does not own is refused by name. `store`, a
+key you may add to the table, is a callable of one `root` returning the path of
+the adapter's store under that checkout's workspace; a checkout adopted before a
+choice was written is answered by the one adapter holding a store there. An
+adapter may keep nothing under the workspace: a checkout that chose it counts as
+adopted.
 
 Registration refuses a table that lacks an operation, offers one outside the
 ten, whose callables take anything but `request`, whose info lacks a name or a
@@ -80,7 +117,7 @@ version, or whose interface is one this dotdiw does not support.
 door holds both to the types in `operation-idl.json` and raises on a field
 outside them, so the fields are those and nothing more; `tracker` on the
 response is the door's to stamp. It holds values too, down through records and
-lists: a field holding the wrong kind of value, a value outside its enum, or a
+lists: a field holding a value of the wrong type, a value outside its enum, or a
 completed answer without the record its operation returns is refused the same
 way as a missing field. The module imports nothing from dotdiw, so
 it cannot share the record classes dotdiw is typed by; `jira.py` annotates
@@ -90,10 +127,13 @@ completed, blocked or failed, and a `summary`. A blocked or failed one may carry
 `reason` from the list the IDL gives that operation. `exitCode` may be left out,
 and is then read from the status; one that contradicts it is refused. An item is a
 record:
-`id`, `title`, `status` of open, in_progress, blocked or closed, `kind` with
-task when unsaid, `priority` with 0 the highest and 2 when unsaid, `parent`,
-`reason` once closed, `needs`, `createdAt` and `updatedAt`. An edge is
-`{"id": ..., "needs": ...}`.
+`id`, `title`, `status` of open, in_progress, blocked or closed, `kind` of root
+for the root a pour made and task for every other item, whatever the tracker
+calls it, with task when unsaid, `priority` with 0 the highest and 2 when
+unsaid, `parent`, `assignee` once someone is assigned, as the tracker shows
+them, `reason` once closed, `needs`, `description` exactly as given,
+`verifyUsing`, the means to prove a run that a poured root or a moved item
+carries, `createdAt` and `updatedAt`. An edge is `{"id": ..., "needs": ...}`.
 
 What each operation must answer. The check tests most of this, and not all of
 it:
@@ -101,17 +141,22 @@ it:
 - `open-tracker`, given `prefix`: the first open makes the store and answers
   `created` true with its `path`; a second changes nothing, `created` false.
 - `describe-tracker`: `info` with name, version and origin, and `path` once
-  the store is open.
-- `create-item`, given `title`, `kind`, `priority`, `parent`, `description`
-  and sometimes an `id`, which migrate asks for: honour the id, or give your
-  own, and the id in the record is what counts. The record comes back with
-  status open; a child carries its parent; an unknown parent is
-  `parent-not-found`.
+  the store is open. An adapter that can say who it acts as adds `actor`:
+  `name`, never an email address; `id` where the tracker has one; and
+  `verified`, true only where the tracker checked credentials. `init` says a
+  verified name once, and `tracker use` each time it chooses the tracker.
+- `create-item`, given `title`, `priority`, `parent`, `description`, and from
+  migrate an `id` and `verifyUsing`: honour the id, or give your own, and the id
+  in the record is what counts. The record comes back with status open and kind
+  task, since only a pour makes a root; a child carries its parent; an unknown
+  parent is `parent-not-found`. The description and `verifyUsing` are kept as
+  `pour-steps` keeps a root's, and come back exactly as given.
 - `add-need`, given `id` and `needs`: the `edge` comes back; an unknown item
   is `item-not-found`; a cycle is `cycle`; a need already there answers
   completed, since a move that was interrupted asks for it again.
-- `show-item`: the `item` with its `needs`, and its `children` as records;
-  unknown is `item-not-found`.
+- `show-item`: the `item` with its `needs`, and its `children` as records, and
+  its `description` and `verifyUsing` exactly as `pour-steps` or `create-item`
+  was given them. Unknown is `item-not-found`.
 - `list-items`, given `scope` of all or open, open when unsaid, `parent` for
   one parent's children, and `limit`: `items`.
 - `ready-items`: the open items with no open need, as `items`.
@@ -124,21 +169,33 @@ it:
 - `update-item`, given `title`, `status`, `priority`, `parent` or
   `assignee`: the record comes back; a status of closed is refused as
   `close-through-update`, since closing is close-item's, and a status the
-  tracker cannot reach is `bad-status`.
-- `pour-steps`, given `formulaRef`, `title` and `steps`, each `id`, `title`
-  and `needs` naming step ids anywhere in the list: a root of kind molecule or
-  epic with the steps as its children and the needs as edges between the new ids;
+  tracker cannot reach is `bad-status`. An `assignee` of `me` is whoever the
+  adapter acts as. Any other is the tracker's own id for a person, and one it
+  does not know is `assignee-not-found`. Never search for a person by name: a
+  wrong match assigns the wrong person.
+- `pour-steps`, given `formulaRef`, `title`, `steps`, each `id`, `title` and
+  `needs` naming step ids anywhere in the list, and the formula's
+  `description` and `verifyUsing`: a root of kind root with the steps as its
+  children, each of kind task, and the needs as edges between the new ids;
   `rootId` and `stepIds` in the given order. An empty list is `no-steps`, a
   need naming no step `step-not-found`, a cycle among the steps `cycle`, and
-  each of those writes nothing.
+  each of those writes nothing. The root keeps the description and
+  `verifyUsing`, the means to prove the run, one line each; `show-item`
+  returns both exactly as given, and how the adapter keeps them is its own. A
+  tracker with a title and a description and nothing more keeps `verifyUsing`
+  as the last section of the description: the starting file's
+  `keep_verify_using` writes that section, and `read_verify_using` reads back
+  exactly what it wrote, since a description that would read as holding the
+  means gets an empty section after it. Pass every description you write
+  through it, the means or none. A pour that made its root and could not keep
+  the means on it is a failure, naming the root in `rootId` and in its
+  summary. An adapter that pours from the formula file itself, at `path`,
+  ignores any key it does not know.
 
 Three rules are the adapter's, since the door decides none of them: a close
 is refused while an open need or an open child exists; a poured root closes
 once its steps have; an id asked for is honoured, or the record says which
-id was given. `terminal` on open, create and pour is for an adapter that runs
-a tracker's own command with the worker's terminal and answers `printed`
-true; an adapter that answers in records leaves it alone, and the presenter
-shows the record.
+id was given.
 
 A mistake in the adapter is said in one line and never as a traceback: an
 operation or extra that raises or exits, or an answer outside its type, is
@@ -164,8 +221,8 @@ for the check.
 
 **6. Choose it.** `dotdiw init --tracker <name>` on a fresh checkout, `dotdiw
 tracker use <name>` on an adopted one, and `dotdiw tracker migrate <from>
-<name>` to move the work there; then a day of create, pour, ready and close
-through it.
+<name>` to move the work there, each item's description and means with it; then
+a day of create, pour, ready and close through it.
 
 ## Shipping it
 
@@ -178,17 +235,17 @@ A tracker ships as a package.
   because it runs in dotdiw's own interpreter. A tracker written in another
   language ships a small module that calls its binary with JSON.
 - **The place.** A package installs the file under `share/dotdiw/trackers/`.
-  dotdiw checks its built-in adapters first, then `~/.dotdiw/trackers/`, then
-  `share/`, so a copy in your home directory overrides a package's while you try
-  a change. Copying the file to `~/.dotdiw/trackers/` works with no package at
-  all.
+  A copy in your home directory overrides it while you try a change, and
+  copying the file to `~/.dotdiw/trackers/` works with no package at all.
 - **The proof.** Compatible means `dotdiw tracker check` passes ten of ten.
   There is no central list of trackers to join. Run the check by path in your
   CI.
 - **The interface.** `info.interface` in the table holds the number of the
   interface the file was written for. When dotdiw raises that number, it refuses
   a file written for the old one, in one line that names it, and the author ships
-  a new version.
+  a new version. From 1.0.0, dotdiw speaks interface 2: an item's kind is root
+  or task, `create-item` takes no kind, and a root keeps its description and
+  `verifyUsing`. A file written for 1 is refused.
 - **Trust.** An installed tracker's code runs with your rights whenever dotdiw
   loads it, and `dotdiw tracker list` loads every file it finds. A repository
   cannot make dotdiw run its code: dotdiw loads a file from one only when you
@@ -219,5 +276,13 @@ The package depends on dotdiw and never the other way, since Homebrew refuses a
 cycle. A tracker over a network cannot reach its service under `brew test`, so
 its test block runs `dotdiw tracker list`, looks for its name and for no
 `did not load`, and its check runs in CI against a stub.
+
+Tell people to install it by naming both packages:
+
+    brew install adimpression/tap/dotdiw <your-tap>/dotdiw-tracker-acme
+
+Homebrew loads a dependency from a tap only if that formula is trusted, and naming
+a formula in `brew install` trusts it. On a machine that never installed dotdiw by
+name, your package alone is refused.
 
 Jira is a registered trademark of Atlassian Pty Ltd.

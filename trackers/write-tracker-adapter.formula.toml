@@ -1,5 +1,5 @@
 # The steps are the sections of README.md beside this file. The README says what
-# each one takes, and this file lets `dotdiw mol pour` track them.
+# each one takes, and this file lets `dotdiw formula pour` track them.
 formula = "mol-write-tracker-adapter"
 description = "Write an adapter for a tracker dotdiw does not ship, as one file, <name>.py, that answers the ten operations of the tracker interface in records, prove it with dotdiw tracker check, choose it on a checkout and ship it as a package named dotdiw-tracker-<name>. Use when a team's work lives in a tracker dotdiw has no adapter for -- Linear, GitHub Issues, Jira elsewhere, a database of your own -- when a tracker is to be put behind dotdiw, or when tracker check fails on an adapter."
 examples = [
@@ -14,7 +14,7 @@ examples = [
   "Release dotdiw-tracker-linear",
   "tracker check fails on our adapter",
 ]
-version = 2
+version = 3
 type = "workflow"
 
 [[steps]]
@@ -23,12 +23,22 @@ title = "Run dotdiw tracker new <name>, where the name uses lowercase letters, d
 
 [[steps]]
 id = "table"
-title = "Fill the table: info with name, version, interface, nativeNeeds and checkTarget; the ten operations by id, each a callable of one request; extras empty; store optional"
+title = "Fill the table: info with name, version, interface 2, nativeNeeds and checkTarget, since a file written for interface 1 is refused; the ten operations by id, each a callable of one request; extras empty; store optional"
 needs = ["template"]
 
 [[steps]]
 id = "records"
 title = "Answer every operation in records of the IDL's fields and nothing beyond them, deciding the three rules the door does not: a close refused while an open need or child exists, a poured root closed once its steps have, an id asked for honoured or the given one named"
+needs = ["table"]
+
+[[steps]]
+id = "kind"
+title = "Answer kind root for the root pour-steps makes and task for every other item, whatever the tracker calls them, and take no kind on create-item, since only a pour makes a root"
+needs = ["table"]
+
+[[steps]]
+id = "means"
+title = "Keep each item's description and verifyUsing so show-item returns them exactly as pour-steps or create-item gave them, in a field of the tracker's or through the starting file's helper for every description; pouring from path, ignore unknown keys"
 needs = ["table"]
 
 [[steps]]
@@ -39,12 +49,12 @@ needs = ["table"]
 [[steps]]
 id = "check"
 title = "Run dotdiw tracker check ./<name>.py against the declared target, and fix each failing operation until ten of ten pass"
-needs = ["records", "credentials"]
+needs = ["records", "kind", "means", "credentials"]
 
 [[steps]]
 id = "stub"
 title = "For a tracker over a network, prove it against a stub of its API in a test, as test_jira.py does, and against nothing live"
-needs = ["records"]
+needs = ["records", "kind", "means"]
 
 [[steps]]
 id = "choose"

@@ -826,7 +826,7 @@ class TheName(unittest.TestCase):
         lines = p.stdout.strip().split("\n")
         self.assertEqual(len(lines), 2, p.stdout)
         self.assertRegex(lines[1], r"^  tracker beads \d+(\.\d+)+$")
-        self.assertNotIn("0.7.0", lines[1], "the tracker underneath, not this tool")
+        self.assertNotIn("1.0.0", lines[1], "the tracker underneath, not this tool")
 
     def test_without_the_tracker_the_message_is_the_install_command(self):
         """Nothing on PATH but the system: one line, the command for the tracker
@@ -872,6 +872,16 @@ class InterfaceRecords(_TestBase):
         request.setdefault("tracker", self.ADAPTER)
         return self.m.invoke_tracker("operation." + operation, request)
 
+    def test_an_assignee_reads_back(self):
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        made = self.ask("create-item", title="Theirs")["item"]
+        self.assertIsNone(made.get("assignee"))
+        out = self.ask("update-item", id=made["id"], assignee="someone")
+        self.assertEqual(out["item"]["assignee"], "someone", out)
+        self.assertEqual(self.ask("show-item", id=made["id"])["item"]["assignee"], "someone")
+        rows = {i["id"]: i for i in self.ask("list-items")["items"]}
+        self.assertEqual(rows[made["id"]]["assignee"], "someone")
+
     def test_the_interface_in_records(self):
         out = self.ask("describe-tracker")
         self.assertEqual(out["status"], "completed", out)
@@ -892,7 +902,7 @@ class InterfaceRecords(_TestBase):
         self.assertEqual((again["status"], again["created"]), ("completed", False))
         self.assertEqual(self.ask("describe-tracker")["path"], opened["path"])
 
-        a = self.ask("create-item", title="First", kind="task", priority=1)["item"]
+        a = self.ask("create-item", title="First", priority=1)["item"]
         self.assertTrue(a["id"].startswith("t-"), a)
         self.assertEqual(
             (a["title"], a["status"], a["kind"], a["priority"]), ("First", "open", "task", 1)
@@ -963,7 +973,7 @@ class InterfaceRecords(_TestBase):
         self.assertEqual(len(poured["stepIds"]), 3)
         root = self.ask("show-item", id=poured["rootId"])
         self.assertEqual(root["item"]["title"], "mol-x")
-        self.assertIn(root["item"]["kind"], ("epic", "molecule"))
+        self.assertEqual(root["item"]["kind"], "root")
         self.assertEqual({k["id"] for k in root["children"]}, set(poured["stepIds"]))
         self.assertEqual(
             self.ask("show-item", id=poured["stepIds"][1])["item"]["needs"], [poured["stepIds"][0]]
@@ -1004,6 +1014,21 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
     same one line's reason."""
 
     ADAPTER = "beads"
+
+    def test_it_says_who_bd_records_and_that_nobody_checked(self):
+        self.addCleanup(os.environ.pop, "BEADS_ACTOR", None)
+        os.environ.pop("BEADS_ACTOR", None)
+        self.assertEqual(self.ask("describe-tracker")["actor"], {"name": "Test", "verified": False})
+        os.environ["BEADS_ACTOR"] = "Set By Hand"
+        self.assertEqual(self.ask("describe-tracker")["actor"]["name"], "Set By Hand")
+
+    def test_an_assignee_of_me_is_the_name_bd_records(self):
+        self.addCleanup(os.environ.pop, "BEADS_ACTOR", None)
+        os.environ.pop("BEADS_ACTOR", None)
+        self.ask("open-tracker", prefix="w")
+        made = self.ask("create-item", title="Mine")["item"]
+        out = self.ask("update-item", id=made["id"], assignee="me")
+        self.assertEqual(out["item"]["assignee"], "Test", out)
 
     def test_what_it_says_of_itself(self):
         info = self.ask("describe-tracker")["info"]
@@ -1089,6 +1114,9 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
 
     ADAPTER = "local"
 
+    def test_it_names_nobody(self):
+        self.assertIsNone(self.ask("describe-tracker").get("actor"))
+
     def test_what_it_says_of_itself(self):
         info = self.ask("describe-tracker")["info"]
         self.assertEqual(info["extras"], [])
@@ -1099,6 +1127,25 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
             "forward", {"root": self.repo.path, "tracker": "local", "arguments": ["list"]}
         )
         self.assertEqual((out["status"], out["reason"]), ("failed", "unsupported"))
+
+    def test_a_store_made_before_1_0_reads_its_molecule_roots_as_root(self):
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="mol-x", title="mol-x", steps=[{"id": "a", "title": "A"}]
+        )
+        root, (step,) = poured["rootId"], poured["stepIds"]
+        conn = sqlite3.connect(os.path.join(self.repo.workspace(), "dotdiw.sqlite"))
+        with conn:
+            conn.execute("UPDATE items SET kind = 'molecule' WHERE id = ?", (root,))
+            conn.execute("UPDATE items SET kind = 'epic' WHERE id = ?", (step,))
+        conn.close()
+        self.assertEqual(self.ask("show-item", id=root)["item"]["kind"], "root")
+        self.assertEqual(self.ask("show-item", id=step)["item"]["kind"], "task")
+        self.assertEqual(
+            self.ask("close-item", id=step, closeReason="done")["closedIds"],
+            [step, root],
+            "a root kept as molecule still closes with its last step",
+        )
 
     def test_a_poured_root_closes_with_its_last_step(self):
         self.ask("open-tracker", prefix="t")
@@ -1255,6 +1302,37 @@ class TheLocalCommandLine(unittest.TestCase):
     def dotdiw(self, *args):
         return self.repo.dotdiw(*args, env=self.env)
 
+    def test_show_says_who_an_item_is_assigned_to(self):
+        self.adopted()
+        ident = self.made("Theirs")
+        code, out = self.dotdiw("show", ident)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Assignee", out)
+        code, out = self.dotdiw("update", ident, "-a", "me")
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("show", ident)
+        self.assertEqual(code, 0, out)
+        self.assertIn("Assignee: me\n", out)
+        code, out = self.dotdiw("show", ident, "--json")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(json.loads(out)["assignee"], "me")
+        code, out = self.dotdiw("list", "--json")
+        self.assertEqual(code, 0, out)
+        self.assertEqual([i["assignee"] for i in json.loads(out)], ["me"])
+
+    def test_init_names_nobody_here(self):
+        code, out = self.dotdiw("init", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Acting as", out)
+
+    def test_learn_claims_only_the_trackers_own_name(self):
+        """A worker types git to commit a formula, as formula new tells them, so
+        what dotdiw spares them is the tracker's name."""
+        code, taught = self.dotdiw("learn")
+        self.assertEqual(code, 0, taught)
+        self.assertIn("so you never type the\ntracker's own name.", taught)
+        self.assertNotIn("anything else", taught)
+
     def test_help_is_the_conventions_text(self):
         """The tracker's help is the pass-through's to give, and a store has
         none: --help, -h and help print what bare dotdiw prints, and exit 0."""
@@ -1276,6 +1354,50 @@ class TheLocalCommandLine(unittest.TestCase):
         code, out = self.dotdiw("create", *args, "-q")
         self.assertEqual(code, 0, out)
         return group1(r"Created issue: (\S+)", out)
+
+    def test_the_notice_names_a_parent_built_by_hand_and_never_a_root(self):
+        """A parent of kind task with ordered children is a procedure carried out
+        by hand; the root a pour made is of kind root, and never named."""
+        self.adopted()
+        parent = self.made("Handle the webhook backlog")
+        steps = [
+            self.made(title, "--parent", parent)
+            for title in ("Drain the queue", "Replay the failures", "Reconcile the ledger")
+        ]
+        for i in range(1, len(steps)):
+            self.assertEqual(self.dotdiw("dep", "add", steps[i], steps[i - 1])[0], 0)
+        # An id no formula's words reach, so that only the kind keeps the root
+        # out of the notice.
+        self.repo.write(
+            "ops/rotate.formula.toml",
+            FORMULA_A.replace('formula = "mol-release-through-tap"', 'formula = "mol-q7x"'),
+        )
+        self.repo.git("add", "-A")
+        self.repo.git("commit", "-qm", "a formula with an id of its own")
+        code, out = self.dotdiw("formula", "pour", "mol-q7x")
+        self.assertEqual(code, 0, out)
+        root = group1(r"Root issue: (\S+)", out)
+        code, out = self.dotdiw("check")
+        self.assertIn("--from %s" % parent, out)
+        self.assertNotIn("--from %s" % root, out)
+
+    def test_formula_new_seeds_named_work_and_never_a_root(self):
+        """A new formula's examples start from the titles of work named here
+        before; a root a pour made is titled with a formula's id, and is never
+        one of them."""
+        self.adopted()
+        self.made("Release v0.3 through the tap")
+        code, out = self.dotdiw("formula", "pour", "mol-release-through-tap")
+        self.assertEqual(code, 0, out)
+        os.mkdir(os.path.join(self.repo.path, "seeded"))
+        code, out = self.dotdiw("formula", "new", "Release through tap", "--at", "seeded")
+        self.assertEqual(code, 0, out)
+        with open(
+            os.path.join(self.repo.path, group1(r"Wrote (\S+)", out)), encoding="utf-8"
+        ) as fh:
+            written = fh.read()
+        self.assertIn('  "Release v0.3 through the tap",\n', written)
+        self.assertNotIn('  "mol-release-through-tap",\n', written)
 
     def test_a_description_is_saved_on_the_item(self):
         self.adopted()
@@ -1468,7 +1590,7 @@ title = "The first step"
         self.assertIn("this repository is adopted; its tracker is", out)
 
         code, out = self.dotdiw("--version")
-        self.assertEqual(out.strip().split("\n")[1], "  tracker local 0.7.0", out)
+        self.assertEqual(out.strip().split("\n")[1], "  tracker local 1.0.0", out)
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap")
         self.assertEqual(code, 0, out)
@@ -1580,7 +1702,7 @@ def none(request):
     return _ok(items=[])
 def ok(request):
     return _ok()
-TRACKER = {"info": {"name": "boom", "version": "0", "checkTarget": "scratch"},
+TRACKER = {"info": {"name": "boom", "version": "0", "interface": 2, "checkTarget": "scratch"},
            "operations": {"operation.open-tracker": open_tracker, "operation.describe-tracker": describe,
                           "operation.create-item": create, "operation.add-need": ok,
                           "operation.pour-steps": ok, "operation.close-item": ok, "operation.show-item": ok,
@@ -1663,8 +1785,9 @@ def impl_create_item(request):
     parent = request.get("parent")
     if parent and parent not in data["items"]:
         return _no("parent-not-found")
-    item = _make(data, request["title"], id=request.get("id"), kind=request.get("kind"),
-                 priority=request.get("priority"), parent=parent)
+    item = _make(data, request["title"], id=request.get("id"), priority=request.get("priority"),
+                 parent=parent, description=request.get("description"),
+                 verifyUsing=list(request.get("verifyUsing") or []) or None)
     _save(request["root"], data)
     return _ok(item=item)
 
@@ -1752,7 +1875,8 @@ def impl_pour_steps(request):
             return _no("cycle")
         left -= free
     data = _load(request["root"])
-    root = _make(data, request["title"], kind="molecule")
+    root = _make(data, request["title"], kind="root", description=request.get("description"),
+                 verifyUsing=request.get("verifyUsing"))
     made = {s["id"]: _make(data, s["title"], parent=root["id"]) for s in steps}
     for s in steps:
         made[s["id"]]["needs"] = [made[n]["id"] for n in needs[s["id"]]]
@@ -1764,7 +1888,7 @@ def impl_pour_steps(request):
 ACME = (
     ACME_BODIES
     + """TRACKER = {
-    "info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": []},
+    "info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": []},
     "operations": {
         "operation.%s" % name.replace("_", "-"): globals()["impl_" + name]
         for name in ("open_tracker", "describe_tracker", "create_item", "add_need", "pour_steps",
@@ -1775,6 +1899,458 @@ ACME = (
 }
 """
 )
+
+
+class TheWordFormulaPour(unittest.TestCase):
+    """dotdiw formula pour is what dotdiw teaches for running a formula, and mol
+    pour the older spelling of it: one operation, one answer, and nothing new
+    printed for whoever still types the old one."""
+
+    IDS = r"\bw-[a-z0-9.\-]+\b"
+
+    def setUp(self):
+        self.repo = Repo(tracker=None)
+        self.addCleanup(self.repo.close)
+        self.env = dict(self.repo.env, PATH="/usr/bin:/bin")
+        self.repo.write("release-through-tap.formula.toml", FORMULA_A)
+        self.repo.git("add", "-A")
+        self.repo.git("commit", "-qm", "the project as it stands")
+
+    def dotdiw(self, *args):
+        return self.repo.dotdiw(*args, env=self.env)
+
+    def adopted(self):
+        code, out = self.dotdiw("init", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+
+    def test_it_pours_the_formula(self):
+        self.adopted()
+        code, out = self.dotdiw("formula", "pour", "mol-release-through-tap")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Poured mol: created 4 issues", out)
+        root = group1("Root issue: (\\S+)", out)
+        code, out = self.dotdiw("list", "--all", "--json")
+        self.assertEqual(code, 0, out)
+        steps = [r for r in json.loads(out) if r.get("parent") == root]
+        self.assertEqual(len(steps), 3)
+
+    def test_both_spellings_print_the_same(self):
+        self.adopted()
+        code, new = self.dotdiw("formula", "pour", "mol-release-through-tap")
+        self.assertEqual(code, 0, new)
+        code, older = self.dotdiw("mol", "pour", "mol-release-through-tap")
+        self.assertEqual(code, 0, older)
+        self.assertEqual(re.sub(self.IDS, "<id>", new), re.sub(self.IDS, "<id>", older))
+
+    def test_what_is_typed_after_the_formula_goes_along(self):
+        self.adopted()
+        code, out = self.dotdiw("formula", "pour", "mol-release-through-tap", "--json")
+        self.assertEqual(code, 0, out)
+        poured = json.loads(out)
+        self.assertTrue(poured["rootId"] and poured["stepIds"], poured)
+
+    def test_it_takes_the_file_name_and_the_path_too(self):
+        self.adopted()
+        for ident in (
+            "release-through-tap",
+            "release-through-tap.formula.toml",
+            "./release-through-tap.formula.toml",
+        ):
+            with self.subTest(ident=ident):
+                code, out = self.dotdiw("formula", "pour", ident)
+                self.assertEqual(code, 0, out)
+                self.assertIn("Poured mol: created 4 issues", out)
+
+    def test_with_no_formula_it_says_how_it_is_used(self):
+        self.adopted()
+        for args in (("formula", "pour"), ("formula", "pour", "--json")):
+            with self.subTest(args=args):
+                code, out = self.dotdiw(*args)
+                self.assertEqual(code, 2, out)
+                self.assertEqual(out.strip(), "dotdiw formula pour <formula>")
+        code, out = self.dotdiw("list", "--all", "--json")
+        self.assertEqual(json.loads(out), [])
+
+    def test_a_formula_nobody_holds_is_refused_the_same(self):
+        self.adopted()
+        code, out = self.dotdiw("formula", "pour", "mol-nothing")
+        self.assertNotEqual(code, 0, out)
+        self.assertEqual((code, out), self.dotdiw("mol", "pour", "mol-nothing"))
+        code, out = self.dotdiw("list", "--all", "--json")
+        self.assertEqual(json.loads(out), [])
+
+    def test_a_repository_not_adopted_is_told_so(self):
+        code, out = self.dotdiw("formula", "pour", "mol-release-through-tap")
+        self.assertEqual(code, 1, out)
+        self.assertIn("this repository is not adopted", out)
+
+    def test_what_dotdiw_prints_teaches_it(self):
+        self.adopted()
+        code, created = self.dotdiw("create", "Release v0.3.0 through the tap")
+        self.assertEqual(code, 0, created)
+        self.assertIn("Run it: dotdiw formula pour mol-release-through-tap", created)
+        code, listed = self.dotdiw("formula", "list")
+        self.assertEqual(code, 0, listed)
+        self.assertIn("Run one: dotdiw formula pour <id>", listed)
+        code, taught = self.dotdiw("learn")
+        self.assertEqual(code, 0, taught)
+        self.assertIn("Run a formula:  dotdiw formula pour <formula-id>", taught)
+        for said in (created, listed, taught):
+            self.assertNotIn("mol pour", said)
+
+    def test_the_declaration_stays_as_0_7_0_wrote_it(self):
+        """An adopted checkout rewrites its copy on its next create, as a change
+        in its own tree, so a new word there reaches every repository at once."""
+        before = dotdiw_at("v0.7.0")
+        if before is None:
+            self.skipTest("v0.7.0 is not in this clone's history")
+        self.assertEqual(
+            load_module("dotdiw_declared_now").CONVENTIONS,
+            load_module("dotdiw_declared_at_v0_7_0", before).CONVENTIONS,
+        )
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_both_spellings_print_the_same(self):
+        repo = Repo()
+        self.addCleanup(repo.close)
+        repo.write("release-through-tap.formula.toml", FORMULA_A)
+        repo.git("add", "-A")
+        repo.git("commit", "-qm", "the project as it stands")
+        code, out = repo.dotdiw("init", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+        code, new = repo.dotdiw("formula", "pour", "mol-release-through-tap")
+        self.assertEqual(code, 0, new)
+        self.assertIn("Root issue: ", new)
+        code, older = repo.dotdiw("mol", "pour", "mol-release-through-tap")
+        self.assertEqual(code, 0, older)
+        self.assertEqual(re.sub(self.IDS, "<id>", new), re.sub(self.IDS, "<id>", older))
+        code, out = repo.dotdiw("formula", "pour", "mol-release-through-tap", "--json")
+        self.assertEqual(code, 0, out)
+        json.loads(out)
+
+
+PROVED = """formula = "mol-ship-the-package"
+description = "Ship the package to the registry: build it, publish it, and install the published version to prove it went out. Use when releasing a new version."
+examples = [
+  "Ship the package",
+  "Publish the new version to the registry",
+  "Release the package",
+]
+verify-using = [
+  "run:make smoke-test",
+  "git+https://example.invalid/acme/shop.git#RELEASING.md",
+  "https://status.example.invalid/registry",
+]
+version = 1
+type = "workflow"
+
+[[steps]]
+id = "build"
+title = "Build the package"
+
+[[steps]]
+id = "publish"
+title = "Publish it"
+needs = ["build"]
+"""
+
+
+class TheMeansToProveARun(unittest.TestCase):
+    """A formula's verify-using: read with it and never matched, carried in its
+    records, held to being well formed by check, handed to the tracker with the
+    root and shown after a pour, and never run, opened or fetched by dotdiw."""
+
+    MEANS = [
+        "run:make smoke-test",
+        "git+https://example.invalid/acme/shop.git#RELEASING.md",
+        "https://status.example.invalid/registry",
+    ]
+
+    def setUp(self):
+        self.repo = Repo(tracker=None)
+        self.addCleanup(self.repo.close)
+        self.env = dict(self.repo.env, PATH="/usr/bin:/bin")
+        self.repo.write("ship-the-package.formula.toml", PROVED)
+        self.repo.write("RELEASING.md", "# Releasing\n\nHow a release is proved.\n")
+        self.repo.git("remote", "add", "origin", "git@example.invalid:acme/shop.git")
+        self.repo.git("add", "-A")
+        self.repo.git("commit", "-qm", "the project as it stands")
+        code, out = self.dotdiw("init", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+
+    def dotdiw(self, *args):
+        return self.repo.dotdiw(*args, env=self.env)
+
+    def formula(self, means):
+        """The formula again, naming these means, committed."""
+        lines = PROVED.split("\n")
+        start = lines.index("verify-using = [")
+        end = lines.index("]", start)
+        lines[start : end + 1] = ["verify-using = %s" % means]
+        self.repo.write("ship-the-package.formula.toml", "\n".join(lines))
+        self.repo.git("add", "-A")
+        self.repo.git("commit", "-qm", "the means changed")
+
+    def test_a_pour_shows_the_means_and_the_root_keeps_them(self):
+        code, out = self.dotdiw("formula", "pour", "mol-ship-the-package")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Verify using:\n" + "".join("  %s\n" % m for m in self.MEANS), out)
+        root = group1("Root issue: (\\S+)", out)
+        code, out = self.dotdiw("show", root, "--json")
+        self.assertEqual(code, 0, out)
+        shown = json.loads(out)
+        self.assertEqual(shown["kind"], "root")
+        self.assertEqual(shown["verifyUsing"], self.MEANS)
+        self.assertTrue(shown["description"].startswith("Ship the package to the registry"))
+        code, out = self.dotdiw("formula", "pour", "mol-ship-the-package", "--json")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(json.loads(out)["verifyUsing"], self.MEANS)
+
+    def test_formula_list_carries_them_in_json_and_keeps_its_line(self):
+        code, out = self.dotdiw("formula", "list", "--json")
+        self.assertEqual(code, 0, out)
+        held = [f for f in json.loads(out) if f["formula"] == "mol-ship-the-package"]
+        self.assertEqual(held[0]["verifyUsing"], self.MEANS)
+        code, out = self.dotdiw("formula", "list")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("run:make smoke-test", out)
+
+    def test_the_means_are_never_run_or_matched(self):
+        self.formula('["run:touch ran", "run:zanzibar quokka", "https://example.invalid/ran"]')
+        for args in (
+            ("create", "Zanzibar quokka"),
+            ("create", "Ship the package"),
+            ("formula", "pour", "mol-ship-the-package"),
+            ("check",),
+            ("formula", "show", "mol-ship-the-package"),
+            ("formula", "list"),
+        ):
+            code, out = self.dotdiw(*args)
+            if args == ("create", "Zanzibar quokka"):
+                self.assertNotIn("ship-the-package", out, "verify-using is never matched")
+        self.assertFalse(os.path.exists(os.path.join(self.repo.path, "ran")), "nothing ran")
+
+    def test_check_names_a_value_it_cannot_read(self):
+        self.formula(
+            '["make test", "run:", "one\\ntwo", 3, "git+https://example.invalid/acme/shop.git"]'
+        )
+        code, out = self.dotdiw("check")
+        self.assertEqual(code, 1, out)
+        for said in (
+            'verify-using value "make test" is in none of the forms',
+            'verify-using value "run:" names no command',
+            'verify-using value "one" is longer than one line',
+            "verify-using holds a value that is not text",
+            'verify-using value "git+https://example.invalid/acme/shop.git" names a repository'
+            " and no file",
+        ):
+            self.assertIn(said, out)
+
+    def test_check_holds_a_file_of_this_repository_to_being_tracked(self):
+        self.formula(
+            '["git+https://example.invalid/acme/shop.git#GONE.md",'
+            ' "git+ssh://git@example.invalid/acme/shop.git#RELEASING.md",'
+            ' "git+https://example.invalid/other/thing.git#elsewhere.md"]'
+        )
+        code, out = self.dotdiw("check")
+        self.assertEqual(code, 1, out)
+        self.assertIn("verify-using names GONE.md, which git does not track here", out)
+        self.assertNotIn("RELEASING.md, which", out, "a tracked file is held")
+        self.assertNotIn("elsewhere.md", out, "another repository's file is shown as it is")
+        self.repo.write("GONE.md", "Here after all.\n")
+        self.repo.git("add", "-A")
+        self.repo.git("commit", "-qm", "the file")
+        code, out = self.dotdiw("check")
+        self.assertNotIn("GONE.md", out)
+
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_the_means_follow_its_own_output(self):
+        repo = Repo(tracker=None)
+        self.addCleanup(repo.close)
+        repo.write("ship-the-package.formula.toml", PROVED)
+        repo.git("add", "-A")
+        repo.git("commit", "-qm", "the project as it stands")
+        code, out = repo.dotdiw("init", "--tracker", "beads", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+        code, out = repo.dotdiw("formula", "pour", "mol-ship-the-package")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Poured mol", out)
+        self.assertTrue(
+            out.rstrip("\n").endswith(
+                "\n".join(["Verify using:"] + ["  %s" % m for m in self.MEANS])
+            ),
+            out,
+        )
+        root = group1("Root issue: (\\S+)", out)
+        code, out = repo.dotdiw("show", root, "--json")
+        self.assertEqual(code, 0, out)
+        shown = json.loads(out)
+        shown = shown[0] if isinstance(shown, list) else shown
+        self.assertTrue(
+            shown["description"].endswith(
+                "\n\nVerify using:\n" + "\n".join("- %s" % m for m in self.MEANS)
+            ),
+            shown["description"],
+        )
+        # Under --json the answer is bd's own, and the means stay out of it;
+        # the root it names keeps them all the same.
+        code, out = repo.dotdiw("formula", "pour", "mol-ship-the-package", "--json")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Verify using:", out)
+        root = json.loads(out)["new_epic_id"]
+        code, out = repo.dotdiw("show", root, "--json")
+        self.assertEqual(code, 0, out)
+        shown = json.loads(out)
+        shown = shown[0] if isinstance(shown, list) else shown
+        self.assertTrue(
+            shown["description"].endswith(
+                "\n\nVerify using:\n" + "\n".join("- %s" % m for m in self.MEANS)
+            ),
+            shown["description"],
+        )
+
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_means_not_kept_fail_the_pour_naming_its_root(self):
+        """The pour made a root; the write of the means onto it failed. The pour
+        is a failure, and both the line said and the answer the interface gives
+        name the root it made."""
+        repo = Repo(tracker=None)
+        self.addCleanup(repo.close)
+        repo.write("ship-the-package.formula.toml", PROVED)
+        repo.git("add", "-A")
+        repo.git("commit", "-qm", "the project as it stands")
+        code, out = repo.dotdiw("init", "--tracker", "beads", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+        shim = tempfile.mkdtemp(prefix="dotdiw-bd-shim-")
+        self.addCleanup(shutil.rmtree, shim, True)
+        with open(os.path.join(shim, "bd"), "w", encoding="utf-8") as fh:
+            fh.write(
+                "#!/bin/sh\n"
+                'if [ "$1" = update ]; then for a in "$@"; do\n'
+                '  [ "$a" = --description ] && { echo "refused by the test" >&2; exit 1; }\n'
+                "done; fi\n"
+                'exec %s "$@"\n' % shlex.quote(shutil.which("bd") or "bd")
+            )
+        os.chmod(os.path.join(shim, "bd"), 0o755)
+        env = dict(repo.env, PATH=shim + os.pathsep + repo.env["PATH"])
+        code, out = repo.dotdiw("formula", "pour", "mol-ship-the-package", env=env)
+        self.assertEqual(code, 1, out)
+        root = group1(r"Root issue: (\S+)", out)
+        self.assertIn(
+            "Poured 2 steps under %s, and writing the means to prove its run onto it failed: "
+            "refused by the test" % root,
+            out,
+        )
+        m = load_module("dotdiw_means_not_kept")
+        saved = {k: os.environ.get(k) for k in ("HOME", "PATH", "DOTDIW_TRACKER", "BEADS_DIR")}
+
+        def restore():
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+        self.addCleanup(restore)
+        os.environ.update(HOME=repo.home, PATH=env["PATH"])
+        for k in ("DOTDIW_TRACKER", "BEADS_DIR"):
+            os.environ.pop(k, None)
+        answer = m.invoke_tracker(
+            "operation.pour-steps",
+            {
+                "root": repo.path,
+                "tracker": "beads",
+                "formulaRef": "mol-ship-the-package",
+                "title": "mol-ship-the-package",
+                "steps": [
+                    {"id": "build", "title": "Build the package"},
+                    {"id": "publish", "title": "Publish it", "needs": ["build"]},
+                ],
+                "path": os.path.join(repo.path, "ship-the-package.formula.toml"),
+                "description": "Ship the package.",
+                "verifyUsing": self.MEANS,
+            },
+        )
+        self.assertEqual(answer["status"], "failed", answer)
+        self.assertRegex(answer.get("rootId") or "", r"^w-mol-")
+        self.assertIn(answer["rootId"], answer["summary"])
+        self.assertEqual(len(answer.get("stepIds") or []), 2)
+
+    def test_learn_teaches_it(self):
+        code, out = self.dotdiw("learn")
+        self.assertEqual(code, 0, out)
+        self.assertIn("A formula may also name the means to prove that its run", out)
+        self.assertIn('"run:make smoke-test",', out)
+
+
+class TheArgumentsBeadsIsGiven(unittest.TestCase):
+    """Under beads, what a worker types reaches bd as typed, read option by
+    option: a value is never taken for an option, and a type that makes a
+    root is refused, since only a pour makes one."""
+
+    def setUp(self):
+        if not have_bd():
+            self.skipTest("bd is not installed")
+        self.repo = Repo(tracker=None)
+        self.addCleanup(self.repo.close)
+        code, out = self.repo.dotdiw("init", "--tracker", "beads", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+
+    def test_a_value_is_never_read_as_an_option(self):
+        code, out = self.repo.dotdiw("create", "Quoted", "-d", "--assignee=me", "--json")
+        self.assertEqual(code, 0, out)
+        made = json.loads(out)
+        made = made[0] if isinstance(made, list) else made
+        self.assertEqual(made.get("description"), "--assignee=me")
+        self.assertFalse(made.get("assignee"))
+
+    def test_a_typed_description_reads_back_as_typed(self):
+        """A description typed with -d that reads like the means is kept so
+        that the interface gives it back as typed, with no means."""
+        typed = "Verify using:\n- a line of this description, not a means"
+        code, out = self.repo.dotdiw("create", "Described", "-d", typed, "--json")
+        self.assertEqual(code, 0, out)
+        made = json.loads(out)
+        ident = (made[0] if isinstance(made, list) else made)["id"]
+        m = load_module("dotdiw_typed_description")
+        saved = {k: os.environ.get(k) for k in ("HOME", "DOTDIW_TRACKER", "BEADS_DIR")}
+
+        def restore():
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+        self.addCleanup(restore)
+        os.environ["HOME"] = self.repo.home
+        for k in ("DOTDIW_TRACKER", "BEADS_DIR"):
+            os.environ.pop(k, None)
+        item = m.invoke_tracker(
+            "operation.show-item", {"root": self.repo.path, "tracker": "beads", "id": ident}
+        )["item"]
+        self.assertEqual((item.get("description"), item.get("verifyUsing")), (typed, None))
+
+    def test_only_a_pour_makes_a_root(self):
+        refused = "Only formula pour makes a root, so a type of molecule is refused."
+        for typed in (["-t", "molecule"], ["--type", "molecule"], ["--type=molecule"]):
+            with self.subTest(typed=typed):
+                code, out = self.repo.dotdiw("create", "A root by hand", *typed)
+                self.assertEqual(code, 1, out)
+                self.assertIn(refused, out)
+                self.assertEqual(len(out.strip().splitlines()), 1, out)
+        code, out = self.repo.dotdiw("list", "--json")
+        self.assertNotIn("A root by hand", out)
+        code, out = self.repo.dotdiw("create", "A task", "--json")
+        self.assertEqual(code, 0, out)
+        made = json.loads(out)
+        ident = (made[0] if isinstance(made, list) else made)["id"]
+        code, out = self.repo.dotdiw("update", ident, "--type", "molecule")
+        self.assertEqual(code, 1, out)
+        self.assertIn(refused, out)
+        code, out = self.repo.dotdiw("show", ident, "--json")
+        shown = json.loads(out)
+        self.assertEqual((shown[0] if isinstance(shown, list) else shown)["issue_type"], "task")
 
 
 class TheTrackerCommands(unittest.TestCase):
@@ -1789,6 +2365,35 @@ class TheTrackerCommands(unittest.TestCase):
         self.repo.write("release-through-tap.formula.toml", FORMULA_A)
         self.repo.git("add", "-A")
         self.repo.git("commit", "-qm", "the project as it stands")
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_an_assignee_of_me_under_beads_is_the_name_bd_records(self):
+        repo = self.repo
+        code, out = repo.dotdiw("init", "--prefix", "w", "--tracker", "beads")
+        self.assertEqual(code, 0, out)
+        ident = group1("Created issue: (\\S+)", repo.dotdiw("create", "Mine")[1])
+
+        def assignee():
+            code, out = repo.dotdiw("show", ident, "--json")
+            self.assertEqual(code, 0, out)
+            shown = json.loads(out)
+            return (shown[0] if isinstance(shown, list) else shown).get("assignee")
+
+        for flags in (("-a", "me"), ("--assignee", "me"), ("--assignee=me",), ("-a=me",)):
+            with self.subTest(flags=flags):
+                self.assertEqual(repo.dotdiw("update", ident, "-a", "other")[0], 0)
+                code, out = repo.dotdiw("update", ident, *flags)
+                self.assertEqual(code, 0, out)
+                self.assertEqual(assignee(), "Test")
+        env = dict(repo.env, BEADS_ACTOR="Set By Hand")
+        self.assertEqual(repo.dotdiw("update", ident, "-a", "me", env=env)[0], 0)
+        self.assertEqual(assignee(), "Set By Hand")
+        code, out = repo.dotdiw("create", "Mine too", "-a", "me")
+        self.assertEqual(code, 0, out)
+        ident = group1("Created issue: (\\S+)", out)
+        self.assertEqual(assignee(), "Test")
+        self.assertEqual(repo.dotdiw("update", ident, "-a", "someone")[0], 0)
+        self.assertEqual(assignee(), "someone")
 
     def test_a_loaded_adapter_that_fails_is_one_line(self):
         """An adapter under the home that raises, and a module that does not
@@ -1853,7 +2458,7 @@ class TheTrackerCommands(unittest.TestCase):
         lines = [line for line in out.splitlines() if line.strip()]
         self.assertEqual(len(lines), 2, out)
         self.assertRegex(lines[0], r"^  beads\s+not installed\s+shipped$")
-        self.assertRegex(lines[1], r"^  local\s+0\.7\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(lines[1], r"^  local\s+1\.0\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.repo.dotdiw("tracker", "check", "local", env=env)
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 10, out)
@@ -1939,9 +2544,10 @@ class TheTrackerCommands(unittest.TestCase):
         )
         self.assertEqual(moved[steps["Install cleanly from the tap"]]["needs"], [bump])
         self.assertEqual(moved[steps["Install cleanly from the tap"]]["parent"], root)
-        self.assertEqual(moved[root]["kind"], "molecule")
+        # A root moves as a task until question.how-migrate-copies-a-root is settled.
+        self.assertEqual(moved[root]["kind"], "task")
         self.assertEqual(
-            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 0.7.0"
+            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 1.0.0"
         )
 
         code, out = repo.dotdiw("tracker", "migrate", "beads", "local")
@@ -2337,7 +2943,7 @@ class ThePlacesAModuleIsFound(PrefixCase):
         )
         code, out = self.run_tool("tracker", "use", "acme")
         self.assertEqual(code, 1, out)
-        self.assertIn("written for tracker interface 99; this dotdiw supports interface 1", out)
+        self.assertIn("written for tracker interface 99; this dotdiw supports interface 2", out)
         self.assertNotIn("Traceback", out)
         self.assertEqual(len([s for s in out.splitlines() if s.strip()]), 1, out)
         code, out = self.run_tool("tracker", "list")
@@ -2440,7 +3046,7 @@ class ThePlacesAModuleIsFound(PrefixCase):
         raising += (
             "def _raises(request):\n"
             '    raise NotImplementedError("not yet")\n'
-            'TRACKER = {"info": {"name": "acme", "version": "0", "checkTarget": "scratch"},\n'
+            'TRACKER = {"info": {"name": "acme", "version": "0", "interface": 2, "checkTarget": "scratch"},\n'
             '           "operations": {op: _raises for op in OPERATIONS}}\n'
         )
         self.module(self.repo, "acme", raising)
@@ -2487,6 +3093,102 @@ class ThePlacesAModuleIsFound(PrefixCase):
         self.assertEqual(os.listdir(self.shared), ["acme.py"])
 
 
+class WhoATrackerActsAs(PrefixCase):
+    """init names who a tracker acts as, once, and tracker use each time, where
+    the tracker checked; a name anyone could give is not shown. A move says how
+    many assignees it left."""
+
+    DESCRIBE = "    return _ok(info=info, path=path if path and os.path.exists(path) else None)\n"
+
+    def answering(self, actor):
+        self.assertEqual(ACME.count(self.DESCRIBE), 1)
+        return ACME.replace(
+            self.DESCRIBE,
+            "    return _ok(info=info, actor=%s, path=path if path and os.path.exists(path) else None)\n"
+            % actor,
+        )
+
+    def test_a_checked_name_is_said_once_at_init(self):
+        self.module(
+            self.homed, "acme", self.answering('{"name": "Priya", "id": "p-1", "verified": True}')
+        )
+        code, out = self.run_tool("init", "--tracker", "acme", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out.count("  Acting as Priya.\n"), 1, out)
+        code, out = self.run_tool("init", "--tracker", "acme", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Acting as", out)
+
+    def test_a_name_nobody_checked_is_not_said(self):
+        self.module(self.homed, "acme", self.answering('{"name": "Priya", "verified": False}'))
+        code, out = self.run_tool("init", "--tracker", "acme", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Acting as", out)
+
+    def test_an_adapter_with_nothing_to_say_is_not_asked_to(self):
+        self.module(self.homed, "acme", ACME)
+        code, out = self.run_tool("init", "--tracker", "acme", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Adopted. The tracker is acme", out)
+        self.assertNotIn("Acting as", out)
+
+    def test_an_actor_outside_its_type_does_not_stop_the_adoption(self):
+        self.module(self.homed, "acme", self.answering('{"name": "Priya"}'))
+        code, out = self.run_tool("init", "--tracker", "acme", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Adopted. The tracker is acme", out)
+        self.assertNotIn("Acting as", out)
+
+    def test_a_checked_name_is_said_each_time_a_tracker_is_chosen(self):
+        self.module(
+            self.homed, "acme", self.answering('{"name": "Priya", "id": "p-1", "verified": True}')
+        )
+        code, out = self.run_tool("init", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Acting as", out)
+        for _ in range(2):  # the first opens acme's store, the second finds it open
+            code, out = self.run_tool("tracker", "use", "acme")
+            self.assertEqual(code, 0, out)
+            self.assertIn("tracker is acme.\n  Acting as Priya.\n", out)
+
+    def made(self, *args):
+        code, out = self.run_tool("create", *args, "-q")
+        self.assertEqual(code, 0, out)
+        return group1(r"Created issue: (\S+)", out)
+
+    def test_a_move_says_how_many_assignees_it_left(self):
+        self.module(self.homed, "acme", ACME)
+        code, out = self.run_tool("init", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        for title in ("One", "Two"):
+            code, out = self.run_tool("update", self.made(title), "-a", "someone")
+            self.assertEqual(code, 0, out)
+        self.made("Nobody's")
+        code, out = self.run_tool("tracker", "migrate", "local", "acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Moved 3 items", out)
+        self.assertIn("  Assignees do not carry over: 2 items had one.\n", out)
+
+    def test_a_move_with_one_assignee_says_one(self):
+        self.module(self.homed, "acme", ACME)
+        code, out = self.run_tool("init", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        code, out = self.run_tool("update", self.made("One"), "-a", "me")
+        self.assertEqual(code, 0, out)
+        code, out = self.run_tool("tracker", "migrate", "local", "acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("  Assignees do not carry over: 1 item had one.\n", out)
+
+    def test_a_move_with_no_assignee_says_nothing_of_them(self):
+        self.module(self.homed, "acme", ACME)
+        code, out = self.run_tool("init", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        self.made("Nobody's")
+        code, out = self.run_tool("tracker", "migrate", "local", "acme")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Assignees", out)
+
+
 class TheFileATrackerStartsFrom(PrefixCase):
     """dotdiw tracker new writes one file: the ten operations raising until
     they are filled, and the table that declares them. The check says which are
@@ -2509,6 +3211,26 @@ class TheFileATrackerStartsFrom(PrefixCase):
         with open(os.path.join(self.repo, *where), encoding="utf-8") as fh:
             return fh.read()
 
+    def test_its_helper_keeps_the_means_in_the_description(self):
+        """A tracker with a title and a description and nothing more keeps the
+        means to prove a run with the helper the file holds, and reads back
+        what it was given."""
+        code, out = self.run_tool("tracker", "new", "acme")
+        self.assertEqual(code, 0, out)
+        written = load_module("acme_started", os.path.join(self.repo, "acme.py"))
+        means = [
+            "run:make check",
+            "git+ssh://git@example.invalid/a/b.git#c.md",
+            "https://example.invalid/r",
+        ]
+        for description in ("Two lines.\nOf it.", None):
+            kept = written.keep_verify_using(description, means)
+            self.assertEqual(written.read_verify_using(kept), (description, means))
+        self.assertEqual(
+            written.read_verify_using("Only a description."), ("Only a description.", [])
+        )
+        self.assertEqual(written.keep_verify_using("Unchanged.", []), "Unchanged.")
+
     def test_it_is_written_and_fails_one_line_per_operation(self):
         code, out = self.run_tool("tracker", "new", "acme")
         self.assertEqual(code, 0, out)
@@ -2518,7 +3240,7 @@ class TheFileATrackerStartsFrom(PrefixCase):
         self.assertEqual(os.listdir(self.repo).count("acme.py"), 1)
         text = self.written("acme.py")
         self.assertIn('"name": "acme"', text)
-        self.assertIn('"interface": 1', text)
+        self.assertIn('"interface": 2', text)
         self.assertNotIn("<NAME>", text)
         for internal in ("correlationId", "trackerRef", "terminal", "printed", "resultRefs"):
             self.assertNotIn(internal, text)
@@ -2665,6 +3387,8 @@ class WithoutTheBeadsBinary(unittest.TestCase):
             ("update", ident, "--title", "New"),
             ("dep", "add", ident, ident),
             ("mol", "pour", "mol-anything"),
+            ("formula", "pour", "mol-anything"),
+            ("update", ident, "-a", "me"),
             ("frobnicate",),
             ("tracker", "check", "beads"),
         ):
@@ -2999,8 +3723,8 @@ class WhatAModuleGetsWrong(PrefixCase):
         its mistakes stay its own, and the list prints where it really is."""
         path = self.acme(
             (
-                '"info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": []},',
-                '"info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": [],'
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": []},',
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": [],'
                 ' "origin": "shipped", "source": "/nowhere"},',
             ),
             (
@@ -3088,15 +3812,15 @@ class WhatAModuleGetsWrong(PrefixCase):
     def test_a_number_that_is_not_a_number_says_so(self):
         path = self.acme(
             (
-                '"info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": []},',
-                '"info": {"name": "acme", "version": "1.0.0", "checkTarget": "scratch", "extras": [],'
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": []},',
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": [],'
                 ' "interface": "1"},',
             ),
             directory=self.top,
         )
         code, out = self.run_tool("tracker", "check", path)
         self.assertEqual(code, 1, out)
-        self.assertIn("written for tracker interface '1'; this dotdiw supports interface 1", out)
+        self.assertIn("written for tracker interface '1'; this dotdiw supports interface 2", out)
         self.assertNotIn("DoorError", out)
 
     @unittest.skipUnless(have_bd(), "needs the tracker")
@@ -3307,15 +4031,34 @@ class WhatAModuleGetsWrong(PrefixCase):
                 "update-item",
             ),
             (
-                "a poured root is no molecule",
-                'root = _make(data, request["title"], kind="molecule")',
-                'root = _make(data, request["title"])',
+                "a poured root is not of kind root",
+                'kind="root", ',
+                "",
                 "pour-steps",
             ),
             (
-                "an item comes back with no kind",
+                "a root forgets the means to prove its run",
+                'verifyUsing=request.get("verifyUsing")',
+                "verifyUsing=None",
+                "pour-steps",
+            ),
+            (
+                "a step is not of kind task",
+                'made = {s["id"]: _make(data, s["title"], parent=root["id"]) for s in steps}',
+                'made = {s["id"]: _make(data, s["title"], parent=root["id"], kind="root")'
+                " for s in steps}",
+                "pour-steps",
+            ),
+            (
+                "a created item forgets the means a move carries",
+                'verifyUsing=list(request.get("verifyUsing") or []) or None',
+                "verifyUsing=None",
+                "create-item",
+            ),
+            (
+                "a created item is a root",
                 '"kind": "task", ',
-                "",
+                '"kind": "root", ',
                 "create-item",
             ),
         ):
@@ -3394,9 +4137,10 @@ class Twin:
     """One dotdiw, its own home, its own copy of the same project, and the
     ids its tracker gave, named by title so that two twins compare."""
 
-    def __init__(self, script, learn_tracker=""):
+    def __init__(self, script, learn_tracker="", learn_verify=""):
         self.script = script
         self.learn_tracker = learn_tracker
+        self.learn_verify = learn_verify
         self.home = tempfile.mkdtemp(prefix="dotdiw-twin-home-")
         self.repo = tempfile.mkdtemp(prefix="dotdiw-twin-")
         # The twin under test goes through beads, named in its environment;
@@ -3494,6 +4238,21 @@ class Twin:
         # chosen. Both are taken out before the rest is compared.
         text = re.sub(r"^  tracker [a-z]+ (\d)", r"  tracker \1", text, flags=re.M)
         text = text.replace(self.learn_tracker, "")
+        text = text.replace(self.learn_verify, "")
+        # And the three hints for running a formula say formula pour, where they
+        # said mol pour; those three are read as the same.
+        text = re.sub(
+            r"(Run it: |Run one: |Run a formula:  )dotdiw mol pour\b",
+            r"\1dotdiw formula pour",
+            text,
+        )
+        # So is the opening of learn, which now claims only the tracker's own name.
+        text = text.replace(
+            "adds the fourth and puts all of them under one name, so you never type\n"
+            "anything else.\n",
+            "adds the fourth and puts the tracker behind one command, so you never type the\n"
+            "tracker's own name.\n",
+        )
         return text.replace("\u2514\u2500\u2500", "\u251c\u2500\u2500")
 
 
@@ -3545,8 +4304,11 @@ class TheBytesUnderBeads(unittest.TestCase):
         had = getattr(
             load_module("dotdiw_at_" + tag.replace(".", "_"), before), "LEARN_TRACKER", ""
         )
-        added = load_module("dotdiw_learn_tracker").LEARN_TRACKER
-        twins = [Twin(before, learn_tracker=had), Twin(DOTDIW, learn_tracker=added)]
+        now = load_module("dotdiw_learn_tracker")
+        twins = [
+            Twin(before, learn_tracker=had),
+            Twin(DOTDIW, learn_tracker=now.LEARN_TRACKER, learn_verify=now.LEARN_VERIFY),
+        ]
         for t in twins:
             self.addCleanup(t.close)
         differences = []

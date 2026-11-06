@@ -37,7 +37,8 @@ minimumReview:
       howCarries: >
         Matches the title against the committed formulas in the same
         invocation that records the work, and prints the ones that apply with
-        the command that pours them.
+        the command that pours them. Once one is poured, it shows the means
+        its formula names to prove the run.
     - carrierId: carrier.project-instructions
       name: The project's own instruction files
       kind: hybrid
@@ -65,6 +66,14 @@ minimumReview:
       whyItMatters: >
         A surfaced procedure that is not read is the runbook nobody opened,
         one step later.
+    - dutyId: duty.prove-the-run
+      statement: >
+        Before closing poured work, prove the run with the means its formula
+        names under `verify-using`: run the command, read the file, open the
+        link.
+      whyItMatters: >
+        Steps closed in order show that the order was kept. The means the
+        formula names prove that the run did what it claims.
     - dutyId: duty.write-it-down-when-you-repeat
       statement: >
         The moment you notice you are repeating yourself, or just did by hand
@@ -124,6 +133,11 @@ minimumReview:
       statement: >
         The create printed the formula and the worker went on from memory. The
         mechanism looks to have worked.
+    - riskId: risk.closed-unproved
+      statement: >
+        Every step closed in order, and the run was never proved by the means
+        its formula names. The tracking shows a procedure done, and nothing
+        proved it.
     - riskId: risk.procedure-written-as-prose
       statement: >
         A runbook in Markdown is written instead of a formula. It feels like
@@ -163,6 +177,8 @@ praxisModel:
     .praxis-formation.yaml.
   authorityBoundaries:
     - dotdiw shows a procedure. It never enforces one, and it never blocks work.
+    - >
+      dotdiw shows the means to prove a run. Using them is the bearer's act.
     - >
       dotdiw never commits or pushes. The formula commit is the bearer's act,
       which the project asks for.
@@ -419,7 +435,7 @@ praxisModel:
         status: draft
 metadata:
   createdAt: "2026-11-01"
-  updatedAt: "2026-11-01"
+  updatedAt: "2026-11-06"
   authors:
     - The dotdiw maintainers
     - The agent working in this repository on 2026-11-01, as bearer
@@ -430,4 +446,6 @@ metadata:
     by the bearer who lived it (.praxis-formation.yaml). The operation model
     and the lifecycle contracts were authored before the formation and kept;
     the formation added one duty, one proof, one betrayal, one trace and the
-    last clause of the review sentence.
+    last clause of the review sentence. On 2026-11-06 the maintainer approved
+    one more duty and its betrayal, authored as the first five duties were:
+    proving the run with the means its formula names.
