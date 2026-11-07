@@ -30,32 +30,33 @@ project now has two runbooks neither of which anyone will open.
 
 ```mermaid
 flowchart LR
-    M["<b>Management</b><br/>instantiate it, track each step,<br/>honour the dependencies"]
     D["<b>Declaration</b><br/>write the procedure down:<br/>steps, and which needs which"]
+    M["<b>Management</b><br/>instantiate it, track each step,<br/>honour the dependencies"]
     S["<b>Sharing</b><br/>everyone in the project has it"]
     X["<b>Discovery</b><br/>it surfaces when work starts"]
 
-    M --> V{"Does the<br/>procedure get<br/>followed?"}
-    D --> V
+    D --> V{"Does the<br/>procedure get<br/>followed?"}
+    M --> V
     S --> V
     X --> V
 
-    style M fill:#dcedc8,stroke:#689f38,color:#1b5e20
     style D fill:#dcedc8,stroke:#689f38,color:#1b5e20
+    style M fill:#dcedc8,stroke:#689f38,color:#1b5e20
     style S fill:#dcedc8,stroke:#689f38,color:#1b5e20
     style X fill:#ffcdd2,stroke:#c62828,color:#b71c1c
     style V fill:#eceff1,stroke:#546e7a,color:#263238
 ```
 
-Three of them are covered already. An issue tracker that honours dependencies
-does management and declaration, and dotdiw brings one: a single file under
-your home, or the tracker you already use, if you name it. Git does sharing.
-**Discovery is the one nothing provides** — and it is the one that decides
-whether the other three matter, because a procedure nobody finds is a
-procedure nobody follows.
+Three of them are already solved. A file in the repository declares the
+procedure, an issue tracker that honours dependencies manages it, and git shares
+it. If you have no tracker, dotdiw brings one: a single file under your home
+directory. If you already use one, an adapter lets dotdiw use it instead.
 
-`dotdiw` adds discovery, and puts all four under one name so no task ever
-requires typing anything else.
+**Discovery is the one nothing provides**, and it decides whether the other three
+matter: nobody follows a procedure they never find.
+
+`dotdiw` adds discovery and puts the tracker behind one command, so no task ever
+requires typing the tracker's own name.
 
 ---
 
@@ -75,6 +76,11 @@ examples = [
   "Cut the 2.4 release",
   "Ship v3 to production",
   "Get billing out to prod this afternoon",
+]
+verify-using = [
+  "run:git describe --tags --exact-match",
+  "git+https://git.example.invalid/mapleline/billing.git#services/billing/CHANGELOG.md",
+  "https://chat.example.invalid/mapleline/releases",
 ]
 
 [[steps]]
@@ -125,16 +131,25 @@ The step Priya missed is the orange one. It is not buried in paragraph four of
 anything. It is a node with an edge into `announce`, which means **the release
 cannot be announced while it is open.**
 
+`verify-using` names the means to prove that the run did what the formula
+claims, one to a line: a command after `run:`, a file in a repository as a
+`git+https://` or `git+ssh://` URL with its path after `#`, or a link. dotdiw
+shows them when the formula is poured, the tracker keeps them on the root, and
+`dotdiw check` names any it cannot read, any longer than a line, and a file of
+this repository that git does not track. Before the root closes, whoever ran
+the release proves it with them: runs the command, reads the file, opens the
+link.
+
 ### 2. Priya starts her work the way the project says to
 
 ```console
 $ dotdiw create "Cut the 2.4 release"
-✓ Created issue: mapleline-4k2 — Cut the 2.4 release
+✓ Created issue: mapleline-4k2m — Cut the 2.4 release
 
 📜 Formulas that may apply:
   cut-release  Cut and publish a release: tag, build, changelog, rotate the s…
                services/billing/cut-release.formula.toml
-  Run it: dotdiw mol pour mol-cut-release
+  Run it: dotdiw formula pour mol-cut-release
 ```
 
 She was not searching. She did not know the formula existed. She typed what she
@@ -152,7 +167,7 @@ sequenceDiagram
     d->>i: match the title against every formula
     i-->>d: cut-release, rank 1
     d-->>P: this procedure applies, and here is its path
-    P->>d: mol pour mol-cut-release
+    P->>d: formula pour mol-cut-release
     d->>t: five steps, in dependency order
     t-->>P: announce is blocked until rotate closes
 ```
@@ -160,18 +175,21 @@ sequenceDiagram
 ### 3. She instantiates it
 
 ```console
-$ dotdiw mol pour mol-cut-release
+$ dotdiw formula pour mol-cut-release
 ✓ Poured mol: created 6 issues
-  Root issue: mapleline-mol-7qg
-  Phase: liquid (persistent in the issue database)
+  Root issue: mapleline-7qgd
+Verify using:
+  run:git describe --tags --exact-match
+  git+https://git.example.invalid/mapleline/billing.git#services/billing/CHANGELOG.md
+  https://chat.example.invalid/mapleline/releases
 ```
 
-Tracked, ordered, and durable — in git, not in anyone's head. When she tries to
-close `announce` early:
+Tracked, ordered and durable, in the tracker and not in anyone's head. When she
+tries to close `announce` early:
 
 ```console
-$ dotdiw close mapleline-mol-9f1
-cannot close blocked issue: mapleline-mol-9f1 is blocked by [mapleline-mol-3dx]
+$ dotdiw close mapleline-9f1x
+cannot close blocked issue: mapleline-9f1x is blocked by [mapleline-3dxa]
 ```
 
 **That is the whole mechanism.** The procedure found her because she named her
@@ -185,16 +203,16 @@ That is the other half, and it is where procedures come from.
 
 ```console
 $ dotdiw create "Handle the Stripe webhook backlog"
-✓ Created issue: mapleline-8d1 — Handle the Stripe webhook backlog
+✓ Created issue: mapleline-8d1k — Handle the Stripe webhook backlog
 ```
 
 Silence. No formula covers this. So you do the work — and the moment you notice
 you have done something you will do again:
 
 ```console
-$ dotdiw formula new "Handle the Stripe webhook backlog" --from mapleline-8d1
+$ dotdiw formula new "Handle the Stripe webhook backlog" --from mapleline-8d1k
 ✓ Wrote handle-stripe-webhook-backlog.formula.toml
-  Steps taken from mapleline-8d1, in the order the work was done.
+  Steps taken from mapleline-8d1k, in the order the work was done.
 
   One thing left, and it is discoverable:
     the description   the situation, and when to reach for it
@@ -348,8 +366,8 @@ Whether that is a limit of the design or only of the rules tried against it is
 unresolved: a local model that *judges* rather than scores installs the same way
 and has not been tested.
 
-`IMPLEMENTATION.md` is specific about which claims have numbers behind them and
-which do not.
+`measurements/README.md` is specific about which claims have numbers behind
+them and which do not.
 
 ---
 
@@ -434,8 +452,7 @@ prefix, and the command runs. Earlier tasks are not carried over; dotdiw says
 so once, and names the one command that removes the unused `.beads/` from the
 tree. It never runs that command and never edits the old copy. A checkout
 adopted by 0.4.0 or 0.5.0 keeps the tracker its work is in: the first 0.6.0
-command there writes `dotdiw.tracker` for it and says so once. What `init`
-did in each earlier version is in [IMPLEMENTATION.md](IMPLEMENTATION.md).
+command there writes `dotdiw.tracker` for it and says so once.
 
 The one file dotdiw writes that is opt-in is the witness log,
 `~/.dotdiw/<key>/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that
@@ -453,10 +470,10 @@ dotdiw brings: one sqlite file under `~/.dotdiw/<key>/`, nothing to install
 and nothing running. `dotdiw tracker list` names what is registered and which
 this checkout uses. `init --tracker <name>` chooses at adoption and `dotdiw
 tracker use <name>` afterwards, leaving the work in the old one where it is;
-`dotdiw tracker migrate <from> <to>` moves it, parents before children, needs
-and close reasons with them, ids kept where the target accepts them and mapped
-in a file under the workspace where it does not, and never writes to the
-source. If the target refuses any write the move fails and names it, and the
+`dotdiw tracker migrate <from> <to>` moves it, parents before children, needs,
+close reasons, descriptions and the means to prove a run with them, ids kept
+where the target accepts them and mapped in a file under the workspace where it
+does not, and never writes to the source. If the target refuses any write the move fails and names it, and the
 next run finishes what the first left. One command can go elsewhere with `--tracker <name>` or
 `DOTDIW_TRACKER`. A tracker's name appears where you chose or asked for it: in
 the `tracker` commands, on the line that says a checkout is adopted, on the
@@ -491,11 +508,26 @@ installed, runs the scenario that defines an adapter, in a scratch workspace or
 against the project or board the module declares for it, and says what fails. A
 file written for another interface is refused in one line that names it.
 
-`trackers/jira.py` in this repository is an adapter for Jira Cloud, installed
-with `brew install adimpression/tap/dotdiw-tracker-jira`. It reads its credentials
-from the environment or from `~/.dotdiw/trackers/jira.json`, never from a
-repository. It is tested against a stub of the API in `test_jira.py` and against
-nothing live.
+`dotdiw update <id> -a me` assigns an item to whoever the tracker knows you as. Any
+other value goes to the tracker as its own id for a person, and a tracker that
+checks refuses one it does not know; dotdiw never searches for a person by name.
+`show` says who an item is assigned to. `tracker migrate` says how many items had
+an assignee, because assignees do not carry over: an id in one tracker means
+nothing in another.
+
+`trackers/jira.py` in this repository is an adapter for Jira Cloud. To install it,
+name both packages, because Homebrew loads a dependency from a tap only if that
+formula is trusted, and naming a formula in `brew install` trusts it:
+
+```bash
+brew install adimpression/tap/dotdiw adimpression/tap/dotdiw-tracker-jira
+```
+
+The adapter reads its credentials from the environment or from
+`~/.dotdiw/trackers/jira.json`, never from a repository. `init` names the
+account they belong to, once, before any work is written as that person, and
+`tracker use jira` names it each time. It is tested against a stub of the API in
+`test_jira.py` and against nothing live.
 
 ## Commands
 
@@ -506,7 +538,7 @@ dotdiw create "<what you're about to do>"    # where all work starts
 dotdiw formula new "<what it's for>"         # write a procedure down
 dotdiw formula new "..." --from <id>         # ...with steps from work already done
 dotdiw formula list                          # what this project holds
-dotdiw mol pour <id>                         # instantiate it as tracked, ordered steps
+dotdiw formula pour <id>                     # instantiate it as tracked, ordered steps
 dotdiw check                                 # whether every formula here can be found
 dotdiw learn                                 # all of it, for whoever found the command
 dotdiw tracker list                          # what is registered, and which this checkout uses
@@ -517,8 +549,11 @@ dotdiw tracker new <name>                    # write the file a tracker of your 
 ```
 
 `list`, `ready`, `show`, `close`, `update` and `dep add` are the tracker's,
-answered by whichever one the checkout uses. No task ever requires typing
-anything else.
+answered by whichever one the checkout uses. No task ever requires typing the
+tracker's own name.
+
+`dotdiw mol pour <id>`, the older name for `formula pour`, still works and does
+the same.
 
 ## Working on it
 

@@ -65,6 +65,11 @@ POA = os.path.expanduser("~/poa")
 # tokenising, the FTS storage, file parsing, and the witness log's append and
 # read.
 INFRASTRUCTURE = {
+    "verify_unread",
+    "keep_verify_using",
+    "read_verify_using",
+    "repository_of",
+    "checkout_remotes",
     "failed_as",
     "steps_in_order",
     "git",
@@ -131,6 +136,8 @@ ADAPTERS = {
         "beads_json",
         "beads_record",
         "beads_failed",
+        "beads_actor",
+        "beads_typed",
         "beads_open",
         "beads_describe",
         "beads_create",
@@ -196,6 +203,7 @@ INTERFACE = {
     "show_undo",
     "show_declare",
     "show_report",
+    "show_actor",
     "show_adopt",
     "show_name",
     "show_pour",
@@ -1114,7 +1122,7 @@ def fake_adapter(module, name="fake", answers=None):
         return operation_
 
     return {
-        "info": {"name": name, "version": "0", "origin": "shipped"},
+        "info": {"name": name, "version": "0", "interface": 2, "origin": "shipped"},
         "operations": {op: callable_for(op) for op in module.TRACKER_DOOR},
     }
 
@@ -1155,7 +1163,7 @@ class TheTrackerDoor(unittest.TestCase):
             m.register_tracker("wrong", wrong)
         self.assertIn(gone, str(held.exception))
         nameless = {
-            "info": {"version": "0", "origin": "shipped"},
+            "info": {"version": "0", "interface": 2, "origin": "shipped"},
             "operations": whole["operations"],
         }
         with self.assertRaises(m.DoorError) as held:
@@ -1201,6 +1209,33 @@ class TheTrackerDoor(unittest.TestCase):
         with self.assertRaises(m.DoorError) as held:
             m.invoke_extra("forward", {"root": self.root, "tracker": "rich"})
         self.assertIn("forward", str(held.exception))
+
+    def test_create_item_takes_no_kind(self):
+        """Only a pour makes a root, so a create carries no kind: the door
+        refuses one, and naming the work asks for none."""
+        m = self.module
+        self.assertNotIn("kind", m.TRACKER_DOOR["operation.create-item"]["request"])
+        table = fake_adapter(m)
+        answer = table["operations"]["operation.create-item"]
+        asked: list[dict[str, Any]] = []
+
+        def create_item(request):
+            asked.append(dict(request))
+            return answer(request)
+
+        table["operations"]["operation.create-item"] = create_item
+        m.register_tracker("fake", table)
+        with self.assertRaisesRegex(m.DoorError, '"kind" is not a field of its request'):
+            m.invoke_tracker(
+                "operation.create-item",
+                {"root": self.root, "tracker": "fake", "title": "x", "kind": "task"},
+            )
+        out = m.NameTheWork(
+            {"root": self.root, "tracker": "fake", "title": "Work", "arguments": []}
+        )
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual([r["title"] for r in asked], ["Work"])
+        self.assertNotIn("kind", asked[0])
 
     def test_an_unknown_adapter_is_a_failed_response(self):
         m = self.module
@@ -1498,7 +1533,7 @@ class TheTrackerDoor(unittest.TestCase):
                 "        out = {'status': 'completed', 'summary': operation, 'exitCode': 0}\n"
                 "        return dict(out, items=[])\n"
                 "    return operation_\n"
-                "TRACKER = {'info': {'name': 'mine', 'version': '1'},\n"
+                "TRACKER = {'info': {'name': 'mine', 'version': '1', 'interface': 2},\n"
                 "           'operations': {op: _answer(op) for op in OPERATIONS}}\n"
             )
         self.assertFalse(m.load_tracker("../mine"))
@@ -1510,9 +1545,10 @@ class TheTrackerDoor(unittest.TestCase):
         self.assertTrue(info["source"].endswith("mine.py"))
 
     def test_a_module_says_which_interface_it_was_written_for(self):
-        """Absent means 1, so a module written for 0.6.0 goes on working. Any
-        number this tool does not speak is refused by name when it loads, not
-        halfway through an operation."""
+        """Absent means 1, the number every module written before 1.0.0 was
+        written for, and this tool speaks 2: a module that says nothing or says
+        1 is refused by name when it loads, as is any other number this tool
+        does not speak, and never halfway through an operation."""
         m = self.module
         home = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, home, True)
@@ -1535,17 +1571,18 @@ class TheTrackerDoor(unittest.TestCase):
                 )
 
         module("unsaid", "absent")
+        module("earlier", 1)
         module("said", m.TRACKER_INTERFACE)
         module("later", m.TRACKER_INTERFACE + 1)
         module("flag", True)
-        self.assertTrue(m.load_tracker("unsaid"))
         self.assertTrue(m.load_tracker("said"))
-        self.assertFalse(m.load_tracker("later"))
-        self.assertIn(
-            "written for tracker interface %d; this dotdiw supports interface %d"
-            % (m.TRACKER_INTERFACE + 1, m.TRACKER_INTERFACE),
-            m.LOAD_FAILED["later"],
-        )
+        for name, declared in (("unsaid", 1), ("earlier", 1), ("later", m.TRACKER_INTERFACE + 1)):
+            self.assertFalse(m.load_tracker(name), name)
+            self.assertIn(
+                "written for tracker interface %d; this dotdiw supports interface %d"
+                % (declared, m.TRACKER_INTERFACE),
+                m.LOAD_FAILED[name],
+            )
         self.assertFalse(m.load_tracker("flag"))
         out = m.invoke_tracker("operation.ready-items", {"root": self.root, "tracker": "later"})
         self.assertEqual((out["status"], out["reason"]), ("failed", "adapter-failed"))
@@ -1575,6 +1612,42 @@ class TheTrackerDoor(unittest.TestCase):
         with self.assertRaisesRegex(m.DoorError, "written for tracker interface"):
             m.register_tracker("elsewhere", table)
         self.assertNotIn("elsewhere", m.TRACKERS)
+
+    def test_every_copy_of_the_helper_reads_back_what_it_kept(self):
+        """dotdiw's own helper, jira.py's and the starting file's keep the means
+        as a description's last section and give back exactly what they were
+        given: a description that looks like a section stays a description,
+        and the means appended after one are the means."""
+        m = self.module
+        space: dict[str, Any] = {}
+        exec(compile(m.TRACKER_SKELETON.replace("<NAME>", "acme"), "acme.py", "exec"), space)
+        jira = load_module("jira_for_the_helper", os.path.join(HERE, "trackers", "jira.py"))
+        descriptions = [
+            None,
+            "",
+            "Ship it.",
+            "Ship it.\n",
+            "Verify using:",
+            "Verify using:\n- x",
+            "Verify using:\n- x\n\nVerify using:\n- y",
+            "Ship it.\n\nVerify using:",
+            "Ship it.\n\nVerify using:\n- x",
+            "Ship it.\n\nVerify using:\nnot a means",
+            "Ship it.\n\nVerify using:\n- x\n- ",
+            "\n\nVerify using:\n- x",
+        ]
+        means = [[], ["run:make check"], ["run:make check", "https://example.invalid/runs/1"]]
+        for name, keep, read in (
+            ("dotdiw", m.keep_verify_using, m.read_verify_using),
+            ("jira.py", jira.keep_verify_using, jira.read_verify_using),
+            ("the starting file", space["keep_verify_using"], space["read_verify_using"]),
+        ):
+            for description in descriptions:
+                for kept in means:
+                    with self.subTest(helper=name, description=description, means=kept):
+                        back, read_means = read(keep(description, kept))
+                        self.assertEqual(read_means, kept)
+                        self.assertEqual(back or None, description or None)
 
     def test_the_starting_file_is_in_the_registry_shape(self):
         m = self.module
@@ -1615,7 +1688,7 @@ class TheTrackerDoor(unittest.TestCase):
                 "    return operation_\n"
                 "def forward(request):\n"
                 "    raise ValueError('no')\n"
-                "TRACKER = {'info': {'name': 'boom', 'version': '1'},\n"
+                "TRACKER = {'info': {'name': 'boom', 'version': '1', 'interface': 2},\n"
                 "           'operations': {op: _answer(op) for op in OPERATIONS},\n"
                 "           'extras': {'forward': forward}}\n"
             )
@@ -1796,6 +1869,18 @@ class TheWitnessLog(unittest.TestCase):
         self.assertIn("release-through-tap", out)
         self.assertIsNone(self.log(), "nothing asked for the log")
 
+    def test_formula_pour_is_witnessed_as_a_pour(self):
+        code, out = self.dotdiw("init", "--prefix", "w", witness=True)
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("create", "Release v0.3.0 through the tap", witness=True)
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("formula", "pour", "mol-release-through-tap", witness=True)
+        self.assertEqual(code, 0, out)
+        poured = [e for e in self.log() if e["label"] == "procedure_poured"]
+        self.assertEqual(len(poured), 1)
+        self.assertEqual(poured[0]["formulaId"], "mol-release-through-tap")
+        self.assertEqual(poured[0]["workId"], self.log()[0]["workId"])
+
     def test_a_real_run_is_a_story_the_contract_calls_valid(self):
         code, out = self.dotdiw("init", "--prefix", "w", witness=True)
         self.assertEqual(code, 0, out)
@@ -1963,6 +2048,34 @@ class TheProject(unittest.TestCase):
         module = load_module("dotdiw_version", SCRIPT)
         self.assertEqual(project["version"], module.VERSION)
         self.assertEqual(project["requires-python"], ">=3.11")
+
+
+class TheRankingBenchmark(unittest.TestCase):
+    """measure/rank_between.py compares what each version surfaces by the
+    formulaRef of each formula, in order, and refuses a ranking that names
+    none: lists of nothing compare equal to anything."""
+
+    def test_the_benchmark_compares_formula_ids(self):
+        bench = load_module(
+            "rank_between_under_test",
+            os.path.join(HERE, "measurements", "measure", "rank_between.py"),
+        )
+        tree = load_module("dotdiw_for_the_benchmark", SCRIPT)
+        surfaced, _, count = bench.rankings(tree, HERE, ["Write a tracker adapter"])
+        self.assertEqual(surfaced["Write a tracker adapter"][0], "mol-write-tracker-adapter")
+        self.assertGreater(count, 0)
+
+        class Nameless:
+            @staticmethod
+            def MatchFormulas(request):
+                return {"surfaced": [{"formula": "mol-anything"}]}
+
+            @staticmethod
+            def DescribeAndCheck(request):
+                return {"problems": [], "formulaCount": 1}
+
+        with self.assertRaises(SystemExit):
+            bench.rankings(Nameless, HERE, ["Anything"])
 
 
 if __name__ == "__main__":

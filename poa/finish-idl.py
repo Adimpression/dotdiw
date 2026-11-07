@@ -394,6 +394,53 @@ def tracker_door_source(idl: Idl) -> str:
     return out + TRACKER_CLOSE
 
 
+# What the file a tracker starts from holds besides its operations: the two
+# functions that keep the means to prove a run as the last section of a root's
+# description, for a tracker that has a description and nothing more for them.
+# No backslash may appear in the file's text, so a newline is chr(10).
+VERIFY_HELPER = '''
+
+# A tracker with a title and a description and nothing more keeps the means to
+# prove a run as the last section of an item's description, one to a line;
+# these two write that section and read back exactly what they wrote. A
+# tracker with a field of its own may keep them there instead: show-item gives
+# back what pour-steps or create-item was given, however the tracker holds it.
+NEWLINE = chr(10)
+VERIFY_HEADING = "Verify using:"
+
+
+def keep_verify_using(description: str | None, means: list[str]) -> str | None:
+    """The description, with the means kept as its last section. With none,
+    the description as given, or followed by an empty section when it would
+    otherwise read back as holding one."""
+    if means:
+        block = NEWLINE.join([VERIFY_HEADING] + ["- " + m for m in means])
+        return description + NEWLINE * 2 + block if description else block
+    if not description or read_verify_using(description) == (description, []):
+        return description
+    return description + NEWLINE * 2 + VERIFY_HEADING
+
+
+def read_verify_using(text: str | None) -> tuple[str | None, list[str]]:
+    """The description as it was given, and the means kept in it: the last
+    section headed Verify using:, at the start or after a blank line, whose
+    lines to the end are each a means."""
+    if not text:
+        return text, []
+    at = text.rfind(NEWLINE * 2 + VERIFY_HEADING)
+    if at < 0 and not text.startswith(VERIFY_HEADING):
+        return text, []
+    start, description = (at + 2, text[:at]) if at >= 0 else (0, None)
+    rest = text[start + len(VERIFY_HEADING) :]
+    if not rest:
+        return description, []
+    lines = rest.split(NEWLINE)
+    if lines[0] or not all(line.startswith("- ") and len(line) > 2 for line in lines[1:]):
+        return text, []
+    return description, [line[2:] for line in lines[1:]]
+'''
+
+
 def skeleton_source(idl: Idl) -> str:
     """What `dotdiw tracker new` writes, as text dotdiw holds between its own
     markers: the ten operations raising until they are filled, each saying the
@@ -424,6 +471,7 @@ def skeleton_source(idl: Idl) -> str:
     body += "alone; a star marks a required field. A module runs in dotdiw's own interpreter,\n"
     body += 'so it may import the standard library and nothing else.\n"""\n\n'
     body += "from typing import Any\n\nRecord = dict[str, Any]\n"
+    body += VERIFY_HELPER
     for op in operations:
         slug = op["operationId"].split(".", 1)[1].replace("-", "_")
         reasons = [

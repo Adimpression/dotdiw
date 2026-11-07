@@ -1,6 +1,6 @@
 [project]
 name = "dotdiw"
-version = "0.7.0"
+version = "1.0.0"
 description = "Workflow discovery for a project: when work starts, the procedure that applies surfaces on its own."
 readme = "README.md"
 license = "Apache-2.0"

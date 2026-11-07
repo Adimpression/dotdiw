@@ -8,11 +8,11 @@ agents together. Nothing here names a tool. Anything built answers to this.
 A project holds named procedures — cut a release, migrate a schema, onboard a
 contributor. Each is a short DAG of steps. Four things have to work.
 
-**Workflow management.** Instantiate a procedure, track the state of each step,
-honour the dependencies so work happens in a sensible order.
-
 **Workflow declaration.** Write the procedure down: its description, its steps,
 which step depends on which.
+
+**Workflow management.** Instantiate a procedure, track the state of each step,
+honour the dependencies so work happens in a sensible order.
 
 **Workflow sharing.** The project's procedures are available to everyone
 working in the project.

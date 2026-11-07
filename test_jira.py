@@ -38,6 +38,12 @@ DOTDIW = os.path.join(HERE, "dotdiw")
 ADAPTER = os.path.join(HERE, "trackers", "jira.py")
 TOKEN = "stub-token-for-tests-only"
 STATUSES = {"To Do": "new", "In Progress": "indeterminate", "Done": "done"}
+MYSELF = {
+    "accountId": "5c0a1b2c3d4e5f6a7b8c9d0e",
+    "displayName": "Stub Person",
+    "emailAddress": "stub.person@example.invalid",
+}
+ACCOUNTS = {MYSELF["accountId"]: MYSELF["displayName"], "5b10ac8d82e05b22cc7d4ef5": "Some Body"}
 
 
 class StubJira:
@@ -57,8 +63,9 @@ class StubJira:
         self.tokens = []  # the nextPageToken of each search that sent one
         self.no_way_to = set()  # status categories no transition reaches
         self.refuse_children = False  # whether a create under a parent is refused
+        self.no_myself = False  # whether the site will say who the token is
 
-    def issue(self, key):
+    def issue(self, key, wanted=""):
         fields = self.issues.get(key)
         if fields is None:
             return None
@@ -94,7 +101,15 @@ class StubJira:
                 ]
             },
         )
-        return {"key": key, "fields": {k: v for k, v in shown.items() if not k.startswith("_")}}
+        if fields.get("assignee"):
+            who = fields["assignee"].get("accountId")
+            shown["assignee"] = dict(fields["assignee"], displayName=ACCOUNTS.get(who))
+        kept = {k: v for k, v in shown.items() if not k.startswith("_")}
+        # A site answers with the fields asked for and no others.
+        return {
+            "key": key,
+            "fields": {k: v for k, v in kept.items() if not wanted or k in wanted.split(",")},
+        }
 
     def handle(self, method, path, query, body):
         self.requests.append((method, path))
@@ -102,6 +117,10 @@ class StubJira:
         if parts[:3] != ["rest", "api", "3"]:
             return 404, {"errorMessages": ["no such resource"]}
         rest = parts[3:]
+        if rest == ["myself"]:
+            if self.no_myself:
+                return 401, {"errorMessages": ["You are not logged in."]}
+            return 200, dict(MYSELF)
         if rest == ["serverInfo"]:
             return 200, {"version": "1001.0.0-stub", "deploymentType": "Cloud"}
         if rest[:1] == ["project"] and len(rest) == 2:
@@ -135,7 +154,7 @@ class StubJira:
             size = min(int(query.get("maxResults", ["50"])[0]), self.page_size)
             page = keys[start : start + size]
             answer = {
-                "issues": [self.issue(k) for k in page],
+                "issues": [self.issue(k, query.get("fields", [""])[0]) for k in page],
                 "isLast": start + size >= len(keys),
             }
             if not answer["isLast"]:
@@ -183,7 +202,7 @@ class StubJira:
                     ]
                 }
             if method == "GET":
-                return 200, self.issue(key)
+                return 200, self.issue(key, query.get("fields", [""])[0])
             if method == "PUT":
                 fields = (body or {}).get("fields") or {}
                 for k, v in fields.items():
@@ -199,6 +218,8 @@ class StubJira:
                 return 404, {"errorMessages": ["Issue does not exist"]}
             if not (body or {}).get("accountId"):
                 return 400, {"errorMessages": ["accountId is required"]}
+            if body["accountId"] not in ACCOUNTS:
+                return 404, {"errorMessages": ["The user does not exist."]}
             self.issues[key]["assignee"] = {"accountId": body["accountId"]}
             return 204, None
         if rest[:1] == ["issue"] and len(rest) == 3 and rest[2] == "transitions":
@@ -348,7 +369,7 @@ def load_adapter():
 
 class TheTable(unittest.TestCase):
     def test_it_says_which_interface_it_was_written_for(self):
-        self.assertEqual(load_adapter().TRACKER["info"]["interface"], 1)
+        self.assertEqual(load_adapter().TRACKER["info"]["interface"], 2)
 
 
 class TheHostedAdapter(unittest.TestCase):
@@ -414,7 +435,7 @@ class TheHostedAdapter(unittest.TestCase):
             out,
             r"(?m)^  jira\s+0\.1, site 1001\.0\.0-stub\s+loaded, from .*/\.dotdiw/trackers/jira\.py$",
         )
-        self.assertRegex(out, r"(?m)^  local\s+0\.7\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(out, r"(?m)^  local\s+1\.0\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.home.dotdiw("tracker", "check", "jira")
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 10, out)
@@ -513,6 +534,22 @@ class TheHostedAdapter(unittest.TestCase):
         with open(store, encoding="utf-8") as fh:
             self.assertEqual(json.load(fh)["project"], "DEMO")
         self.assertIn("DEMO-1", self.made("Still here"))
+
+    def test_formula_pour_pours_on_the_site(self):
+        self.adopted()
+        formula = "pour-new.formula.toml"
+        with open(os.path.join(self.home.path, formula), "w", encoding="utf-8") as fh:
+            fh.write(
+                'formula = "mol-pour-new"\n'
+                'description = "Pour it. Use when testing formula pour on a hosted tracker."\n'
+                '[[steps]]\nid = "one"\ntitle = "One"\n'
+                '[[steps]]\nid = "two"\ntitle = "Two"\nneeds = ["one"]\n'
+            )
+        subprocess.run(["git", "add", formula], cwd=self.home.path, env=self.home.env)
+        subprocess.run(["git", "commit", "-qm", "f"], cwd=self.home.path, env=self.home.env)
+        code, out = self.home.dotdiw("formula", "pour", "mol-pour-new")
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"Root issue: DEMO-\d+")
 
     def test_a_pour_jira_refuses_partway_is_one_line(self):
         self.adopted()
@@ -616,6 +653,57 @@ class TheHostedAdapter(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(stub.issues[key]["assignee"], {"accountId": "5b10ac8d82e05b22cc7d4ef5"})
         self.assertIn(("PUT", "/rest/api/3/issue/%s/assignee" % key), stub.requests)
+
+    def test_an_assignee_of_me_is_the_account_behind_the_token(self):
+        self.adopted()
+        stub = self.site.stub
+        key = self.made("Mine")
+        code, out = self.home.dotdiw("update", key, "-a", "me")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(stub.issues[key]["assignee"], {"accountId": MYSELF["accountId"]})
+        code, out = self.home.dotdiw("show", key)
+        self.assertEqual(code, 0, out)
+        self.assertIn("Assignee: Stub Person\n", out)
+        code, out = self.home.dotdiw("list", "--json")
+        self.assertEqual(code, 0, out)
+        self.assertEqual([i["assignee"] for i in json.loads(out)], ["Stub Person"])
+
+    def test_an_id_it_does_not_know_is_one_line_and_changes_nothing(self):
+        self.adopted()
+        stub = self.site.stub
+        key = self.made("Theirs")
+        code, out = self.home.dotdiw("update", key, "-a", "alice")
+        self.assertEqual(code, 1, out)
+        self.assertIn("The user does not exist", out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(len(out.strip().splitlines()), 1, out)
+        self.assertNotIn("assignee", stub.issues[key])
+
+    def test_init_names_the_account_once_and_never_its_email(self):
+        code, out = self.home.dotdiw("init", "--tracker", "jira", "--prefix", "demo")
+        self.assertEqual(code, 0, out)
+        self.assertIn("  Acting as Stub Person.\n", out)
+        self.assertNotIn(MYSELF["emailAddress"], out)
+        code, out = self.home.dotdiw("init", "--tracker", "jira", "--prefix", "demo")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Acting as", out)
+
+    def test_tracker_use_names_the_account_and_never_its_email(self):
+        self.adopted()
+        code, out = self.home.dotdiw("tracker", "use", "jira")
+        self.assertEqual(code, 0, out)
+        self.assertIn("tracker is jira.\n  Acting as Stub Person.\n", out)
+        self.assertNotIn(MYSELF["emailAddress"], out)
+
+    def test_a_site_that_will_not_say_who_leaves_the_line_out(self):
+        self.site.stub.no_myself = True
+        code, out = self.home.dotdiw("init", "--tracker", "jira", "--prefix", "demo")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Adopted. The tracker is jira", out)
+        self.assertNotIn("Acting as", out)
+        code, out = self.home.dotdiw("--version")
+        self.assertEqual(code, 0, out)
+        self.assertIn("tracker jira", out)
 
     def test_a_description_reaches_the_issue(self):
         self.adopted()

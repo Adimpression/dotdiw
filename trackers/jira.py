@@ -3,11 +3,13 @@
 """A Jira Cloud adapter for dotdiw's tracker interface: a worked example on a
 tracker hosted elsewhere, tested against a stub of its API.
 
-Install it with `brew install adimpression/tap/dotdiw-tracker-jira`, or copy the
-file to `~/.dotdiw/trackers/`, and dotdiw loads it when `--tracker`, a checkout's
-choice or `tracker use` names it:
+Install it with Homebrew, naming both packages, because Homebrew loads a
+dependency from a tap only if that formula is trusted, and naming a formula
+trusts it. Or copy the file to `~/.dotdiw/trackers/`. dotdiw loads it when
+`--tracker`, a checkout's choice or `tracker use` names it:
 
-    mkdir -p ~/.dotdiw/trackers && cp trackers/jira.py ~/.dotdiw/trackers/jira.py
+    brew install adimpression/tap/dotdiw adimpression/tap/dotdiw-tracker-jira
+    # or: mkdir -p ~/.dotdiw/trackers && cp trackers/jira.py ~/.dotdiw/trackers/jira.py
     dotdiw tracker list                      # jira is listed, from where it was found
     dotdiw init --tracker jira --prefix PROJ # this checkout's work goes to project PROJ
 
@@ -21,12 +23,16 @@ else. Nothing here prints, and no response carries a credential.
 
 How the interface maps onto Jira: a project is a workspace, recorded in the
 workspace's jira.json; an issue is an item, its key the id; summary is the
-title; the issue type is the kind, with a label `molecule` marking a poured
-root; the status category is the status, new, indeterminate or done, with a
+title; a poured root is an Epic labelled `root`, and every other issue is a task,
+whatever its type, the root's description keeping the means to prove the run
+as its last section; the status category is the status, new, indeterminate or
+done, with a
 label `blocked` for blocked; priority is Highest to Lowest for 0 to 4; the
-parent field is the parent; a Blocks issue link is a need, the inward issue
-needing the outward one, which is where Jira carries edges natively; and the
-close reason is a comment, "closed: <reason>", the last of them read back.
+parent field is the parent; the assignee is read by display name and set by
+account id, `me` being the account behind the token; a Blocks issue link is a
+need, the inward issue needing the outward one, which is where Jira carries
+edges natively; and the close reason is a comment, "closed: <reason>", the
+last of them read back.
 A close is refused while an open need or an open child exists, and a poured
 root closes when its last step does, both decided here, since Jira decides
 neither. Ids are Jira's: an id asked for is not honoured, and the record
@@ -53,7 +59,6 @@ VERSION = "0.1"
 STORE = "jira.json"
 PRIORITIES = ("Highest", "High", "Medium", "Low", "Lowest")
 CATEGORIES = {"new": "open", "indeterminate": "in_progress", "done": "closed"}
-KINDS = {"task": "Task", "epic": "Epic", "molecule": "Epic"}
 
 NOT_CONFIGURED: Response = {
     "status": "failed",
@@ -196,16 +201,54 @@ def plain(doc: Any) -> str:
     return "".join(out)
 
 
-FIELDS = "summary,status,issuetype,parent,labels,priority,issuelinks,created,updated,comment"
+# An item keeps the means to prove a run, a root's from its pour and a moved
+# item's from its move, as the last section of its description, one to a line,
+# the way the file dotdiw tracker new writes does.
+VERIFY_HEADING = "Verify using:"
+
+
+def keep_verify_using(description: str | None, means: list[str]) -> str | None:
+    """The description, with the means kept as its last section. With none,
+    the description as given, or followed by an empty section when it would
+    otherwise read back as holding one."""
+    if means:
+        block = "\n".join([VERIFY_HEADING] + ["- " + m for m in means])
+        return description + "\n\n" + block if description else block
+    if not description or read_verify_using(description) == (description, []):
+        return description
+    return description + "\n\n" + VERIFY_HEADING
+
+
+def read_verify_using(text: str | None) -> tuple[str | None, list[str]]:
+    """The description as it was given, and the means kept in it: the last
+    section headed Verify using:, at the start or after a blank line, whose
+    lines to the end are each a means."""
+    if not text:
+        return text, []
+    at = text.rfind("\n\n" + VERIFY_HEADING)
+    if at < 0 and not text.startswith(VERIFY_HEADING):
+        return text, []
+    start, description = (at + 2, text[:at]) if at >= 0 else (0, None)
+    rest = text[start + len(VERIFY_HEADING) :]
+    if not rest:
+        return description, []
+    lines = rest.split("\n")
+    if lines[0] or not all(line.startswith("- ") and len(line) > 2 for line in lines[1:]):
+        return text, []
+    return description, [line[2:] for line in lines[1:]]
+
+
+FIELDS = (
+    "summary,status,issuetype,parent,labels,priority,issuelinks,created,updated,comment,assignee,"
+    "description"
+)
 
 
 def record(issue: dict[str, Any]) -> Record:
     """An issue as the interface's record."""
     f = issue.get("fields") or {}
     labels = f.get("labels") or []
-    kind = (f.get("issuetype") or {}).get("name", "Task").lower()
-    if "molecule" in labels:
-        kind = "molecule"
+    kind = "root" if "root" in labels else "task"
     status = CATEGORIES.get(
         ((f.get("status") or {}).get("statusCategory") or {}).get("key") or "", "open"
     )
@@ -222,18 +265,28 @@ def record(issue: dict[str, Any]) -> Record:
         if text.startswith("closed: "):
             reason = text[len("closed: ") :] or None
     name = (f.get("priority") or {}).get("name")
-    return {
+    assignee = f.get("assignee") or {}
+    out: Record = {
         "id": issue["key"],
         "title": f.get("summary") or "",
         "kind": kind,
         "status": status,
         "priority": PRIORITIES.index(name) if name in PRIORITIES else 2,
         "parent": (f.get("parent") or {}).get("key"),
+        "assignee": assignee.get("displayName") or assignee.get("accountId"),
         "reason": reason if status == "closed" else None,
         "needs": sorted(needs),
         "createdAt": f.get("created"),
         "updatedAt": f.get("updated"),
     }
+    description, means = read_verify_using(
+        plain(f["description"]) if f.get("description") else None
+    )
+    if description is not None:
+        out["description"] = description
+    if means:
+        out["verifyUsing"] = means
+    return out
 
 
 def search(jql: str) -> list[dict[str, Any]]:
@@ -365,6 +418,24 @@ def jira_open(request: Request) -> Response:
     }
 
 
+def myself() -> dict[str, Any]:
+    """The account behind the token, which is who every request here acts as."""
+    mine: dict[str, Any] = call("GET", "/rest/api/3/myself")
+    return mine
+
+
+def acting_as() -> Record | None:
+    """Who the token says this is. Jira checked it. Never the email address."""
+    try:
+        mine = myself()
+    except JiraError:
+        return None
+    ident = mine.get("accountId")
+    if not ident:
+        return None
+    return {"name": mine.get("displayName") or ident, "id": ident, "verified": True}
+
+
 def jira_describe(request: Request) -> Response:
     cfg = config()
     version = VERSION
@@ -388,30 +459,34 @@ def jira_describe(request: Request) -> Response:
             "checkTarget": os.environ.get("JIRA_CHECK_PROJECT"),
             "extras": [],
         },
+        "actor": acting_as() if cfg is not None else None,
         "path": path if path and os.path.isfile(path) else None,
         "exitCode": 0,
     }
 
 
-def jira_create(request: Request) -> Response:
+def make(request: Request, root: bool = False) -> Response:
+    """One issue: a task, or a poured root, an Epic labelled root."""
     if config() is None:
         return dict(NOT_CONFIGURED)
     project, refused = opened(request.get("root"))
     if refused or not project:
         return refused or dict(NO_WORKSPACE)
-    kind = request.get("kind") or "task"
     priority = 2 if request.get("priority") is None else int(request["priority"])
     fields = {
         "project": {"key": project},
         "summary": request["title"],
-        "issuetype": {"name": KINDS.get(kind, "Task")},
+        "issuetype": {"name": "Epic" if root else "Task"},
         "priority": {"name": PRIORITIES[min(max(priority, 0), 4)]},
-        "labels": [kind] if kind not in ("task", "epic") else [],
+        "labels": ["root"] if root else [],
     }
     if request.get("parent"):
         fields["parent"] = {"key": request["parent"]}
-    if request.get("description"):
-        fields["description"] = adf(request["description"])
+    description = keep_verify_using(
+        request.get("description"), list(request.get("verifyUsing") or [])
+    )
+    if description:
+        fields["description"] = adf(description)
     try:
         made = call("POST", "/rest/api/3/issue", {"fields": fields})
         issue = held(made["key"])
@@ -431,6 +506,10 @@ def jira_create(request: Request) -> Response:
         "printed": False,
         "exitCode": 0,
     }
+
+
+def jira_create(request: Request) -> Response:
+    return make(request)
 
 
 def reaches(start: str, target: str, seen: set[str] | None = None) -> bool:
@@ -504,7 +583,15 @@ def jira_pour(request: Request) -> Response:
     except ValueError as e:
         return {"status": "failed", "reason": "cycle", "exitCode": 1, "summary": str(e)}
     root = request.get("root")
-    made = jira_create({"root": root, "title": request["title"], "kind": "molecule"})
+    made = make(
+        {
+            "root": root,
+            "title": request["title"],
+            "description": request.get("description"),
+            "verifyUsing": list(request.get("verifyUsing") or []),
+        },
+        root=True,
+    )
     if made["status"] != "completed":
         return made
     root_id, ids = made["item"]["id"], {}
@@ -602,7 +689,7 @@ def jira_close(request: Request) -> Response:
             if above is not None:
                 root = record(above)
                 if (
-                    root["kind"] == "molecule"
+                    root["kind"] == "root"
                     and root["status"] != "closed"
                     and not blockers(project, parent, root)
                     and close_one(parent, "every step closed")
@@ -747,7 +834,11 @@ def jira_update(request: Request) -> Response:
         if fields:
             call("PUT", "/rest/api/3/issue/%s" % key, {"fields": fields})
         if request.get("assignee"):
-            call("PUT", "/rest/api/3/issue/%s/assignee" % key, {"accountId": request["assignee"]})
+            who = myself().get("accountId") if request["assignee"] == "me" else request["assignee"]
+            try:
+                call("PUT", "/rest/api/3/issue/%s/assignee" % key, {"accountId": who})
+            except JiraError as e:
+                return failed(e, [("assignee-not-found", 400), ("assignee-not-found", 404)])
         item = record(held(key))
         if wanted and item["status"] != wanted:
             return {
@@ -789,7 +880,7 @@ TRACKER = {
     "info": {
         "name": "jira",
         "version": VERSION,
-        "interface": 1,
+        "interface": 2,
         "origin": "loaded",
         "nativeNeeds": True,
         "checkTarget": os.environ.get("JIRA_CHECK_PROJECT"),
