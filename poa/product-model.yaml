@@ -23,7 +23,8 @@ lexicon:
     term: Formula
     definition: >
       A procedure written as a TOML file named <something>.formula.toml, kept
-      next to whatever it is about and committed: a description, examples,
+      next to whatever it is about in local storage, or served by a formula
+      management provider under its suffixed id: a description, examples,
       steps with which step needs which, and, when it names them, the means to
       prove its run.
     allowedAliases:
@@ -113,8 +114,10 @@ lexicon:
     definition: >
       Where formulas are kept, behind the formula management abstraction: a file
       system or an API endpoint, made eligible by installing a package that
-      provides it and registered under an alphanumeric name. It answers what
-      it declares: list, show and, where it can, create.
+      provides it and registered under an alphanumeric name. It answers list
+      and show, and create where it can, and declares through describe which
+      of the three it answers. Initial versions require list and show of
+      every provider.
     allowedAliases:
       - provider
     forbiddenAliases:
@@ -126,8 +129,10 @@ lexicon:
     term: Local storage
     definition: >
       The file system, where a formula without a suffix is kept. git plays no
-      part in finding a formula there, and nothing in it is committed or kept
-      as history.
+      part in finding a formula there, and local storage itself commits
+      nothing and keeps no history. Until a git formula management provider
+      ships, a formula there is shared by committing it, as every other file
+      is.
     allowedAliases: []
     forbiddenAliases: []
     examples:
@@ -453,8 +458,10 @@ realWorldModel:
     - invariantId: invariant.only-committed-formulas-are-held
       name: Only committed formulas are held
       statement: >
-        A formula the project holds is one git tracks. Matching, listing and
-        check treat an uncommitted formula as one person's, and check says so.
+        A formula the project holds is one git tracks. An uncommitted formula
+        is one person's: local storage finds it on that person's file system,
+        where matching and listing reach it, and check names it as one nobody
+        else can see.
         A file of this repository that a formula names under verify-using is
         held the same way.
       rationale: >
@@ -568,8 +575,8 @@ realWorldModel:
     - invariantId: invariant.notice-stops-when-written
       name: The notice stops when the procedure is written
       statement: >
-        A procedure carried out by hand is named as undeclared until a committed
-        formula reaches its title, and from that moment it is not named again.
+        A procedure carried out by hand is named as undeclared until a formula
+        reaches its title, and from that moment it is not named again.
       rationale: >
         A notice that keeps firing after it was acted on teaches people to
         ignore it; one that stops is the confirmation that writing it down
@@ -825,16 +832,29 @@ realWorldModel:
       userVisibleImpact: The tracker's answer, under dotdiw's name, with interactive prompts still working.
     - boundaryId: boundary.list-to-answer
       name: List to answer
-      description: The project's formulas are listed from git and read from disk, answered at once.
+      description: The project's formulas are found on the file system and read from disk, answered at once.
       interactionId: interaction.find-procedure
       realWorldProcess: Someone asks what the project holds, or names a formula by id.
       realWorldLatencyClass: under-1s
       separationAllowed: false
       consistencyExpectation: strong
       causalityJustification: >
-        The answer is a git listing and a few small files; nothing justifies
-        waiting for it or asking anything outside the repository.
+        The answer is a walk of the tree and a few small files; nothing
+        justifies waiting for it or asking anything outside the repository.
       userVisibleImpact: The formulas the project holds, with their paths, or one formula's text.
+    - boundaryId: boundary.provider-to-answer
+      name: Provider to answer
+      description: A registered provider lists its formulas, asked once per process, and shows one when it is shown or poured.
+      interactionId: interaction.find-procedure
+      realWorldProcess: A file system or an API endpoint answers list and show.
+      realWorldLatencyClass: mixed
+      separationAllowed: false
+      consistencyExpectation: strong
+      causalityJustification: >
+        dotdiw waits for each provider's answer, asked once per process. A
+        provider takes what its store takes, a directory read or a call to an
+        endpoint, and how fresh its formulas are across processes is its own.
+      userVisibleImpact: The provider's formulas beside the local ones, or one line naming a provider left out of the run.
     - boundaryId: boundary.learn-to-text
       name: Learn to text
       description: The teaching text is compiled into the tool and printed.
@@ -949,7 +969,7 @@ realWorldModel:
         - stateId: repeated
           meaning: The procedure exists only as something done by hand, more than once.
         - stateId: written
-          meaning: A formula file exists, next to what it is about, uncommitted.
+          meaning: A formula file exists, next to what it is about, uncommitted, and is found on its holder's file system alone.
         - stateId: findable
           meaning: dotdiw check finds the formula from each of its own examples.
         - stateId: held
@@ -1212,8 +1232,23 @@ realWorldModel:
           requiredProof:
             - Every formula of the provider surfaces under the name as a suffix.
           betrayalRisk: A local formula and a provider's formula read as one id, and one is followed for the other.
+        - transitionId: transition.provider-registered-to-eligible
+          fromState: registered
+          toState: eligible
+          lawfulWhen: Someone removes the registration by the provider's name; its package stays installed.
+          authorizedBy:
+            - duty.register-a-provider-under-its-name
+          requiredProof:
+            - The provider is no longer listed, and none of its formulas surface.
+          betrayalRisk: A removed provider's formulas still surface, from a list kept from before.
       forbiddenTransitions: []
-      poaBindings: []
+      poaBindings:
+        - operationId: operation.register-provider
+          transitionIds:
+            - transition.provider-eligible-to-registered
+        - operationId: operation.remove-provider
+          transitionIds:
+            - transition.provider-registered-to-eligible
       cescWitnessExpectations: []
       status: draft
 objectives:
@@ -1240,7 +1275,8 @@ duties:
       and let the chosen one become tracked steps.
     scope: >
       Covers creating the work item, matching the title against the
-      committed formulas, printing the ones that apply, and pouring one,
+      formulas in local storage and from the registered providers, printing
+      the ones that apply, and pouring one,
       its means to prove the run kept with the root and shown after the
       pour; and what rides along with every create because the tracker
       rewrites the files agents read -- the conventions re-declared,
@@ -1394,10 +1430,10 @@ journeys:
     trigger: Someone is about to do a piece of work in an adopted project.
     preconditions:
       - The repository is adopted.
-      - The project holds committed formulas.
+      - Formulas are in local storage or served by a registered provider.
     primaryFlow:
       - The work is named with dotdiw create.
-      - The title is matched against the committed formulas and the applying ones are printed.
+      - The title is matched against the formulas in local storage and from the registered providers, and the applying ones are printed.
       - The one that fits is poured as ordered steps.
       - With every create, because the tracker rewrites the files agents read, the conventions are re-declared, procedures carried out by hand are noticed, and the conventions check runs quietly.
     completionCriteria:
@@ -2032,26 +2068,28 @@ journeys:
     description: >
       Someone asks what procedures the project holds, reads one, or names one
       by its id to pour or cook it. The answer is about the project -- every
-      committed formula wherever it sits in the tree -- and not about the
-      tracker's own two directories.
+      formula in local storage wherever it sits in the tree, and every formula
+      the registered providers serve -- and not about the tracker's own two
+      directories.
     purpose: A formula is found where it lives, so it never has to be moved or linked anywhere.
     trigger: Someone runs formula list, formula show, formula pour, mol pour or cook.
     preconditions:
       - The repository is adopted.
     primaryFlow:
-      - The committed formulas are listed from git, parsed, and indexed with the project's own text as background.
-      - formula list answers with every formula the project holds, its description and its path.
+      - The formulas in the checkout are found on the file system, each registered provider's are listed and shown under their suffixed ids, and all are parsed and indexed with the project's own text as background.
+      - formula list answers with every formula, its description, and its path or the provider that serves it.
       - formula show prints one formula as it is written, from where it is written.
       - A formula id, file name or path given to pour or cook resolves to the formula's file.
     completionCriteria:
-      - Every committed formula appears, with its path, and nothing uncommitted does.
+      - Every formula in local storage appears with its path, and every provider formula under its suffixed id with its provider.
       - An id resolves to exactly the file it names.
     variants:
       - The project holds no formulas yet, and the answer says how to write one.
     failureBoundaries:
-      - An id that names no committed formula is handed to the tracker as it was typed.
+      - An id that names no formula is handed to the tracker as it was typed.
+      - A provider that fails is left out of the run in one line, and the local formulas answer as before.
     nonGoals:
-      - Searching for formulas anywhere outside the repository.
+      - Searching for formulas anywhere outside the repository and the registered providers.
     inputObjectIds:
       - object.formula
     outputObjectIds:
@@ -2739,6 +2777,7 @@ journeys:
       - The provider offers discovery only, and nothing is created through it.
     failureBoundaries:
       - A local formula whose id reads like the provider's suffixed id migrates.
+      - A registration whose module is gone or fails is listed as unavailable, with why.
     nonGoals:
       - Keeping a formula's history, which is the provider's concern; local storage keeps none.
       - Anything about task storage.
@@ -2755,6 +2794,7 @@ journeys:
       - step.list-provider-formulas
       - step.show-provider-formula
       - step.create-provider-formula
+      - step.remove-provider
     sliIds: []
     sloIds: []
     goldenTraceIds: []
@@ -2765,7 +2805,102 @@ journeys:
       causalJustification: >
         A file system answers in the same breath and an API endpoint in its network's time; how fresh a provider's formulas are is left to the design.
     networkBoundaryIds: []
-    status: draft
+    status: active
+    operation:
+      visibility: external-facing
+      calls:
+        - operationId: operation.register-provider
+          callPurpose: "Register a provider, for the register action."
+          required: true
+          failurePropagation: propagate
+        - operationId: operation.remove-provider
+          callPurpose: "Remove a provider, for the remove action."
+          required: true
+          failurePropagation: propagate
+        - operationId: operation.describe-provider
+          callPurpose: "Describe every registered provider, for the list action."
+          required: true
+          failurePropagation: propagate
+      requestFields:
+        - name: root
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The checkout, where a local formula that clashes is found."
+        - name: action
+          valueType:
+            kind: enum-inline
+            values:
+              - register
+              - list
+              - remove
+          required: true
+          summary: "What is asked of the providers."
+        - name: name
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The provider's registered name, letters and digits."
+        - name: module
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The provider module a package installed, by its name."
+        - name: location
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "Where the provider keeps its formulas: a directory or a URL."
+      responseFields:
+        - name: provider
+          valueType:
+            kind: type-ref
+            typeId: type.formula-provider
+          required: false
+          summary: "The provider registered or removed."
+        - name: providers
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.formula-provider
+          required: false
+          summary: "Every registered provider, with what it answers."
+          cardinality: many
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - name-not-alphanumeric
+              - name-taken
+              - module-not-found
+              - not-a-provider
+              - lacks-list-or-show
+              - clashing-local-formula
+              - provider-unknown
+              - provider-failed
+          required: false
+          summary: "Why nothing was registered or removed."
+        - name: clashing
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Local formulas whose ids read like the provider's suffixed ids.
+          cardinality: many
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: "The process exit code the command line ends with."
 steps:
   - stepId: step.name-the-work
     journeyId: journey.start-named-work
@@ -2925,13 +3060,14 @@ steps:
     journeyId: journey.start-named-work
     sequence: 2
     title: Match formulas
-    given: The work has just been named and the project holds committed formulas.
+    given: The work has just been named, and formulas are in local storage or served by a registered provider.
     when: The title is ranked against every formula's description, examples and path, with the project's own text as the background.
     then: The formulas accounting for at least 0.15 of what is distinctive about the title are printed, best first, with their paths and the command to pour one.
     thenAssertions:
-      - Only committed formulas can appear.
+      - Only formulas in local storage or from a registered provider can appear, each provider formula under its suffixed id.
       - Silence is printed when nothing crosses the threshold.
       - The match is in the same invocation as the create.
+      - The command printed to pour the first resolves to that formula -- its id, or its path when its id carries a provider's suffix, is shared, or would be read as an option, from ./ when the path would be read as one too -- quoted for the shell it is copied into.
     relatedObjectIds:
       - object.work
       - object.formula
@@ -3008,6 +3144,15 @@ steps:
             operation ranks a title only to see what reaches it, as the
             conventions check and the handmade notice do. True when absent.
       responseFields:
+        - name: pourRef
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The reference that pours the first formula surfaced: its id, or its
+            path when its id carries a provider's suffix, is shared, or would be
+            read as an option, from ./ when the path would be read as one too.
         - name: surfaced
           valueType:
             kind: list
@@ -3039,6 +3184,8 @@ steps:
       - dotdiw mol pour, the older spelling, does the same and prints the same.
       - A step cannot be closed before the steps it needs.
       - The root names the formula it was poured from.
+      - The formula is read once, into a snapshot under the workspace named for a digest of its bytes, and the tracker is handed that snapshot, so that the steps, the description and the means to prove are one version.
+      - An id refused as ambiguous, as a provider's formula the provider does not serve, or for a provider that failed, never reaches the tracker.
       - The formula's verify-using goes to the tracker with the root and is shown after the pour.
     relatedObjectIds:
       - object.work
@@ -3147,8 +3294,7 @@ steps:
           required: false
           summary: >-
             The formula poured, resolved from the ident given; absent when the
-            ident named no committed formula and the tracker was asked as
-            typed.
+            ident named no formula and the tracker was asked as typed.
         - name: stepRefs
           valueType:
             kind: list
@@ -3171,6 +3317,9 @@ steps:
               - no-steps
               - step-not-found
               - cycle
+              - ambiguous
+              - provider-formula-unserved
+              - provider-failed
           required: false
           summary: "Why the pour failed, when the adapter said."
         - name: printed
@@ -3206,12 +3355,13 @@ steps:
     sequence: 1
     title: Notice a procedure carried out by hand
     given: The tracker holds a parent of kind task, with three or more children and a blocks dependency among them -- a procedure built by hand.
-    when: dotdiw create, check, doctor or lint runs, and no committed formula reaches the parent's title.
+    when: dotdiw create, check, doctor or lint runs, and no formula reaches the parent's title.
     then: The procedure is named as carried out here and never declared, with its ordered step count and the formula new --from line that turns the work actually done into steps.
     thenAssertions:
-      - A parent whose title a committed formula reaches is not named.
+      - A parent whose title a formula reaches is not named.
       - Children without any blocks edge are a checklist and are not named.
       - Nothing is written anywhere; the notice is printed.
+      - The title and the id in the printed line are quoted so that a shell reads each as one word, and nothing in them as a command.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -3240,8 +3390,8 @@ steps:
           failurePropagation: propagate
         - operationId: operation.match-formulas
           callPurpose: >-
-            Whether a committed formula already reaches the parent's title; if
-            one does, the notice stops.
+            Whether a formula already reaches the parent's title; if one does,
+            the notice stops.
           required: true
           failurePropagation: propagate
       externalCalls:
@@ -3307,6 +3457,7 @@ steps:
     thenAssertions:
       - The memory is stored exactly as the tracker would have stored it.
       - A note that reads like a fact gets no nudge.
+      - The text in the printed command is quoted so that a shell reads it as one word, and nothing in it as a command.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -3512,10 +3663,12 @@ steps:
     title: Describe it to be found, and check
     given: A written formula.
     when: The description and examples are written in the words people use for the work, and dotdiw check is run.
-    then: check reports whether the formula is found from each of its examples, each one taken out of the index while it is searched for, together with the other convention problems -- an uncommitted formula, a formula outside the repository, a description too short to name a situation, a scaffold still carrying TODO, too few examples, a verify-using value it cannot read or one longer than a line, a file of this repository that verify-using names and git does not track, instruction files that do not say where work starts.
+    then: check reports whether the formula is found from each of its examples, each one taken out of the index while it is searched for, together with the other convention problems -- an uncommitted formula, a local formula whose id reads like a registered provider's suffixed id, a formula outside the repository, a description too short to name a situation, a scaffold still carrying TODO, too few examples, a verify-using value it cannot read or one longer than a line, a file of this repository that verify-using names and git does not track, instruction files that do not say where work starts.
     thenAssertions:
       - An example that fails is named, with the formula it should reach.
-      - An uncommitted formula is reported as not yet held.
+      - A formula found in local storage that HEAD does not hold -- new, staged, or under an ignored directory -- is reported as one nobody else can see, whether or not it parses.
+      - A formula file that does not parse is named, since nothing can find it.
+      - A local formula whose id carries the suffix of a registered or removed provider is named with the provider, to rename.
       - The same check runs quietly after every create, and after doctor and lint, printing only the first few problems.
       - A verify-using value check cannot read, one longer than a line, and a file of this repository that a value names and git does not track are each named with the formula; the file is looked for in the checkout, and no remote is contacted.
     relatedObjectIds:
@@ -3563,9 +3716,11 @@ steps:
           failurePropagation: propagate
       externalCalls:
         - dependencyId: dependency.git
-          operationRef: "product.git::ls-files --others --exclude-standard"
+          operationRef: "product.git::ls-tree -z --name-only HEAD"
           callPurpose: >-
-            An uncommitted formula is reported as one nobody else can see.
+            A formula found here that HEAD does not hold -- new, staged, or
+            under an ignored directory -- is reported as one nobody else can
+            see.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::ls-files"
@@ -4323,6 +4478,7 @@ steps:
       - A word split across two reads is still rewritten.
       - Without the tracker on the machine, the worker is told in one line how to install the tracker this checkout chose, and the exit code is 127.
       - The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts.
+      - Under beads, a forwarded command with cook or mol among its words holds the workspace's pour lock, whatever flags come before them, so that no cook lands between a pour's cook and its pour.
     relatedObjectIds:
       - object.tracker-command
     relatedInteractionIds:
@@ -4515,11 +4671,15 @@ steps:
     journeyId: journey.find-a-held-procedure
     sequence: 1
     title: Index the project
-    given: A repository with committed formulas, wherever they sit in the tree.
+    given: A repository with formulas wherever they sit in the tree, and the formula management providers registered under the home.
     when: Anything needs to know what the project holds -- a match, a check, a list, a resolve, a new formula's seed examples.
-    then: The committed formula files are listed with git, parsed, and indexed with the project's own tracked text as background, so that everyday words in this project score as everyday.
+    then: The formula files are found on the file system, every directory whose name starts with a dot left out, no symbolic link followed and only regular files read; each registered provider's formulas are taken from its list, under their suffixed ids; all are indexed with the project's own tracked text as background, so that everyday words in this project score as everyday.
     thenAssertions:
-      - Only git-tracked formula files are indexed; an uncommitted one is invisible here.
+      - An uncommitted formula file is indexed too; git plays no part in finding a formula.
+      - A provider that fails, or answers outside its shape, is left out of the run with one line naming it.
+      - Each provider is asked for its list once per process.
+      - A provider's formula is indexed from its list alone; its text is asked for when it is shown or poured.
+      - A formula file that does not parse is answered by its path, for check to name.
       - The background is capped so that a create stays faster than the tracker call it follows.
       - A Python without tomllib, or a SQLite without FTS5, is reported and the run stops rather than answering that the project holds nothing.
       - A formula's verify-using is read with it and adds nothing to what a title reaches.
@@ -4542,12 +4702,21 @@ steps:
         - sourceKind: manual-decision
           sourceRef: step.index-the-project
           reason: "Reads git and the formula files; builds an in-memory index."
+      calls:
+        - operationId: operation.list-provider-formulas
+          callPurpose: >-
+            List each registered provider's formulas, under their suffixed
+            ids, beside the local ones.
+          required: false
+          failurePropagation: ignore-with-explicit-reason
+          required: false
+          failurePropagation: ignore-with-explicit-reason
       externalCalls:
         - dependencyId: dependency.git
           operationRef: "product.git::ls-files"
           callPurpose: >-
-            Only git-tracked formulas and tracked text are indexed; what git
-            does not hold, the project does not hold.
+            The project's tracked text, the background the formulas are ranked
+            against; git plays no part in finding a formula.
           failurePropagation: propagate
       requestFields:
         - name: root
@@ -4578,8 +4747,30 @@ steps:
             scalar: integer
           required: false
           summary: >-
-            The formula files git lists; more than formulaCount when a file
-            could not be read, and the summary says why.
+            The formula files found on the file system; more than
+            formulaCount when a file could not be read, and the summary says
+            why.
+        - name: providersLeftOut
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            One line for each registered provider that failed or answered
+            outside its shape, left out of this run.
+          cardinality: many
+        - name: unparsed
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            The formula files found that did not parse, by their paths in the
+            checkout; check names each.
         - name: exitCode
           valueType:
             kind: scalar
@@ -4594,11 +4785,12 @@ steps:
     title: List the formulas
     given: Someone asks what procedures the project holds.
     when: They run dotdiw formula list.
-    then: Every committed formula is listed with its id, description and path, and the command to pour one; with --json, the same as data.
+    then: Every formula is listed with its id, its description, and its path or the provider that serves it, and the command to pour one; with --json, the same as data.
     thenAssertions:
       - The answer is about the project, not about the tracker's own two directories.
       - A project with no formulas is told how to write one.
-      - With --json, each formula carries its verify-using.
+      - With --json, each formula carries its verify-using, and a provider formula its provider.
+      - The header says in this repo while every formula listed is in it.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -4606,7 +4798,7 @@ steps:
     relatedInvariantIds:
       - invariant.one-door
       - invariant.only-committed-formulas-are-held
-    expectedUserVisibleOutcome: One line per formula with its path, or the pointer to learn.
+    expectedUserVisibleOutcome: One entry per formula with its path or its provider, or the pointer to learn.
     status: active
     operation:
       kind: query
@@ -4666,11 +4858,12 @@ steps:
     journeyId: journey.find-a-held-procedure
     sequence: 3
     title: Show a formula
-    given: Someone names a formula the project holds.
-    when: They run dotdiw formula show with its id, file name or path.
-    then: The formula is printed as it is written, from where it is written.
+    given: Someone names a formula, in local storage or from a registered provider.
+    when: They run dotdiw formula show with its id, file name or path, or a provider formula's suffixed id.
+    then: The formula is printed as it is written, from where it is written; a provider's formula as its provider shows it, under its suffixed id.
     thenAssertions:
       - The text is the file's, not a rendering of the tracker's cooked copy.
+      - An id refused as ambiguous, as a provider's formula the provider does not serve, or for a provider that failed, is said in one line and never handed to the tracker.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -4710,6 +4903,18 @@ steps:
             scalar: string
           required: true
       responseFields:
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - formula-not-found
+              - ambiguous
+              - provider-formula-unserved
+              - provider-failed
+          required: false
+          summary: >-
+            Why nothing was shown, as resolve-formula answered it; only
+            formula-not-found is handed to the tracker as typed.
         - name: path
           valueType:
             kind: scalar
@@ -4734,12 +4939,15 @@ steps:
     journeyId: journey.find-a-held-procedure
     sequence: 4
     title: Resolve a formula
-    given: An id, a file name or a path that may name a committed formula.
+    given: An id, a file name or a path that may name a formula, or a suffixed id that may name a provider's.
     when: formula pour, mol pour, cook or formula show is given it.
-    then: It resolves to that formula's file in the tree, or to nothing, in which case the command is handed to the tracker as it was typed.
+    then: It resolves to that formula's file in the tree, or to the file a provider's formula is written to under the workspace's home when it is resolved, or to nothing, in which case the command is handed to the tracker as it was typed -- unless the ident carries the suffix of a provider registered or removed, which is refused.
     thenAssertions:
       - The id, the file's base name and the repository-relative path all resolve.
-      - Nothing outside the repository is searched.
+      - An ident with the suffix of a registered or removed provider resolves to that provider's formula alone, never to a local formula by its id or by an alias; any other ident resolves by its id, then by a path exactly as given, then by a file's name. Two formulas at one tier are refused as ambiguous.
+      - An ident with the suffix of a registered or removed provider that names none of its formulas is refused, and never handed to the tracker.
+      - A provider's formula is written to a file only when it is resolved.
+      - Nothing outside the repository and the registered providers is searched.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -4755,14 +4963,22 @@ steps:
         idempotencyClass: query-only
         explanation: >-
           Observes and prints; changes nothing in the project or the tracker.
+          A provider's formula, when one is resolved, is written to the
+          workspace's home.
       derivedFrom:
         - sourceKind: manual-decision
           sourceRef: step.resolve-formula
           reason: "Maps an id to a file; changes nothing."
       calls:
         - operationId: operation.index-the-project
-          callPurpose: "The committed formulas, by id, file name and path."
+          callPurpose: "The formulas, by id, file name and path."
           required: true
+          failurePropagation: propagate
+        - operationId: operation.show-provider-formula
+          callPurpose: >-
+            A provider's formula, written to a file when the ident names one,
+            and only then.
+          required: false
           failurePropagation: propagate
       requestFields:
         - name: root
@@ -4791,6 +5007,20 @@ steps:
             scalar: string
           required: false
           summary: "The repository-relative path of its file."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - formula-not-found
+              - ambiguous
+              - provider-formula-unserved
+              - provider-failed
+          required: false
+          summary: >-
+            Why nothing resolved: no formula, more than one, an ident with a
+            provider's suffix that the provider does not serve, or a provider
+            that failed to show its formula. Only the first is handed to the
+            tracker as typed.
         - name: exitCode
           valueType:
             kind: scalar
@@ -5358,6 +5588,8 @@ steps:
       - The root's description and verify-using come back from show exactly as given, however the adapter stores them, a description that reads like the means included.
       - A pour that made a root and could not keep the means on it fails, naming the root in its answer and in the line said.
       - An adapter that reads the formula's file through path ignores any key it does not know.
+      - Under beads, a pour given a formula's file cooks that file or fails, and never pours a copy the tracker held before.
+      - Under beads, one cook and its pour run at a time in a workspace, since bd keeps one cooked copy per formula id.
     relatedObjectIds:
       - object.tracker
       - object.molecule
@@ -5376,13 +5608,8 @@ steps:
           operationRef: "product.beads::cook --persist --force"
           callPurpose: >-
             Under the beads adapter, from the formula's path: cook it first,
-            every time, so the version poured is the file as it is.
-          failurePropagation: propagate
-        - dependencyId: dependency.beads
-          operationRef: "product.beads::formula show"
-          callPurpose: >-
-            Under the beads adapter, on an older tracker without --force on
-            cook: ask whether it already holds the formula.
+            every time, so the version poured is the file as it is; when it
+            does not cook, nothing is poured.
           failurePropagation: propagate
         - dependencyId: dependency.beads
           operationRef: "product.beads::mol pour"
@@ -6686,6 +6913,10 @@ steps:
     then: The provider is registered under that name, and every formula of it carries the name as a suffix, after a hyphen.
     thenAssertions:
       - The name is alphanumeric.
+      - A name already registered, in any case, is refused, so that a suffix names one provider wherever case does not count.
+      - The location recorded is the one describe answers, a directory by its absolute path, so that it names one store from every directory dotdiw runs in.
+      - The registry is read, changed and written under its lock, so that two registrations never lose one another.
+      - Every index this run built is forgotten, so that the next question reaches the provider.
       - A local formula whose id reads like one of the provider's suffixed ids migrates.
       - For now, the registered provider serves every checkout.
     relatedObjectIds:
@@ -6696,7 +6927,86 @@ steps:
     relatedInvariantIds:
       - invariant.every-provider-formula-carries-its-suffix
     expectedUserVisibleOutcome: The provider's name, which its formulas carry as a suffix.
-    status: draft
+    status: active
+    stateTransitions:
+      - objectId: object.formula-management-provider
+        fromState: eligible
+        toState: registered
+    operation:
+      calls:
+        - operationId: operation.describe-provider
+          callPurpose: >-
+            Learn what the module answers before it is registered, and refuse
+            one that lacks list or show.
+          required: true
+          failurePropagation: propagate
+        - operationId: operation.index-the-project
+          callPurpose: >-
+            Find the checkout's local formulas, to refuse a registration while
+            one reads like the provider's suffixed id.
+          required: true
+          failurePropagation: propagate
+      requestFields:
+        - name: root
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The checkout, where a local formula that clashes is found."
+        - name: name
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "The name to register under, letters and digits."
+        - name: module
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "The provider module a package installed, by its name."
+        - name: location
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "Where the provider keeps its formulas: a directory or a URL."
+      responseFields:
+        - name: provider
+          valueType:
+            kind: type-ref
+            typeId: type.formula-provider
+          required: false
+          summary: "The provider as registered."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - name-not-alphanumeric
+              - name-taken
+              - module-not-found
+              - not-a-provider
+              - lacks-list-or-show
+              - clashing-local-formula
+              - provider-failed
+          required: false
+          summary: "Why nothing was registered."
+        - name: clashing
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Local formulas whose ids read like the provider's suffixed ids.
+          cardinality: many
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: "The process exit code the command line ends with."
   - stepId: step.describe-provider
     journeyId: journey.answer-through-a-formula-provider
     sequence: 2
@@ -6705,7 +7015,9 @@ steps:
     when: A body of dotdiw asks what it answers.
     then: The provider declares which of list, show and create it answers.
     thenAssertions:
+      - Every provider declares list and show, which initial versions require of it.
       - A provider that offers discovery only declares list and show, and not create.
+      - A provider may answer its location as it means it, and that is the location registered; the directory provider answers its directory's absolute path, and refuses a directory that is not there.
     relatedObjectIds:
       - object.formula-management-provider
       - object.formula
@@ -6714,7 +7026,66 @@ steps:
     relatedInvariantIds:
       - invariant.every-provider-formula-carries-its-suffix
     expectedUserVisibleOutcome: Nothing; the declaration is what the other steps answer from.
-    status: draft
+    status: active
+    operation:
+      kind: query
+      idempotency:
+        idempotencyClass: query-only
+        explanation: "Queries do not change product state."
+      requestFields:
+        - name: name
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "A registered provider's name."
+        - name: module
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "A provider module, described before it is registered."
+        - name: location
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The location the module is given."
+      responseFields:
+        - name: answers
+          valueType:
+            kind: list
+            itemType:
+              kind: enum-inline
+              values:
+                - list
+                - show
+                - create
+          required: false
+          summary: "Which of list, show and create the provider answers."
+          cardinality: many
+        - name: provider
+          valueType:
+            kind: type-ref
+            typeId: type.formula-provider
+          required: false
+          summary: "The provider described."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - provider-unknown
+              - module-not-found
+              - not-a-provider
+              - provider-failed
+          required: false
+          summary: "Why the provider could not be described."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: "The process exit code the command line ends with."
   - stepId: step.list-provider-formulas
     journeyId: journey.answer-through-a-formula-provider
     sequence: 3
@@ -6724,6 +7095,8 @@ steps:
     then: Its formulas come back, each under its suffixed id.
     thenAssertions:
       - Every formula carries the provider's name as a suffix.
+      - The whole answer is held to its shape before any of it is taken -- every id letters, digits, dots, hyphens and underscores, starting with a letter or a digit, and listed once; every description text; every list of examples text. A provider that answers outside it is left out of the run in one line, with every one of its formulas.
+      - A store that is not there is a failure, said in that line, and never an empty list.
       - Nothing about the provider reaches a pour or a tracker.
     relatedObjectIds:
       - object.formula-management-provider
@@ -6734,7 +7107,44 @@ steps:
       - invariant.every-provider-formula-carries-its-suffix
       - invariant.formula-storage-apart-from-task-storage
     expectedUserVisibleOutcome: The provider's formulas among the others, each under its suffixed id.
-    status: draft
+    status: active
+    operation:
+      kind: query
+      idempotency:
+        idempotencyClass: query-only
+        explanation: "Queries do not change product state."
+      requestFields:
+        - name: name
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "A registered provider's name."
+      responseFields:
+        - name: formulas
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.held-formula
+          required: false
+          summary: >-
+            Every formula the provider holds, each under its suffixed id.
+          cardinality: many
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - provider-unknown
+              - provider-failed
+          required: false
+          summary: "Why the provider's formulas could not be listed."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: "The process exit code the command line ends with."
   - stepId: step.show-provider-formula
     journeyId: journey.answer-through-a-formula-provider
     sequence: 4
@@ -6744,6 +7154,9 @@ steps:
     then: The formula comes back as the provider keeps it.
     thenAssertions:
       - A pour of it carries nothing about the provider.
+      - Its parsed formula key is set to the suffixed id, however the provider spelled it, and every other value is written out as the provider gave it; the text is taken only when it reads back as exactly that.
+      - It is written under the workspace's home to a file named for a digest of the provider's name, the id and the text, never for the name or the id, written once and never changed, so that a pour reads the very copy the tracker cooks.
+      - It is asked when a formula is shown or poured, and never while the project is indexed.
     relatedObjectIds:
       - object.formula-management-provider
       - object.formula
@@ -6753,7 +7166,76 @@ steps:
       - invariant.every-provider-formula-carries-its-suffix
       - invariant.formula-storage-apart-from-task-storage
     expectedUserVisibleOutcome: The formula as the provider keeps it.
-    status: draft
+    status: active
+    operation:
+      kind: query
+      idempotency:
+        idempotencyClass: query-only
+        explanation: "Queries do not change product state."
+      externalCalls:
+        - dependencyId: dependency.git
+          operationRef: "product.git::config --local --get dotdiw.workspace"
+          callPurpose: >-
+            The checkout's workspace under the home, which the formula's file
+            is written beneath.
+          failurePropagation: propagate
+      requestFields:
+        - name: root
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The checkout whose workspace the formula's file is written under.
+        - name: name
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "A registered provider's name."
+        - name: ident
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: >-
+            The formula's id as the provider gives it, without the suffix.
+      responseFields:
+        - name: formulaRef
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The formula's suffixed id."
+        - name: text
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The formula as the provider keeps it, its id suffixed."
+        - name: path
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The file under the workspace's home the formula is written to, for
+            a pour.
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - provider-unknown
+              - formula-not-found
+              - provider-failed
+          required: false
+          summary: "Why the formula could not be shown."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: "The process exit code the command line ends with."
   - stepId: step.create-provider-formula
     journeyId: journey.answer-through-a-formula-provider
     sequence: 5
@@ -6773,6 +7255,58 @@ steps:
       - invariant.every-provider-formula-carries-its-suffix
     expectedUserVisibleOutcome: The new formula's suffixed id.
     status: draft
+  - stepId: step.remove-provider
+    journeyId: journey.answer-through-a-formula-provider
+    sequence: 6
+    title: Remove a formula management provider
+    given: A registered provider.
+    when: Someone removes it by its name.
+    then: >
+      The registration is gone, and the provider's formulas no longer surface;
+      its package stays installed, so the provider is eligible again.
+    thenAssertions:
+      - Nothing but the registry changes -- under its lock the registration goes, and the name is kept as removed, so that an id with its suffix is refused rather than handed to the tracker.
+      - Every index this run built is forgotten, so that the provider's formulas are gone from the next answer.
+    relatedObjectIds:
+      - object.formula-management-provider
+    relatedInteractionIds:
+      - interaction.answer-through-formula-provider
+    relatedInvariantIds:
+      - invariant.every-provider-formula-carries-its-suffix
+    expectedUserVisibleOutcome: The provider is no longer listed, and its formulas are no longer found.
+    status: active
+    stateTransitions:
+      - objectId: object.formula-management-provider
+        fromState: registered
+        toState: eligible
+    operation:
+      requestFields:
+        - name: name
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "A registered provider's name."
+      responseFields:
+        - name: provider
+          valueType:
+            kind: type-ref
+            typeId: type.formula-provider
+          required: false
+          summary: "The provider removed."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - provider-unknown
+          required: false
+          summary: "Why nothing was removed."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: "The process exit code the command line ends with."
 experience:
   slis:
     - sliId: sli.applicable-formula-surfaces
@@ -6808,7 +7342,7 @@ experience:
       status: active
     - sliId: sli.formula-finds-itself
       name: Formula finds itself
-      description: The share of a project's committed formulas found from every one of their own examples.
+      description: The share of the formulas in a checkout found from every one of their own examples.
       measurementType: success-rate
       unit: percent
       eventSource: dotdiw check
@@ -7503,12 +8037,64 @@ traces:
       status: active
 
 operationTypes:
+  - typeId: type.formula-provider
+    name: FormulaProvider
+    kind: record
+    description: >-
+      A formula management provider as registered: its name, its module, where
+      it keeps its formulas and what it answers.
+    fields:
+      - name: name
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: >-
+          The registered name, letters and digits, and the suffix of its
+          formulas.
+      - name: module
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The provider module a package installed."
+      - name: location
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: "Where the provider keeps its formulas: a directory or a URL."
+      - name: version
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: "The module's version, as its info gives it."
+      - name: answers
+        valueType:
+          kind: list
+          itemType:
+            kind: scalar
+            scalar: string
+        required: false
+        summary: "Which of list, show and create it answers."
+        cardinality: many
+      - name: unavailable
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: >-
+          Why a registered provider cannot answer now -- its module is not
+          installed, or it failed to describe itself -- so that a
+          registration whose name stays taken is never hidden.
   - typeId: type.held-formula
     name: HeldFormula
     kind: record
     description: >-
-      A formula the project holds, as read from its committed file: what
-      ListFormulas lists, MatchFormulas surfaces and the witness records.
+      A formula as dotdiw reads it, from its file in local storage or from
+      its provider's list: what ListFormulas lists, MatchFormulas surfaces and
+      the witness records.
     fields:
       - name: formulaRef
         valueType:
@@ -7537,7 +8123,10 @@ operationTypes:
           kind: scalar
           scalar: string
         required: true
-        summary: "The repository-relative path of the file."
+        summary: >-
+          The repository-relative path of the file; for a provider's formula,
+          the file it is written to once it is shown or poured, and empty
+          before.
       - name: examples
         valueType:
           kind: list
@@ -7559,6 +8148,14 @@ operationTypes:
           its order: run: commands, git+https:// or git+ssh:// files with the
           path after #, and links.
         cardinality: many
+      - name: provider
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: >-
+          The registered provider the formula comes from; absent for a local
+          formula.
   - typeId: type.formula-example
     name: FormulaExample
     kind: record
@@ -7595,8 +8192,8 @@ operationTypes:
         summary: >-
           convention: an instruction file that does not say where work starts,
           or the tracker's directory tracked in git. formula: a formula that
-          is uncommitted, outside the repository, too short to name a
-          situation, still a scaffold, short of examples, not retrieved by one
+          is uncommitted, outside the repository, under an id that reads like
+          a registered provider's suffixed id, too short to name a situation, still a scaffold, short of examples, not retrieved by one
           of its examples, or whose verify-using holds a value check cannot
           read, a value longer than one line, or a file of this repository
           that git does not track.
@@ -7941,7 +8538,6 @@ externalProductDependencies:
       - "init --stealth --skip-hooks --skip-agents"
       - "mol pour"
       - "cook --persist --force"
-      - "formula show"
       - "metrics off"
       - "list --json --brief"
       - "dep add"
@@ -7955,9 +8551,11 @@ externalProductDependencies:
     productId: product.git
     productName: git
     reason: >-
-      git is the registry and the sharing mechanism: a formula the project
-      holds is one git tracks, and it reaches other people as every other file
-      does.
+      git is the sharing mechanism: a formula the project holds is one git
+      tracks, and it reaches other people as every other file does. The
+      project's tracked text is read from it as the background the formulas
+      are ranked against; the formulas themselves are found on the file
+      system.
     boundarySemantics: >-
       The project's own repository, read and never written except two lines
       inside its .git/config -- the key under which this checkout's tracker
@@ -7971,7 +8569,7 @@ externalProductDependencies:
     calledOperations:
       - "rev-parse --show-toplevel"
       - ls-files
-      - "ls-files --others --exclude-standard"
+      - "ls-tree -z --name-only HEAD"
       - "config --get core.hooksPath"
       - "config --unset core.hooksPath"
       - "diff --name-only"
@@ -8876,24 +9474,25 @@ updates:
       - step.list-provider-formulas
       - step.show-provider-formula
       - step.create-provider-formula
+      - step.remove-provider
     summary: >
-      Formulas are reached through a formula management abstraction. A formula
-      management provider behind it can be a file system or an API endpoint;
-      several are hooked in at once, and one may offer discovery only.
-      Installing a package that provides one makes it eligible, and it is
-      registered under an alphanumeric name. Every formula from a registered
-      provider carries that name as a suffix, after a hyphen. A formula
-      without a suffix is in local storage, the file system, where git plays
-      no part in finding it and nothing is committed or kept as history;
-      committing is the concern of a git formula management provider. A
-      provider likely answers list, show and create, in typical API style,
-      and declares which of these it answers. For now, every registered
-      provider serves every checkout. A local formula whose id reads like a
-      provider's suffixed id migrates. Planned: until it lands, the formula
-      term, invariant.only-committed-formulas-are-held, the formula's
-      lifecycle, duty.commit-the-formula and the steps that index, match,
-      resolve, list, show, write, commit, check and pour formulas describe
-      1.0.0, and the declared conventions keep saying to commit a formula.
+      From 2.0.0, formulas are reached through a formula management
+      abstraction. A formula management provider behind it can be a file
+      system or an API endpoint; several are hooked in at once, and one may
+      offer discovery only. Installing a package that provides one makes it
+      eligible, and it is registered under an alphanumeric name. Every formula
+      from a registered provider carries that name as a suffix, after a
+      hyphen. A formula without a suffix is in local storage, the file
+      system, where git plays no part in finding it, and local storage itself
+      commits nothing and keeps no history; committing is the concern of a
+      git formula management provider. Until one ships, a formula in a
+      checkout is shared by committing it, as every other file is, and
+      `dotdiw check` names one git does not track. A provider answers list
+      and show, and create where it can, in typical API style, and declares
+      which of these it answers; initial versions require list and show of
+      every provider. For now, every registered provider serves every
+      checkout. A local formula whose id reads like a provider's suffixed id
+      migrates.
     reason: >
       A formula was a file that one repository's git tracked, so a procedure
       could be kept nowhere else and shared only by committing it. Behind a
@@ -8921,21 +9520,53 @@ updates:
       riskLevel: high
       riskExplanation: >
         Every repository's formulas move from being found through git to being
-        found on the file system. The declared conventions, held to 0.7.0's
-        text in every repository that runs dotdiw, say to commit a formula,
-        and they change in every repository that runs the release that lands
-        this.
+        found on the file system, an uncommitted one included. The declared
+        conventions said an uncommitted formula does not appear in formula
+        list; from 2.0.0 they say it is found on its holder's file system
+        alone, and they change in every repository that runs 2.0.0.
     migrationPlan: >
-      Planned: when it lands, the Carrier's limit that dotdiw cannot see a
-      formula that is not committed, and its substitution envelope's committed
-      formulas, are rewritten for local storage and the providers; in the
-      Praxis, duty.commit-the-formula, evidence.formula-committed-and-found,
-      the formula's lifecycle and the carrier that matches committed formulas
-      are rewritten the same way; the Reliant Enactment's passages stand,
-      since a provider's formula surfaces and pours as a local one does. A
-      local formula whose id reads like a provider's suffixed id migrates.
+      The Carrier's limit on what dotdiw sees, and its substitution
+      envelope's formulas, are rewritten for local storage and the providers;
+      in the Praxis, the carrier that matches formulas, duty.commit-the-formula,
+      antitrace.formula-held-by-one-person and the formula's lifecycle are
+      rewritten the same way, and evidence.formula-committed-and-found
+      stands, since committing is still how a formula in a checkout is
+      shared; the Reliant Enactment's passages stand, since a provider's
+      formula surfaces and pours as a local one does. A local formula whose id
+      reads like a provider's suffixed id is renamed: register refuses while
+      the checkout holds one, and check names one afterwards.
     approvalStatus: draft
     createdAt: "2026-11-08T12:24:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.door
+      summary: >-
+        answer-through-a-formula-provider, register-provider,
+        describe-provider, list-provider-formulas, show-provider-formula and
+        remove-provider join the door, with type.formula-provider for a
+        registered provider. type.held-formula gains provider, the name of the
+        provider that serves the formula. index-the-project finds the local
+        formulas on the file system, calls list-provider-formulas and
+        show-provider-formula for each registered provider, and answers
+        providersLeftOut, one line for each provider it left out of the run,
+        and unparsed, the formula files it could not parse; a provider's
+        formulas are indexed from its list, and resolve-formula
+        calls show-provider-formula when a formula is shown or poured.
+        resolve-formula answers a reason -- formula-not-found, ambiguous,
+        provider-formula-unserved or provider-failed -- and pour-procedure's
+        reason gains the last three, none of them handed to the tracker.
+        type.formula-provider gains unavailable. Migration plan: a local
+        formula whose id reads like a provider's suffixed id is renamed;
+        nothing else moves.
+      reason: >-
+        A formula was a file that one repository's git tracked. Behind a
+        formula management abstraction, where a formula is kept is the
+        provider's business, and the door reaches every provider the same way.
+      compatibility: breaking
+      createdAt: "2026-11-08T12:24:00+08:00"
+      approvalStatus: draft
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >
@@ -8994,22 +9625,3 @@ openQuestions:
       Kept open on 2026-11-06 on the maintainer's word: a root moves as a task,
       its description and verify-using with it, until this is decided. Not
       blocking.
-  - questionId: question.what-a-formula-provider-answers
-    question: >
-      A formula management provider likely answers list, show and create, in
-      typical API style, and declares which of these it answers. Is that what
-      every provider answers?
-    blocksChange: false
-    neededFrom: product-owner
-    targetRefs:
-      - step.describe-provider
-      - step.list-provider-formulas
-      - step.show-provider-formula
-      - step.create-provider-formula
-    decisionNeeded:
-      - other
-    candidateResolutions:
-      - List, show and create, each declared.
-    recommendedDefault: >
-      List, show and create, each declared: approved as likely by the
-      maintainer on 2026-11-08. Not blocking.

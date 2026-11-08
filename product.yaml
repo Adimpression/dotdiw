@@ -47,8 +47,9 @@ conditions:
       and the title is in the words the worker uses for the work.
   - conditionId: condition.formula-is-committed
     statement: >
-      The procedure is a `*.formula.toml` file tracked by git. Uncommitted, it
-      is one person's, and the project does not hold it.
+      The procedure is a `*.formula.toml` file tracked by git, or a formula a
+      registered provider serves. Uncommitted, a file is one person's, found
+      on that person's file system alone, and the project does not hold it.
   - conditionId: condition.described-to-be-found
     statement: >
       The formula's description and examples name the situation in the words
@@ -156,8 +157,9 @@ evidenceOrProof:
       path, with the command that pours one.
   - evidenceId: evidence.check-finds-every-formula
     statement: >
-      `dotdiw check` reports every committed formula reachable from its own
-      examples, each example taken out of the index while it is searched for.
+      `dotdiw check` reports every formula in the checkout reachable from its
+      own examples, each example taken out of the index while it is searched
+      for.
   - evidenceId: evidence.steps-tracked-in-order
     statement: >
       A poured formula is visible as tracked issues whose dependencies refuse
@@ -181,7 +183,7 @@ evidenceOrProof:
 falseSuccessRisks:
   - riskId: risk.silence-read-as-nothing-applies
     statement: >
-      `dotdiw create` prints nothing although a committed formula applies,
+      `dotdiw create` prints nothing although a formula in its reach applies,
       because its description does not use the worker's words.
     whatItWouldCounterfeit: >
       The absence of a procedure, when the project holds one it could not
@@ -387,19 +389,23 @@ promiseChanges:
       that the run did what the formula claims.
   - changeId: change.formulas-behind-a-storage-abstraction
     summary: >
-      Formulas are reached through a formula management abstraction. A formula
-      management provider behind it can be a file system or an API endpoint;
-      several are hooked in at once, and one may offer discovery only.
-      Installing a package that provides one makes it eligible, and it is
-      registered under an alphanumeric name. Every formula from a registered
-      provider carries that name as a suffix, after a hyphen. A formula
-      without a suffix is in local storage, the file system, where git plays
-      no part in finding it and nothing is committed or kept as history;
-      committing is the concern of a git formula management provider. A
-      provider likely answers list, show and create, in typical API style,
-      and declares which of these it answers. For now, every registered
-      provider serves every checkout. A local formula whose id reads like a
-      provider's suffixed id migrates.
+      From 2.0.0, formulas are reached through a formula management
+      abstraction. A formula management provider behind it can be a file
+      system or an API endpoint; several are hooked in at once, and one may
+      offer discovery only. Installing a package that provides one makes it
+      eligible, and it is registered under an alphanumeric name. Every formula
+      from a registered provider carries that name as a suffix, after a
+      hyphen. A formula without a suffix is in local storage, the file
+      system, where git plays no part in finding it, and local storage itself
+      commits nothing and keeps no history; committing is the concern of a
+      git formula management provider. Until one ships, a formula in a
+      checkout is shared by committing it, as every other file is, and
+      `dotdiw check` names one git does not track. A provider answers list
+      and show, and create where it can, in typical API style, and declares
+      which of these it answers; initial versions require list and show of
+      every provider. For now, every registered provider serves every
+      checkout. A local formula whose id reads like a provider's suffixed id
+      migrates.
     compatibility: breaking
     rationale: >
       A formula was a file that one repository's git tracked, so a procedure

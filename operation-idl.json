@@ -113,7 +113,7 @@
       },
       "preconditions": [
         "The repository is adopted.",
-        "The project holds committed formulas."
+        "Formulas are in local storage or served by a registered provider."
       ],
       "postconditions": [
         "The work item exists.",
@@ -218,7 +218,8 @@
         "boundaryIds": [
           "boundary.repository-to-remote",
           "boundary.check-to-report",
-          "boundary.list-to-answer"
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
@@ -574,7 +575,7 @@
         "The repository is adopted."
       ],
       "postconditions": [
-        "Every committed formula appears, with its path, and nothing uncommitted does.",
+        "Every formula in local storage appears with its path, and every provider formula under its suffixed id with its provider.",
         "An id resolves to exactly the file it names."
       ],
       "calls": [
@@ -1097,6 +1098,104 @@
       ]
     },
     {
+      "operationId": "operation.answer-through-a-formula-provider",
+      "name": "AnswerThroughAFormulaProvider",
+      "summary": "Orchestrate the Answer through a formula management provider journey from source artifacts to product-visible completion.",
+      "kind": "orchestration",
+      "status": "active",
+      "visibility": "external-facing",
+      "criticality": "critical",
+      "tracesTo": {
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.answer-through-a-formula-provider"
+        ],
+        "stepIds": [
+          "step.register-provider",
+          "step.describe-provider",
+          "step.list-provider-formulas",
+          "step.show-provider-formula",
+          "step.create-provider-formula",
+          "step.remove-provider"
+        ],
+        "sliIds": [],
+        "sloIds": [],
+        "goldenTraceIds": [],
+        "antiGoldenTraceIds": [],
+        "objectIds": [
+          "object.formula-management-provider",
+          "object.formula"
+        ],
+        "interactionIds": [
+          "interaction.write-procedure",
+          "interaction.check-discoverability",
+          "interaction.find-procedure"
+        ],
+        "invariantIds": [
+          "invariant.every-provider-formula-carries-its-suffix",
+          "invariant.formula-storage-apart-from-task-storage"
+        ],
+        "boundaryIds": [
+          "boundary.repository-to-remote",
+          "boundary.check-to-report",
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
+        ]
+      },
+      "timing": {
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "A file system answers in the same breath and an API endpoint in its network's time; how fresh a provider's formulas are is left to the design.\n"
+      },
+      "requestType": "type.answer-through-a-formula-provider-request",
+      "responseType": "type.answer-through-a-formula-provider-response",
+      "failureTypes": [
+        "type.artifact-not-found-error",
+        "type.open-question-blocked-error"
+      ],
+      "idempotency": {
+        "idempotencyClass": "naturally-idempotent",
+        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+      },
+      "preconditions": [
+        "A package that provides the provider is installed, which makes it eligible."
+      ],
+      "postconditions": [
+        "Every formula from the provider carries its suffix.",
+        "Nothing about the provider reached a pour or a tracker."
+      ],
+      "calls": [
+        {
+          "operationId": "operation.register-provider",
+          "callPurpose": "Register a provider, for the register action.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.remove-provider",
+          "callPurpose": "Remove a provider, for the remove action.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.describe-provider",
+          "callPurpose": "Describe every registered provider, for the list action.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "derivedFrom": [
+        {
+          "sourceKind": "journey-completion",
+          "sourceRef": "journey.answer-through-a-formula-provider",
+          "reason": "Derived from journey completion criteria."
+        }
+      ]
+    },
+    {
       "operationId": "operation.name-the-work",
       "name": "NameTheWork",
       "summary": "Name the work: A work item is created under that title, and it is the first thing that has happened to the work.",
@@ -1245,12 +1344,13 @@
         "explanation": "Observes and prints; changes nothing in the project or the tracker."
       },
       "preconditions": [
-        "The work has just been named and the project holds committed formulas."
+        "The work has just been named, and formulas are in local storage or served by a registered provider."
       ],
       "postconditions": [
-        "Only committed formulas can appear.",
+        "Only formulas in local storage or from a registered provider can appear, each provider formula under its suffixed id.",
         "Silence is printed when nothing crosses the threshold.",
-        "The match is in the same invocation as the create."
+        "The match is in the same invocation as the create.",
+        "The command printed to pour the first resolves to that formula -- its id, or its path when its id carries a provider's suffix, is shared, or would be read as an option, from ./ when the path would be read as one too -- quoted for the shell it is copied into."
       ],
       "calls": [
         {
@@ -1354,6 +1454,8 @@
         "dotdiw mol pour, the older spelling, does the same and prints the same.",
         "A step cannot be closed before the steps it needs.",
         "The root names the formula it was poured from.",
+        "The formula is read once, into a snapshot under the workspace named for a digest of its bytes, and the tracker is handed that snapshot, so that the steps, the description and the means to prove are one version.",
+        "An id refused as ambiguous, as a provider's formula the provider does not serve, or for a provider that failed, never reaches the tracker.",
         "The formula's verify-using goes to the tracker with the root and is shown after the pour."
       ],
       "calls": [
@@ -1445,9 +1547,10 @@
         "The tracker holds a parent of kind task, with three or more children and a blocks dependency among them -- a procedure built by hand."
       ],
       "postconditions": [
-        "A parent whose title a committed formula reaches is not named.",
+        "A parent whose title a formula reaches is not named.",
         "Children without any blocks edge are a checklist and are not named.",
-        "Nothing is written anywhere; the notice is printed."
+        "Nothing is written anywhere; the notice is printed.",
+        "The title and the id in the printed line are quoted so that a shell reads each as one word, and nothing in them as a command."
       ],
       "calls": [
         {
@@ -1458,7 +1561,7 @@
         },
         {
           "operationId": "operation.match-formulas",
-          "callPurpose": "Whether a committed formula already reaches the parent's title; if one does, the notice stops.",
+          "callPurpose": "Whether a formula already reaches the parent's title; if one does, the notice stops.",
           "required": true,
           "failurePropagation": "propagate"
         }
@@ -1544,7 +1647,8 @@
       ],
       "postconditions": [
         "The memory is stored exactly as the tracker would have stored it.",
-        "A note that reads like a fact gets no nudge."
+        "A note that reads like a fact gets no nudge.",
+        "The text in the printed command is quoted so that a shell reads it as one word, and nothing in it as a command."
       ],
       "calls": [],
       "derivedFrom": [
@@ -1667,7 +1771,7 @@
     {
       "operationId": "operation.describe-and-check",
       "name": "DescribeAndCheck",
-      "summary": "Describe it to be found, and check: check reports whether the formula is found from each of its examples, each one taken out of the index while it is searched for, together with the other convention problems -- an uncommitted formula, a formula outside the repository, a description too short to name a situation, a scaffold still carrying TODO, too few examples, a verify-using value it cannot read or one longer than a line, a file of this repository that verify-using names and git does not track, instruction files that do not say where work starts.",
+      "summary": "Describe it to be found, and check: check reports whether the formula is found from each of its examples, each one taken out of the index while it is searched for, together with the other convention problems -- an uncommitted formula, a local formula whose id reads like a registered provider's suffixed id, a formula outside the repository, a description too short to name a situation, a scaffold still carrying TODO, too few examples, a verify-using value it cannot read or one longer than a line, a file of this repository that verify-using names and git does not track, instruction files that do not say where work starts.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -1730,7 +1834,9 @@
       ],
       "postconditions": [
         "An example that fails is named, with the formula it should reach.",
-        "An uncommitted formula is reported as not yet held.",
+        "A formula found in local storage that HEAD does not hold -- new, staged, or under an ignored directory -- is reported as one nobody else can see, whether or not it parses.",
+        "A formula file that does not parse is named, since nothing can find it.",
+        "A local formula whose id carries the suffix of a registered or removed provider is named with the provider, to rename.",
         "The same check runs quietly after every create, and after doctor and lint, printing only the first few problems.",
         "A verify-using value check cannot read, one longer than a line, and a file of this repository that a value names and git does not track are each named with the formula; the file is looked for in the checkout, and no remote is contacted."
       ],
@@ -1769,8 +1875,8 @@
       "externalCalls": [
         {
           "dependencyId": "dependency.git",
-          "operationRef": "product.git::ls-files --others --exclude-standard",
-          "callPurpose": "An uncommitted formula is reported as one nobody else can see.",
+          "operationRef": "product.git::ls-tree -z --name-only HEAD",
+          "callPurpose": "A formula found here that HEAD does not hold -- new, staged, or under an ignored directory -- is reported as one nobody else can see.",
           "failurePropagation": "propagate"
         },
         {
@@ -2437,7 +2543,8 @@
         "Interactive prompts still work.",
         "A word split across two reads is still rewritten.",
         "Without the tracker on the machine, the worker is told in one line how to install the tracker this checkout chose, and the exit code is 127.",
-        "The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts."
+        "The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts.",
+        "Under beads, a forwarded command with cook or mol among its words holds the workspace's pour lock, whatever flags come before them, so that no cook lands between a pour's cook and its pour."
       ],
       "calls": [
         {
@@ -2520,7 +2627,7 @@
     {
       "operationId": "operation.index-the-project",
       "name": "IndexTheProject",
-      "summary": "Index the project: The committed formula files are listed with git, parsed, and indexed with the project's own tracked text as background, so that everyday words in this project score as everyday.",
+      "summary": "Index the project: The formula files are found on the file system, every directory whose name starts with a dot left out, no symbolic link followed and only regular files read; each registered provider's formulas are taken from its list, under their suffixed ids; all are indexed with the project's own tracked text as background, so that everyday words in this project score as everyday.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -2546,7 +2653,8 @@
           "interaction.find-procedure"
         ],
         "boundaryIds": [
-          "boundary.list-to-answer"
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
@@ -2567,15 +2675,26 @@
         "explanation": "Observes and prints; changes nothing in the project or the tracker."
       },
       "preconditions": [
-        "A repository with committed formulas, wherever they sit in the tree."
+        "A repository with formulas wherever they sit in the tree, and the formula management providers registered under the home."
       ],
       "postconditions": [
-        "Only git-tracked formula files are indexed; an uncommitted one is invisible here.",
+        "An uncommitted formula file is indexed too; git plays no part in finding a formula.",
+        "A provider that fails, or answers outside its shape, is left out of the run with one line naming it.",
+        "Each provider is asked for its list once per process.",
+        "A provider's formula is indexed from its list alone; its text is asked for when it is shown or poured.",
+        "A formula file that does not parse is answered by its path, for check to name.",
         "The background is capped so that a create stays faster than the tracker call it follows.",
         "A Python without tomllib, or a SQLite without FTS5, is reported and the run stops rather than answering that the project holds nothing.",
         "A formula's verify-using is read with it and adds nothing to what a title reaches."
       ],
-      "calls": [],
+      "calls": [
+        {
+          "operationId": "operation.list-provider-formulas",
+          "callPurpose": "List each registered provider's formulas, under their suffixed ids, beside the local ones.",
+          "required": false,
+          "failurePropagation": "ignore-with-explicit-reason"
+        }
+      ],
       "derivedFrom": [
         {
           "sourceKind": "gwt-step",
@@ -2592,7 +2711,7 @@
         {
           "dependencyId": "dependency.git",
           "operationRef": "product.git::ls-files",
-          "callPurpose": "Only git-tracked formulas and tracked text are indexed; what git does not hold, the project does not hold.",
+          "callPurpose": "The project's tracked text, the background the formulas are ranked against; git plays no part in finding a formula.",
           "failurePropagation": "propagate"
         }
       ]
@@ -2600,7 +2719,7 @@
     {
       "operationId": "operation.list-formulas",
       "name": "ListFormulas",
-      "summary": "List the formulas: Every committed formula is listed with its id, description and path, and the command to pour one; with --json, the same as data.",
+      "summary": "List the formulas: Every formula is listed with its id, its description, and its path or the provider that serves it, and the command to pour one; with --json, the same as data.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -2626,7 +2745,8 @@
           "interaction.find-procedure"
         ],
         "boundaryIds": [
-          "boundary.list-to-answer"
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
@@ -2652,7 +2772,8 @@
       "postconditions": [
         "The answer is about the project, not about the tracker's own two directories.",
         "A project with no formulas is told how to write one.",
-        "With --json, each formula carries its verify-using."
+        "With --json, each formula carries its verify-using, and a provider formula its provider.",
+        "The header says in this repo while every formula listed is in it."
       ],
       "calls": [
         {
@@ -2678,7 +2799,7 @@
     {
       "operationId": "operation.show-formula",
       "name": "ShowFormula",
-      "summary": "Show a formula: The formula is printed as it is written, from where it is written.",
+      "summary": "Show a formula: The formula is printed as it is written, from where it is written; a provider's formula as its provider shows it, under its suffixed id.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -2704,7 +2825,8 @@
           "interaction.find-procedure"
         ],
         "boundaryIds": [
-          "boundary.list-to-answer"
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
@@ -2725,10 +2847,11 @@
         "explanation": "Observes and prints; changes nothing in the project or the tracker."
       },
       "preconditions": [
-        "Someone names a formula the project holds."
+        "Someone names a formula, in local storage or from a registered provider."
       ],
       "postconditions": [
-        "The text is the file's, not a rendering of the tracker's cooked copy."
+        "The text is the file's, not a rendering of the tracker's cooked copy.",
+        "An id refused as ambiguous, as a provider's formula the provider does not serve, or for a provider that failed, is said in one line and never handed to the tracker."
       ],
       "calls": [
         {
@@ -2754,7 +2877,7 @@
     {
       "operationId": "operation.resolve-formula",
       "name": "ResolveFormula",
-      "summary": "Resolve a formula: It resolves to that formula's file in the tree, or to nothing, in which case the command is handed to the tracker as it was typed.",
+      "summary": "Resolve a formula: It resolves to that formula's file in the tree, or to the file a provider's formula is written to under the workspace's home when it is resolved, or to nothing, in which case the command is handed to the tracker as it was typed -- unless the ident carries the suffix of a provider registered or removed, which is refused.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -2780,7 +2903,8 @@
           "interaction.find-procedure"
         ],
         "boundaryIds": [
-          "boundary.list-to-answer"
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
@@ -2798,20 +2922,29 @@
       "stateTransitions": [],
       "idempotency": {
         "idempotencyClass": "query-only",
-        "explanation": "Observes and prints; changes nothing in the project or the tracker."
+        "explanation": "Observes and prints; changes nothing in the project or the tracker. A provider's formula, when one is resolved, is written to the workspace's home."
       },
       "preconditions": [
-        "An id, a file name or a path that may name a committed formula."
+        "An id, a file name or a path that may name a formula, or a suffixed id that may name a provider's."
       ],
       "postconditions": [
         "The id, the file's base name and the repository-relative path all resolve.",
-        "Nothing outside the repository is searched."
+        "An ident with the suffix of a registered or removed provider resolves to that provider's formula alone, never to a local formula by its id or by an alias; any other ident resolves by its id, then by a path exactly as given, then by a file's name. Two formulas at one tier are refused as ambiguous.",
+        "An ident with the suffix of a registered or removed provider that names none of its formulas is refused, and never handed to the tracker.",
+        "A provider's formula is written to a file only when it is resolved.",
+        "Nothing outside the repository and the registered providers is searched."
       ],
       "calls": [
         {
           "operationId": "operation.index-the-project",
-          "callPurpose": "The committed formulas, by id, file name and path.",
+          "callPurpose": "The formulas, by id, file name and path.",
           "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.show-provider-formula",
+          "callPurpose": "A provider's formula, written to a file when the ident names one, and only then.",
+          "required": false,
           "failurePropagation": "propagate"
         }
       ],
@@ -3302,7 +3435,9 @@
         "The step ids come back in the formula's order.",
         "The root's description and verify-using come back from show exactly as given, however the adapter stores them, a description that reads like the means included.",
         "A pour that made a root and could not keep the means on it fails, naming the root in its answer and in the line said.",
-        "An adapter that reads the formula's file through path ignores any key it does not know."
+        "An adapter that reads the formula's file through path ignores any key it does not know.",
+        "Under beads, a pour given a formula's file cooks that file or fails, and never pours a copy the tracker held before.",
+        "Under beads, one cook and its pour run at a time in a workspace, since bd keeps one cooked copy per formula id."
       ],
       "calls": [],
       "derivedFrom": [
@@ -3316,13 +3451,7 @@
         {
           "dependencyId": "dependency.beads",
           "operationRef": "product.beads::cook --persist --force",
-          "callPurpose": "Under the beads adapter, from the formula's path: cook it first, every time, so the version poured is the file as it is.",
-          "failurePropagation": "propagate"
-        },
-        {
-          "dependencyId": "dependency.beads",
-          "operationRef": "product.beads::formula show",
-          "callPurpose": "Under the beads adapter, on an older tracker without --force on cook: ask whether it already holds the formula.",
+          "callPurpose": "Under the beads adapter, from the formula's path: cook it first, every time, so the version poured is the file as it is; when it does not cook, nothing is poured.",
           "failurePropagation": "propagate"
         },
         {
@@ -4340,6 +4469,375 @@
           "reason": "Derived from a product-visible GWT step."
         }
       ]
+    },
+    {
+      "operationId": "operation.register-provider",
+      "name": "RegisterProvider",
+      "summary": "Register a formula management provider: The provider is registered under that name, and every formula of it carries the name as a suffix, after a hyphen.",
+      "kind": "command",
+      "status": "active",
+      "visibility": "supporting",
+      "criticality": "critical",
+      "tracesTo": {
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.answer-through-a-formula-provider"
+        ],
+        "stepIds": [
+          "step.register-provider"
+        ],
+        "invariantIds": [
+          "invariant.every-provider-formula-carries-its-suffix"
+        ],
+        "objectIds": [
+          "object.formula-management-provider",
+          "object.formula"
+        ],
+        "interactionIds": [
+          "interaction.answer-through-formula-provider"
+        ],
+        "boundaryIds": []
+      },
+      "timing": {
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+      },
+      "requestType": "type.register-provider-request",
+      "responseType": "type.register-provider-response",
+      "failureTypes": [
+        "type.artifact-not-found-error",
+        "type.open-question-blocked-error"
+      ],
+      "stateTransitions": [
+        {
+          "objectId": "object.formula-management-provider",
+          "fromState": "eligible",
+          "toState": "registered",
+          "triggerStepIds": [
+            "step.register-provider"
+          ],
+          "lifecycleContractId": "lifecycle.formula-management-provider",
+          "transitionId": "transition.provider-eligible-to-registered"
+        }
+      ],
+      "idempotency": {
+        "idempotencyClass": "naturally-idempotent",
+        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+      },
+      "preconditions": [
+        "A package that provides a formula management provider is installed, so the provider is eligible."
+      ],
+      "postconditions": [
+        "The name is alphanumeric.",
+        "A name already registered, in any case, is refused, so that a suffix names one provider wherever case does not count.",
+        "The location recorded is the one describe answers, a directory by its absolute path, so that it names one store from every directory dotdiw runs in.",
+        "The registry is read, changed and written under its lock, so that two registrations never lose one another.",
+        "Every index this run built is forgotten, so that the next question reaches the provider.",
+        "A local formula whose id reads like one of the provider's suffixed ids migrates.",
+        "For now, the registered provider serves every checkout."
+      ],
+      "calls": [
+        {
+          "operationId": "operation.describe-provider",
+          "callPurpose": "Learn what the module answers before it is registered, and refuse one that lacks list or show.",
+          "required": true,
+          "failurePropagation": "propagate"
+        },
+        {
+          "operationId": "operation.index-the-project",
+          "callPurpose": "Find the checkout's local formulas, to refuse a registration while one reads like the provider's suffixed id.",
+          "required": true,
+          "failurePropagation": "propagate"
+        }
+      ],
+      "derivedFrom": [
+        {
+          "sourceKind": "gwt-step",
+          "sourceRef": "step.register-provider",
+          "reason": "Derived from a product-visible GWT step."
+        }
+      ]
+    },
+    {
+      "operationId": "operation.describe-provider",
+      "name": "DescribeProvider",
+      "summary": "Describe a formula management provider: The provider declares which of list, show and create it answers.",
+      "kind": "query",
+      "status": "active",
+      "visibility": "supporting",
+      "criticality": "critical",
+      "tracesTo": {
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.answer-through-a-formula-provider"
+        ],
+        "stepIds": [
+          "step.describe-provider"
+        ],
+        "invariantIds": [
+          "invariant.every-provider-formula-carries-its-suffix"
+        ],
+        "objectIds": [
+          "object.formula-management-provider",
+          "object.formula"
+        ],
+        "interactionIds": [
+          "interaction.answer-through-formula-provider"
+        ],
+        "boundaryIds": []
+      },
+      "timing": {
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+      },
+      "requestType": "type.describe-provider-request",
+      "responseType": "type.describe-provider-response",
+      "failureTypes": [
+        "type.artifact-not-found-error",
+        "type.open-question-blocked-error"
+      ],
+      "stateTransitions": [],
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Queries do not change product state."
+      },
+      "preconditions": [
+        "A registered provider."
+      ],
+      "postconditions": [
+        "Every provider declares list and show, which initial versions require of it.",
+        "A provider that offers discovery only declares list and show, and not create.",
+        "A provider may answer its location as it means it, and that is the location registered; the directory provider answers its directory's absolute path, and refuses a directory that is not there."
+      ],
+      "calls": [],
+      "derivedFrom": [
+        {
+          "sourceKind": "gwt-step",
+          "sourceRef": "step.describe-provider",
+          "reason": "Derived from a product-visible GWT step."
+        }
+      ]
+    },
+    {
+      "operationId": "operation.list-provider-formulas",
+      "name": "ListProviderFormulas",
+      "summary": "List a provider's formulas: Its formulas come back, each under its suffixed id.",
+      "kind": "query",
+      "status": "active",
+      "visibility": "supporting",
+      "criticality": "critical",
+      "tracesTo": {
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.answer-through-a-formula-provider"
+        ],
+        "stepIds": [
+          "step.list-provider-formulas"
+        ],
+        "invariantIds": [
+          "invariant.every-provider-formula-carries-its-suffix",
+          "invariant.formula-storage-apart-from-task-storage"
+        ],
+        "objectIds": [
+          "object.formula-management-provider",
+          "object.formula"
+        ],
+        "interactionIds": [
+          "interaction.answer-through-formula-provider"
+        ],
+        "boundaryIds": []
+      },
+      "timing": {
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+      },
+      "requestType": "type.list-provider-formulas-request",
+      "responseType": "type.list-provider-formulas-response",
+      "failureTypes": [
+        "type.artifact-not-found-error",
+        "type.open-question-blocked-error"
+      ],
+      "stateTransitions": [],
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Queries do not change product state."
+      },
+      "preconditions": [
+        "A registered provider that answers list."
+      ],
+      "postconditions": [
+        "Every formula carries the provider's name as a suffix.",
+        "The whole answer is held to its shape before any of it is taken -- every id letters, digits, dots, hyphens and underscores, starting with a letter or a digit, and listed once; every description text; every list of examples text. A provider that answers outside it is left out of the run in one line, with every one of its formulas.",
+        "A store that is not there is a failure, said in that line, and never an empty list.",
+        "Nothing about the provider reaches a pour or a tracker."
+      ],
+      "calls": [],
+      "derivedFrom": [
+        {
+          "sourceKind": "gwt-step",
+          "sourceRef": "step.list-provider-formulas",
+          "reason": "Derived from a product-visible GWT step."
+        }
+      ]
+    },
+    {
+      "operationId": "operation.show-provider-formula",
+      "name": "ShowProviderFormula",
+      "summary": "Show a provider's formula: The formula comes back as the provider keeps it.",
+      "kind": "query",
+      "status": "active",
+      "visibility": "supporting",
+      "criticality": "critical",
+      "tracesTo": {
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.answer-through-a-formula-provider"
+        ],
+        "stepIds": [
+          "step.show-provider-formula"
+        ],
+        "invariantIds": [
+          "invariant.every-provider-formula-carries-its-suffix",
+          "invariant.formula-storage-apart-from-task-storage"
+        ],
+        "objectIds": [
+          "object.formula-management-provider",
+          "object.formula"
+        ],
+        "interactionIds": [
+          "interaction.answer-through-formula-provider"
+        ],
+        "boundaryIds": []
+      },
+      "timing": {
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+      },
+      "requestType": "type.show-provider-formula-request",
+      "responseType": "type.show-provider-formula-response",
+      "failureTypes": [
+        "type.artifact-not-found-error",
+        "type.open-question-blocked-error"
+      ],
+      "stateTransitions": [],
+      "idempotency": {
+        "idempotencyClass": "query-only",
+        "explanation": "Queries do not change product state."
+      },
+      "preconditions": [
+        "A registered provider that answers show, and one of its suffixed ids."
+      ],
+      "postconditions": [
+        "A pour of it carries nothing about the provider.",
+        "Its parsed formula key is set to the suffixed id, however the provider spelled it, and every other value is written out as the provider gave it; the text is taken only when it reads back as exactly that.",
+        "It is written under the workspace's home to a file named for a digest of the provider's name, the id and the text, never for the name or the id, written once and never changed, so that a pour reads the very copy the tracker cooks.",
+        "It is asked when a formula is shown or poured, and never while the project is indexed."
+      ],
+      "calls": [],
+      "derivedFrom": [
+        {
+          "sourceKind": "gwt-step",
+          "sourceRef": "step.show-provider-formula",
+          "reason": "Derived from a product-visible GWT step."
+        }
+      ],
+      "externalCalls": [
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::config --local --get dotdiw.workspace",
+          "callPurpose": "The checkout's workspace under the home, which the formula's file is written beneath.",
+          "failurePropagation": "propagate"
+        }
+      ]
+    },
+    {
+      "operationId": "operation.remove-provider",
+      "name": "RemoveProvider",
+      "summary": "Remove a formula management provider: The registration is gone, and the provider's formulas no longer surface; its package stays installed, so the provider is eligible again.\n",
+      "kind": "command",
+      "status": "active",
+      "visibility": "supporting",
+      "criticality": "critical",
+      "tracesTo": {
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.answer-through-a-formula-provider"
+        ],
+        "stepIds": [
+          "step.remove-provider"
+        ],
+        "invariantIds": [
+          "invariant.every-provider-formula-carries-its-suffix"
+        ],
+        "objectIds": [
+          "object.formula-management-provider"
+        ],
+        "interactionIds": [
+          "interaction.answer-through-formula-provider"
+        ],
+        "boundaryIds": []
+      },
+      "timing": {
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+      },
+      "requestType": "type.remove-provider-request",
+      "responseType": "type.remove-provider-response",
+      "failureTypes": [
+        "type.artifact-not-found-error",
+        "type.open-question-blocked-error"
+      ],
+      "stateTransitions": [
+        {
+          "objectId": "object.formula-management-provider",
+          "fromState": "registered",
+          "toState": "eligible",
+          "triggerStepIds": [
+            "step.remove-provider"
+          ],
+          "lifecycleContractId": "lifecycle.formula-management-provider",
+          "transitionId": "transition.provider-registered-to-eligible"
+        }
+      ],
+      "idempotency": {
+        "idempotencyClass": "naturally-idempotent",
+        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+      },
+      "preconditions": [
+        "A registered provider."
+      ],
+      "postconditions": [
+        "Nothing but the registry changes -- under its lock the registration goes, and the name is kept as removed, so that an id with its suffix is refused rather than handed to the tracker.",
+        "Every index this run built is forgotten, so that the provider's formulas are gone from the next answer."
+      ],
+      "calls": [],
+      "derivedFrom": [
+        {
+          "sourceKind": "gwt-step",
+          "sourceRef": "step.remove-provider",
+          "reason": "Derived from a product-visible GWT step."
+        }
+      ]
     }
   ],
   "types": [
@@ -4716,6 +5214,15 @@
           "cardinality": "many"
         },
         {
+          "name": "pourRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The reference that pours the first formula surfaced: its id, or its path when its id carries a provider's suffix, is shared, or would be read as an option, from ./ when the path would be read as one too."
+        },
+        {
           "name": "surfaced",
           "valueType": {
             "kind": "list",
@@ -4920,7 +5427,7 @@
             "targetRef": "object.formula"
           },
           "required": false,
-          "summary": "The formula poured, resolved from the ident given; absent when the ident named no committed formula and the tracker was asked as typed."
+          "summary": "The formula poured, resolved from the ident given; absent when the ident named no formula and the tracker was asked as typed."
         },
         {
           "name": "stepRefs",
@@ -4946,7 +5453,10 @@
               "adapter-failed",
               "no-steps",
               "step-not-found",
-              "cycle"
+              "cycle",
+              "ambiguous",
+              "provider-formula-unserved",
+              "provider-failed"
             ]
           },
           "required": false,
@@ -6994,7 +7504,32 @@
             "scalar": "integer"
           },
           "required": false,
-          "summary": "The formula files git lists; more than formulaCount when a file could not be read, and the summary says why."
+          "summary": "The formula files found on the file system; more than formulaCount when a file could not be read, and the summary says why."
+        },
+        {
+          "name": "providersLeftOut",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "One line for each registered provider that failed or answered outside its shape, left out of this run.",
+          "cardinality": "many"
+        },
+        {
+          "name": "unparsed",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The formula files found that did not parse, by their paths in the checkout; check names each."
         },
         {
           "name": "exitCode",
@@ -7268,6 +7803,20 @@
           "cardinality": "many"
         },
         {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "formula-not-found",
+              "ambiguous",
+              "provider-formula-unserved",
+              "provider-failed"
+            ]
+          },
+          "required": false,
+          "summary": "Why nothing was shown, as resolve-formula answered it; only formula-not-found is handed to the tracker as typed."
+        },
+        {
           "name": "path",
           "valueType": {
             "kind": "scalar",
@@ -7427,6 +7976,20 @@
           },
           "required": false,
           "summary": "The repository-relative path of its file."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "formula-not-found",
+              "ambiguous",
+              "provider-formula-unserved",
+              "provider-failed"
+            ]
+          },
+          "required": false,
+          "summary": "Why nothing resolved: no formula, more than one, an ident with a provider's suffix that the provider does not serve, or a provider that failed to show its formula. Only the first is handed to the tracker as typed."
         },
         {
           "name": "exitCode",
@@ -10555,6 +11118,866 @@
       ]
     },
     {
+      "typeId": "type.register-provider-request",
+      "name": "RegisterProviderRequest",
+      "kind": "record",
+      "description": "Request for RegisterProvider.",
+      "fields": [
+        {
+          "name": "correlationId",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Stable caller-supplied correlation identifier."
+        },
+        {
+          "name": "sourceRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references used as operation inputs.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaManagementProviderRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula-management-provider"
+          },
+          "required": false,
+          "summary": "Reference to object.formula-management-provider.",
+          "semanticSourceRefs": [
+            "object.formula-management-provider"
+          ]
+        },
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": false,
+          "summary": "Reference to object.formula.",
+          "semanticSourceRefs": [
+            "object.formula"
+          ]
+        },
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The checkout, where a local formula that clashes is found."
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The name to register under, letters and digits."
+        },
+        {
+          "name": "module",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The provider module a package installed, by its name."
+        },
+        {
+          "name": "location",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where the provider keeps its formulas: a directory or a URL."
+        }
+      ]
+    },
+    {
+      "typeId": "type.register-provider-response",
+      "name": "RegisterProviderResponse",
+      "kind": "record",
+      "description": "Response for RegisterProvider.",
+      "fields": [
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "accepted",
+              "completed",
+              "blocked",
+              "failed"
+            ]
+          },
+          "required": true,
+          "summary": "Operation result status."
+        },
+        {
+          "name": "summary",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "Human-readable product outcome."
+        },
+        {
+          "name": "resultRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references produced or affected by the operation.",
+          "cardinality": "many"
+        },
+        {
+          "name": "openQuestionRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "provider",
+          "valueType": {
+            "kind": "type-ref",
+            "typeId": "type.formula-provider"
+          },
+          "required": false,
+          "summary": "The provider as registered."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "name-not-alphanumeric",
+              "name-taken",
+              "module-not-found",
+              "not-a-provider",
+              "lacks-list-or-show",
+              "clashing-local-formula",
+              "provider-failed"
+            ]
+          },
+          "required": false,
+          "summary": "Why nothing was registered."
+        },
+        {
+          "name": "clashing",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Local formulas whose ids read like the provider's suffixed ids.",
+          "cardinality": "many"
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The process exit code the command line ends with."
+        }
+      ]
+    },
+    {
+      "typeId": "type.describe-provider-request",
+      "name": "DescribeProviderRequest",
+      "kind": "record",
+      "description": "Request for DescribeProvider.",
+      "fields": [
+        {
+          "name": "correlationId",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Stable caller-supplied correlation identifier."
+        },
+        {
+          "name": "sourceRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references used as operation inputs.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaManagementProviderRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula-management-provider"
+          },
+          "required": false,
+          "summary": "Reference to object.formula-management-provider.",
+          "semanticSourceRefs": [
+            "object.formula-management-provider"
+          ]
+        },
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": false,
+          "summary": "Reference to object.formula.",
+          "semanticSourceRefs": [
+            "object.formula"
+          ]
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "A registered provider's name."
+        },
+        {
+          "name": "module",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "A provider module, described before it is registered."
+        },
+        {
+          "name": "location",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The location the module is given."
+        }
+      ]
+    },
+    {
+      "typeId": "type.describe-provider-response",
+      "name": "DescribeProviderResponse",
+      "kind": "record",
+      "description": "Response for DescribeProvider.",
+      "fields": [
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "accepted",
+              "completed",
+              "blocked",
+              "failed"
+            ]
+          },
+          "required": true,
+          "summary": "Operation result status."
+        },
+        {
+          "name": "summary",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "Human-readable product outcome."
+        },
+        {
+          "name": "resultRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references produced or affected by the operation.",
+          "cardinality": "many"
+        },
+        {
+          "name": "openQuestionRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "answers",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "enum-inline",
+              "values": [
+                "list",
+                "show",
+                "create"
+              ]
+            }
+          },
+          "required": false,
+          "summary": "Which of list, show and create the provider answers.",
+          "cardinality": "many"
+        },
+        {
+          "name": "provider",
+          "valueType": {
+            "kind": "type-ref",
+            "typeId": "type.formula-provider"
+          },
+          "required": false,
+          "summary": "The provider described."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "provider-unknown",
+              "module-not-found",
+              "not-a-provider",
+              "provider-failed"
+            ]
+          },
+          "required": false,
+          "summary": "Why the provider could not be described."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The process exit code the command line ends with."
+        }
+      ]
+    },
+    {
+      "typeId": "type.list-provider-formulas-request",
+      "name": "ListProviderFormulasRequest",
+      "kind": "record",
+      "description": "Request for ListProviderFormulas.",
+      "fields": [
+        {
+          "name": "correlationId",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Stable caller-supplied correlation identifier."
+        },
+        {
+          "name": "sourceRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references used as operation inputs.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaManagementProviderRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula-management-provider"
+          },
+          "required": false,
+          "summary": "Reference to object.formula-management-provider.",
+          "semanticSourceRefs": [
+            "object.formula-management-provider"
+          ]
+        },
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": false,
+          "summary": "Reference to object.formula.",
+          "semanticSourceRefs": [
+            "object.formula"
+          ]
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "A registered provider's name."
+        }
+      ]
+    },
+    {
+      "typeId": "type.list-provider-formulas-response",
+      "name": "ListProviderFormulasResponse",
+      "kind": "record",
+      "description": "Response for ListProviderFormulas.",
+      "fields": [
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "accepted",
+              "completed",
+              "blocked",
+              "failed"
+            ]
+          },
+          "required": true,
+          "summary": "Operation result status."
+        },
+        {
+          "name": "summary",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "Human-readable product outcome."
+        },
+        {
+          "name": "resultRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references produced or affected by the operation.",
+          "cardinality": "many"
+        },
+        {
+          "name": "openQuestionRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulas",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "type-ref",
+              "typeId": "type.held-formula"
+            }
+          },
+          "required": false,
+          "summary": "Every formula the provider holds, each under its suffixed id.",
+          "cardinality": "many"
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "provider-unknown",
+              "provider-failed"
+            ]
+          },
+          "required": false,
+          "summary": "Why the provider's formulas could not be listed."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The process exit code the command line ends with."
+        }
+      ]
+    },
+    {
+      "typeId": "type.show-provider-formula-request",
+      "name": "ShowProviderFormulaRequest",
+      "kind": "record",
+      "description": "Request for ShowProviderFormula.",
+      "fields": [
+        {
+          "name": "correlationId",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Stable caller-supplied correlation identifier."
+        },
+        {
+          "name": "sourceRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references used as operation inputs.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaManagementProviderRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula-management-provider"
+          },
+          "required": false,
+          "summary": "Reference to object.formula-management-provider.",
+          "semanticSourceRefs": [
+            "object.formula-management-provider"
+          ]
+        },
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": false,
+          "summary": "Reference to object.formula.",
+          "semanticSourceRefs": [
+            "object.formula"
+          ]
+        },
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The checkout whose workspace the formula's file is written under."
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "A registered provider's name."
+        },
+        {
+          "name": "ident",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The formula's id as the provider gives it, without the suffix."
+        }
+      ]
+    },
+    {
+      "typeId": "type.show-provider-formula-response",
+      "name": "ShowProviderFormulaResponse",
+      "kind": "record",
+      "description": "Response for ShowProviderFormula.",
+      "fields": [
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "accepted",
+              "completed",
+              "blocked",
+              "failed"
+            ]
+          },
+          "required": true,
+          "summary": "Operation result status."
+        },
+        {
+          "name": "summary",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "Human-readable product outcome."
+        },
+        {
+          "name": "resultRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references produced or affected by the operation.",
+          "cardinality": "many"
+        },
+        {
+          "name": "openQuestionRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The formula's suffixed id."
+        },
+        {
+          "name": "text",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The formula as the provider keeps it, its id suffixed."
+        },
+        {
+          "name": "path",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The file under the workspace's home the formula is written to, for a pour."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "provider-unknown",
+              "formula-not-found",
+              "provider-failed"
+            ]
+          },
+          "required": false,
+          "summary": "Why the formula could not be shown."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The process exit code the command line ends with."
+        }
+      ]
+    },
+    {
+      "typeId": "type.remove-provider-request",
+      "name": "RemoveProviderRequest",
+      "kind": "record",
+      "description": "Request for RemoveProvider.",
+      "fields": [
+        {
+          "name": "correlationId",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Stable caller-supplied correlation identifier."
+        },
+        {
+          "name": "sourceRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references used as operation inputs.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaManagementProviderRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula-management-provider"
+          },
+          "required": false,
+          "summary": "Reference to object.formula-management-provider.",
+          "semanticSourceRefs": [
+            "object.formula-management-provider"
+          ]
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "A registered provider's name."
+        }
+      ]
+    },
+    {
+      "typeId": "type.remove-provider-response",
+      "name": "RemoveProviderResponse",
+      "kind": "record",
+      "description": "Response for RemoveProvider.",
+      "fields": [
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "accepted",
+              "completed",
+              "blocked",
+              "failed"
+            ]
+          },
+          "required": true,
+          "summary": "Operation result status."
+        },
+        {
+          "name": "summary",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "Human-readable product outcome."
+        },
+        {
+          "name": "resultRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references produced or affected by the operation.",
+          "cardinality": "many"
+        },
+        {
+          "name": "openQuestionRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "provider",
+          "valueType": {
+            "kind": "type-ref",
+            "typeId": "type.formula-provider"
+          },
+          "required": false,
+          "summary": "The provider removed."
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "provider-unknown"
+            ]
+          },
+          "required": false,
+          "summary": "Why nothing was removed."
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The process exit code the command line ends with."
+        }
+      ]
+    },
+    {
       "typeId": "type.start-named-work-request",
       "name": "StartNamedWorkRequest",
       "kind": "record",
@@ -12382,6 +13805,228 @@
       ]
     },
     {
+      "typeId": "type.answer-through-a-formula-provider-request",
+      "name": "AnswerThroughAFormulaProviderRequest",
+      "kind": "record",
+      "description": "Request for AnswerThroughAFormulaProvider.",
+      "fields": [
+        {
+          "name": "correlationId",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Stable caller-supplied correlation identifier."
+        },
+        {
+          "name": "sourceRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references used as operation inputs.",
+          "cardinality": "many"
+        },
+        {
+          "name": "formulaManagementProviderRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula-management-provider"
+          },
+          "required": false,
+          "summary": "Reference to object.formula-management-provider.",
+          "semanticSourceRefs": [
+            "object.formula-management-provider"
+          ]
+        },
+        {
+          "name": "formulaRef",
+          "valueType": {
+            "kind": "reference",
+            "targetRef": "object.formula"
+          },
+          "required": false,
+          "summary": "Reference to object.formula.",
+          "semanticSourceRefs": [
+            "object.formula"
+          ]
+        },
+        {
+          "name": "root",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The checkout, where a local formula that clashes is found."
+        },
+        {
+          "name": "action",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "register",
+              "list",
+              "remove"
+            ]
+          },
+          "required": true,
+          "summary": "What is asked of the providers."
+        },
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The provider's registered name, letters and digits."
+        },
+        {
+          "name": "module",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The provider module a package installed, by its name."
+        },
+        {
+          "name": "location",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where the provider keeps its formulas: a directory or a URL."
+        }
+      ]
+    },
+    {
+      "typeId": "type.answer-through-a-formula-provider-response",
+      "name": "AnswerThroughAFormulaProviderResponse",
+      "kind": "record",
+      "description": "Response for AnswerThroughAFormulaProvider.",
+      "fields": [
+        {
+          "name": "status",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "accepted",
+              "completed",
+              "blocked",
+              "failed"
+            ]
+          },
+          "required": true,
+          "summary": "Operation result status."
+        },
+        {
+          "name": "summary",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "Human-readable product outcome."
+        },
+        {
+          "name": "resultRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Artifact references produced or affected by the operation.",
+          "cardinality": "many"
+        },
+        {
+          "name": "openQuestionRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "provider",
+          "valueType": {
+            "kind": "type-ref",
+            "typeId": "type.formula-provider"
+          },
+          "required": false,
+          "summary": "The provider registered or removed."
+        },
+        {
+          "name": "providers",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "type-ref",
+              "typeId": "type.formula-provider"
+            }
+          },
+          "required": false,
+          "summary": "Every registered provider, with what it answers.",
+          "cardinality": "many"
+        },
+        {
+          "name": "reason",
+          "valueType": {
+            "kind": "enum-inline",
+            "values": [
+              "name-not-alphanumeric",
+              "name-taken",
+              "module-not-found",
+              "not-a-provider",
+              "lacks-list-or-show",
+              "clashing-local-formula",
+              "provider-unknown",
+              "provider-failed"
+            ]
+          },
+          "required": false,
+          "summary": "Why nothing was registered or removed."
+        },
+        {
+          "name": "clashing",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Local formulas whose ids read like the provider's suffixed ids.",
+          "cardinality": "many"
+        },
+        {
+          "name": "exitCode",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "integer"
+          },
+          "required": false,
+          "summary": "The process exit code the command line ends with."
+        }
+      ]
+    },
+    {
       "typeId": "type.artifact-not-found-error",
       "name": "ArtifactNotFoundError",
       "kind": "error",
@@ -12752,10 +14397,76 @@
       ]
     },
     {
+      "typeId": "type.formula-provider",
+      "name": "FormulaProvider",
+      "kind": "record",
+      "description": "A formula management provider as registered: its name, its module, where it keeps its formulas and what it answers.",
+      "fields": [
+        {
+          "name": "name",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The registered name, letters and digits, and the suffix of its formulas."
+        },
+        {
+          "name": "module",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The provider module a package installed."
+        },
+        {
+          "name": "location",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Where the provider keeps its formulas: a directory or a URL."
+        },
+        {
+          "name": "version",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The module's version, as its info gives it."
+        },
+        {
+          "name": "answers",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Which of list, show and create it answers.",
+          "cardinality": "many"
+        },
+        {
+          "name": "unavailable",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "Why a registered provider cannot answer now -- its module is not installed, or it failed to describe itself -- so that a registration whose name stays taken is never hidden."
+        }
+      ]
+    },
+    {
       "typeId": "type.held-formula",
       "name": "HeldFormula",
       "kind": "record",
-      "description": "A formula the project holds, as read from its committed file: what ListFormulas lists, MatchFormulas surfaces and the witness records.",
+      "description": "A formula as dotdiw reads it, from its file in local storage or from its provider's list: what ListFormulas lists, MatchFormulas surfaces and the witness records.",
       "fields": [
         {
           "name": "formulaRef",
@@ -12791,7 +14502,7 @@
             "scalar": "string"
           },
           "required": true,
-          "summary": "The repository-relative path of the file."
+          "summary": "The repository-relative path of the file; for a provider's formula, the file it is written to once it is shown or poured, and empty before."
         },
         {
           "name": "examples",
@@ -12818,6 +14529,15 @@
           "required": false,
           "summary": "The means to prove the formula's run, as the file declares them, in its order: run: commands, git+https:// or git+ssh:// files with the path after #, and links.",
           "cardinality": "many"
+        },
+        {
+          "name": "provider",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The registered provider the formula comes from; absent for a local formula."
         }
       ]
     },
@@ -12863,7 +14583,7 @@
             ]
           },
           "required": true,
-          "summary": "convention: an instruction file that does not say where work starts, or the tracker's directory tracked in git. formula: a formula that is uncommitted, outside the repository, too short to name a situation, still a scaffold, short of examples, not retrieved by one of its examples, or whose verify-using holds a value check cannot read, a value longer than one line, or a file of this repository that git does not track."
+          "summary": "convention: an instruction file that does not say where work starts, or the tracker's directory tracked in git. formula: a formula that is uncommitted, outside the repository, under an id that reads like a registered provider's suffixed id, too short to name a situation, still a scaffold, short of examples, not retrieved by one of its examples, or whose verify-using holds a value check cannot read, a value longer than one line, or a file of this repository that git does not track."
         },
         {
           "name": "where",
@@ -13535,6 +15255,24 @@
       "reason": "Compose operation.write-tracker as a governed journey step."
     },
     {
+      "fromOperationId": "operation.answer-through-a-formula-provider",
+      "toOperationId": "operation.register-provider",
+      "callKind": "synchronous",
+      "reason": "Register a provider, for the register action."
+    },
+    {
+      "fromOperationId": "operation.answer-through-a-formula-provider",
+      "toOperationId": "operation.remove-provider",
+      "callKind": "synchronous",
+      "reason": "Remove a provider, for the remove action."
+    },
+    {
+      "fromOperationId": "operation.answer-through-a-formula-provider",
+      "toOperationId": "operation.describe-provider",
+      "callKind": "synchronous",
+      "reason": "Describe every registered provider, for the list action."
+    },
+    {
       "fromOperationId": "operation.name-the-work",
       "toOperationId": "operation.create-item",
       "callKind": "synchronous",
@@ -13568,7 +15306,7 @@
       "fromOperationId": "operation.notice-handmade-procedures",
       "toOperationId": "operation.match-formulas",
       "callKind": "synchronous",
-      "reason": "Whether a committed formula already reaches the parent's title; if one does, the notice stops."
+      "reason": "Whether a formula already reaches the parent's title; if one does, the notice stops."
     },
     {
       "fromOperationId": "operation.write-formula",
@@ -13661,6 +15399,12 @@
       "reason": "Under an adapter without a pass-through: dep add <id> <needs>."
     },
     {
+      "fromOperationId": "operation.index-the-project",
+      "toOperationId": "operation.list-provider-formulas",
+      "callKind": "synchronous",
+      "reason": "List each registered provider's formulas, under their suffixed ids, beside the local ones."
+    },
+    {
       "fromOperationId": "operation.list-formulas",
       "toOperationId": "operation.index-the-project",
       "callKind": "synchronous",
@@ -13676,7 +15420,13 @@
       "fromOperationId": "operation.resolve-formula",
       "toOperationId": "operation.index-the-project",
       "callKind": "synchronous",
-      "reason": "The committed formulas, by id, file name and path."
+      "reason": "The formulas, by id, file name and path."
+    },
+    {
+      "fromOperationId": "operation.resolve-formula",
+      "toOperationId": "operation.show-provider-formula",
+      "callKind": "synchronous",
+      "reason": "A provider's formula, written to a file when the ident names one, and only then."
     },
     {
       "fromOperationId": "operation.list-trackers",
@@ -13797,6 +15547,18 @@
       "toOperationId": "operation.close-item",
       "callKind": "asynchronous",
       "reason": "Each closed item closed with its reason, in passes, as its needs and children close."
+    },
+    {
+      "fromOperationId": "operation.register-provider",
+      "toOperationId": "operation.describe-provider",
+      "callKind": "synchronous",
+      "reason": "Learn what the module answers before it is registered, and refuse one that lacks list or show."
+    },
+    {
+      "fromOperationId": "operation.register-provider",
+      "toOperationId": "operation.index-the-project",
+      "callKind": "synchronous",
+      "reason": "Find the checkout's local formulas, to refuse a registration while one reads like the provider's suffixed id."
     }
   ],
   "boundaries": [
@@ -13887,14 +15649,26 @@
     {
       "boundaryId": "boundary.list-to-answer",
       "name": "List to answer",
-      "description": "The project's formulas are listed from git and read from disk, answered at once.",
+      "description": "The project's formulas are found on the file system and read from disk, answered at once.",
       "interactionId": "interaction.find-procedure",
       "realWorldProcess": "Someone asks what the project holds, or names a formula by id.",
       "realWorldLatencyClass": "under-1s",
       "separationAllowed": false,
       "consistencyExpectation": "strong",
-      "causalityJustification": "The answer is a git listing and a few small files; nothing justifies waiting for it or asking anything outside the repository.\n",
+      "causalityJustification": "The answer is a walk of the tree and a few small files; nothing justifies waiting for it or asking anything outside the repository.\n",
       "userVisibleImpact": "The formulas the project holds, with their paths, or one formula's text."
+    },
+    {
+      "boundaryId": "boundary.provider-to-answer",
+      "name": "Provider to answer",
+      "description": "A registered provider lists its formulas, asked once per process, and shows one when it is shown or poured.",
+      "interactionId": "interaction.find-procedure",
+      "realWorldProcess": "A file system or an API endpoint answers list and show.",
+      "realWorldLatencyClass": "mixed",
+      "separationAllowed": false,
+      "consistencyExpectation": "strong",
+      "causalityJustification": "dotdiw waits for each provider's answer, asked once per process. A provider takes what its store takes, a directory read or a call to an endpoint, and how fresh its formulas are across processes is its own.\n",
+      "userVisibleImpact": "The provider's formulas beside the local ones, or one line naming a provider left out of the run."
     },
     {
       "boundaryId": "boundary.learn-to-text",
@@ -13933,7 +15707,6 @@
         "init --stealth --skip-hooks --skip-agents",
         "mol pour",
         "cook --persist --force",
-        "formula show",
         "metrics off",
         "list --json --brief",
         "dep add",
@@ -13949,12 +15722,12 @@
       "dependencyId": "dependency.git",
       "productId": "product.git",
       "productName": "git",
-      "reason": "git is the registry and the sharing mechanism: a formula the project holds is one git tracks, and it reaches other people as every other file does.",
+      "reason": "git is the sharing mechanism: a formula the project holds is one git tracks, and it reaches other people as every other file does. The project's tracked text is read from it as the background the formulas are ranked against; the formulas themselves are found on the file system.",
       "boundarySemantics": "The project's own repository, read and never written except two lines inside its .git/config -- the key under which this checkout's tracker lives, and the adapter it was chosen to go through, local to the clone and never in the tree: dotdiw lists tracked and untracked files, reads and unsets one hooks key that an earlier version let the tracker set, and reads status for the declaration files. For a tracker check it makes a scratch repository of its own under a temporary directory and removes it. It never commits, pushes, syncs or changes the index. It has no POA IDL; the commands below are what dotdiw calls.",
       "calledOperations": [
         "rev-parse --show-toplevel",
         "ls-files",
-        "ls-files --others --exclude-standard",
+        "ls-tree -z --name-only HEAD",
         "config --get core.hooksPath",
         "config --unset core.hooksPath",
         "diff --name-only",
@@ -14685,6 +16458,33 @@
         ],
         "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
+    },
+    {
+      "bindingId": "binding.cli-formula-provider",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.answer-through-a-formula-provider",
+      "affordance": {
+        "label": "dotdiw formula provider",
+        "shape": "Register, list and remove the formula management providers every checkout reaches.",
+        "command": "dotdiw formula provider register <name> <module> [--at <location>] | list | remove <name>"
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.answer-through-a-formula-provider"
+        ],
+        "stepIds": [
+          "step.register-provider",
+          "step.describe-provider",
+          "step.list-provider-formulas",
+          "step.show-provider-formula",
+          "step.remove-provider"
+        ]
+      }
     }
   ],
   "implementationBindings": [
@@ -14991,7 +16791,9 @@
       "implementationUnit": "promise_bindings::IndexTheProject",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "calledOperationIds": [],
+      "calledOperationIds": [
+        "operation.list-provider-formulas"
+      ],
       "notes": "The body is dotdiw::IndexTheProject, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
@@ -15023,7 +16825,8 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "calledOperationIds": [
-        "operation.index-the-project"
+        "operation.index-the-project",
+        "operation.show-provider-formula"
       ],
       "notes": "The body is dotdiw::ResolveFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
@@ -15284,6 +17087,67 @@
       "privateHelpersUsed": false,
       "calledOperationIds": [],
       "notes": "The body is dotdiw::WriteTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.answer-through-a-formula-provider",
+      "operationId": "operation.answer-through-a-formula-provider",
+      "implementationUnit": "promise_bindings::AnswerThroughAFormulaProvider",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "calledOperationIds": [
+        "operation.register-provider",
+        "operation.remove-provider",
+        "operation.describe-provider"
+      ],
+      "notes": "The body is dotdiw::AnswerThroughAFormulaProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.register-provider",
+      "operationId": "operation.register-provider",
+      "implementationUnit": "promise_bindings::RegisterProvider",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "calledOperationIds": [
+        "operation.describe-provider",
+        "operation.index-the-project"
+      ],
+      "notes": "The body is dotdiw::RegisterProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.describe-provider",
+      "operationId": "operation.describe-provider",
+      "implementationUnit": "promise_bindings::DescribeProvider",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "calledOperationIds": [],
+      "notes": "The body is dotdiw::DescribeProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.list-provider-formulas",
+      "operationId": "operation.list-provider-formulas",
+      "implementationUnit": "promise_bindings::ListProviderFormulas",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "calledOperationIds": [],
+      "notes": "The body is dotdiw::ListProviderFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.show-provider-formula",
+      "operationId": "operation.show-provider-formula",
+      "implementationUnit": "promise_bindings::ShowProviderFormula",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "calledOperationIds": [],
+      "notes": "The body is dotdiw::ShowProviderFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.remove-provider",
+      "operationId": "operation.remove-provider",
+      "implementationUnit": "promise_bindings::RemoveProvider",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "calledOperationIds": [],
+      "notes": "The body is dotdiw::RemoveProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     }
   ],
   "projections": [
@@ -15383,23 +17247,6 @@
         "step.create-item"
       ],
       "question": "create-item takes no kind, so tracker migrate moves a root as a task, and the notice about procedures built by hand can then name it. How does migrate bring a root across as a root?\n",
-      "blocksChange": false,
-      "neededFrom": "product-owner",
-      "decisionNeeded": [
-        "other"
-      ],
-      "candidateResolutions": [],
-      "recommendedDefault": null
-    },
-    {
-      "questionId": "question.what-a-formula-provider-answers",
-      "targetRefs": [
-        "step.describe-provider",
-        "step.list-provider-formulas",
-        "step.show-provider-formula",
-        "step.create-provider-formula"
-      ],
-      "question": "A formula management provider likely answers list, show and create, in typical API style, and declares which of these it answers. Is that what every provider answers?\n",
       "blocksChange": false,
       "neededFrom": "product-owner",
       "decisionNeeded": [
@@ -15545,6 +17392,19 @@
       "reason": "A formula said what to do and how its steps follow each other. Steps closed in order show that the order was kept; the means to prove show that the run did what the formula claims.",
       "compatibility": "additive",
       "createdAt": "2026-11-06T19:40:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.formulas-behind-a-storage-abstraction",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.door"
+      ],
+      "summary": "answer-through-a-formula-provider, register-provider, describe-provider, list-provider-formulas, show-provider-formula and remove-provider join the door, with type.formula-provider for a registered provider. type.held-formula gains provider, the name of the provider that serves the formula. index-the-project finds the local formulas on the file system, calls list-provider-formulas and show-provider-formula for each registered provider, and answers providersLeftOut, one line for each provider it left out of the run, and unparsed, the formula files it could not parse; a provider's formulas are indexed from its list, and resolve-formula calls show-provider-formula when a formula is shown or poured. resolve-formula answers a reason -- formula-not-found, ambiguous, provider-formula-unserved or provider-failed -- and pour-procedure's reason gains the last three, none of them handed to the tracker. type.formula-provider gains unavailable. Migration plan: a local formula whose id reads like a provider's suffixed id is renamed; nothing else moves.",
+      "reason": "A formula was a file that one repository's git tracked. Behind a formula management abstraction, where a formula is kept is the provider's business, and the door reaches every provider the same way.",
+      "compatibility": "breaking",
+      "createdAt": "2026-11-08T12:24:00+08:00",
       "approvalStatus": "draft"
     }
   ],

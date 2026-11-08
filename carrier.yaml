@@ -16,7 +16,7 @@ carriers:
     limits:
       - cannot make anyone follow what it surfaced
       - cannot match prose
-      - cannot see a formula that is not committed
+      - cannot see a formula outside its checkout and the providers registered under its home
       - cannot tell whether a run was proved
   - carrierId: projectInstructions
     carrierKind: hybrid
@@ -34,9 +34,10 @@ carriers:
     limits:
       - surfaces nothing itself; dotdiw matches a title and pours what applies
       - one that offers discovery only cannot create a formula
+      - one that fails is left out of the run, and its formulas with it
 substitutionEnvelope:
   maySubstituteWhen:
-    - any carrier runs the same dotdiw file against the same committed formulas
+    - any carrier runs the same dotdiw file against the same formulas, in the checkout and from the registered providers
   equivalentFor:
     - which formulas surface for a title
   notEquivalentFor:

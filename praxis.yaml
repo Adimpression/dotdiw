@@ -42,9 +42,9 @@ minimumReview:
       name: The dotdiw command
       kind: software
       howCarries: >
-        Matches the title against the committed formulas in the same
-        invocation that records the work, and prints the ones that apply with
-        the command that pours them. Once one is poured, it shows the means
+        Matches the title against the formulas in local storage and those the
+        registered providers serve, in the same invocation that records the
+        work, and prints the ones that apply with the command that pours them. Once one is poured, it shows the means
         its formula names to prove the run.
     - carrierId: carrier.project-instructions
       name: The project's own instruction files
@@ -109,7 +109,8 @@ minimumReview:
         Commit the formula file as the last step of writing it, and leave the
         rest of your changes as they are.
       whyItMatters: >
-        Uncommitted, the project does not hold it, and `dotdiw check` says so.
+        Uncommitted, it is found on its holder's file system alone, nobody
+        else's create reaches it, and `dotdiw check` says so.
     - dutyId: duty.rewrite-what-drifted
       statement: >
         When a surfaced step's own words no longer match the tool in front of
@@ -312,8 +313,9 @@ praxisModel:
           - recordId: antitrace.formula-held-by-one-person
             title: A formula held by one person
             summary: >
-              A formula written and never committed. `dotdiw check` reports it
-              as not held; nobody else's create can reach it.
+              A formula written and never committed. It surfaces in its
+              author's checkout alone, `dotdiw check` reports it as not
+              committed, and nobody else's create can reach it.
             sourceField: traces.antiGolden
             fields: []
     objectLifecycleContracts:
@@ -412,7 +414,7 @@ praxisModel:
           - stateId: repeated
             meaning: The procedure exists only as something done by hand, more than once.
           - stateId: written
-            meaning: A `*.formula.toml` file exists, next to what it is about, uncommitted.
+            meaning: A `*.formula.toml` file exists, next to what it is about, uncommitted, and is found on its holder's file system alone.
           - stateId: findable
             meaning: "`dotdiw check` finds the formula from each of its own examples."
           - stateId: held
@@ -499,8 +501,23 @@ praxisModel:
             requiredProof:
               - Every formula of the provider surfaces under the name as a suffix.
             betrayalRisk: A local formula and a provider's formula read as one id, and one is followed for the other.
+          - transitionId: transition.provider-registered-to-eligible
+            fromState: registered
+            toState: eligible
+            lawfulWhen: Someone removes the registration by the provider's name; its package stays installed.
+            authorizedBy:
+              - duty.register-a-provider-under-its-name
+            requiredProof:
+              - The provider is no longer listed, and none of its formulas surface.
+            betrayalRisk: A removed provider's formulas still surface, from a list kept from before.
         forbiddenTransitions: []
-        poaBindings: []
+        poaBindings:
+          - operationId: operation.register-provider
+            transitionIds:
+              - transition.provider-eligible-to-registered
+          - operationId: operation.remove-provider
+            transitionIds:
+              - transition.provider-registered-to-eligible
         cescWitnessExpectations: []
         status: draft
 metadata:
