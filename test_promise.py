@@ -56,7 +56,7 @@ SCRIPT = os.path.join(HERE, "dotdiw")
 IDL = os.path.join(HERE, "operation-idl.json")
 BINDINGS = os.path.join(HERE, "promise_bindings.py")
 CONTRACT = os.path.join(HERE, "contracts", "named-work-found-its-procedure.cesc.yaml")
-FINISH = os.path.join(HERE, "poa", "finish-idl.py")
+COMPLETE = os.path.join(HERE, "poa", "complete-idl.py")
 WATERMARKS = os.path.join(HERE, "events", "source-watermarks.yaml")
 POA = os.path.expanduser("~/poa")
 
@@ -260,12 +260,12 @@ def load_module(name, path):
     return module
 
 
-FINISHER = load_module("finish_idl_for_sorts", FINISH)
+COMPLETER = load_module("complete_idl_for_sorts", COMPLETE)
 
 
 def inner_ids(idl):
     """The tracker interface's operations: an adapter answers, no body."""
-    return {o["operationId"] for o in FINISHER.inner_operations(idl)}
+    return {o["operationId"] for o in COMPLETER.inner_operations(idl)}
 
 
 def pending_ids(idl):
@@ -853,17 +853,17 @@ class TheDoor(unittest.TestCase):
         cls.operations = bodies_of(cls.idl)
 
     def test_the_interface_number_moves_by_decision(self):
-        """A change to what a module has to answer stops the finisher until
+        """A change to what a module has to answer stops poa/complete-idl.py until
         someone has decided whether to raise the number. A change to the words
         does not, and neither does a change outside the interface."""
-        finish = load_module("finish_idl_under_test", FINISH)
-        patches = finish.load(finish.PATCHES)
+        complete = load_module("complete_idl_under_test", COMPLETE)
+        manifest = complete.load(complete.IMPLEMENTATION)
         self.assertEqual(
-            finish.interface_digest(self.idl),
-            patches["trackerInterface"]["digest"],
-            "the interface's types changed; run python3 -I poa/finish-idl.py and decide",
+            complete.interface_digest(self.idl),
+            manifest["trackerInterface"]["digest"],
+            "the interface's types changed; run uv run python poa/complete-idl.py and decide",
         )
-        self.assertIsNone(finish.interface_changed(self.idl, patches))
+        self.assertIsNone(complete.interface_changed(self.idl, manifest))
 
         def changed(type_id, change):
             idl = copy.deepcopy(self.idl)
@@ -873,7 +873,7 @@ class TheDoor(unittest.TestCase):
         words = changed(
             "type.create-item-request", lambda t: t["fields"][0].update(summary="Other words.")
         )
-        self.assertIsNone(finish.interface_changed(words, patches))
+        self.assertIsNone(complete.interface_changed(words, manifest))
         elsewhere = changed(
             "type.write-formula-request",
             lambda t: t["fields"].append(
@@ -884,7 +884,7 @@ class TheDoor(unittest.TestCase):
                 }
             ),
         )
-        self.assertIsNone(finish.interface_changed(elsewhere, patches))
+        self.assertIsNone(complete.interface_changed(elsewhere, manifest))
         for type_id in ("type.create-item-request", "type.tracker-item"):
             with self.subTest(type=type_id):
                 added = changed(
@@ -897,53 +897,53 @@ class TheDoor(unittest.TestCase):
                         }
                     ),
                 )
-                said = finish.interface_changed(added, patches)
-                self.assertIn(finish.interface_digest(added), said)
-                self.assertIn("interface %d" % patches["trackerInterface"]["number"], said)
+                said = complete.interface_changed(added, manifest)
+                self.assertIn(complete.interface_digest(added), said)
+                self.assertIn("interface %d" % manifest["trackerInterface"]["number"], said)
 
     def test_the_table_is_a_fresh_generation_from_the_idl(self):
-        """The region between the markers is what finish-idl writes today."""
-        finish = load_module("finish_idl_under_test", FINISH)
+        """The region between the markers is what complete-idl writes today."""
+        complete = load_module("complete_idl_under_test", COMPLETE)
         with open(SCRIPT, encoding="utf-8") as fh:
             text = fh.read()
-        self.assertEqual(text.count(finish.DOOR_OPEN), 1)
-        self.assertEqual(text.count(finish.DOOR_CLOSE), 1)
-        start = text.index(finish.DOOR_OPEN)
-        end = text.index(finish.DOOR_CLOSE) + len(finish.DOOR_CLOSE)
+        self.assertEqual(text.count(complete.DOOR_OPEN), 1)
+        self.assertEqual(text.count(complete.DOOR_CLOSE), 1)
+        start = text.index(complete.DOOR_OPEN)
+        end = text.index(complete.DOOR_CLOSE) + len(complete.DOOR_CLOSE)
         self.assertEqual(
             text[start:end],
-            finish.door_source(self.idl),
+            complete.door_source(self.idl),
             "the door's table is not what operation-idl.json generates; "
-            "run python3 -I poa/finish-idl.py",
+            "run uv run python poa/complete-idl.py",
         )
-        self.assertEqual(text.count(finish.SKELETON_OPEN), 1)
-        self.assertEqual(text.count(finish.SKELETON_CLOSE), 1)
-        start = text.index(finish.SKELETON_OPEN)
-        end = text.index(finish.SKELETON_CLOSE) + len(finish.SKELETON_CLOSE)
+        self.assertEqual(text.count(complete.SKELETON_OPEN), 1)
+        self.assertEqual(text.count(complete.SKELETON_CLOSE), 1)
+        start = text.index(complete.SKELETON_OPEN)
+        end = text.index(complete.SKELETON_CLOSE) + len(complete.SKELETON_CLOSE)
         self.assertEqual(
             text[start:end],
-            finish.skeleton_source(self.idl),
+            complete.skeleton_source(self.idl),
             "the file a tracker starts from is not what operation-idl.json generates; "
-            "run python3 -I poa/finish-idl.py",
+            "run uv run python poa/complete-idl.py",
         )
-        self.assertEqual(text.count(finish.TRACKER_OPEN), 1)
-        self.assertEqual(text.count(finish.TRACKER_CLOSE), 1)
-        start = text.index(finish.TRACKER_OPEN)
-        end = text.index(finish.TRACKER_CLOSE) + len(finish.TRACKER_CLOSE)
+        self.assertEqual(text.count(complete.TRACKER_OPEN), 1)
+        self.assertEqual(text.count(complete.TRACKER_CLOSE), 1)
+        start = text.index(complete.TRACKER_OPEN)
+        end = text.index(complete.TRACKER_CLOSE) + len(complete.TRACKER_CLOSE)
         self.assertEqual(
             text[start:end],
-            finish.tracker_door_source(self.idl),
+            complete.tracker_door_source(self.idl),
             "the tracker door's table is not what operation-idl.json generates; "
-            "run python3 -I poa/finish-idl.py",
+            "run uv run python poa/complete-idl.py",
         )
-        self.assertEqual(text.count(finish.TYPES_OPEN), 1)
-        self.assertEqual(text.count(finish.TYPES_CLOSE), 1)
-        start = text.index(finish.TYPES_OPEN)
-        end = text.index(finish.TYPES_CLOSE) + len(finish.TYPES_CLOSE)
+        self.assertEqual(text.count(complete.TYPES_OPEN), 1)
+        self.assertEqual(text.count(complete.TYPES_CLOSE), 1)
+        start = text.index(complete.TYPES_OPEN)
+        end = text.index(complete.TYPES_CLOSE) + len(complete.TYPES_CLOSE)
         self.assertEqual(
             text[start:end],
-            finish.types_source(self.idl),
-            "the types are not what operation-idl.json generates; run python3 -I poa/finish-idl.py",
+            complete.types_source(self.idl),
+            "the types are not what operation-idl.json generates; run uv run python poa/complete-idl.py",
         )
         # And the tables the program runs are the ones in the file.
         module = load_module("dotdiw_door_table", SCRIPT)

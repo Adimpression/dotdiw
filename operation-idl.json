@@ -32,7 +32,10 @@
     "term.declared-moment",
     "term.check",
     "term.root",
-    "term.verify-using"
+    "term.verify-using",
+    "term.formula-management-provider",
+    "term.local-storage",
+    "term.suffixed-id"
   ],
   "operations": [
     {
@@ -15317,7 +15320,7 @@
       "projectionKind": "python-dispatcher",
       "status": "generated",
       "outputPath": "dotdiw",
-      "generator": "poa/finish-idl.py writes the door's table into dotdiw between markers, from operation-idl.json: for every operation, the body's name and the fields of its request and its response, the required ones named. invoke, DoorError and witness_from beside it are hand-written",
+      "generator": "poa/complete-idl.py writes the door's table into dotdiw between markers, from operation-idl.json: for every operation, the body's name and the fields of its request and its response, the required ones named. invoke, DoorError and witness_from beside it are hand-written",
       "notes": "The one way an operation is invoked, by id and with a request dict. The request is held to its type on the way in and the response to its own on the way out; a key outside either raises DoorError naming the operation and the key. The witness log is appended from the response, and the response is shown by the presenter the interface installs, so every transport runs the same bodies. test_promise.py regenerates the table and fails on any difference."
     },
     {
@@ -15325,7 +15328,7 @@
       "projectionKind": "python-protocol",
       "status": "generated",
       "outputPath": "dotdiw",
-      "generator": "poa/finish-idl.py writes the inner door's table into dotdiw between its own markers, from operation-idl.json: for every operation of the tracker interface, the fields of its request and its response, the required ones named. invoke_tracker, register_tracker and load_tracker beside it are hand-written",
+      "generator": "poa/complete-idl.py writes the inner door's table into dotdiw between its own markers, from operation-idl.json: for every operation of the tracker interface, the fields of its request and its response, the required ones named. invoke_tracker, register_tracker and load_tracker beside it are hand-written",
       "notes": "The tracker interface as a protocol every adapter implements: a table from operation id to one callable of one request. The registry holds adapters by name; the door resolves the adapter from the request, the workspace's key, or the shipped default, holds both sides to their types, and returns the adapter's records. test_promise.py regenerates the table and fails on any difference."
     }
   ],
@@ -15380,6 +15383,23 @@
         "step.create-item"
       ],
       "question": "create-item takes no kind, so tracker migrate moves a root as a task, and the notice about procedures built by hand can then name it. How does migrate bring a root across as a root?\n",
+      "blocksChange": false,
+      "neededFrom": "product-owner",
+      "decisionNeeded": [
+        "other"
+      ],
+      "candidateResolutions": [],
+      "recommendedDefault": null
+    },
+    {
+      "questionId": "question.what-a-formula-provider-answers",
+      "targetRefs": [
+        "step.describe-provider",
+        "step.list-provider-formulas",
+        "step.show-provider-formula",
+        "step.create-provider-formula"
+      ],
+      "question": "A formula management provider likely answers list, show and create, in typical API style, and declares which of these it answers. Is that what every provider answers?\n",
       "blocksChange": false,
       "neededFrom": "product-owner",
       "decisionNeeded": [

@@ -1,5 +1,5 @@
 formula = "mol-check-promise-artifacts"
-description = "Re-derive and check the files that write dotdiw's promise down and bind the program to them: validate the thin Product with pd, the Praxis against its schema, and the POA source model; derive operation-idl.json and finish it with poa/finish-idl.py, which writes the doors and the record types into dotdiw; validate and check the IDL; check the witness contract and replay its golden and anti-golden traces; sweep the journeys; format, lint and type-check the tree with ruff and mypy through uv; run the promise tests and the adoption tests; run the gRPC conformance harness with Buf. Use when product.yaml, praxis.yaml, poa/product-model.yaml, the IDL additions or patches, a contract, a fixture or dotdiw itself changes, when a release changes what dotdiw does or promises, or when poa check, a replay, the sweep, conform or a test fails."
+description = "Re-derive and check the files that write dotdiw's promise down and bind the program to them: validate the thin Product with pd, the Praxis against its schema, and the POA source model; derive operation-idl.json and complete it from the governed source with poa/complete-idl.py, which writes the doors and the record types into dotdiw; validate and check the IDL; check the witness contract and replay its golden and anti-golden traces; sweep the journeys; format, lint and type-check the tree with ruff and mypy through uv; run the promise tests and the adoption tests; run the gRPC conformance harness with Buf. Use when product.yaml, praxis.yaml, poa/product-model.yaml, a binding manifest, the contract's bindings, a contract, a fixture or dotdiw itself changes, when a release changes what dotdiw does or promises, or when poa check, a replay, the sweep, conform or a test fails."
 examples = [
   "Re-derive the operation IDL",
   "Check the promise artifacts",
@@ -16,16 +16,18 @@ verify-using = [
   "run:~/poa sweep --product-model poa/product-model.yaml --idl operation-idl.json --include-cesc --cesc contracts/named-work-found-its-procedure.cesc.yaml --source poa/product-model.yaml",
   "run:python3 -I test_promise.py",
 ]
-version = 5
+version = 6
 type = "workflow"
 
 # Written after running this sequence twice by hand on 2026-11-01, and again
 # after binding the program on the same day. The tools are the This-Ness
 # binaries at ~/pd, ~/px and ~/poa; nothing here is on PATH. derive rewrites
-# operation-idl.json from scratch, which is why everything it cannot know lives
-# in poa/idl-additions.json and poa/idl-patches.json and is put back by
-# poa/finish-idl.py -- forget that step and poa check fails on the generated
-# bindings while the sweep loses the contract.
+# operation-idl.json from scratch from poa/product-model.yaml and leaves out
+# what each operation takes, returns and calls, which the model declares in
+# each step's and journey's operation block; poa/complete-idl.py writes it in
+# from the model and the files POA keeps beside the IDL -- forget that step and
+# poa check fails on the generated bindings while the sweep loses the
+# contract.
 #
 # Two things about conform are not guessable. POA's frozen interpreter bundles
 # protobuf runtime 7.35.1, and Buf's current python plugin generates for a
@@ -35,8 +37,8 @@ type = "workflow"
 # dotdiw until a body is called, and is copied into the generated Python root,
 # which is the one directory conform puts on its import path.
 #
-# Version 4: the tree is typed from the IDL and linted. finish-idl.py writes the
-# record types into dotdiw beside the doors, so a derive that changes a type
+# Version 4: the tree is typed from the IDL and linted. The record types are
+# written into dotdiw beside the doors, so a derive that changes a type
 # changes the classes the bodies are checked against; ruff and mypy run from the
 # locked dev group through uv, and a tree that does not pass them is not one to
 # commit.
@@ -45,6 +47,14 @@ type = "workflow"
 # Whoever closes the root runs them again: the IDL's checks against the model,
 # the sweep through the contract, and the promise tests that hold the program
 # to the IDL. dotdiw shows them after the pour and keeps them on the root.
+#
+# Version 6: every fact the IDL carries comes from the governed source. What
+# poa/idl-patches.json and poa/idl-additions.json held is in the model -- each
+# operation's facts in the operation block of its step or journey, the shared
+# records, the dependencies, the projections, the IDL's change records under
+# idlRecord -- and in the files POA keeps beside the IDL: the command-line and
+# implementation bindings, and the witness contract's sections. The model is
+# YAML, so the completing step runs through uv, with PyYAML from the dev group.
 
 [[steps]]
 id = "product"
@@ -64,19 +74,19 @@ title = "Derive the IDL from the model: `~/poa derive --product-model poa/produc
 needs = ["model"]
 
 [[steps]]
-id = "finish"
-title = "Finish what derive cannot know: `python3 -I poa/finish-idl.py` -- drops the generated poa-invoke bindings, merges poa/idl-additions.json (the contract reference, observability, report and summary bindings, update records, the record types the responses share) and applies poa/idl-patches.json (real CLI bindings, kinds, calls, external calls, request and response fields, dependencies), then rebuilds the call graph and the implementation bindings"
+id = "complete"
+title = "Complete what derive leaves out, from the governed source: `uv run python poa/complete-idl.py` -- drops the poa-invoke placeholders; writes each operation's block from poa/product-model.yaml with the model's shared records, dependencies, projections and change records, the bindings from interface-bindings.cli.json and implementation-bindings.json, and the contract's sections; then rebuilds the call graph and writes the doors and the types into dotdiw"
 needs = ["derive"]
 
 [[steps]]
 id = "idl"
 title = "Validate and check the IDL: `~/poa validate --idl operation-idl.json`, then `~/poa check --idl operation-idl.json --product-model poa/product-model.yaml`, fourteen checks passing with no drift and operationsWithoutInterfaceBinding empty"
-needs = ["finish"]
+needs = ["complete"]
 
 [[steps]]
 id = "contract"
 title = "Validate and check the witness contract: `~/poa validate cesc --contract contracts/<story>.cesc.yaml`, then `~/poa check cesc --contract <same> --idl operation-idl.json --source poa/product-model.yaml`"
-needs = ["finish"]
+needs = ["complete"]
 
 [[steps]]
 id = "replay"
@@ -90,13 +100,13 @@ needs = ["idl", "contract"]
 
 [[steps]]
 id = "lint"
-title = "Format and lint the tree: `uv run ruff format --check .` then `uv run ruff check .`, nothing reported; the generated regions of dotdiw are kept out of the formatter and left as finish-idl.py wrote them"
-needs = ["finish"]
+title = "Format and lint the tree: `uv run ruff format --check .` then `uv run ruff check .`, nothing reported; the generated regions of dotdiw are kept out of the formatter and left as complete-idl.py wrote them"
+needs = ["complete"]
 
 [[steps]]
 id = "types"
 title = "Type-check the tree: `uv run mypy`, no issues in every file pyproject.toml names; a body that answers with a field or a reason the IDL does not declare fails here before it fails the door"
-needs = ["finish"]
+needs = ["complete"]
 
 [[steps]]
 id = "promise"

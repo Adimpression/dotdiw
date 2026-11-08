@@ -22,6 +22,24 @@ reliedUponBy:
       Writes the procedure once, as a formula next to what it is about, and
       trusts it will reach everyone who later does that work -- including the
       people and agents who were not there when it was written.
+  - subjectId: subject.provider-author
+    name: Whoever writes a formula management provider
+    reliance: >
+      Ships the provider as a package and trusts dotdiw to reach its formulas
+      only through what the provider declares it answers: list, show and,
+      where it can, create.
+  - subjectId: subject.provider-registrar
+    name: Whoever hooks a formula management provider in
+    reliance: >
+      Registers an eligible provider under an alphanumeric name and trusts
+      every formula of it to surface under that name as a suffix, in every
+      checkout, beside the formulas in local storage.
+  - subjectId: subject.formula-keeper
+    name: Whoever keeps formulas in a formula management provider
+    reliance: >
+      Creates formulas through the provider, or keeps them in its store, and
+      trusts them to reach everyone who later does that work, wherever the
+      provider keeps them.
 conditions:
   - conditionId: condition.work-is-named
     statement: >
@@ -93,6 +111,14 @@ boundaries:
       A formula is a file that anyone who commits may change. Whoever proves
       the run chooses what runs on their machine, so a change to a formula
       changes what is shown, and only that.
+  - boundaryId: boundary.formula-storage-apart-from-task-storage
+    statement: >
+      Formula storage is separate from task storage. A formula management
+      provider answers for formulas and the tracker for work, and nothing
+      about a formula's provider reaches a pour or a tracker.
+    whyItMatters: >
+      Where formulas are kept and where work is tracked are two choices, each
+      made on its own and each changed without touching the other.
 possibleCarriers:
   - carrierId: carrier.dotdiw-cli
     name: The dotdiw command
@@ -116,6 +142,13 @@ possibleCarriers:
       home directory or from where a package installed it.
       dotdiw reaches it in typed records only, and under beads forwards every
       other command to it under its own name.
+  - carrierId: carrier.formula-management-provider
+    name: A formula management provider, behind the formula management abstraction
+    carrierKind: software
+    howEncountered: >
+      Installed as a package, which makes it eligible, and registered under an
+      alphanumeric name: a file system or an API endpoint whose formulas then
+      surface in every checkout under that name as a suffix.
 evidenceOrProof:
   - evidenceId: evidence.formula-named-at-create
     statement: >
@@ -185,6 +218,13 @@ falseSuccessRisks:
       moved, or a command that no longer proves what the formula claims.
     whatItWouldCounterfeit: >
       A proved run. The proof points at something that is no longer there.
+  - riskId: risk.one-id-two-formulas
+    statement: >
+      A local formula's id reads like a provider's suffixed id, and the worker
+      follows one formula believing it is the other.
+    whatItWouldCounterfeit: >
+      The procedure that applies. One id stands for two procedures, and the
+      wrong one is run.
 pressureNotes:
   - >
     Urgency pulls towards starting by doing. A one-second act that names the
@@ -345,6 +385,28 @@ promiseChanges:
       A formula said what to do and how its steps follow each other. Steps
       closed in order show that the order was kept; the means to prove show
       that the run did what the formula claims.
+  - changeId: change.formulas-behind-a-storage-abstraction
+    summary: >
+      Formulas are reached through a formula management abstraction. A formula
+      management provider behind it can be a file system or an API endpoint;
+      several are hooked in at once, and one may offer discovery only.
+      Installing a package that provides one makes it eligible, and it is
+      registered under an alphanumeric name. Every formula from a registered
+      provider carries that name as a suffix, after a hyphen. A formula
+      without a suffix is in local storage, the file system, where git plays
+      no part in finding it and nothing is committed or kept as history;
+      committing is the concern of a git formula management provider. A
+      provider likely answers list, show and create, in typical API style,
+      and declares which of these it answers. For now, every registered
+      provider serves every checkout. A local formula whose id reads like a
+      provider's suffixed id migrates.
+    compatibility: breaking
+    rationale: >
+      A formula was a file that one repository's git tracked, so a procedure
+      could be kept nowhere else and shared only by committing it. Behind a
+      formula management abstraction, where a formula is kept is the provider's business,
+      and a file system or an API endpoint serves the same matching and the
+      same pour.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

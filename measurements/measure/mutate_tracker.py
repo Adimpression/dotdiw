@@ -310,7 +310,7 @@ MUTATIONS = [
     ),
     (
         "the interface's digest is not held",
-        "poa/finish-idl.py",
+        "poa/complete-idl.py",
         '    if digest == held["digest"]:\n',
         "    if True:\n",
         ["test_promise.py", "TheDoor.test_the_interface_number_moves_by_decision"],

@@ -1,0 +1,440 @@
+{
+  "trackerInterface": {
+    "number": 2,
+    "digest": "19889c1ab7863428"
+  },
+  "implementationBindings": [
+    {
+      "bindingId": "impl.start-named-work",
+      "operationId": "operation.start-named-work",
+      "implementationUnit": "promise_bindings::StartNamedWork",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::StartNamedWork, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.write-a-procedure-down",
+      "operationId": "operation.write-a-procedure-down",
+      "implementationUnit": "promise_bindings::WriteAProcedureDown",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::WriteAProcedureDown, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.adopt-a-repository",
+      "operationId": "operation.adopt-a-repository",
+      "implementationUnit": "promise_bindings::AdoptARepository",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::AdoptARepository, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.run-a-tracker-command",
+      "operationId": "operation.run-a-tracker-command",
+      "implementationUnit": "promise_bindings::RunATrackerCommand",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::RunATrackerCommand, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.find-a-held-procedure",
+      "operationId": "operation.find-a-held-procedure",
+      "implementationUnit": "promise_bindings::FindAHeldProcedure",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::FindAHeldProcedure, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.learn-the-conventions",
+      "operationId": "operation.learn-the-conventions",
+      "implementationUnit": "promise_bindings::LearnTheConventions",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::LearnTheConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.answer-through-the-tracker",
+      "operationId": "operation.answer-through-the-tracker",
+      "implementationUnit": "promise_bindings::AnswerThroughTheTracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::AnswerThroughTheTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.choose-a-tracker",
+      "operationId": "operation.choose-a-tracker",
+      "implementationUnit": "promise_bindings::ChooseATracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ChooseATracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.move-a-workspace",
+      "operationId": "operation.move-a-workspace",
+      "implementationUnit": "promise_bindings::MoveAWorkspace",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::MoveAWorkspace, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.ship-a-tracker",
+      "operationId": "operation.ship-a-tracker",
+      "implementationUnit": "promise_bindings::ShipATracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ShipATracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.name-the-work",
+      "operationId": "operation.name-the-work",
+      "implementationUnit": "promise_bindings::NameTheWork",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::NameTheWork, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.match-formulas",
+      "operationId": "operation.match-formulas",
+      "implementationUnit": "promise_bindings::MatchFormulas",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::MatchFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.pour-procedure",
+      "operationId": "operation.pour-procedure",
+      "implementationUnit": "promise_bindings::PourProcedure",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::PourProcedure, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.notice-handmade-procedures",
+      "operationId": "operation.notice-handmade-procedures",
+      "implementationUnit": "promise_bindings::NoticeHandmadeProcedures",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::NoticeHandmadeProcedures, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.nudge-towards-a-formula",
+      "operationId": "operation.nudge-towards-a-formula",
+      "implementationUnit": "promise_bindings::NudgeTowardsAFormula",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::NudgeTowardsAFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.write-formula",
+      "operationId": "operation.write-formula",
+      "implementationUnit": "promise_bindings::WriteFormula",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::WriteFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.describe-and-check",
+      "operationId": "operation.describe-and-check",
+      "implementationUnit": "promise_bindings::DescribeAndCheck",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::DescribeAndCheck, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.commit-formula",
+      "operationId": "operation.commit-formula",
+      "implementationUnit": "promise_bindings::CommitFormula",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::CommitFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.adopt-repository",
+      "operationId": "operation.adopt-repository",
+      "implementationUnit": "promise_bindings::AdoptRepository",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::AdoptRepository, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.declare-conventions",
+      "operationId": "operation.declare-conventions",
+      "implementationUnit": "promise_bindings::DeclareConventions",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::DeclareConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.report-what-is-yours-to-commit",
+      "operationId": "operation.report-what-is-yours-to-commit",
+      "implementationUnit": "promise_bindings::ReportWhatIsYoursToCommit",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ReportWhatIsYoursToCommit, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.undo-earlier-adoption",
+      "operationId": "operation.undo-earlier-adoption",
+      "implementationUnit": "promise_bindings::UndoEarlierAdoption",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::UndoEarlierAdoption, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.turn-metrics-off",
+      "operationId": "operation.turn-metrics-off",
+      "implementationUnit": "promise_bindings::TurnMetricsOff",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::TurnMetricsOff, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.forward-to-the-tracker",
+      "operationId": "operation.forward-to-the-tracker",
+      "implementationUnit": "promise_bindings::ForwardToTheTracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ForwardToTheTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.index-the-project",
+      "operationId": "operation.index-the-project",
+      "implementationUnit": "promise_bindings::IndexTheProject",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::IndexTheProject, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.list-formulas",
+      "operationId": "operation.list-formulas",
+      "implementationUnit": "promise_bindings::ListFormulas",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ListFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.show-formula",
+      "operationId": "operation.show-formula",
+      "implementationUnit": "promise_bindings::ShowFormula",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ShowFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.resolve-formula",
+      "operationId": "operation.resolve-formula",
+      "implementationUnit": "promise_bindings::ResolveFormula",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ResolveFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.teach-the-conventions",
+      "operationId": "operation.teach-the-conventions",
+      "implementationUnit": "promise_bindings::TeachTheConventions",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::TeachTheConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.beads-open-tracker",
+      "operationId": "operation.open-tracker",
+      "implementationUnit": "promise_bindings::BeadsOpenTracker",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.open-tracker], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-open-tracker",
+      "operationId": "operation.open-tracker",
+      "implementationUnit": "promise_bindings::LocalOpenTracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.open-tracker], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-describe-tracker",
+      "operationId": "operation.describe-tracker",
+      "implementationUnit": "promise_bindings::BeadsDescribeTracker",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.describe-tracker], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-describe-tracker",
+      "operationId": "operation.describe-tracker",
+      "implementationUnit": "promise_bindings::LocalDescribeTracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.describe-tracker], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-create-item",
+      "operationId": "operation.create-item",
+      "implementationUnit": "promise_bindings::BeadsCreateItem",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.create-item], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-create-item",
+      "operationId": "operation.create-item",
+      "implementationUnit": "promise_bindings::LocalCreateItem",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.create-item], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-add-need",
+      "operationId": "operation.add-need",
+      "implementationUnit": "promise_bindings::BeadsAddNeed",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.add-need], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-add-need",
+      "operationId": "operation.add-need",
+      "implementationUnit": "promise_bindings::LocalAddNeed",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.add-need], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-pour-steps",
+      "operationId": "operation.pour-steps",
+      "implementationUnit": "promise_bindings::BeadsPourSteps",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.pour-steps], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-pour-steps",
+      "operationId": "operation.pour-steps",
+      "implementationUnit": "promise_bindings::LocalPourSteps",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.pour-steps], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-close-item",
+      "operationId": "operation.close-item",
+      "implementationUnit": "promise_bindings::BeadsCloseItem",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.close-item], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-close-item",
+      "operationId": "operation.close-item",
+      "implementationUnit": "promise_bindings::LocalCloseItem",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.close-item], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-show-item",
+      "operationId": "operation.show-item",
+      "implementationUnit": "promise_bindings::BeadsShowItem",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.show-item], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-show-item",
+      "operationId": "operation.show-item",
+      "implementationUnit": "promise_bindings::LocalShowItem",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.show-item], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-list-items",
+      "operationId": "operation.list-items",
+      "implementationUnit": "promise_bindings::BeadsListItems",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.list-items], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-list-items",
+      "operationId": "operation.list-items",
+      "implementationUnit": "promise_bindings::LocalListItems",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.list-items], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-update-item",
+      "operationId": "operation.update-item",
+      "implementationUnit": "promise_bindings::BeadsUpdateItem",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.update-item], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-update-item",
+      "operationId": "operation.update-item",
+      "implementationUnit": "promise_bindings::LocalUpdateItem",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.update-item], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.beads-ready-items",
+      "operationId": "operation.ready-items",
+      "implementationUnit": "promise_bindings::BeadsReadyItems",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.ready-items], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-ready-items",
+      "operationId": "operation.ready-items",
+      "implementationUnit": "promise_bindings::LocalReadyItems",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.ready-items], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.list-trackers",
+      "operationId": "operation.list-trackers",
+      "implementationUnit": "promise_bindings::ListTrackers",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ListTrackers, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.use-tracker",
+      "operationId": "operation.use-tracker",
+      "implementationUnit": "promise_bindings::UseTracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::UseTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.check-tracker",
+      "operationId": "operation.check-tracker",
+      "implementationUnit": "promise_bindings::CheckTracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::CheckTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.migrate-workspace",
+      "operationId": "operation.migrate-workspace",
+      "implementationUnit": "promise_bindings::MigrateWorkspace",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::MigrateWorkspace, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.write-tracker",
+      "operationId": "operation.write-tracker",
+      "implementationUnit": "promise_bindings::WriteTracker",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::WriteTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    }
+  ]
+}
