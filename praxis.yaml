@@ -14,8 +14,10 @@ promiseCarried:
     When work starts by being named, the procedure that applies surfaces
     before the work begins.
   reliedUponBy: >
-    Whoever is about to do the work, and whoever wrote the procedure down
-    expecting it to reach them.
+    Whoever is about to do the work, whoever wrote the procedure down
+    expecting it to reach them, and, behind a formula management provider,
+    whoever writes the provider, hooks it in under a name or keeps formulas
+    in it.
 minimumReview:
   productSignal: >
     The project's instructions open with "start every task with dotdiw
@@ -25,11 +27,16 @@ minimumReview:
     before the work begins.
   reliantSubject: >
     The worker starting a task, and the author of the procedure -- including
-    everyone who was not there when it was written.
+    everyone who was not there when it was written -- and, behind a formula
+    management provider, whoever writes the provider, hooks it in under a
+    name or keeps formulas in it.
   relianceBehavior: >
     The worker names the work and starts from what surfaced instead of reading
     every runbook first. The author writes the procedure once, next to what it
-    is about, and does not announce it to anyone.
+    is about, and does not announce it to anyone. Whoever hooks in a formula
+    management provider registers it under a name, and whoever keeps formulas
+    in it creates them through it or keeps them in its store; either way they
+    surface in every checkout under that name.
   carriers:
     - carrierId: carrier.dotdiw-cli
       name: The dotdiw command
@@ -51,6 +58,14 @@ minimumReview:
       howCarries: >
         Names the work first, reads what surfaced, and writes down what they
         repeated as a formula rather than as prose.
+    - carrierId: carrier.formula-management-provider
+      name: A formula management provider
+      kind: software
+      howCarries: >
+        Keeps formulas on a file system or behind an API endpoint and answers
+        what it declares -- list, show and, where it can, create -- so its
+        formulas surface in every checkout, under the name it was registered
+        by, when work starts.
   praxisDuties:
     - dutyId: duty.name-the-work-first
       statement: >
@@ -105,6 +120,21 @@ minimumReview:
         A stale step followed from memory leaves every check green and the
         drift in one person's head; the next pour finds out, and not from
         them.
+    - dutyId: duty.register-a-provider-under-its-name
+      statement: >
+        Register an eligible formula management provider under an alphanumeric
+        name before relying on its formulas.
+      whyItMatters: >
+        The name is the suffix every formula of the provider carries, and the
+        suffix keeps its formulas apart from every other provider's and from
+        local storage.
+    - dutyId: duty.migrate-a-clashing-local-formula
+      statement: >
+        When a local formula's id reads like a provider's suffixed id, migrate
+        the local formula.
+      whyItMatters: >
+        One id that names two formulas surfaces one of them, and the worker
+        cannot tell which.
   proof:
     - evidenceId: evidence.create-first-in-the-log
       statement: >
@@ -124,6 +154,10 @@ minimumReview:
         check-promise-artifacts reran poa check, five replays, the sweep, two
         test suites and the conformance harness from a clean state on
         2026-11-01, before the plan it checks was called done.
+    - evidenceId: evidence.provider-formulas-surface-under-their-name
+      statement: >
+        A title surfaces a registered provider's formulas under its name as a
+        suffix, beside the formulas in local storage.
   betrayal:
     - riskId: risk.work-begun-by-editing
       statement: >
@@ -150,6 +184,10 @@ minimumReview:
         A step that names a file the tool no longer has is followed because
         it surfaced. The checks stay green, the steps close in order, and the
         drift lands on whoever ships next.
+    - riskId: risk.one-id-two-formulas
+      statement: >
+        A local formula and a provider's formula read as one id, and the worker
+        follows the one they did not mean.
   topGaps:
     - >
       The maintainer's praxis -- what dotdiw may do to a repository on
@@ -188,6 +226,9 @@ praxisModel:
     - >
       A surfaced formula is a procedure to follow or to decline knowingly, not
       an order.
+    - >
+      dotdiw reaches a formula management provider only through what the
+      provider declares it answers, and changes nothing else in it.
   judgmentPressures:
     - Urgency, which says start by doing and name it later.
     - >
@@ -433,9 +474,38 @@ praxisModel:
               - transition.formula-findable-to-held
         cescWitnessExpectations: []
         status: draft
+      - lifecycleContractId: lifecycle.formula-management-provider
+        title: A formula management provider
+        objectId: object.formula-management-provider
+        objectName: Formula management provider
+        purpose: >
+          Govern how a formula management provider comes to serve its formulas
+          under a name.
+        praxisDutyRefs:
+          - duty.register-a-provider-under-its-name
+          - duty.migrate-a-clashing-local-formula
+        states:
+          - stateId: eligible
+            meaning: A package that provides it is installed.
+          - stateId: registered
+            meaning: It is registered under an alphanumeric name, and its formulas carry the name as a suffix.
+        transitions:
+          - transitionId: transition.provider-eligible-to-registered
+            fromState: eligible
+            toState: registered
+            lawfulWhen: Someone registers the provider under an alphanumeric name, and every local formula whose id reads like one of its suffixed ids has migrated.
+            authorizedBy:
+              - duty.register-a-provider-under-its-name
+            requiredProof:
+              - Every formula of the provider surfaces under the name as a suffix.
+            betrayalRisk: A local formula and a provider's formula read as one id, and one is followed for the other.
+        forbiddenTransitions: []
+        poaBindings: []
+        cescWitnessExpectations: []
+        status: draft
 metadata:
   createdAt: "2026-11-01"
-  updatedAt: "2026-11-06"
+  updatedAt: "2026-11-08"
   authors:
     - The dotdiw maintainers
     - The agent working in this repository on 2026-11-01, as bearer
@@ -448,4 +518,9 @@ metadata:
     the formation added one duty, one proof, one betrayal, one trace and the
     last clause of the review sentence. On 2026-11-06 the maintainer approved
     one more duty and its betrayal, authored as the first five duties were:
-    proving the run with the means its formula names.
+    proving the run with the means its formula names. On 2026-11-08 the
+    maintainer approved the formula management abstraction, authored from the
+    maintainer's decisions as the duties before it were: formula management
+    providers, whoever writes one, hooks one in or keeps formulas in one, the
+    duty to register a provider under its name and the duty to migrate a
+    local formula whose id clashes.

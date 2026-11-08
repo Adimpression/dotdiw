@@ -1,40 +1,50 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Finish the IDL that `poa derive` wrote.
+"""Complete the IDL that `poa derive` wrote, from the governed source.
 
-derive rewrites operation-idl.json from scratch every time, from the governed
-source model alone. Three things it cannot know go in afterwards, and this is
-the one place they go in, so the result is reproducible from the formula and
-never edited by hand:
+derive rewrites operation-idl.json from scratch every time, from
+poa/product-model.yaml, and writes of each operation what the model's
+structure names: its duty, journey, step, objects, boundaries and timing.
+What each operation takes, returns and calls, the kind, visibility and
+idempotency it has, and the git and beads commands it runs are declared in
+the model too, in the operation block of the step or journey it is derived
+from; derive leaves them out, so this file writes them in. It reads nothing
+but the governed source and the files POA keeps beside the IDL, so the
+result is reproducible from them and never edited by hand:
 
-  poa/idl-additions.json   what the model does not carry: the witness contract
-                           reference, the observability, report and summary
-                           bindings, the update records for this binding, and
-                           the record types the responses share
-  poa/idl-patches.json     per-operation facts about the program: the real
-                           command-line bindings in place of the generated
-                           `poa invoke` fictions, the kinds the step-id
-                           heuristic got wrong, the calls between operations
-                           that the bodies actually make, the beads and git
-                           calls that cross the product boundary, and the
-                           request and response fields the bodies really use
-  this file                drops the generated bindings, applies the two files,
-                           rebuilds what must agree with them, the operation
-                           call graph and the implementation bindings, and
-                           writes two tables into dotdiw between their
-                           markers: the door's, for every operation a body
-                           answers, the body's name and the fields of its
-                           request and response; and the tracker door's, for
-                           every operation of the tracker interface, the
-                           fields alone, since an adapter answers those, with
-                           the interface's number. This script refuses a
-                           change to the types a module has to answer until
-                           someone has decided whether to raise that number
+  poa/product-model.yaml   each step's and journey's operation block; the
+                           records the responses share; the git and beads
+                           dependencies; the projections; and the change
+                           records, the IDL's own wording of each under
+                           idlRecord
+  interface-bindings.cli.json
+                           the command line's bindings, in place of the
+                           `poa invoke` placeholders derive writes
+  implementation-bindings.json
+                           each operation bound to its body, and the number
+                           of the tracker interface with the digest of its
+                           types
+  contracts/named-work-found-its-procedure.bindings.json
+                           the witness contract and the observability, report
+                           and summary bindings that answer to it
+  this file                drops the placeholders, writes those in, rebuilds
+                           what must agree with them, the operation call graph
+                           and each implementation binding's calls, and writes
+                           two tables into dotdiw between their markers: the
+                           door's, for every operation a body answers, the
+                           body's name and the fields of its request and
+                           response; and the tracker door's, for every
+                           operation of the tracker interface, the fields
+                           alone, since an adapter answers those, with the
+                           interface's number. This script refuses a change to
+                           the types a module has to answer until someone has
+                           decided whether to raise that number
 
-Standard library only, because dotdiw's world is the standard library and the
-tests read the result.
+The model is YAML, read through PyYAML from the locked dev group in one
+function, so the rest of this file stays in the standard library and the
+tests can load it.
 
-    python3 poa/finish-idl.py [operation-idl.json]
+    uv run python poa/complete-idl.py [operation-idl.json]
 """
 
 import hashlib
@@ -49,23 +59,25 @@ Idl = dict[str, Any]
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 IDL = os.path.join(ROOT, "operation-idl.json")
-ADDITIONS = os.path.join(HERE, "idl-additions.json")
-PATCHES = os.path.join(HERE, "idl-patches.json")
+MODEL = os.path.join(HERE, "product-model.yaml")
+CLI_BINDINGS = os.path.join(ROOT, "interface-bindings.cli.json")
+IMPLEMENTATION = os.path.join(ROOT, "implementation-bindings.json")
+CONTRACT_BINDINGS = os.path.join(ROOT, "contracts", "named-work-found-its-procedure.bindings.json")
 
 GENERATED_BINDING = "binding.cli-invoke-"
 BINDING_MODULE = "promise_bindings"
 
 DOTDIW = os.path.join(ROOT, "dotdiw")
-DOOR_OPEN = "# >>> generated from operation-idl.json by poa/finish-idl.py; do not edit\n"
+DOOR_OPEN = "# >>> generated from operation-idl.json by poa/complete-idl.py; do not edit\n"
 DOOR_CLOSE = "# <<< end generated\n"
 TRACKER_OPEN = (
-    "# >>> tracker door generated from operation-idl.json by poa/finish-idl.py; do not edit\n"
+    "# >>> tracker door generated from operation-idl.json by poa/complete-idl.py; do not edit\n"
 )
 TRACKER_CLOSE = "# <<< end tracker door\n"
-TYPES_OPEN = "# >>> types generated from operation-idl.json by poa/finish-idl.py; do not edit\n"
+TYPES_OPEN = "# >>> types generated from operation-idl.json by poa/complete-idl.py; do not edit\n"
 TYPES_CLOSE = "# <<< end types\n"
 SKELETON_OPEN = (
-    "# >>> the file a tracker starts from, generated by poa/finish-idl.py; do not edit\n"
+    "# >>> the file a tracker starts from, generated by poa/complete-idl.py; do not edit\n"
 )
 SKELETON_CLOSE = "# <<< end the file a tracker starts from\n"
 # Fields an operation's docstring does not name, since an adapter's author has
@@ -94,7 +106,7 @@ SCALARS = {"string": "str", "integer": "int", "boolean": "bool"}
 # adapter answers them, so they have no body and sit in the inner table.
 INNER_JOURNEY = "journey.answer-through-the-tracker"
 
-# The id field of each list the additions may extend.
+# The id field of each list the governed source may extend.
 ID_FIELDS = {
     "types": "typeId",
     "updates": "changeId",
@@ -147,84 +159,96 @@ def inner_operations(idl: Idl) -> list[dict[str, Any]]:
     ]
 
 
-def implementation_bindings(idl: Idl, patches: dict[str, Any]) -> list[dict[str, Any]]:
-    """One binding per body; per adapter for the tracker interface; and
-    not-yet-implemented, pointing at the plan, until a phase lands it."""
-    pending = patches.get("notYetImplemented") or {}
-    adapters = patches.get("adapters") or []
-    inner = {op["operationId"] for op in inner_operations(idl)}
+def implementation_bindings(idl: Idl, manifest: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each binding implementation-bindings.json holds, with the operations its
+    body calls: the operation's calls, as the model declares them."""
+    calls = {
+        op["operationId"]: [c["operationId"] for c in op.get("calls") or []]
+        for op in idl["operations"]
+    }
     out = []
-    for op in idl["operations"]:
-        slug = op["operationId"].split(".", 1)[1]
-        called = [c["operationId"] for c in op.get("calls") or []]
-        if op["operationId"] in pending:
-            out.append(
-                {
-                    "bindingId": "impl.%s" % slug,
-                    "operationId": op["operationId"],
-                    "implementationUnit": "%s::%s" % (BINDING_MODULE, op["name"]),
-                    "implementationMode": "not-yet-implemented",
-                    "privateHelpersUsed": False,
-                    "calledOperationIds": called,
-                    "notes": "Lands with %s; until then nothing routes to it and the "
-                    "binding is a name." % pending[op["operationId"]],
-                }
-            )
-        elif op["operationId"] in inner:
-            for adapter in adapters:
-                out.append(
-                    {
-                        "bindingId": "impl.%s-%s" % (adapter, slug),
-                        "operationId": op["operationId"],
-                        "implementationUnit": "%s::%s%s"
-                        % (BINDING_MODULE, adapter.capitalize(), op["name"]),
-                        "implementationMode": "external-product-call-only"
-                        if adapter == "beads"
-                        else "inline-body",
-                        "privateHelpersUsed": False,
-                        "calledOperationIds": called,
-                        "notes": "The %s adapter's callable for this operation, "
-                        "dotdiw::TRACKERS[%s][operations][%s], reached only through "
-                        "the tracker door, invoke_tracker, by this operation's id; "
-                        "promise_bindings.py re-exports it under this name for "
-                        "import only, which is how the conformance harness calls "
-                        "it." % (adapter, adapter, op["operationId"]),
-                    }
-                )
-        else:
-            out.append(
-                {
-                    "bindingId": "impl.%s" % slug,
-                    "operationId": op["operationId"],
-                    "implementationUnit": "%s::%s" % (BINDING_MODULE, op["name"]),
-                    "implementationMode": "inline-body",
-                    "privateHelpersUsed": False,
-                    "calledOperationIds": called,
-                    "notes": "The body is dotdiw::%s, reached only through the door, "
-                    "invoke, by this operation's id; promise_bindings.py "
-                    "re-exports it under this name for import only, which is "
-                    "how the conformance harness calls it. test_promise.py "
-                    "holds the body to the calls declared here and to the "
-                    "door." % op["name"],
-                }
-            )
+    for binding in manifest:
+        bound = {k: v for k, v in binding.items() if k != "notes"}
+        bound["calledOperationIds"] = calls[binding["operationId"]]
+        if "notes" in binding:
+            bound["notes"] = binding["notes"]
+        out.append(bound)
     return out
 
 
-def finish(idl: Idl, additions: dict[str, Any], patches: dict[str, Any]) -> Idl:
+def load_model(path: str = MODEL) -> Any:
+    """The governed source model, read through PyYAML."""
+    import yaml
+
+    with open(path, encoding="utf-8") as fh:
+        return yaml.safe_load(fh)
+
+
+def operation_blocks(model: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """operation id -> the operation block of the step or journey it is derived from."""
+    out = {}
+    for kind, key in (("journeys", "journeyId"), ("steps", "stepId")):
+        for entry in model.get(kind) or []:
+            if "operation" in entry:
+                out["operation." + entry[key].split(".", 1)[1]] = entry["operation"]
+    return out
+
+
+# The fields of a change record in the IDL, in the order the IDL writes them.
+IDL_RECORD = (
+    "changeId",
+    "changeType",
+    "targetRefs",
+    "summary",
+    "reason",
+    "compatibility",
+    "createdAt",
+    "approvalStatus",
+)
+
+
+def idl_change_records(model: dict[str, Any]) -> list[dict[str, Any]]:
+    """The model's change records that changed the IDL, in the IDL's words: its
+    own record under idlRecord, or the record itself when it names the IDL."""
+    out = []
+    for update in model.get("updates") or []:
+        if "idlRecord" in update:
+            out.append({"changeId": update["changeId"], **update["idlRecord"]})
+        elif "idl.dotdiw" in (update.get("targetRefs") or []):
+            out.append({k: update[k] for k in IDL_RECORD if k in update})
+    return out
+
+
+def complete(
+    idl: Idl,
+    model: dict[str, Any],
+    cli: dict[str, Any],
+    manifest: dict[str, Any],
+    contract: dict[str, Any],
+) -> Idl:
     idl["interfaceBindings"] = [
         b
         for b in idl.get("interfaceBindings") or []
         if not b["bindingId"].startswith(GENERATED_BINDING)
     ]
 
-    for key, items in additions.items():
-        merge_list(idl, key, items)
+    merge_list(idl, "updates", idl_change_records(model))
+    for key in (
+        "eventStructureContracts",
+        "observabilityBindings",
+        "reportBindings",
+        "storySummaryBindings",
+    ):
+        merge_list(idl, key, contract[key])
+    merge_list(idl, "types", model.get("operationTypes") or [])
 
+    blocks = operation_blocks(model)
     ops = by_id(idl["operations"], "operationId")
-    for op_id, patch in patches["operations"].items():
+    for op_id, block in blocks.items():
         op = ops[op_id]  # an unknown operation is an error, loudly
-        for k, v in patch.items():
+        for k, v in block.items():
+            if k in ("requestFields", "responseFields"):
+                continue
             if k == "derivedFrom":
                 # Once each, so that running this twice gives the same file.
                 have = op.setdefault("derivedFrom", [])
@@ -235,20 +259,25 @@ def finish(idl: Idl, additions: dict[str, Any], patches: dict[str, Any]) -> Idl:
                 op[k] = v
 
     types = by_id(idl["types"], "typeId")
-    for type_id, patch in patches.get("types", {}).items():
-        t = types[type_id]
-        fields = t.setdefault("fields", [])
-        index = {f["name"]: i for i, f in enumerate(fields)}
-        for f in patch.get("fields", []):
-            if f["name"] in index:
-                fields[index[f["name"]]] = f
-            else:
-                index[f["name"]] = len(fields)
-                fields.append(f)
+    for op_id, block in blocks.items():
+        for side, type_key in (
+            ("requestFields", "requestType"),
+            ("responseFields", "responseType"),
+        ):
+            if side not in block:
+                continue
+            fields = types[ops[op_id][type_key]].setdefault("fields", [])
+            index = {f["name"]: i for i, f in enumerate(fields)}
+            for f in block[side]:
+                if f["name"] in index:
+                    fields[index[f["name"]]] = f
+                else:
+                    index[f["name"]] = len(fields)
+                    fields.append(f)
 
-    idl["externalProductDependencies"] = patches["externalProductDependencies"]
-    merge_list(idl, "interfaceBindings", patches["interfaceBindings"])
-    merge_list(idl, "projections", patches.get("projections", []))
+    idl["externalProductDependencies"] = model["externalProductDependencies"]
+    merge_list(idl, "interfaceBindings", cli["bindings"])
+    merge_list(idl, "projections", model.get("operationProjections") or [])
 
     # What has to agree with the calls above: poa check compares the two.
     idl["operationCallGraph"] = [
@@ -261,7 +290,7 @@ def finish(idl: Idl, additions: dict[str, Any], patches: dict[str, Any]) -> Idl:
         for op in idl["operations"]
         for call in op.get("calls") or []
     ]
-    idl["implementationBindings"] = implementation_bindings(idl, patches)
+    idl["implementationBindings"] = implementation_bindings(idl, manifest["implementationBindings"])
     return idl
 
 
@@ -353,17 +382,17 @@ def interface_digest(idl: Idl) -> str:
     return hashlib.sha256(json.dumps(operations, sort_keys=True).encode()).hexdigest()[:16]
 
 
-def interface_changed(idl: Idl, patches: dict[str, Any]) -> str | None:
+def interface_changed(idl: Idl, manifest: dict[str, Any]) -> str | None:
     """What to do when the interface no longer has the digest recorded for its
     number, or None when it has."""
-    held = patches["trackerInterface"]
+    held = manifest["trackerInterface"]
     digest = interface_digest(idl)
     if digest == held["digest"]:
         return None
     return (
         "The tracker interface's types changed: digest %s, recorded %s for interface %d. "
         "If a module written for interface %d cannot answer the new types, raise the number "
-        "in poa/idl-patches.json. Either way, record the new digest there."
+        "in implementation-bindings.json. Either way, record the new digest there."
         % (digest, held["digest"], held["number"], held["number"])
     )
 
@@ -375,8 +404,8 @@ def tracker_door_source(idl: Idl) -> str:
     types = by_id(idl["types"], "typeId")
     out = TRACKER_OPEN
     out += "# The interface a module says it was written for. It is raised, by decision in\n"
-    out += "# poa/idl-patches.json, when a module written earlier cannot answer this one.\n"
-    out += "TRACKER_INTERFACE = %d\n\n" % load(PATCHES)["trackerInterface"]["number"]
+    out += "# implementation-bindings.json, when a module written earlier cannot answer this one.\n"
+    out += "TRACKER_INTERFACE = %d\n\n" % load(IMPLEMENTATION)["trackerInterface"]["number"]
     out += "# operation id -> the fields of its request, the required ones among them,\n"
     out += "# and the same for its response. The registered adapter answers.\n"
     out += "TRACKER_DOOR: dict[str, TrackerDoorSpec] = {\n"
@@ -495,7 +524,7 @@ def skeleton_source(idl: Idl) -> str:
     body += '    "info": {\n'
     body += '        "name": "<NAME>",\n'
     body += '        "version": "0.1.0",\n'
-    body += '        "interface": %d,\n' % load(PATCHES)["trackerInterface"]["number"]
+    body += '        "interface": %d,\n' % load(IMPLEMENTATION)["trackerInterface"]["number"]
     body += '        "nativeNeeds": True,\n'
     body += '        "checkTarget": "scratch",\n'
     body += '        "extras": [],\n'
@@ -622,9 +651,9 @@ def write_door(idl: Idl, path: str = DOTDIW) -> bool:
 
 def main(argv: list[str]) -> int:
     path = argv[1] if len(argv) > 1 else IDL
-    patches = load(PATCHES)
-    idl = finish(load(path), load(ADDITIONS), patches)
-    changed_interface = interface_changed(idl, patches)
+    manifest = load(IMPLEMENTATION)
+    idl = complete(load(path), load_model(), load(CLI_BINDINGS), manifest, load(CONTRACT_BINDINGS))
+    changed_interface = interface_changed(idl, manifest)
     if changed_interface:
         print(changed_interface, file=sys.stderr)
         return 1
@@ -632,7 +661,7 @@ def main(argv: list[str]) -> int:
         json.dump(idl, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
     print(
-        "finished %s: %d operations, %d interface bindings, %d call edges"
+        "completed %s: %d operations, %d interface bindings, %d call edges"
         % (
             os.path.relpath(path, ROOT),
             len(idl["operations"]),

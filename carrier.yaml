@@ -25,6 +25,15 @@ carriers:
       - binds whoever shows up, human or agent, including those who were not there when it was written
     limits:
       - only as good as the first line being read before the first act
+  - carrierId: formulaManagementProvider
+    carrierKind: software
+    carries: [formulaKeeping]
+    strengths:
+      - keeps formulas on a file system or behind an API endpoint, behind one abstraction
+      - several hooked in at once, each formula under its provider's registered name as a suffix
+    limits:
+      - surfaces nothing itself; dotdiw matches a title and pours what applies
+      - one that offers discovery only cannot create a formula
 substitutionEnvelope:
   maySubstituteWhen:
     - any carrier runs the same dotdiw file against the same committed formulas
