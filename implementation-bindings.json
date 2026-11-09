@@ -435,6 +435,54 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "notes": "The body is dotdiw::WriteTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.answer-through-a-formula-provider",
+      "operationId": "operation.answer-through-a-formula-provider",
+      "implementationUnit": "promise_bindings::AnswerThroughAFormulaProvider",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::AnswerThroughAFormulaProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.register-provider",
+      "operationId": "operation.register-provider",
+      "implementationUnit": "promise_bindings::RegisterProvider",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::RegisterProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.describe-provider",
+      "operationId": "operation.describe-provider",
+      "implementationUnit": "promise_bindings::DescribeProvider",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::DescribeProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.list-provider-formulas",
+      "operationId": "operation.list-provider-formulas",
+      "implementationUnit": "promise_bindings::ListProviderFormulas",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ListProviderFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.show-provider-formula",
+      "operationId": "operation.show-provider-formula",
+      "implementationUnit": "promise_bindings::ShowProviderFormula",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ShowProviderFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.remove-provider",
+      "operationId": "operation.remove-provider",
+      "implementationUnit": "promise_bindings::RemoveProvider",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::RemoveProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     }
   ]
 }

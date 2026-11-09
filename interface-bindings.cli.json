@@ -716,6 +716,33 @@
         ],
         "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
+    },
+    {
+      "bindingId": "binding.cli-formula-provider",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.answer-through-a-formula-provider",
+      "affordance": {
+        "label": "dotdiw formula provider",
+        "shape": "Register, list and remove the formula management providers every checkout reaches.",
+        "command": "dotdiw formula provider register <name> <module> [--at <location>] | list | remove <name>"
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.keep-procedures-findable"
+        ],
+        "journeyIds": [
+          "journey.answer-through-a-formula-provider"
+        ],
+        "stepIds": [
+          "step.register-provider",
+          "step.describe-provider",
+          "step.list-provider-formulas",
+          "step.show-provider-formula",
+          "step.remove-provider"
+        ]
+      }
     }
   ]
 }

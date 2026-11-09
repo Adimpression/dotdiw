@@ -33,6 +33,7 @@ itself.
 """
 
 import contextlib
+import fcntl
 import glob
 import importlib.machinery
 import importlib.util
@@ -47,6 +48,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
 import unittest
 from typing import TYPE_CHECKING
@@ -826,7 +828,7 @@ class TheName(unittest.TestCase):
         lines = p.stdout.strip().split("\n")
         self.assertEqual(len(lines), 2, p.stdout)
         self.assertRegex(lines[1], r"^  tracker beads \d+(\.\d+)+$")
-        self.assertNotIn("1.1.0", lines[1], "the tracker underneath, not this tool")
+        self.assertNotIn("2.0.0", lines[1], "the tracker underneath, not this tool")
 
     def test_without_the_tracker_the_message_is_the_install_command(self):
         """Nothing on PATH but the system: one line, the command for the tracker
@@ -1381,6 +1383,32 @@ class TheLocalCommandLine(unittest.TestCase):
         self.assertIn("--from %s" % parent, out)
         self.assertNotIn("--from %s" % root, out)
 
+    def test_the_notice_quotes_the_title_it_prints(self):
+        """A title is the tracker's text: in the line printed to be copied, a
+        shell reads it as one word and nothing in it as a command."""
+        self.adopted()
+        title = 'Handle the "webhook" backlog $(touch PWNED)'
+        parent = self.made(title)
+        steps = [
+            self.made(t, "--parent", parent)
+            for t in ("Drain the queue", "Replay the failures", "Reconcile the ledger")
+        ]
+        for i in range(1, len(steps)):
+            self.assertEqual(self.dotdiw("dep", "add", steps[i], steps[i - 1])[0], 0)
+        code, out = self.dotdiw("check")
+        line = next(x for x in out.splitlines() if "--from %s" % parent in x)
+        self.assertEqual(shlex.split(line), ["dotdiw", "formula", "new", title, "--from", parent])
+
+    def test_the_nudge_quotes_the_text_it_prints(self):
+        module = load_module("dotdiw_nudge")
+        text = 'First bump "the formula", then install $(touch PWNED), then announce'
+        said = module.invoke("operation.nudge-towards-a-formula", {"root": HERE, "text": text})
+        self.assertTrue(said["nudged"])
+        words = shlex.split(said["command"])
+        self.assertEqual(words[:3], ["dotdiw", "formula", "new"])
+        self.assertEqual(len(words), 4)
+        self.assertTrue(text.startswith(words[3]), words)
+
     def test_formula_new_seeds_named_work_and_never_a_root(self):
         """A new formula's examples start from the titles of work named here
         before; a root a pour made is titled with a formula's id, and is never
@@ -1590,7 +1618,7 @@ title = "The first step"
         self.assertIn("this repository is adopted; its tracker is", out)
 
         code, out = self.dotdiw("--version")
-        self.assertEqual(out.strip().split("\n")[1], "  tracker local 1.1.0", out)
+        self.assertEqual(out.strip().split("\n")[1], "  tracker local 2.0.0", out)
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap")
         self.assertEqual(code, 0, out)
@@ -2000,13 +2028,24 @@ class TheWordFormulaPour(unittest.TestCase):
 
     def test_the_declaration_stays_as_0_7_0_wrote_it(self):
         """An adopted checkout rewrites its copy on its next create, as a change
-        in its own tree, so a new word there reaches every repository at once."""
+        in its own tree, so a new word there reaches every repository at once.
+        2.0.0 changes one sentence on purpose: an uncommitted formula is found
+        on its holder's file system, where 0.7.0 said nothing finds it."""
         before = dotdiw_at("v0.7.0")
         if before is None:
             self.skipTest("v0.7.0 is not in this clone's history")
+        then = load_module("dotdiw_declared_at_v0_7_0", before).CONVENTIONS
+        unfound = (
+            "hold: it does\nnot appear in `formula list`, nothing matches it against a "
+            "title, and `check`\n"
+        )
+        found = (
+            "hold: it is\nfound on your file system alone, nobody else's `create` reaches "
+            "it, and `check`\n"
+        )
+        self.assertIn(unfound, then)
         self.assertEqual(
-            load_module("dotdiw_declared_now").CONVENTIONS,
-            load_module("dotdiw_declared_at_v0_7_0", before).CONVENTIONS,
+            load_module("dotdiw_declared_now").CONVENTIONS, then.replace(unfound, found)
         )
 
     @unittest.skipUnless(have_bd(), "bd is not installed")
@@ -2458,7 +2497,7 @@ class TheTrackerCommands(unittest.TestCase):
         lines = [line for line in out.splitlines() if line.strip()]
         self.assertEqual(len(lines), 2, out)
         self.assertRegex(lines[0], r"^  beads\s+not installed\s+shipped$")
-        self.assertRegex(lines[1], r"^  local\s+1\.1\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(lines[1], r"^  local\s+2\.0\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.repo.dotdiw("tracker", "check", "local", env=env)
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 10, out)
@@ -2547,7 +2586,7 @@ class TheTrackerCommands(unittest.TestCase):
         # A root moves as a task until question.how-migrate-copies-a-root is settled.
         self.assertEqual(moved[root]["kind"], "task")
         self.assertEqual(
-            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 1.1.0"
+            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 2.0.0"
         )
 
         code, out = repo.dotdiw("tracker", "migrate", "beads", "local")
@@ -4137,10 +4176,11 @@ class Twin:
     """One dotdiw, its own home, its own copy of the same project, and the
     ids its tracker gave, named by title so that two twins compare."""
 
-    def __init__(self, script, learn_tracker="", learn_verify=""):
+    def __init__(self, script, learn_tracker="", learn_verify="", learn_providers=""):
         self.script = script
         self.learn_tracker = learn_tracker
         self.learn_verify = learn_verify
+        self.learn_providers = learn_providers
         self.home = tempfile.mkdtemp(prefix="dotdiw-twin-home-")
         self.repo = tempfile.mkdtemp(prefix="dotdiw-twin-")
         # The twin under test goes through beads, named in its environment;
@@ -4239,6 +4279,7 @@ class Twin:
         text = re.sub(r"^  tracker [a-z]+ (\d)", r"  tracker \1", text, flags=re.M)
         text = text.replace(self.learn_tracker, "")
         text = text.replace(self.learn_verify, "")
+        text = text.replace(self.learn_providers, "")
         # And the three hints for running a formula say formula pour, where they
         # said mol pour; those three are read as the same.
         text = re.sub(
@@ -4307,7 +4348,12 @@ class TheBytesUnderBeads(unittest.TestCase):
         now = load_module("dotdiw_learn_tracker")
         twins = [
             Twin(before, learn_tracker=had),
-            Twin(DOTDIW, learn_tracker=now.LEARN_TRACKER, learn_verify=now.LEARN_VERIFY),
+            Twin(
+                DOTDIW,
+                learn_tracker=now.LEARN_TRACKER,
+                learn_verify=now.LEARN_VERIFY,
+                learn_providers=now.LEARN_PROVIDERS,
+            ),
         ]
         for t in twins:
             self.addCleanup(t.close)
@@ -4334,6 +4380,1269 @@ class TheBytesUnderBeads(unittest.TestCase):
                     % (" ".join(args), tag, got[0][1], got[0][2], got[1][1], got[1][2])
                 )
         self.assertEqual(differences, [], "\n\n".join(differences))
+
+
+PROVIDED = """formula = "mol-ship-a-release"
+description = "Ship a release of the service: tag it, build it, publish it to the registry."
+examples = ["Ship the 4.0 release", "Release the service", "Publish the new version"]
+version = 1
+type = "workflow"
+
+[[steps]]
+id = "tag"
+title = "Tag the release"
+
+[[steps]]
+id = "publish"
+title = "Publish it"
+needs = ["tag"]
+"""
+
+HALF_A_PROVIDER = """PROVIDER = {
+    "info": {"name": "half", "version": "0.1"},
+    "operations": {"describe": lambda r: {"answers": ["list"]}, "list": lambda r: {"formulas": []}},
+}
+"""
+
+SHY_PROVIDER = """def show(request):
+    return {}
+
+
+PROVIDER = {
+    "info": {"name": "shy", "version": "0.1"},
+    "operations": {
+        "describe": lambda r: {"answers": ["list"]},
+        "list": lambda r: {"formulas": []},
+        "show": show,
+    },
+}
+"""
+
+COUNTING_PROVIDER = """import os
+
+CALLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calls.log")
+TEXT = "\\n".join(
+    [
+        'formula = "mol-ship"',
+        'description = "Ship a release of the service: tag it, build it, publish it."',
+        'examples = ["Ship the 4.0 release"]',
+        "version = 1",
+        'type = "workflow"',
+        "",
+        "[[steps]]",
+        'id = "tag"',
+        'title = "Tag it"',
+        "",
+    ]
+)
+
+
+def note(what):
+    with open(CALLS, "a", encoding="utf-8") as fh:
+        fh.write(what + " ")
+
+
+def listing(request):
+    note("list")
+    return {"formulas": [{"id": "mol-ship", "description": "Ship it.", "examples": []}]}
+
+
+def show(request):
+    note("show")
+    return {"text": TEXT, "format": "toml"}
+
+
+PROVIDER = {
+    "info": {"name": "counting", "version": "0.1"},
+    "operations": {
+        "describe": lambda r: {"answers": ["list", "show"]},
+        "list": listing,
+        "show": show,
+    },
+}
+"""
+
+HOSTILE_PROVIDER = """import os
+
+TARGET = os.environ.get("DOTDIW_TEST_TARGET", "")
+
+
+def listing(request):
+    return {
+        "formulas": [
+            {"id": TARGET, "description": "Overwrite a formula in the checkout.", "examples": []},
+            {
+                "id": "mol-$(touch PWNED)",
+                "description": "Ship a release of the service: tag it, build it, publish it.",
+                "examples": ["Ship the 4.0 release"],
+            },
+        ]
+    }
+
+
+def show(request):
+    return {"text": 'formula = "x"\\ndescription = "Written by a provider."\\n', "format": "toml"}
+
+
+PROVIDER = {
+    "info": {"name": "hostile", "version": "0.1"},
+    "operations": {
+        "describe": lambda r: {"answers": ["list", "show"]},
+        "list": listing,
+        "show": show,
+    },
+}
+"""
+
+MALFORMED_PROVIDER = """PROVIDER = {
+    "info": {"name": "malformed", "version": "0.1"},
+    "operations": {
+        "describe": lambda r: {"answers": ["list", "show"]},
+        "list": lambda r: {
+            "formulas": [
+                {
+                    "id": "mol-good",
+                    "description": "Ship a release of the service: tag it, build it, publish it.",
+                    "examples": ["Ship the 4.0 release"],
+                },
+                {"id": "mol-broken", "description": "Broken.", "examples": 42},
+            ]
+        },
+        "show": lambda r: {},
+    },
+}
+"""
+
+SLOW_PROVIDER = """import os
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def describe(request):
+    open(os.path.join(HERE, "waiting"), "w").close()
+    for _ in range(1200):
+        if os.path.exists(os.path.join(HERE, "go")):
+            break
+        time.sleep(0.05)
+    return {"answers": ["list", "show"]}
+
+
+PROVIDER = {
+    "info": {"name": "slow", "version": "0.1"},
+    "operations": {"describe": describe, "list": lambda r: {"formulas": []}, "show": lambda r: {}},
+}
+"""
+
+QUOTED = """formula = "mol-keys-$(touch PWNED)"
+description = "Rotate the signing keys: revoke the old pair, generate a new one, and publish it. Use when a key is due or exposed."
+examples = ["Rotate the signing keys", "Replace the exposed key", "Generate a new signing key"]
+version = 1
+type = "workflow"
+
+[[steps]]
+id = "revoke"
+title = "Revoke the old pair"
+"""
+
+CASED_PROVIDER = """def text(ident):
+    return "\\n".join(
+        [
+            'formula = "%s"' % ident,
+            'description = "The formula listed as %s."' % ident,
+            "version = 1",
+            'type = "workflow"',
+            "",
+            "[[steps]]",
+            'id = "one"',
+            'title = "One"',
+            "",
+        ]
+    )
+
+
+PROVIDER = {
+    "info": {"name": "cased", "version": "0.1"},
+    "operations": {
+        "describe": lambda r: {"answers": ["list", "show"]},
+        "list": lambda r: {
+            "formulas": [
+                {"id": "mol-ship", "description": "Lower.", "examples": []},
+                {"id": "Mol-Ship", "description": "Upper.", "examples": []},
+            ]
+        },
+        "show": lambda r: {"text": text(r["id"]), "format": "toml"},
+    },
+}
+"""
+
+GARBLED_PROVIDER = """PROVIDER = {
+    "info": {"name": "garbled", "version": "0.1"},
+    "operations": {
+        "describe": lambda r: {"answers": ["list", "show"]},
+        "list": lambda r: {
+            "formulas": [{"id": "mol-ship", "description": "Ship it.", "examples": []}]
+        },
+        "show": lambda r: {"text": 'formula = "mol-ship"\\ndescription =\\n', "format": "toml"},
+    },
+}
+"""
+
+FAILING_PROVIDER = """def fail(request):
+    raise RuntimeError("the endpoint is down")
+
+
+PROVIDER = {
+    "info": {"name": "failing", "version": "0.1"},
+    "operations": {
+        "describe": lambda r: {"answers": ["list", "show"]},
+        "list": fail,
+        "show": fail,
+    },
+}
+"""
+
+
+class TheFormulaProviders(unittest.TestCase):
+    """Local storage is the file system, and a formula management provider,
+    registered under a name, serves its formulas with that name as their
+    suffix: they surface, list, show and pour as local ones do."""
+
+    def setUp(self):
+        self.repo = Repo(tracker=None)
+        self.addCleanup(self.repo.close)
+        self.env = dict(self.repo.env, PATH="/usr/bin:/bin")
+        self.repo.write("release-through-tap.formula.toml", FORMULA_A)
+        self.repo.git("add", "-A")
+        self.repo.git("commit", "-qm", "the project as it stands")
+        self.kept = tempfile.mkdtemp(prefix="dotdiw-provider-")
+        self.addCleanup(shutil.rmtree, self.kept, True)
+        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(PROVIDED)
+
+    def dotdiw(self, *args):
+        return self.repo.dotdiw(*args, env=self.env)
+
+    def adopted(self):
+        code, out = self.dotdiw("init", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+
+    def registered(self):
+        code, out = self.dotdiw(
+            "formula", "provider", "register", "acme", "directory", "--at", self.kept
+        )
+        self.assertEqual(code, 0, out)
+        self.assertIn("Registered acme", out)
+
+    def module(self, name, text):
+        directory = os.path.join(self.repo.home, ".dotdiw", "formula-providers")
+        os.makedirs(directory, exist_ok=True)
+        with open(os.path.join(directory, name + ".py"), "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    def test_an_uncommitted_formula_is_found_and_named_as_unshared(self):
+        self.adopted()
+        self.repo.write(
+            "deploy.formula.toml", FORMULA_A.replace("mol-release-through-tap", "mol-deploy")
+        )
+        code, out = self.dotdiw("formula", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("mol-deploy", out)
+        code, out = self.dotdiw("check")
+        self.assertIn("deploy.formula.toml", out)
+        self.assertIn("not committed, so nobody else can see it", out)
+
+    def test_local_storage_leaves_out_dot_directories_and_symbolic_links(self):
+        self.adopted()
+        self.repo.write(
+            ".hidden/deploy.formula.toml",
+            FORMULA_A.replace("mol-release-through-tap", "mol-hidden"),
+        )
+        os.symlink(
+            os.path.join(self.kept, "ship.formula.toml"),
+            os.path.join(self.repo.path, "linked.formula.toml"),
+        )
+        code, out = self.dotdiw("formula", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("mol-release-through-tap", out)
+        self.assertNotIn("mol-hidden", out)
+        self.assertNotIn("mol-ship-a-release", out)
+
+    def test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from(self):
+        self.adopted()
+        self.registered()
+        code, out = self.dotdiw("formula", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("mol-ship-a-release-acme", out)
+        self.assertIn("from the acme provider", out)
+        self.assertIn("mol-release-through-tap", out)
+        self.assertRegex(out, r"(?m)^2 formulas:$")
+        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn('formula = "mol-ship-a-release-acme"', out)
+        code, out = self.dotdiw("formula", "list", "--json")
+        self.assertEqual(code, 0, out)
+        held = {f["formula"]: f for f in json.loads(out)}
+        self.assertEqual(held["mol-ship-a-release-acme"]["provider"], "acme")
+        self.assertNotIn("provider", held["mol-release-through-tap"])
+
+    def test_a_provider_formula_surfaces_when_work_starts_and_pours(self):
+        self.adopted()
+        self.registered()
+        code, out = self.dotdiw("create", "Ship the 4.0 release")
+        self.assertEqual(code, 0, out)
+        self.assertIn("mol-ship-a-release-acme", out)
+        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Poured mol: created 3 issues", out)
+        root = group1("Root issue: (\\S+)", out)
+        code, out = self.dotdiw("show", root, "--json")
+        self.assertEqual(code, 0, out)
+        self.assertIn("mol-ship-a-release-acme", out)
+
+    def test_registration_refuses_in_one_line_and_registers_nothing(self):
+        self.adopted()
+        self.module("half", HALF_A_PROVIDER)
+        self.module("shy", SHY_PROVIDER)
+        for args, said in (
+            (("a-b", "directory"), "letters and digits"),
+            (("zed", "nosuch"), "No formula management provider module named nosuch"),
+            (("zed", "half"), "not a formula management provider"),
+            (("zed", "shy"), "a formula management provider answers list and show"),
+        ):
+            with self.subTest(args=args):
+                code, out = self.dotdiw("formula", "provider", "register", *args)
+                self.assertEqual(code, 1, out)
+                self.assertIn(said, out)
+        code, out = self.dotdiw("formula", "provider", "list")
+        self.assertIn("No formula management provider is registered.", out)
+        self.registered()
+        code, out = self.dotdiw(
+            "formula", "provider", "register", "acme", "directory", "--at", self.kept
+        )
+        self.assertEqual(code, 1, out)
+        self.assertIn("already registered as acme", out)
+
+    def test_registration_waits_for_a_clashing_local_formula_to_migrate(self):
+        self.adopted()
+        self.repo.write(
+            "tap.formula.toml", FORMULA_A.replace("mol-release-through-tap", "mol-tap-acme")
+        )
+        code, out = self.dotdiw(
+            "formula", "provider", "register", "acme", "directory", "--at", self.kept
+        )
+        self.assertEqual(code, 1, out)
+        self.assertIn("tap.formula.toml", out)
+        code, out = self.dotdiw("formula", "provider", "list")
+        self.assertIn("No formula management provider is registered.", out)
+
+    def test_check_names_a_local_formula_that_reads_like_a_provider_formula(self):
+        self.adopted()
+        self.registered()
+        self.repo.write(
+            "tap.formula.toml", FORMULA_A.replace("mol-release-through-tap", "mol-tap-acme")
+        )
+        code, out = self.dotdiw("check")
+        self.assertIn("reads like a formula of the acme provider", out)
+
+    def test_a_failing_provider_is_left_out_in_one_line(self):
+        self.adopted()
+        self.module("failing", FAILING_PROVIDER)
+        code, out = self.dotdiw("formula", "provider", "register", "down", "failing")
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("formula", "list")
+        self.assertEqual(code, 0, out)
+        self.assertIn("mol-release-through-tap", out)
+        left = [line for line in out.splitlines() if "left out of this run" in line]
+        self.assertEqual(len(left), 1, out)
+        self.assertIn("the endpoint is down", left[0])
+
+    def test_each_provider_is_asked_once_in_a_run(self):
+        """One list in a run, and a formula's text only when it is shown or
+        poured: a lookup reads one formula, never the provider's catalog."""
+        self.adopted()
+        self.module("counting", COUNTING_PROVIDER)
+        code, out = self.dotdiw("formula", "provider", "register", "cnt", "counting")
+        self.assertEqual(code, 0, out)
+        calls = os.path.join(self.repo.home, ".dotdiw", "formula-providers", "calls.log")
+        for args, asked in (
+            (("create", "Ship the 4.0 release"), ["list"]),
+            (("formula", "show", "mol-ship-cnt"), ["list", "show"]),
+            (("formula", "pour", "mol-ship-cnt"), ["list", "show"]),
+        ):
+            with self.subTest(args=args):
+                if os.path.exists(calls):
+                    os.remove(calls)
+                code, out = self.dotdiw(*args)
+                self.assertEqual(code, 0, out)
+                if args[1] != "pour":
+                    self.assertIn("mol-ship-cnt", out)
+                with open(calls, encoding="utf-8") as fh:
+                    self.assertEqual(sorted(fh.read().split()), asked)
+
+    def test_learn_names_the_provider_commands(self):
+        code, out = self.dotdiw("learn")
+        self.assertEqual(code, 0, out)
+        for line in (
+            "dotdiw formula provider register <name> <module> [--at <location>]",
+            "dotdiw formula provider list",
+            "dotdiw formula provider remove <name>",
+        ):
+            self.assertIn(line, out)
+
+    def test_the_conventions_say_where_an_uncommitted_formula_is_found(self):
+        self.adopted()
+        with open(os.path.join(self.repo.path, "CLAUDE.md"), encoding="utf-8") as fh:
+            said = " ".join(fh.read().split())
+        self.assertIn(
+            "A formula you have not committed is one only you hold: it is found on your "
+            "file system alone, nobody else's `create` reaches it, and `check` says so.",
+            said,
+        )
+
+    def registry(self):
+        with open(
+            os.path.join(self.repo.home, ".dotdiw", "formula-providers.json"), encoding="utf-8"
+        ) as fh:
+            return json.load(fh)
+
+    def test_a_provider_id_outside_its_shape_leaves_the_provider_out(self):
+        """An id is the provider's text: one that is a path, or that a shell
+        reads, never names a file and never reaches a printed command."""
+        self.adopted()
+        victim = FORMULA_A.replace("mol-release-through-tap", "mol-victim")
+        self.repo.write("victim-hostile.formula.toml", victim)
+        self.repo.git("add", "-A")
+        self.repo.git("commit", "-qm", "a formula a provider must never touch")
+        self.module("hostile", HOSTILE_PROVIDER)
+        self.env["DOTDIW_TEST_TARGET"] = os.path.join(self.repo.path, "victim")
+        code, out = self.dotdiw("formula", "provider", "register", "hostile", "hostile")
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("formula", "list")
+        self.assertEqual(code, 0, out)
+        left = [line for line in out.splitlines() if "left out of this run" in line]
+        self.assertEqual(len(left), 1, out)
+        self.assertIn("not an id of letters, digits", left[0])
+        with open(
+            os.path.join(self.repo.path, "victim-hostile.formula.toml"), encoding="utf-8"
+        ) as fh:
+            self.assertEqual(fh.read(), victim)
+        code, out = self.dotdiw("create", "Ship the 4.0 release")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("$(touch PWNED)", out)
+        self.assertEqual(glob.glob(os.path.join(self.repo.path, "**", "PWNED"), recursive=True), [])
+
+    def test_the_command_printed_to_pour_quotes_the_id(self):
+        self.adopted()
+        self.repo.write("ops/keys.formula.toml", QUOTED)
+        code, out = self.dotdiw("create", "Rotate the signing keys")
+        self.assertEqual(code, 0, out)
+        line = next(x for x in out.splitlines() if "Run it:" in x)
+        self.assertEqual(shlex.split(line.split("Run it:", 1)[1])[-1], "mol-keys-$(touch PWNED)")
+        self.assertIn("formula pour 'mol-keys-$(touch PWNED)'", line)
+
+    def test_an_exact_id_comes_before_a_file_name(self):
+        """A file name is an alias: a local file named like a provider's
+        suffixed id, declaring an id of its own, never shadows the provider."""
+        self.adopted()
+        self.repo.write(
+            "mol-ship-a-release-acme.formula.toml",
+            FORMULA_A.replace("mol-release-through-tap", "mol-calibrate"),
+        )
+        self.registered()
+        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn('formula = "mol-ship-a-release-acme"', out)
+        self.assertIn("Publish it", out)
+        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Poured mol: created 3 issues", out)
+
+    def test_two_formulas_under_one_id_are_refused(self):
+        self.adopted()
+        twin = FORMULA_A.replace("mol-release-through-tap", "mol-twin")
+        self.repo.write("one/twin.formula.toml", twin)
+        self.repo.write("two/twin.formula.toml", twin)
+        said = (
+            "dotdiw: mol-twin names more than one formula: "
+            "one/twin.formula.toml, two/twin.formula.toml."
+        )
+        for args in (("formula", "show", "mol-twin"), ("formula", "pour", "mol-twin")):
+            with self.subTest(args=args):
+                code, out = self.dotdiw(*args)
+                self.assertEqual(code, 1, out)
+                self.assertEqual(out.strip(), said)
+
+    def test_a_name_differing_only_in_case_is_taken(self):
+        self.adopted()
+        self.registered()
+        code, out = self.dotdiw(
+            "formula", "provider", "register", "Acme", "directory", "--at", self.kept
+        )
+        self.assertEqual(code, 1, out)
+        self.assertIn("already registered as acme", out)
+
+    def test_a_removed_providers_formula_is_never_handed_to_the_tracker(self):
+        self.adopted()
+        self.registered()
+        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("formula", "provider", "remove", "acme")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.registry()["removed"], ["acme"])
+        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("names no formula: the acme provider is removed", out)
+        self.registered()
+        self.assertEqual(self.registry()["removed"], [])
+        code, out = self.dotdiw("formula", "pour", "mol-gone-acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("names no formula the acme provider serves", out)
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_a_removed_providers_formula_pours_no_copy(self):
+        repo = Repo()
+        self.addCleanup(repo.close)
+        env = dict(repo.env, PATH=os.environ.get("PATH", "/usr/bin:/bin"))
+        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
+        code, out = repo.dotdiw(
+            "formula", "provider", "register", "acme", "directory", "--at", self.kept, env=env
+        )
+        self.assertEqual(code, 0, out)
+        code, out = repo.dotdiw("formula", "pour", "mol-ship-a-release-acme", env=env)
+        self.assertEqual(code, 0, out)
+        code, out = repo.dotdiw("formula", "provider", "remove", "acme", env=env)
+        self.assertEqual(code, 0, out)
+        code, listed = repo.dotdiw("list", "--all", "--json", env=env)
+        before = len(json.loads(listed))
+        code, out = repo.dotdiw("formula", "pour", "mol-ship-a-release-acme", env=env)
+        self.assertEqual(code, 1, out)
+        self.assertIn("the acme provider is removed", out)
+        code, listed = repo.dotdiw("list", "--all", "--json", env=env)
+        self.assertEqual(len(json.loads(listed)), before)
+
+    def test_one_run_forgets_its_index_when_the_registry_changes(self):
+        """Through the operations in one process: what a registration or a
+        removal changes is in the very next answer."""
+        self.adopted()
+        module, root = self.in_process("dotdiw_one_run")
+
+        def listed():
+            out = module.invoke("operation.list-formulas", {"root": root})
+            return {f["formulaRef"] for f in out["formulas"]}
+
+        self.assertNotIn("mol-ship-a-release-acme", listed())
+        done = module.invoke(
+            "operation.register-provider",
+            {"root": root, "name": "acme", "module": "directory", "location": self.kept},
+        )
+        self.assertEqual(done["status"], "completed", done)
+        self.assertIn("mol-ship-a-release-acme", listed())
+        self.assertEqual(
+            module.invoke("operation.remove-provider", {"name": "acme"})["status"], "completed"
+        )
+        self.assertNotIn("mol-ship-a-release-acme", listed())
+
+    def test_a_malformed_list_leaves_the_provider_out_and_create_succeeds(self):
+        self.adopted()
+        self.module("malformed", MALFORMED_PROVIDER)
+        code, out = self.dotdiw("formula", "provider", "register", "bad", "malformed")
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("create", "Ship the 4.0 release")
+        self.assertEqual(code, 0, out)
+        left = [line for line in out.splitlines() if "left out of this run" in line]
+        self.assertEqual(len(left), 1, out)
+        self.assertIn("the examples of mol-broken are not a list of text", left[0])
+        self.assertNotIn("mol-good-bad", out)
+        code, listed = self.dotdiw("list", "--all", "--json")
+        self.assertEqual(
+            [r["title"] for r in json.loads(listed)].count("Ship the 4.0 release"), 1, listed
+        )
+
+    def test_check_names_a_formula_head_does_not_hold(self):
+        self.adopted()
+        self.repo.write(".gitignore", "ignored/\n")
+        self.repo.git("add", ".gitignore")
+        self.repo.git("commit", "-qm", "ignore a directory")
+        self.repo.write(
+            "ignored/deploy.formula.toml",
+            FORMULA_A.replace("mol-release-through-tap", "mol-ignored"),
+        )
+        self.repo.write(
+            "staged.formula.toml", FORMULA_A.replace("mol-release-through-tap", "mol-staged")
+        )
+        self.repo.git("add", "staged.formula.toml")
+        code, out = self.dotdiw("check")
+        for rel in ("ignored/deploy.formula.toml", "staged.formula.toml"):
+            self.assertRegex(out, r"%s\s+not committed, so nobody else can see it" % re.escape(rel))
+        self.assertNotIn("release-through-tap.formula.toml  not committed", out)
+
+    def test_a_registration_waits_for_the_registry_lock(self):
+        self.adopted()
+        lock = os.path.join(self.repo.home, ".dotdiw", "formula-providers.lock")
+        os.makedirs(os.path.dirname(lock), exist_ok=True)
+        with open(lock, "a", encoding="utf-8") as fh:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            p = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-I",
+                    DOTDIW,
+                    "formula",
+                    "provider",
+                    "register",
+                    "acme",
+                    "directory",
+                    "--at",
+                    self.kept,
+                ],
+                cwd=self.repo.path,
+                env=self.env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            self.addCleanup(p.kill)
+            time.sleep(2)
+            self.assertIsNone(p.poll())
+            self.assertFalse(
+                os.path.exists(os.path.join(self.repo.home, ".dotdiw", "formula-providers.json"))
+            )
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        out, _ = p.communicate(timeout=60)
+        self.assertEqual(p.returncode, 0, out)
+        self.assertIn("acme", self.registry()["providers"])
+        with open(lock, "a", encoding="utf-8") as fh:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            q = subprocess.Popen(
+                [sys.executable, "-I", DOTDIW, "formula", "provider", "remove", "acme"],
+                cwd=self.repo.path,
+                env=self.env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            self.addCleanup(q.kill)
+            time.sleep(2)
+            self.assertIsNone(q.poll())
+            self.assertIn("acme", self.registry()["providers"])
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        out, _ = q.communicate(timeout=60)
+        self.assertEqual(q.returncode, 0, out)
+        self.assertNotIn("acme", self.registry()["providers"])
+
+    def test_two_registrations_at_once_keep_both(self):
+        """A registration reads the registry it writes under its lock, so one
+        that began first and finishes last keeps what the other wrote."""
+        self.adopted()
+        self.module("slow", SLOW_PROVIDER)
+        here = os.path.join(self.repo.home, ".dotdiw", "formula-providers")
+        p = subprocess.Popen(
+            [sys.executable, "-I", DOTDIW, "formula", "provider", "register", "late", "slow"],
+            cwd=self.repo.path,
+            env=self.env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        self.addCleanup(p.kill)
+        for _ in range(600):
+            if os.path.exists(os.path.join(here, "waiting")):
+                break
+            time.sleep(0.05)
+        self.registered()
+        open(os.path.join(here, "go"), "w").close()
+        out, _ = p.communicate(timeout=60)
+        self.assertEqual(p.returncode, 0, out)
+        self.assertEqual(sorted(self.registry()["providers"]), ["acme", "late"])
+
+    def test_a_directory_store_is_resolved_at_registration(self):
+        self.adopted()
+        os.makedirs(os.path.join(self.repo.path, "sub"))
+        relative = os.path.relpath(self.kept, self.repo.path)
+        code, out = self.dotdiw(
+            "formula", "provider", "register", "acme", "directory", "--at", relative
+        )
+        self.assertEqual(code, 0, out)
+        self.assertEqual(
+            self.registry()["providers"]["acme"]["location"], os.path.realpath(self.kept)
+        )
+        code, out = self.repo.dotdiw(
+            "formula", "list", cwd=os.path.join(self.repo.path, "sub"), env=self.env
+        )
+        self.assertEqual(code, 0, out)
+        self.assertIn("mol-ship-a-release-acme", out)
+        gone = self.kept + "-moved"
+        os.rename(self.kept, gone)
+        self.addCleanup(shutil.rmtree, gone, True)
+        code, out = self.dotdiw("formula", "list")
+        left = [line for line in out.splitlines() if "left out of this run" in line]
+        self.assertEqual(len(left), 1, out)
+        self.assertIn("no directory at", left[0])
+        code, out = self.dotdiw(
+            "formula", "provider", "register", "zed", "directory", "--at", self.kept
+        )
+        self.assertEqual(code, 1, out)
+        self.assertIn("no directory at", out)
+
+    def test_a_registration_that_cannot_answer_is_listed(self):
+        self.adopted()
+        self.module("counting", COUNTING_PROVIDER)
+        code, out = self.dotdiw("formula", "provider", "register", "cnt", "counting")
+        self.assertEqual(code, 0, out)
+        os.remove(os.path.join(self.repo.home, ".dotdiw", "formula-providers", "counting.py"))
+        code, out = self.dotdiw("formula", "provider", "list")
+        self.assertEqual(code, 0, out)
+        self.assertRegex(
+            out,
+            r"cnt\s+counting\s+unavailable: No formula management provider module named counting",
+        )
+
+    def test_local_storage_reads_regular_files_alone(self):
+        self.adopted()
+        os.mkfifo(os.path.join(self.repo.path, "pipe.formula.toml"))
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, "formula", "list"],
+            cwd=self.repo.path,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("mol-release-through-tap", p.stdout)
+
+    def in_process(self, name):
+        """dotdiw as a module in this process, under the repo's home."""
+        home = os.environ.get("HOME")
+        os.environ["HOME"] = self.repo.home
+        self.addCleanup(os.environ.__setitem__, "HOME", home or "")
+        return load_module(name), os.path.realpath(self.repo.path)
+
+    def test_a_rebuilt_index_asks_no_provider_again(self):
+        """An index built for a lookup and built again with the project's text
+        asks each provider for its list once in the run."""
+        self.adopted()
+        self.module("counting", COUNTING_PROVIDER)
+        code, out = self.dotdiw("formula", "provider", "register", "cnt", "counting")
+        self.assertEqual(code, 0, out)
+        calls = os.path.join(self.repo.home, ".dotdiw", "formula-providers", "calls.log")
+        if os.path.exists(calls):
+            os.remove(calls)
+        module, root = self.in_process("dotdiw_rebuilt")
+        found = module.invoke("operation.resolve-formula", {"root": root, "ident": "mol-ship-cnt"})
+        self.assertEqual(found["status"], "completed", found)
+        matched = module.invoke(
+            "operation.match-formulas",
+            {"root": root, "title": "Ship the 4.0 release", "surface": False},
+        )
+        self.assertEqual(matched["status"], "completed", matched)
+        with open(calls, encoding="utf-8") as fh:
+            self.assertEqual(sorted(fh.read().split()), ["list", "show"])
+
+    def test_ids_that_differ_in_case_keep_their_own_files(self):
+        self.adopted()
+        self.module("cased", CASED_PROVIDER)
+        code, out = self.dotdiw("formula", "provider", "register", "cs", "cased")
+        self.assertEqual(code, 0, out)
+        module, root = self.in_process("dotdiw_cased")
+        paths = {}
+        for ident in ("mol-ship-cs", "Mol-Ship-cs"):
+            found = module.invoke("operation.resolve-formula", {"root": root, "ident": ident})
+            self.assertEqual(found["status"], "completed", found)
+            paths[ident] = found["path"]
+        self.assertFalse(os.path.samefile(paths["mol-ship-cs"], paths["Mol-Ship-cs"]))
+        for ident, path in paths.items():
+            with open(path, encoding="utf-8") as fh:
+                self.assertIn('formula = "%s"' % ident, fh.read())
+
+    def test_a_quoted_formula_key_is_rewritten_in_place(self):
+        """The id is the formula key wherever it is spelled: a quoted key is
+        rewritten, never kept beside a second one."""
+        self.adopted()
+        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(
+                PROVIDED.replace(
+                    'formula = "mol-ship-a-release"', '"formula" = "mol-ship-a-release"'
+                )
+            )
+        self.registered()
+        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(
+            re.findall(r"(?m)^\s*[\"']?formula[\"']?\s*=.*$", out),
+            ['formula = "mol-ship-a-release-acme"'],
+        )
+        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Poured mol: created 3 issues", out)
+
+    def test_a_provider_formula_that_does_not_parse_is_refused(self):
+        self.adopted()
+        self.module("garbled", GARBLED_PROVIDER)
+        code, out = self.dotdiw("formula", "provider", "register", "gb", "garbled")
+        self.assertEqual(code, 0, out)
+        for args in (("formula", "show", "mol-ship-gb"), ("formula", "pour", "mol-ship-gb")):
+            with self.subTest(args=args):
+                code, out = self.dotdiw(*args)
+                self.assertEqual(code, 1, out)
+                self.assertIn("The gb provider failed to show mol-ship", out)
+        code, listed = self.dotdiw("list", "--all", "--json")
+        self.assertEqual(json.loads(listed), [])
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_a_formula_that_will_not_cook_pours_nothing(self):
+        """The file is the formula: when bd will not cook it, nothing is
+        poured, and the version bd cooked before is never poured instead."""
+        repo = Repo()
+        self.addCleanup(repo.close)
+        env = dict(repo.env, PATH=os.environ.get("PATH", "/usr/bin:/bin"))
+        repo.write("release-through-tap.formula.toml", FORMULA_A)
+        repo.git("add", "-A")
+        repo.git("commit", "-qm", "the project as it stands")
+        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
+        code, out = repo.dotdiw("formula", "pour", "mol-release-through-tap", env=env)
+        self.assertEqual(code, 0, out)
+        repo.write(
+            "release-through-tap.formula.toml",
+            FORMULA_A.replace('type = "workflow"', 'type = "nonsense"').replace(
+                "Announce the release", "Announce it again"
+            ),
+        )
+        code, listed = repo.dotdiw("list", "--all", "--json", env=env)
+        before = len(json.loads(listed))
+        code, out = repo.dotdiw("formula", "pour", "mol-release-through-tap", env=env)
+        self.assertEqual(code, 1, out)
+        self.assertIn("could not cook", out)
+        code, listed = repo.dotdiw("list", "--all", "--json", env=env)
+        self.assertEqual(len(json.loads(listed)), before)
+
+    def test_each_text_a_provider_shows_is_its_own_file(self):
+        """A file once written for a provider's formula never changes: a pour
+        reads its steps and its means to prove from the copy the tracker
+        cooks, whatever a show writes meanwhile."""
+        self.adopted()
+        self.registered()
+        cache = os.path.join(self.repo.workspace(), "formula-providers")
+        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        first = sorted(os.listdir(cache))
+        self.assertEqual(len(first), 1, first)
+        with open(os.path.join(cache, first[0]), encoding="utf-8") as fh:
+            was = fh.read()
+        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(PROVIDED.replace('title = "Publish it"', 'title = "Publish it again"'))
+        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Publish it again", out)
+        self.assertEqual(len(os.listdir(cache)), 2)
+        with open(os.path.join(cache, first[0]), encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), was)
+
+    def test_a_providers_suffix_never_falls_back_to_a_file_name(self):
+        """A local file named like a provider's suffixed id, declaring an id
+        of its own, never answers to that suffixed id."""
+        self.adopted()
+        self.repo.write(
+            "mol-calibrate-acme.formula.toml",
+            FORMULA_A.replace("mol-release-through-tap", "mol-other"),
+        )
+        self.registered()
+        code, out = self.dotdiw("formula", "pour", "mol-calibrate-acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("names no formula the acme provider serves", out)
+        self.assertEqual(self.dotdiw("formula", "provider", "remove", "acme")[0], 0)
+        code, out = self.dotdiw("formula", "pour", "mol-calibrate-acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("names no formula: the acme provider is removed", out)
+        for ident in ("mol-other", "mol-calibrate-acme.formula.toml"):
+            with self.subTest(ident=ident):
+                code, out = self.dotdiw("formula", "show", ident)
+                self.assertEqual(code, 0, out)
+                self.assertIn('formula = "mol-other"', out)
+
+    def test_an_exact_path_comes_before_a_file_name(self):
+        self.adopted()
+        self.repo.write(
+            "docs/release.formula.toml", FORMULA_A.replace("mol-release-through-tap", "mol-docs")
+        )
+        self.repo.write(
+            "tools/release.formula.toml", FORMULA_A.replace("mol-release-through-tap", "mol-tools")
+        )
+        for ident, said in (
+            ("tools/release.formula.toml", 'formula = "mol-tools"'),
+            (os.path.join(self.repo.path, "docs", "release.formula.toml"), 'formula = "mol-docs"'),
+        ):
+            with self.subTest(ident=ident):
+                code, out = self.dotdiw("formula", "show", ident)
+                self.assertEqual(code, 0, out)
+                self.assertIn(said, out)
+        code, out = self.dotdiw("formula", "show", "release")
+        self.assertEqual(code, 1, out)
+        self.assertIn("names more than one formula", out)
+
+    def test_check_names_a_formula_that_does_not_parse(self):
+        self.adopted()
+        self.repo.write("broken.formula.toml", 'formula = "mol-broken"\ndescription =\n')
+        code, out = self.dotdiw("check")
+        self.assertNotEqual(code, 0, out)
+        self.assertRegex(out, r"broken\.formula\.toml\s+not committed, so nobody else can see it")
+        self.assertRegex(out, r"broken\.formula\.toml\s+does not parse, so nothing can find it")
+        code, out = self.dotdiw("create", "Rotate the signing keys")
+        self.assertEqual(code, 0, out)
+        self.assertIn("does not parse, so nothing can find it", out)
+        self.repo.git("add", "broken.formula.toml")
+        self.repo.git("commit", "-qm", "a formula that does not parse")
+        code, out = self.dotdiw("check")
+        self.assertNotIn("broken.formula.toml  not committed", out)
+        self.assertRegex(out, r"broken\.formula\.toml\s+does not parse, so nothing can find it")
+
+    def bd_that_pauses(self):
+        """A bd in front of the real one that, when a run asks it to, waits at
+        a cook -- before it or after it -- until the test lets it go on."""
+        real = shutil.which("bd")
+        here = tempfile.mkdtemp(prefix="dotdiw-bd-pause-")
+        self.addCleanup(shutil.rmtree, here, True)
+        with open(os.path.join(here, "bd"), "w", encoding="utf-8") as fh:
+            fh.write(
+                "#!/bin/sh\n"
+                'wait_here() { touch "$DOTDIW_TEST_PAUSE.reached"; '
+                'while [ ! -e "$DOTDIW_TEST_PAUSE.go" ]; do sleep 0.05; done; }\n'
+                'if [ "$1" = cook ] && [ -n "$DOTDIW_TEST_PAUSE" ] && [ "$DOTDIW_TEST_PAUSE_AT" = before ]; then wait_here; fi\n'
+                '"%s" "$@"\n'
+                "code=$?\n"
+                'if [ "$1" = cook ] && [ -n "$DOTDIW_TEST_PAUSE" ] && [ "$DOTDIW_TEST_PAUSE_AT" = after ]; then wait_here; fi\n'
+                "exit $code\n" % real
+            )
+        os.chmod(os.path.join(here, "bd"), 0o755)
+        return here
+
+    def beads_pour(self, repo, env, ident, pause=None, at=None):
+        extra = {"DOTDIW_TEST_PAUSE": pause, "DOTDIW_TEST_PAUSE_AT": at} if pause else {}
+        p = subprocess.Popen(
+            [sys.executable, "-I", DOTDIW, "formula", "pour", ident],
+            cwd=repo.path,
+            env=dict(env, **extra),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        self.addCleanup(p.kill)
+        return p
+
+    def until(self, path):
+        for _ in range(1200):
+            if os.path.exists(path):
+                return
+            time.sleep(0.05)
+        self.fail("%s never appeared" % path)
+
+    def steps_of(self, repo, env, root):
+        code, listed = repo.dotdiw("list", "--all", "--json", env=env)
+        return sorted(r["title"] for r in json.loads(listed) if r.get("parent") == root)
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_one_cook_and_its_pour_run_at_a_time(self):
+        """bd keeps one cooked copy per formula id: a second pour waits until
+        the first has poured what it cooked."""
+        wrap = self.bd_that_pauses()
+        repo = Repo()
+        self.addCleanup(repo.close)
+        env = dict(repo.env, PATH=wrap + os.pathsep + os.environ.get("PATH", "/usr/bin:/bin"))
+        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
+        code, out = repo.dotdiw(
+            "formula", "provider", "register", "acme", "directory", "--at", self.kept, env=env
+        )
+        self.assertEqual(code, 0, out)
+        pause = os.path.join(wrap, "first")
+        first = self.beads_pour(repo, env, "mol-ship-a-release-acme", pause, "after")
+        self.until(pause + ".reached")
+        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(PROVIDED.replace('title = "Publish it"', 'title = "Publish it again"'))
+        second = self.beads_pour(repo, env, "mol-ship-a-release-acme")
+        time.sleep(2)
+        self.assertIsNone(second.poll())
+        open(pause + ".go", "w").close()
+        said = [p.communicate(timeout=120)[0] for p in (first, second)]
+        self.assertEqual([first.returncode, second.returncode], [0, 0], said)
+        roots = [group1(r"Root issue: (\S+)", out) for out in said]
+        self.assertEqual(self.steps_of(repo, env, roots[0]), ["Publish it", "Tag the release"])
+        self.assertEqual(
+            self.steps_of(repo, env, roots[1]), ["Publish it again", "Tag the release"]
+        )
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_a_pour_cooks_the_copy_it_read(self):
+        """The file a pour hands the tracker is the copy it read its means to
+        prove from, whatever is written to the formula meanwhile."""
+        wrap = self.bd_that_pauses()
+        repo = Repo()
+        self.addCleanup(repo.close)
+        env = dict(repo.env, PATH=wrap + os.pathsep + os.environ.get("PATH", "/usr/bin:/bin"))
+        repo.write("release-through-tap.formula.toml", FORMULA_A)
+        repo.git("add", "-A")
+        repo.git("commit", "-qm", "the project as it stands")
+        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
+        pause = os.path.join(wrap, "first")
+        first = self.beads_pour(repo, env, "mol-release-through-tap", pause, "before")
+        self.until(pause + ".reached")
+        repo.write(
+            "release-through-tap.formula.toml",
+            FORMULA_A.replace("Announce the release", "Announce it twice"),
+        )
+        open(pause + ".go", "w").close()
+        out = first.communicate(timeout=120)[0]
+        self.assertEqual(first.returncode, 0, out)
+        self.assertEqual(
+            self.steps_of(repo, env, group1(r"Root issue: (\S+)", out)),
+            [
+                "Announce the release",
+                "Bump the formula to the new version",
+                "Install cleanly from the tap",
+            ],
+        )
+
+    def test_a_local_formula_never_takes_a_providers_suffix(self):
+        """A provider's suffix is reserved: a local formula that declares an id
+        with it is never reached by that id, and check says to rename it."""
+        self.adopted()
+        self.registered()
+        self.repo.write(
+            "zed.formula.toml", FORMULA_A.replace("mol-release-through-tap", "mol-zed-acme")
+        )
+        code, out = self.dotdiw("formula", "pour", "mol-zed-acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("names no formula the acme provider serves", out)
+        self.assertEqual(self.dotdiw("formula", "provider", "remove", "acme")[0], 0)
+        code, out = self.dotdiw("formula", "pour", "mol-zed-acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("names no formula: the acme provider is removed", out)
+        code, out = self.dotdiw("check")
+        self.assertIn("its id carries the suffix of the removed acme provider -- rename it", out)
+        code, out = self.dotdiw("formula", "show", "zed.formula.toml")
+        self.assertEqual(code, 0, out)
+        self.assertIn('formula = "mol-zed-acme"', out)
+
+    def test_a_provider_formula_keeps_every_value_it_was_given(self):
+        """The parsed formula key is set, however it was spelled, and every
+        other value reads back exactly -- a line inside a string included."""
+        self.adopted()
+        text = PROVIDED.replace(
+            'formula = "mol-ship-a-release"', '"formul\\u0061" = "mol-ship-a-release"'
+        ).replace(
+            'description = "Ship a release of the service: tag it, build it, publish it to the registry."',
+            'description = """\nShip a release of the service: tag it, build it, publish it to the registry.\nformula = "a line in a string"\n"""',
+        )
+        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(text)
+        self.registered()
+        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        expected = dict(tomllib.loads(text), formula="mol-ship-a-release-acme")
+        self.assertEqual(tomllib.loads(out), expected)
+        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Poured mol: created 3 issues", out)
+
+    def test_a_provider_formula_that_does_not_read_back_is_refused(self):
+        self.adopted()
+        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(PROVIDED.replace("version = 1\n", "version = 1\nlimit = nan\n"))
+        self.registered()
+        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("does not read back as the provider gave it", out)
+
+    def test_toml_text_writes_back_every_value(self):
+        module = load_module("dotdiw_toml_text")
+        doc = (
+            '"formul\\u0061" = "mol-x"\n'
+            'description = """\nShip it.\nformula = "not a key"\ndone"""\n'
+            "\"odd key\" = 'lit\\eral'\n"
+            "n = 42\nf = 1.5e-7\nb = true\n"
+            "when = 2026-11-09T12:00:00+08:00\nday = 2026-11-09\n"
+            'mixed = [1, "two", {three = 3}]\nnested = [[1, 2], [3]]\n'
+            '[vars]\na.b = "dotted"\n'
+            '[[steps]]\nid = "one"\ntitle = "Say \\"hi\\"\\ttab"\n'
+            '[steps.inner]\nk = "v"\n'
+            '[[steps]]\nid = "two"\nneeds = ["one"]\n'
+        )
+        data = tomllib.loads(doc)
+        self.assertEqual(tomllib.loads(module.toml_text(data)), data)
+
+    def test_the_pour_hint_pours_the_formula_it_shows(self):
+        """The command create prints to pour the first formula resolves to
+        that formula: by its path when its id is a provider's, or is shared."""
+        self.adopted()
+        self.registered()
+        self.repo.write(
+            "zed.formula.toml", QUOTED.replace("mol-keys-$(touch PWNED)", "mol-ship-a-release-acme")
+        )
+        twin = QUOTED.replace("mol-keys-$(touch PWNED)", "mol-twin").replace(
+            "Rotate the signing keys", "Renew the release certificates"
+        )
+        self.repo.write("one/twin.formula.toml", twin)
+        self.repo.write("two/twin.formula.toml", twin.replace("Revoke the old pair", "Revoke it"))
+        for title, path in (
+            ("Rotate the signing keys", "zed.formula.toml"),
+            ("Renew the release certificates", None),
+        ):
+            with self.subTest(title=title):
+                code, out = self.dotdiw("create", title)
+                self.assertEqual(code, 0, out)
+                line = next(x for x in out.splitlines() if "Run it:" in x)
+                ref = shlex.split(line.split("Run it:", 1)[1])[-1]
+                self.assertTrue(ref.endswith(".formula.toml"), line)
+                if path:
+                    self.assertEqual(ref, path)
+                code, out = self.dotdiw("formula", "pour", ref)
+                self.assertEqual(code, 0, out)
+                self.assertIn("Poured mol: created 2 issues", out)
+        self.assertEqual(self.dotdiw("formula", "provider", "remove", "acme")[0], 0)
+        code, out = self.dotdiw("create", "Rotate the signing keys")
+        line = next(x for x in out.splitlines() if "Run it:" in x)
+        self.assertEqual(shlex.split(line.split("Run it:", 1)[1])[-1], "zed.formula.toml")
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_a_forwarded_cook_waits_for_a_pour(self):
+        """A cook typed through dotdiw holds the lock a pour holds from its
+        cook to its pour, so the pour still pours what it cooked."""
+        wrap = self.bd_that_pauses()
+        repo = Repo()
+        self.addCleanup(repo.close)
+        env = dict(repo.env, PATH=wrap + os.pathsep + os.environ.get("PATH", "/usr/bin:/bin"))
+        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
+        code, out = repo.dotdiw(
+            "formula", "provider", "register", "acme", "directory", "--at", self.kept, env=env
+        )
+        self.assertEqual(code, 0, out)
+        pause = os.path.join(wrap, "first")
+        first = self.beads_pour(repo, env, "mol-ship-a-release-acme", pause, "after")
+        self.until(pause + ".reached")
+        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(PROVIDED.replace('title = "Publish it"', 'title = "Publish it again"'))
+        cook = subprocess.Popen(
+            [
+                sys.executable,
+                "-I",
+                DOTDIW,
+                "cook",
+                "mol-ship-a-release-acme",
+                "--persist",
+                "--force",
+            ],
+            cwd=repo.path,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        self.addCleanup(cook.kill)
+        time.sleep(2)
+        self.assertIsNone(cook.poll())
+        open(pause + ".go", "w").close()
+        out = first.communicate(timeout=120)[0]
+        self.assertEqual(first.returncode, 0, out)
+        cooked = cook.communicate(timeout=120)[0]
+        self.assertEqual(cook.returncode, 0, cooked)
+        self.assertEqual(
+            self.steps_of(repo, env, group1(r"Root issue: (\S+)", out)),
+            ["Publish it", "Tag the release"],
+        )
+
+    def test_the_pour_hint_is_never_read_as_an_option(self):
+        """A reference that starts with a hyphen would be read as an option:
+        an id like that gives way to the path, and a path like that is
+        written from ./."""
+        self.adopted()
+        self.registered()
+        self.repo.write(
+            "-flight-check.formula.toml",
+            QUOTED.replace("mol-keys-$(touch PWNED)", "mol-flight-acme"),
+        )
+        self.repo.write(
+            "preflight.formula.toml",
+            QUOTED.replace("mol-keys-$(touch PWNED)", "-preflight").replace(
+                "Rotate the signing keys", "Renew the release certificates"
+            ),
+        )
+        for title, ref in (
+            ("Rotate the signing keys", "./-flight-check.formula.toml"),
+            ("Renew the release certificates", "preflight.formula.toml"),
+        ):
+            with self.subTest(title=title):
+                code, out = self.dotdiw("create", title)
+                self.assertEqual(code, 0, out)
+                line = next(x for x in out.splitlines() if "Run it:" in x)
+                self.assertEqual(shlex.split(line.split("Run it:", 1)[1])[-1], ref)
+                code, out = self.dotdiw("formula", "pour", ref)
+                self.assertEqual(code, 0, out)
+                self.assertIn("Poured mol: created 2 issues", out)
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_a_cook_behind_a_flag_waits_for_a_pour(self):
+        """A forwarded cook holds the pour lock whatever flags come first."""
+        wrap = self.bd_that_pauses()
+        repo = Repo()
+        self.addCleanup(repo.close)
+        env = dict(repo.env, PATH=wrap + os.pathsep + os.environ.get("PATH", "/usr/bin:/bin"))
+        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
+        code, out = repo.dotdiw(
+            "formula", "provider", "register", "acme", "directory", "--at", self.kept, env=env
+        )
+        self.assertEqual(code, 0, out)
+        repo.write(
+            "v2.formula.toml",
+            PROVIDED.replace(
+                'formula = "mol-ship-a-release"', 'formula = "mol-ship-a-release-acme"'
+            ).replace('title = "Publish it"', 'title = "Publish it again"'),
+        )
+        pause = os.path.join(wrap, "first")
+        first = self.beads_pour(repo, env, "mol-ship-a-release-acme", pause, "after")
+        self.until(pause + ".reached")
+        cook = subprocess.Popen(
+            [
+                sys.executable,
+                "-I",
+                DOTDIW,
+                "--json",
+                "cook",
+                os.path.join(repo.path, "v2.formula.toml"),
+                "--persist",
+                "--force",
+            ],
+            cwd=repo.path,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        self.addCleanup(cook.kill)
+        time.sleep(2)
+        self.assertIsNone(cook.poll())
+        open(pause + ".go", "w").close()
+        out = first.communicate(timeout=120)[0]
+        self.assertEqual(first.returncode, 0, out)
+        cooked = cook.communicate(timeout=120)[0]
+        self.assertEqual(cook.returncode, 0, cooked)
+        self.assertEqual(
+            self.steps_of(repo, env, group1(r"Root issue: (\S+)", out)),
+            ["Publish it", "Tag the release"],
+        )
+
+    def test_the_providers_list_and_remove(self):
+        self.adopted()
+        self.registered()
+        code, out = self.dotdiw("formula", "provider", "list")
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"acme\s+directory\s+list, show")
+        code, out = self.dotdiw("formula", "provider", "remove", "acme")
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("formula", "list")
+        self.assertNotIn("mol-ship-a-release-acme", out)
+        code, out = self.dotdiw("formula", "provider", "remove", "acme")
+        self.assertEqual(code, 1, out)
+        self.assertIn("No formula management provider is registered as acme.", out)
 
 
 if __name__ == "__main__":

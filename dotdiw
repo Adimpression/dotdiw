@@ -18,9 +18,11 @@ the default for a new adoption, and beads, which runs bd, whose output names
 itself in compiled-in hints, so its stream is rewritten on the way out.
 Nothing outside the beads adapter names the binary.
 
-Formulas live anywhere in the tree, next to whatever they are about. They are
-found with `git ls-files`, which means an uncommitted formula is invisible --
-the sharing convention made mechanical rather than advisory.
+Formulas live anywhere in the tree, next to whatever they are about. A
+formula without a suffix is in local storage, the file system, and is found
+there whether or not it is committed; it reaches the rest of the project when
+it is committed. A formula management provider, registered under a name,
+serves its formulas with that name as their suffix.
 
 The file is shaped by the promise it keeps. operation-idl.json, derived from
 poa/product-model.yaml, names every operation. Each is one function below, under
@@ -45,7 +47,9 @@ only here, with DOTDIW_WITNESS=1 or by creating ~/.dotdiw/<key>/witness.jsonl.
 
 import contextlib
 import datetime
+import fcntl
 import glob
+import hashlib
 import importlib.machinery
 import importlib.util
 import inspect
@@ -60,7 +64,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from types import UnionType
 from typing import (
     Any,
@@ -86,9 +90,21 @@ from typing import (
 Status = Literal["accepted", "completed", "blocked", "failed"]
 
 
+class FormulaProvider(TypedDict, total=False):
+    """A formula management provider as registered: its name, its module, where it keeps its
+    formulas and what it answers.
+    """
+    name: Required[str]
+    module: Required[str]
+    location: str | None
+    version: str | None
+    answers: list[str] | None
+    unavailable: str | None
+
+
 class HeldFormula(TypedDict, total=False):
-    """A formula the project holds, as read from its committed file: what ListFormulas lists,
-    MatchFormulas surfaces and the witness records.
+    """A formula as dotdiw reads it, from its file in local storage or from its provider's list:
+    what ListFormulas lists, MatchFormulas surfaces and the witness records.
     """
     formulaRef: Required[str]
     name: Required[str]
@@ -96,6 +112,7 @@ class HeldFormula(TypedDict, total=False):
     path: Required[str]
     examples: list[str] | None
     verifyUsing: list[str] | None
+    provider: str | None
 
 
 class FormulaExample(TypedDict, total=False):
@@ -235,6 +252,7 @@ class MatchFormulasResponse(TypedDict, total=False):
     summary: Required[str]
     resultRefs: list[str] | None
     openQuestionRefs: list[str] | None
+    pourRef: str | None
     surfaced: list[HeldFormula] | None
     exitCode: int | None
 
@@ -264,7 +282,8 @@ class PourProcedureResponse(TypedDict, total=False):
     stepRefs: list[str] | None
     reason: Literal[
         "not-installed", "no-workspace", "tracker-unknown", "adapter-failed", "no-steps",
-        "step-not-found", "cycle",
+        "step-not-found", "cycle", "ambiguous", "provider-formula-unserved",
+        "provider-failed",
     ] | None
     printed: bool | None
     tracker: str | None
@@ -538,6 +557,8 @@ class IndexTheProjectResponse(TypedDict, total=False):
     openQuestionRefs: list[str] | None
     formulaCount: int | None
     fileCount: int | None
+    providersLeftOut: list[str] | None
+    unparsed: list[str] | None
     exitCode: int | None
 
 
@@ -576,6 +597,9 @@ class ShowFormulaResponse(TypedDict, total=False):
     summary: Required[str]
     resultRefs: list[str] | None
     openQuestionRefs: list[str] | None
+    reason: Literal[
+        "formula-not-found", "ambiguous", "provider-formula-unserved", "provider-failed",
+    ] | None
     path: str | None
     text: str | None
     exitCode: int | None
@@ -598,6 +622,9 @@ class ResolveFormulaResponse(TypedDict, total=False):
     openQuestionRefs: list[str] | None
     formulaRef: str | None
     path: str | None
+    reason: Literal[
+        "formula-not-found", "ambiguous", "provider-formula-unserved", "provider-failed",
+    ] | None
     exitCode: int | None
 
 
@@ -1018,6 +1045,121 @@ class WriteTrackerResponse(TypedDict, total=False):
     exitCode: int | None
 
 
+class RegisterProviderRequest(TypedDict, total=False):
+    """Request for RegisterProvider."""
+    correlationId: str | None
+    sourceRefs: list[str] | None
+    formulaManagementProviderRef: str | None
+    formulaRef: str | None
+    root: str | None
+    name: Required[str]
+    module: Required[str]
+    location: str | None
+
+
+class RegisterProviderResponse(TypedDict, total=False):
+    """Response for RegisterProvider."""
+    status: Required[Status]
+    summary: Required[str]
+    resultRefs: list[str] | None
+    openQuestionRefs: list[str] | None
+    provider: FormulaProvider | None
+    reason: Literal[
+        "name-not-alphanumeric", "name-taken", "module-not-found", "not-a-provider",
+        "lacks-list-or-show", "clashing-local-formula", "provider-failed",
+    ] | None
+    clashing: list[str] | None
+    exitCode: int | None
+
+
+class DescribeProviderRequest(TypedDict, total=False):
+    """Request for DescribeProvider."""
+    correlationId: str | None
+    sourceRefs: list[str] | None
+    formulaManagementProviderRef: str | None
+    formulaRef: str | None
+    name: str | None
+    module: str | None
+    location: str | None
+
+
+class DescribeProviderResponse(TypedDict, total=False):
+    """Response for DescribeProvider."""
+    status: Required[Status]
+    summary: Required[str]
+    resultRefs: list[str] | None
+    openQuestionRefs: list[str] | None
+    answers: list[Literal["list", "show", "create"]] | None
+    provider: FormulaProvider | None
+    reason: Literal[
+        "provider-unknown", "module-not-found", "not-a-provider", "provider-failed",
+    ] | None
+    exitCode: int | None
+
+
+class ListProviderFormulasRequest(TypedDict, total=False):
+    """Request for ListProviderFormulas."""
+    correlationId: str | None
+    sourceRefs: list[str] | None
+    formulaManagementProviderRef: str | None
+    formulaRef: str | None
+    name: Required[str]
+
+
+class ListProviderFormulasResponse(TypedDict, total=False):
+    """Response for ListProviderFormulas."""
+    status: Required[Status]
+    summary: Required[str]
+    resultRefs: list[str] | None
+    openQuestionRefs: list[str] | None
+    formulas: list[HeldFormula] | None
+    reason: Literal["provider-unknown", "provider-failed"] | None
+    exitCode: int | None
+
+
+class ShowProviderFormulaRequest(TypedDict, total=False):
+    """Request for ShowProviderFormula."""
+    correlationId: str | None
+    sourceRefs: list[str] | None
+    formulaManagementProviderRef: str | None
+    formulaRef: str | None
+    root: str | None
+    name: Required[str]
+    ident: Required[str]
+
+
+class ShowProviderFormulaResponse(TypedDict, total=False):
+    """Response for ShowProviderFormula."""
+    status: Required[Status]
+    summary: Required[str]
+    resultRefs: list[str] | None
+    openQuestionRefs: list[str] | None
+    formulaRef: str | None
+    text: str | None
+    path: str | None
+    reason: Literal["provider-unknown", "formula-not-found", "provider-failed"] | None
+    exitCode: int | None
+
+
+class RemoveProviderRequest(TypedDict, total=False):
+    """Request for RemoveProvider."""
+    correlationId: str | None
+    sourceRefs: list[str] | None
+    formulaManagementProviderRef: str | None
+    name: Required[str]
+
+
+class RemoveProviderResponse(TypedDict, total=False):
+    """Response for RemoveProvider."""
+    status: Required[Status]
+    summary: Required[str]
+    resultRefs: list[str] | None
+    openQuestionRefs: list[str] | None
+    provider: FormulaProvider | None
+    reason: Literal["provider-unknown"] | None
+    exitCode: int | None
+
+
 class StartNamedWorkRequest(TypedDict, total=False):
     """Request for StartNamedWork."""
     correlationId: str | None
@@ -1252,6 +1394,36 @@ class ShipATrackerResponse(TypedDict, total=False):
     path: str | None
     reason: Literal["bad-name", "shipped-name", "exists", "unwritable"] | None
     exitCode: int | None
+
+
+class AnswerThroughAFormulaProviderRequest(TypedDict, total=False):
+    """Request for AnswerThroughAFormulaProvider."""
+    correlationId: str | None
+    sourceRefs: list[str] | None
+    formulaManagementProviderRef: str | None
+    formulaRef: str | None
+    root: str | None
+    action: Required[Literal["register", "list", "remove"]]
+    name: str | None
+    module: str | None
+    location: str | None
+
+
+class AnswerThroughAFormulaProviderResponse(TypedDict, total=False):
+    """Response for AnswerThroughAFormulaProvider."""
+    status: Required[Status]
+    summary: Required[str]
+    resultRefs: list[str] | None
+    openQuestionRefs: list[str] | None
+    provider: FormulaProvider | None
+    providers: list[FormulaProvider] | None
+    reason: Literal[
+        "name-not-alphanumeric", "name-taken", "module-not-found", "not-a-provider",
+        "lacks-list-or-show", "clashing-local-formula", "provider-unknown",
+        "provider-failed",
+    ] | None
+    clashing: list[str] | None
+    exitCode: int | None
 # <<< end types
 # fmt: on
 
@@ -1310,7 +1482,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "1.1.0"
+VERSION = "2.0.0"
 
 TOP_N = 3
 
@@ -1430,8 +1602,8 @@ Write one the moment you notice you are repeating yourself, or that you just
 did by hand what you will do again. `formula new` writes the file for you; you
 fill in the description and the steps.
 
-Then commit it. A formula you have not committed is one only you hold: it does
-not appear in `formula list`, nothing matches it against a title, and `check`
+Then commit it. A formula you have not committed is one only you hold: it is
+found on your file system alone, nobody else's `create` reaches it, and `check`
 says so. Committing it is the last step of writing it, not a separate decision
 -- and this is the project asking you to, so it is not the kind of commit a
 conservative git policy is about. Commit the formula file; leave the rest of
@@ -1681,11 +1853,24 @@ tracker's own name.
 
    Run a formula:  %(p)s formula pour <formula-id>
 
+%(providers)s
 %(tracker)s
 Check every formula in the repo:  %(p)s check
 Everything else works as before:  %(p)s list, %(p)s show, %(p)s init, ...
 """ % {
     "p": PROG,
+    "providers": """Formulas kept outside this checkout come through a formula management
+provider, registered once under a name of letters and digits:
+
+  %(p)s formula provider register <name> <module> [--at <location>]
+  %(p)s formula provider list            what is registered, and what each answers
+  %(p)s formula provider remove <name>   takes the registration away
+
+Each formula a provider serves carries that name as a suffix after a hyphen,
+mol-cut-release-acme, and surfaces, lists, shows and pours as the formulas in
+this checkout do.
+"""
+    % {"p": PROG},
     "tracker": """The tracker underneath is chosen per checkout. A new adoption uses the store
 %(p)s ships, one file under your home; another tracker is named once:
 
@@ -1713,6 +1898,14 @@ LEARN_VERIFY = LEARN[
 # behind its door, which a comparison with an earlier version takes out.
 LEARN_TRACKER = LEARN[
     LEARN.index("The tracker underneath is chosen") : LEARN.index("Check every formula")
+]
+
+# The paragraph on formula management providers, on its own, which a
+# comparison with a version before 2.0 takes out.
+LEARN_PROVIDERS = LEARN[
+    LEARN.index("Formulas kept outside this checkout") : LEARN.index(
+        "The tracker underneath is chosen"
+    )
 ]
 
 
@@ -1881,6 +2074,8 @@ def held_formula(f: dict[str, Any]) -> HeldFormula:
     }
     if f.get("verifyUsing"):
         held["verifyUsing"] = list(f["verifyUsing"])
+    if f.get("provider"):
+        held["provider"] = f["provider"]
     return held
 
 
@@ -2079,6 +2274,11 @@ class Index:
 # change during one run. The objects are not fields of any response, so this
 # is where a body that needs them finds what IndexTheProject built.
 INDEXES: dict[str, tuple[list[dict[str, Any]], Index | None]] = {}
+# Each registered provider's list, asked for once in a run; a registration
+# or a removal forgets it, and the indexes built from it.
+LISTED: dict[str, Any] = {}
+# The formula files each checkout's index found and could not parse.
+UNPARSED: dict[str, list[str]] = {}
 
 
 def hold_index(root: str, forms: list[dict[str, Any]], idx: Index | None) -> None:
@@ -2173,7 +2373,7 @@ def LearnTheConventions(request: LearnTheConventionsRequest) -> LearnTheConventi
 
 
 def IndexTheProject(request: IndexTheProjectRequest) -> IndexTheProjectResponse:
-    """step.index-the-project: the committed formulas, indexed with the project's own text.
+    """step.index-the-project: the formulas in local storage, indexed with the project's own text.
 
     These documents are indexed and never returned. Their only job is to tell
     bm25 that "write", "test" and "version" are everyday words in this
@@ -2187,20 +2387,54 @@ def IndexTheProject(request: IndexTheProjectRequest) -> IndexTheProjectResponse:
         forms, idx = held
         return {
             "status": "completed",
-            "summary": "%d committed formula%s." % (len(forms), "" if len(forms) == 1 else "s"),
+            "summary": "%d formula%s." % (len(forms), "" if len(forms) == 1 else "s"),
             "formulaCount": len(forms),
+            "unparsed": list(UNPARSED.get(root, [])),
             "exitCode": 0,
         }
-    rels = [
-        p
-        for p in git(["ls-files", "-z", "--", "*.formula.toml", "*.formula.json"], root).split("\0")
-        if p
-    ]
+    # Local storage is the file system: every formula file in the checkout,
+    # committed or not, and git plays no part in finding it. A directory whose
+    # name starts with a dot is skipped, and no symbolic link is followed.
+    rels = [os.path.relpath(p, root) for p in formula_files(root)]
     forms = []
+    unparsed = []
     for rel in rels:
         f = load_formula(root, rel)
         if f:
             forms.append(f)
+        else:
+            unparsed.append(rel)
+    UNPARSED[root] = unparsed
+    # Every registered provider's formulas, from its list alone, each under its
+    # suffixed id; a formula's text is asked for only when it is shown or
+    # poured. A provider that fails, or answers outside its shape, is left out
+    # of this run whole, in one line.
+    left_out: list[str] = []
+    for name in sorted(read_providers()):
+        if name not in LISTED:
+            LISTED[name] = invoke("operation.list-provider-formulas", {"name": name})
+        listed = LISTED[name]
+        if listed["status"] != "completed":
+            left_out.append(listed["summary"])
+            continue
+        for held in listed.get("formulas") or []:
+            ref = held["formulaRef"]
+            forms.append(
+                {
+                    "name": ref,
+                    "rel": "",
+                    "id": ref,
+                    "desc": held["description"],
+                    "examples": list(held["examples"]),
+                    "words": ref.replace("-", " "),
+                    "where": "",
+                    "steps": [],
+                    "verifyUsing": [],
+                    "verifyUnread": [],
+                    "provider": name,
+                    "ident": ref[: -len(name) - 1],
+                }
+            )
 
     idx = None
     if request.get("background", True):
@@ -2224,9 +2458,11 @@ def IndexTheProject(request: IndexTheProjectRequest) -> IndexTheProjectResponse:
     hold_index(root, forms, idx)
     return {
         "status": "completed",
-        "summary": "%d committed formula%s." % (len(forms), "" if len(forms) == 1 else "s"),
+        "summary": "%d formula%s." % (len(forms), "" if len(forms) == 1 else "s"),
         "fileCount": len(rels),
         "formulaCount": len(forms),
+        "providersLeftOut": left_out,
+        "unparsed": unparsed,
         "exitCode": 0,
     }
 
@@ -2239,20 +2475,91 @@ def ResolveFormula(request: ResolveFormulaRequest) -> ResolveFormulaResponse:
         return {"status": "failed", "summary": built["summary"], "exitCode": built["exitCode"]}
     forms = held_index(root)[0]
     ident = (request.get("ident") or "").strip()
-    found = None
-    if ident:
-        base = os.path.basename(ident).split(".")[0]
-        for f in forms:
-            if ident in (f["id"], f["name"], f["rel"]) or base in (f["id"], f["name"]):
-                found = f
-                break
+    # An id first. An ident with a provider's suffix is that provider's alone:
+    # it names one of its formulas or nothing, never a local file by an alias.
+    # Then a path exactly as given, and only then a file's name. Two formulas
+    # at one tier are refused.
+    registry = read_registry()
+    owner = suffix_owner(ident, registry)
+    given = os.path.realpath(ident) if os.path.isabs(ident) else os.path.join(root, ident)
+    rel = os.path.normpath(os.path.relpath(given, root)) if ident else ""
+    base = os.path.basename(ident).split(".")[0]
+    tiers: list[Callable[[dict[str, Any]], bool]] = [
+        lambda f: f["id"] == ident and (not owner or f.get("provider") == owner)
+    ]
+    if not owner:
+        tiers += [
+            lambda f: not f.get("provider") and f["rel"] == rel,
+            lambda f: not f.get("provider") and ident == f["name"],
+            lambda f: not f.get("provider") and base in (f["id"], f["name"]),
+        ]
+    matches: list[dict[str, Any]] = []
+    for tier in tiers if ident else []:
+        matches = [f for f in forms if tier(f)]
+        if matches:
+            break
+    if len(matches) > 1:
+        return {
+            "status": "blocked",
+            "summary": "%s names more than one formula: %s."
+            % (
+                ident,
+                ", ".join(
+                    f["rel"] or "%s from the %s provider" % (f["id"], f["provider"])
+                    for f in matches
+                ),
+            ),
+            "reason": "ambiguous",
+            "formulaRef": None,
+            "path": None,
+            "exitCode": 1,
+        }
+    if not matches:
+        # Handed to the tracker, a provider's id would find whatever copy the
+        # tracker kept.
+        if owner:
+            return {
+                "status": "blocked",
+                "summary": (
+                    "%s names no formula the %s provider serves."
+                    if owner in registry["providers"]
+                    else "%s names no formula: the %s provider is removed."
+                )
+                % (ident, owner),
+                "reason": "provider-formula-unserved",
+                "formulaRef": None,
+                "path": None,
+                "exitCode": 1,
+            }
+        return {
+            "status": "blocked",
+            "summary": "%s names no formula." % (ident or "nothing"),
+            "reason": "formula-not-found",
+            "formulaRef": None,
+            "path": None,
+            "exitCode": 0,
+        }
+    found = matches[0]
+    if found.get("provider") and not found["rel"]:
+        shown = invoke(
+            "operation.show-provider-formula",
+            {"root": root, "name": found["provider"], "ident": found["ident"]},
+        )
+        if shown["status"] != "completed" or not shown.get("path"):
+            return {
+                "status": "failed",
+                "summary": shown["summary"],
+                "reason": "provider-failed",
+                "formulaRef": None,
+                "path": None,
+                "exitCode": 1,
+            }
+        found["rel"] = shown["path"]
     return {
-        "status": "completed" if found else "blocked",
-        "summary": ("Resolved %s to %s." % (ident, found["rel"]))
-        if found
-        else "%s names no committed formula." % (ident or "nothing"),
-        "formulaRef": found["id"] if found else None,
-        "path": found["rel"] if found else None,
+        "status": "completed",
+        "summary": "Resolved %s to %s." % (ident, found["rel"]),
+        "formulaRef": found["id"],
+        "path": found["rel"],
         "exitCode": 0,
     }
 
@@ -2285,7 +2592,12 @@ def ShowFormula(request: ShowFormulaRequest) -> ShowFormulaResponse:
     root = request["root"]
     r = invoke("operation.resolve-formula", {"root": root, "ident": request.get("ident")})
     if r["status"] != "completed":
-        return {"status": r["status"], "summary": r["summary"], "exitCode": r["exitCode"]}
+        return {
+            "status": r["status"],
+            "summary": r["summary"],
+            "reason": r.get("reason"),
+            "exitCode": r["exitCode"],
+        }
     try:
         with open(os.path.join(root, r["path"]), encoding="utf-8") as fh:
             text = fh.read()
@@ -2317,6 +2629,467 @@ def FindAHeldProcedure(request: FindAHeldProcedureRequest) -> FindAHeldProcedure
         return cast(FindAHeldProcedureResponse, shown)
     found = invoke("operation.resolve-formula", {"root": root, "ident": request.get("ident")})
     return cast(FindAHeldProcedureResponse, found)
+
+
+def DescribeProvider(request: DescribeProviderRequest) -> DescribeProviderResponse:
+    """step.describe-provider: which of list, show and create a provider answers,
+    a registered one by its name or a module before it is registered."""
+    name = request.get("name") or ""
+    if name:
+        entry = read_providers().get(name)
+        if entry is None:
+            return {
+                "status": "blocked",
+                "summary": "No formula management provider is registered as %s." % name,
+                "reason": "provider-unknown",
+                "exitCode": 1,
+            }
+        module, location = str(entry["module"]), entry.get("location")
+    else:
+        module, location = request.get("module") or "", request.get("location")
+    table, why = load_provider(module)
+    if table is None and why == "module-not-found":
+        return {
+            "status": "blocked",
+            "summary": "No formula management provider module named %s is installed." % module,
+            "reason": "module-not-found",
+            "exitCode": 1,
+        }
+    if table is None:
+        return {
+            "status": "blocked",
+            "summary": "%s is not a formula management provider: it raised on load, or "
+            "its PROVIDER table lacks describe, list or show." % module,
+            "reason": "not-a-provider",
+            "exitCode": 1,
+        }
+    try:
+        said = table["operations"]["describe"]({"location": location})
+        declared = said.get("answers") if isinstance(said, dict) else None
+        answers: list[Any] = [a for a in ("list", "show", "create") if a in (declared or [])]
+        # A provider may answer its location as it means it -- a directory by
+        # its absolute path -- so that it names one store from everywhere.
+        if isinstance(said, dict) and isinstance(said.get("location"), str) and said["location"]:
+            location = said["location"]
+    except Exception as e:
+        return {
+            "status": "failed",
+            "summary": "The %s provider failed to describe itself: %s"
+            % (module, " ".join(str(e).split()) or type(e).__name__),
+            "reason": "provider-failed",
+            "exitCode": 1,
+        }
+    provider: FormulaProvider = {
+        "name": name,
+        "module": module,
+        "location": location,
+        "version": str((table.get("info") or {}).get("version") or ""),
+        "answers": answers,
+    }
+    return {
+        "status": "completed",
+        "summary": "%s answers %s." % (name or module, ", ".join(answers) or "nothing"),
+        "answers": answers,
+        "provider": provider,
+        "exitCode": 0,
+    }
+
+
+def RegisterProvider(request: RegisterProviderRequest) -> RegisterProviderResponse:
+    """step.register-provider: a provider under a name of letters and digits,
+    lawful once no local formula of this checkout reads like one of its
+    suffixed ids, and only for a module that answers list and show."""
+    name, module, location = request["name"], request["module"], request.get("location")
+    if not re.fullmatch(PROVIDER_NAME, name):
+        return {
+            "status": "blocked",
+            "summary": "%s is not a provider name: use letters and digits alone." % name,
+            "reason": "name-not-alphanumeric",
+            "exitCode": 1,
+        }
+
+    def taken_in(names: Iterable[str]) -> str | None:
+        """The registered name this one is, whatever the case of either."""
+        return next((n for n in names if n.lower() == name.lower()), None)
+
+    taken = taken_in(read_providers())
+    if taken:
+        return {
+            "status": "blocked",
+            "summary": "A formula management provider is already registered as %s." % taken,
+            "reason": "name-taken",
+            "exitCode": 1,
+        }
+    said = invoke("operation.describe-provider", {"module": module, "location": location})
+    if said["status"] != "completed":
+        why = said.get("reason")
+        return {
+            "status": said["status"],
+            "summary": said["summary"],
+            "reason": "module-not-found"
+            if why == "module-not-found"
+            else "not-a-provider"
+            if why == "not-a-provider"
+            else "provider-failed",
+            "exitCode": 1,
+        }
+    answers = said.get("answers") or []
+    if "list" not in answers or "show" not in answers:
+        return {
+            "status": "blocked",
+            "summary": "%s answers %s; a formula management provider answers list and show."
+            % (module, ", ".join(answers) or "nothing"),
+            "reason": "lacks-list-or-show",
+            "exitCode": 1,
+        }
+    root = request.get("root")
+    clashing: list[str] = []
+    if root:
+        built = invoke("operation.index-the-project", {"root": root, "background": False})
+        if built["status"] == "completed":
+            clashing = sorted(
+                f["rel"]
+                for f in held_index(root)[0]
+                if not f.get("provider") and f["id"].endswith("-" + name)
+            )
+    if clashing:
+        return {
+            "status": "blocked",
+            "summary": "Rename these local formulas first; each id reads like a formula of "
+            "a provider registered as %s:" % name,
+            "reason": "clashing-local-formula",
+            "clashing": clashing,
+            "exitCode": 1,
+        }
+    provider: FormulaProvider = dict(said.get("provider") or {})  # type: ignore[assignment]
+    provider["name"] = name
+    with registry_lock():
+        registry = read_registry()
+        taken = taken_in(registry["providers"])
+        if taken:
+            return {
+                "status": "blocked",
+                "summary": "A formula management provider is already registered as %s." % taken,
+                "reason": "name-taken",
+                "exitCode": 1,
+            }
+        registry["providers"][name] = {"module": module, "location": provider.get("location")}
+        registry["removed"] = [n for n in registry["removed"] if n != name]
+        write_registry(registry)
+    INDEXES.clear()
+    LISTED.clear()
+    return {
+        "status": "completed",
+        "summary": "Registered %s, the %s provider; every formula of it carries -%s."
+        % (name, module, name),
+        "provider": provider,
+        "exitCode": 0,
+    }
+
+
+def ListProviderFormulas(request: ListProviderFormulasRequest) -> ListProviderFormulasResponse:
+    """step.list-provider-formulas: every formula a provider holds, each under
+    its suffixed id."""
+    name = request["name"]
+    entry = read_providers().get(name)
+    if entry is None:
+        return {
+            "status": "blocked",
+            "summary": "No formula management provider is registered as %s." % name,
+            "reason": "provider-unknown",
+            "exitCode": 1,
+        }
+    table, _ = load_provider(str(entry["module"]))
+    if table is None:
+        return {
+            "status": "failed",
+            "summary": "The %s provider's module, %s, is not installed or not a provider."
+            % (name, entry["module"]),
+            "reason": "provider-failed",
+            "exitCode": 1,
+        }
+    formulas: list[HeldFormula] = []
+    try:
+        said = table["operations"]["list"]({"location": entry.get("location")})
+        listed = said.get("formulas") if isinstance(said, dict) else None
+        if not isinstance(listed, list):
+            raise ValueError("its list answered no list of formulas")
+        seen: set[str] = set()
+        for x in listed:
+            ident = x.get("id") if isinstance(x, dict) else None
+            if not isinstance(ident, str) or not re.fullmatch(PROVIDER_FORMULA_ID, ident):
+                raise ValueError(
+                    "it listed %s, which is not an id of letters, digits, dots, hyphens "
+                    "and underscores" % repr(ident)[:80]
+                )
+            if ident in seen:
+                raise ValueError("it listed %s twice" % ident)
+            seen.add(ident)
+            desc, examples = x.get("description") or "", x.get("examples") or []
+            if not isinstance(desc, str):
+                raise ValueError("the description of %s is not text" % ident)
+            if not isinstance(examples, list) or not all(isinstance(e, str) for e in examples):
+                raise ValueError("the examples of %s are not a list of text" % ident)
+            formulas.append(
+                {
+                    "formulaRef": "%s-%s" % (ident, name),
+                    "name": "%s-%s" % (ident, name),
+                    "description": desc,
+                    "path": "",
+                    "examples": list(examples),
+                    "provider": name,
+                }
+            )
+    except Exception as e:
+        return {
+            "status": "failed",
+            "summary": "The %s provider failed to list its formulas: %s"
+            % (name, " ".join(str(e).split()) or type(e).__name__),
+            "reason": "provider-failed",
+            "exitCode": 1,
+        }
+    return {
+        "status": "completed",
+        "summary": "%d formula%s from %s."
+        % (len(formulas), "" if len(formulas) == 1 else "s", name),
+        "formulas": formulas,
+        "exitCode": 0,
+    }
+
+
+def toml_text(data: dict[str, Any]) -> str:
+    """ShowProviderFormula's: a parsed TOML document written out again, its
+    values as they were -- strings, numbers, booleans, dates and times, arrays,
+    tables and arrays of tables -- with keys bare wherever TOML lets them be."""
+    lines: list[str] = []
+
+    def string(s: str) -> str:
+        out = []
+        for ch in s:
+            if ch in '"\\':
+                out.append("\\" + ch)
+            elif ch in "\b\t\n\f\r":
+                out.append({"\b": "\\b", "\t": "\\t", "\n": "\\n", "\f": "\\f", "\r": "\\r"}[ch])
+            elif ord(ch) < 0x20 or ord(ch) == 0x7F:
+                out.append("\\u%04x" % ord(ch))
+            else:
+                out.append(ch)
+        return '"%s"' % "".join(out)
+
+    def key(k: str) -> str:
+        return k if re.fullmatch(r"[A-Za-z0-9_-]+", k) else string(k)
+
+    def value(v: Any) -> str:
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, float):
+            if v != v:
+                return "nan"
+            if v in (float("inf"), float("-inf")):
+                return "inf" if v > 0 else "-inf"
+            return repr(v)
+        if isinstance(v, int):
+            return str(v)
+        if isinstance(v, str):
+            return string(v)
+        if isinstance(v, (datetime.datetime, datetime.date, datetime.time)):
+            return v.isoformat()
+        if isinstance(v, list):
+            return "[%s]" % ", ".join(value(x) for x in v)
+        if isinstance(v, dict):
+            return "{%s}" % ", ".join("%s = %s" % (key(k), value(x)) for k, x in v.items())
+        raise ValueError("a value TOML cannot hold: %s" % type(v).__name__)
+
+    def tables(v: Any) -> bool:
+        return isinstance(v, list) and bool(v) and all(isinstance(x, dict) for x in v)
+
+    def table(path: list[str], body: dict[str, Any], header: str | None) -> None:
+        if header:
+            lines.append(header)
+        for k, v in body.items():
+            if not isinstance(v, dict) and not tables(v):
+                lines.append("%s = %s" % (key(k), value(v)))
+        for k, v in body.items():
+            if isinstance(v, dict):
+                lines.append("")
+                table(path + [k], v, "[%s]" % ".".join(key(p) for p in path + [k]))
+        for k, v in body.items():
+            if tables(v):
+                for item in v:
+                    lines.append("")
+                    table(path + [k], item, "[[%s]]" % ".".join(key(p) for p in path + [k]))
+
+    table([], data, None)
+    return "\n".join(lines) + "\n"
+
+
+def ShowProviderFormula(request: ShowProviderFormulaRequest) -> ShowProviderFormulaResponse:
+    """step.show-provider-formula: a provider's formula as the provider keeps
+    it, its id suffixed, written to a file under the workspace's home so that
+    it matches, lists, shows and pours as a local one does."""
+    name, ident = request["name"], request["ident"]
+    entry = read_providers().get(name)
+    if entry is None:
+        return {
+            "status": "blocked",
+            "summary": "No formula management provider is registered as %s." % name,
+            "reason": "provider-unknown",
+            "exitCode": 1,
+        }
+    table, _ = load_provider(str(entry["module"]))
+    if table is None:
+        return {
+            "status": "failed",
+            "summary": "The %s provider's module, %s, is not installed or not a provider."
+            % (name, entry["module"]),
+            "reason": "provider-failed",
+            "exitCode": 1,
+        }
+    suffixed = "%s-%s" % (ident, name)
+    try:
+        said = table["operations"]["show"]({"location": entry.get("location"), "id": ident})
+        text = said.get("text") if isinstance(said, dict) else None
+        if isinstance(text, str) and text and said.get("format") == "json":
+            data = json.loads(text)
+            data["formula"] = suffixed
+            text, ext = json.dumps(data, indent=2) + "\n", ".formula.json"
+        elif isinstance(text, str) and text:
+            # The parsed formula key is set to the suffixed id, however the
+            # provider spelled it, and every other value is written out as the
+            # provider gave it; the text is taken only when it reads back as
+            # exactly that.
+            parsed = tomllib.loads(text)
+            data = {"formula": suffixed, **{k: v for k, v in parsed.items() if k != "formula"}}
+            text, ext = toml_text(data), ".formula.toml"
+            if tomllib.loads(text) != data:
+                raise ValueError("its formula does not read back as the provider gave it")
+    except Exception as e:
+        return {
+            "status": "failed",
+            "summary": "The %s provider failed to show %s: %s"
+            % (name, ident, " ".join(str(e).split()) or type(e).__name__),
+            "reason": "provider-failed",
+            "exitCode": 1,
+        }
+    if not isinstance(text, str) or not text:
+        return {
+            "status": "blocked",
+            "summary": "The %s provider holds no formula %s." % (name, ident),
+            "reason": "formula-not-found",
+            "exitCode": 1,
+        }
+    root = request.get("root")
+    base = (workspace(root) if root else None) or os.path.expanduser(DOTDIW_HOME)
+    directory = os.path.join(base, "formula-providers")
+    os.makedirs(directory, exist_ok=True)
+    # Named for a digest of the provider's name, the id and the text, never for
+    # the name or the id: two names that differ in case are one name where case
+    # does not count. Written once and never changed, so that a pour reads its
+    # steps and its means to prove from the very copy the tracker cooks,
+    # whatever a show writes meanwhile.
+    key = hashlib.sha256(("%s\0%s\0%s" % (name, ident, text)).encode("utf-8")).hexdigest()[:24]
+    path = os.path.join(directory, key + ext)
+    if not os.path.exists(path):
+        fd, written = tempfile.mkstemp(dir=directory, suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(written, path)
+    return {
+        "status": "completed",
+        "summary": "%s, from the %s provider." % (suffixed, name),
+        "formulaRef": suffixed,
+        "text": text,
+        "path": path,
+        "exitCode": 0,
+    }
+
+
+def RemoveProvider(request: RemoveProviderRequest) -> RemoveProviderResponse:
+    """step.remove-provider: the registration gone, the package left installed."""
+    name = request["name"]
+    with registry_lock():
+        registry = read_registry()
+        entry = registry["providers"].pop(name, None)
+        if entry is None:
+            return {
+                "status": "blocked",
+                "summary": "No formula management provider is registered as %s." % name,
+                "reason": "provider-unknown",
+                "exitCode": 1,
+            }
+        registry["removed"] = sorted(set(registry["removed"]) | {name})
+        write_registry(registry)
+    INDEXES.clear()
+    LISTED.clear()
+    provider: FormulaProvider = {
+        "name": name,
+        "module": str(entry["module"]),
+        "location": entry.get("location"),
+    }
+    return {
+        "status": "completed",
+        "summary": "Removed %s; its package stays installed." % name,
+        "provider": provider,
+        "exitCode": 0,
+    }
+
+
+def AnswerThroughAFormulaProvider(
+    request: AnswerThroughAFormulaProviderRequest,
+) -> AnswerThroughAFormulaProviderResponse:
+    """journey.answer-through-a-formula-provider: register, list and remove the
+    formula management providers every checkout reaches."""
+    action = request["action"]
+    if action == "register":
+        done = invoke(
+            "operation.register-provider",
+            {
+                "root": request.get("root"),
+                "name": request.get("name") or "",
+                "module": request.get("module") or "",
+                "location": request.get("location"),
+            },
+        )
+        return {
+            "status": done["status"],
+            "summary": done["summary"],
+            "provider": done.get("provider"),
+            "reason": done.get("reason"),
+            "clashing": done.get("clashing"),
+            "exitCode": done["exitCode"],
+        }
+    if action == "remove":
+        gone = invoke("operation.remove-provider", {"name": request.get("name") or ""})
+        return {
+            "status": gone["status"],
+            "summary": gone["summary"],
+            "provider": gone.get("provider"),
+            "reason": gone.get("reason"),
+            "exitCode": gone["exitCode"],
+        }
+    providers: list[FormulaProvider] = []
+    for name, entry in sorted(read_providers().items()):
+        said = invoke("operation.describe-provider", {"name": name})
+        if said.get("provider"):
+            providers.append(said["provider"])
+        else:
+            providers.append(
+                {
+                    "name": name,
+                    "module": str(entry["module"]),
+                    "location": entry.get("location"),
+                    "version": "",
+                    "answers": [],
+                    "unavailable": said["summary"],
+                }
+            )
+    return {
+        "status": "completed",
+        "summary": "%d formula management provider%s registered."
+        % (len(providers), "" if len(providers) == 1 else "s"),
+        "providers": providers,
+        "exitCode": 0,
+    }
 
 
 def MatchFormulas(request: MatchFormulasRequest) -> MatchFormulasResponse:
@@ -2363,10 +3136,27 @@ def MatchFormulas(request: MatchFormulasRequest) -> MatchFormulasResponse:
         top.append(f)
         if len(top) == TOP_N:
             break
+    # The command printed to pour the first pours that very formula: its id,
+    # unless the id answers to another -- a provider's suffix is the
+    # provider's, and an id two formulas share is refused -- or would be read
+    # as an option; then its path, from ./ when it would be read as one too.
+    pour_ref = None
+    if top:
+        first = top[0]
+        pour_ref = first["id"]
+        if not first.get("provider") and (
+            suffix_owner(first["id"], read_registry())
+            or sum(1 for f in forms if f["id"] == first["id"]) > 1
+            or first["id"].startswith("-")
+        ):
+            pour_ref = first["rel"]
+            if pour_ref.startswith("-"):
+                pour_ref = "./" + pour_ref
     return {
         "status": "completed",
         "summary": "%d formula%s apply." % (len(top), "" if len(top) == 1 else "s"),
         "surfaced": [held_formula(f) for f in top],
+        "pourRef": pour_ref,
         "exitCode": 0,
     }
 
@@ -2435,7 +3225,7 @@ def NudgeTowardsAFormula(request: NudgeTowardsAFormulaRequest) -> NudgeTowardsAF
         short = " ".join(text.split())
         if len(short) > 60:
             short = short[: short.rfind(" ", 0, 61)]
-        command = '%s formula new "%s"' % (PROG, short)
+        command = "%s formula new %s" % (PROG, shell_word(short))
     return {
         "status": "completed",
         "summary": "Reads like a procedure." if procedural else "Reads like a fact.",
@@ -2694,27 +3484,21 @@ def DescribeAndCheck(request: DescribeAndCheckRequest) -> DescribeAndCheckRespon
                 ("convention", rel, "does not say where work starts -- run `%s init`" % PROG)
             )
 
-    extra = []
-    for rel in [
-        p
-        for p in git(
-            [
-                "ls-files",
-                "-z",
-                "--others",
-                "--exclude-standard",
-                "--",
-                "*.formula.toml",
-                "*.formula.json",
-            ],
-            root,
-        ).split("\0")
-        if p
-    ]:
-        probs.append(("formula", rel, "not committed, so nobody else can see it"))
-        f = load_formula(root, rel)
-        if f:
-            extra.append(f)
+    # What a fresh clone sees is what HEAD holds: a formula found here that
+    # HEAD does not hold -- new, staged, or under an ignored directory -- is one
+    # nobody else can see.
+    unparsed = list(built.get("unparsed") or [])
+    local = sorted({g["rel"] for g in forms if not g.get("provider")} | set(unparsed))
+    at_head = (
+        set(git(["ls-tree", "-z", "--name-only", "HEAD", "--", *local], root).split("\0"))
+        if local
+        else set()
+    )
+    for rel in local:
+        if rel not in at_head:
+            probs.append(("formula", rel, "not committed, so nobody else can see it"))
+        if rel in unparsed:
+            probs.append(("formula", rel, "does not parse, so nothing can find it"))
 
     home = os.path.expanduser("~/.beads/formulas")
     for p in sorted(
@@ -2724,7 +3508,8 @@ def DescribeAndCheck(request: DescribeAndCheckRequest) -> DescribeAndCheckRespon
 
     remotes: set[str] | None = None
     tracked: set[str] | None = None
-    for f in forms + extra:
+    # A provider's formulas are the provider's to keep.
+    for f in [g for g in forms if not g.get("provider")]:
         n = len(f["desc"].split())
         if n < MIN_DESC_WORDS:
             probs.append(
@@ -2776,6 +3561,26 @@ def DescribeAndCheck(request: DescribeAndCheckRequest) -> DescribeAndCheckRespon
                         f["rel"],
                         "verify-using names %s, which git does not track here -- commit it, "
                         "or name the file that proves the run" % path,
+                    )
+                )
+
+    registry = read_registry()
+    reserved = sorted(set(registry["providers"]) | set(registry["removed"]))
+    for f in forms:
+        if f.get("provider"):
+            continue
+        for name in reserved:
+            if f["id"].endswith("-" + name):
+                probs.append(
+                    (
+                        "formula",
+                        f["rel"],
+                        (
+                            "its id reads like a formula of the %s provider -- rename it"
+                            if name in registry["providers"]
+                            else "its id carries the suffix of the removed %s provider -- rename it"
+                        )
+                        % name,
                     )
                 )
 
@@ -3133,7 +3938,44 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
     root = request["root"]
     r = invoke("operation.resolve-formula", {"root": root, "ident": request.get("ident")})
     found = r["status"] == "completed"
-    formula = (load_formula(root, r["path"]) if found else None) or {}
+    # An id refused here never reaches the tracker: one that two formulas
+    # share, or one with a provider's suffix that the provider does not serve,
+    # whose copy the tracker may still hold.
+    if not found and r.get("reason") in (
+        "ambiguous",
+        "provider-formula-unserved",
+        "provider-failed",
+    ):
+        return {
+            "status": r["status"],
+            "summary": r["summary"],
+            "formulaRef": None,
+            "reason": r["reason"],
+            "exitCode": 1,
+        }
+    # The formula is read once, into a snapshot under the workspace named for a
+    # digest of its bytes, and the tracker is handed that very snapshot: the
+    # steps, the description and the means to prove are one version, whatever
+    # is written to the file meanwhile. The file keeps its name, which a tracker
+    # may read an id from.
+    snapshot = None
+    if found:
+        source = os.path.join(root, r["path"])
+        with open(source, "rb") as fh:
+            held = fh.read()
+        directory = os.path.join(
+            workspace(root) or os.path.expanduser(DOTDIW_HOME),
+            "pours",
+            hashlib.sha256(held).hexdigest()[:24],
+        )
+        snapshot = os.path.join(directory, os.path.basename(source))
+        if not os.path.exists(snapshot):
+            os.makedirs(directory, exist_ok=True)
+            fd, written = tempfile.mkstemp(dir=directory, suffix=".tmp")
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(held)
+            os.replace(written, snapshot)
+    formula = (load_formula(directory, os.path.basename(snapshot)) if snapshot else None) or {}
     ident = request.get("ident") or ""
     poured = invoke_tracker(
         "operation.pour-steps",
@@ -3145,7 +3987,7 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
             "steps": formula.get("steps") or [],
             "description": formula.get("desc") or None,
             "verifyUsing": list(formula.get("verifyUsing") or []),
-            "path": os.path.join(root, r["path"]) if found else None,
+            "path": snapshot,
             "arguments": list(request.get("arguments") or []),
             "terminal": True,
         },
@@ -3696,6 +4538,23 @@ DOOR: dict[str, DoorSpec] = {
             "status", "summary",
         ),
     },
+    "operation.answer-through-a-formula-provider": {
+        "body": "AnswerThroughAFormulaProvider",
+        "request": (
+            "action", "correlationId", "formulaManagementProviderRef",
+            "formulaRef", "location", "module", "name", "root", "sourceRefs",
+        ),
+        "requestRequired": (
+            "action",
+        ),
+        "response": (
+            "clashing", "exitCode", "openQuestionRefs", "provider",
+            "providers", "reason", "resultRefs", "status", "summary",
+        ),
+        "responseRequired": (
+            "status", "summary",
+        ),
+    },
     "operation.answer-through-the-tracker": {
         "body": "AnswerThroughTheTracker",
         "request": (
@@ -3796,6 +4655,21 @@ DOOR: dict[str, DoorSpec] = {
             "status", "summary",
         ),
     },
+    "operation.describe-provider": {
+        "body": "DescribeProvider",
+        "request": (
+            "correlationId", "formulaManagementProviderRef", "formulaRef",
+            "location", "module", "name", "sourceRefs",
+        ),
+        "requestRequired": (),
+        "response": (
+            "answers", "exitCode", "openQuestionRefs", "provider", "reason",
+            "resultRefs", "status", "summary",
+        ),
+        "responseRequired": (
+            "status", "summary",
+        ),
+    },
     "operation.find-a-held-procedure": {
         "body": "FindAHeldProcedure",
         "request": (
@@ -3840,7 +4714,7 @@ DOOR: dict[str, DoorSpec] = {
         ),
         "response": (
             "exitCode", "fileCount", "formulaCount", "openQuestionRefs",
-            "resultRefs", "status", "summary",
+            "providersLeftOut", "resultRefs", "status", "summary", "unparsed",
         ),
         "responseRequired": (
             "status", "summary",
@@ -3876,6 +4750,23 @@ DOOR: dict[str, DoorSpec] = {
             "status", "summary",
         ),
     },
+    "operation.list-provider-formulas": {
+        "body": "ListProviderFormulas",
+        "request": (
+            "correlationId", "formulaManagementProviderRef", "formulaRef",
+            "name", "sourceRefs",
+        ),
+        "requestRequired": (
+            "name",
+        ),
+        "response": (
+            "exitCode", "formulas", "openQuestionRefs", "reason", "resultRefs",
+            "status", "summary",
+        ),
+        "responseRequired": (
+            "status", "summary",
+        ),
+    },
     "operation.list-trackers": {
         "body": "ListTrackers",
         "request": (
@@ -3900,8 +4791,8 @@ DOOR: dict[str, DoorSpec] = {
             "root", "title",
         ),
         "response": (
-            "exitCode", "openQuestionRefs", "resultRefs", "status", "summary",
-            "surfaced",
+            "exitCode", "openQuestionRefs", "pourRef", "resultRefs", "status",
+            "summary", "surfaced",
         ),
         "responseRequired": (
             "status", "summary",
@@ -4010,6 +4901,40 @@ DOOR: dict[str, DoorSpec] = {
             "status", "summary",
         ),
     },
+    "operation.register-provider": {
+        "body": "RegisterProvider",
+        "request": (
+            "correlationId", "formulaManagementProviderRef", "formulaRef",
+            "location", "module", "name", "root", "sourceRefs",
+        ),
+        "requestRequired": (
+            "module", "name",
+        ),
+        "response": (
+            "clashing", "exitCode", "openQuestionRefs", "provider", "reason",
+            "resultRefs", "status", "summary",
+        ),
+        "responseRequired": (
+            "status", "summary",
+        ),
+    },
+    "operation.remove-provider": {
+        "body": "RemoveProvider",
+        "request": (
+            "correlationId", "formulaManagementProviderRef", "name",
+            "sourceRefs",
+        ),
+        "requestRequired": (
+            "name",
+        ),
+        "response": (
+            "exitCode", "openQuestionRefs", "provider", "reason", "resultRefs",
+            "status", "summary",
+        ),
+        "responseRequired": (
+            "status", "summary",
+        ),
+    },
     "operation.report-what-is-yours-to-commit": {
         "body": "ReportWhatIsYoursToCommit",
         "request": (
@@ -4036,8 +4961,8 @@ DOOR: dict[str, DoorSpec] = {
             "ident", "root",
         ),
         "response": (
-            "exitCode", "formulaRef", "openQuestionRefs", "path", "resultRefs",
-            "status", "summary",
+            "exitCode", "formulaRef", "openQuestionRefs", "path", "reason",
+            "resultRefs", "status", "summary",
         ),
         "responseRequired": (
             "status", "summary",
@@ -4085,8 +5010,25 @@ DOOR: dict[str, DoorSpec] = {
             "ident", "root",
         ),
         "response": (
-            "exitCode", "openQuestionRefs", "path", "resultRefs", "status",
-            "summary", "text",
+            "exitCode", "openQuestionRefs", "path", "reason", "resultRefs",
+            "status", "summary", "text",
+        ),
+        "responseRequired": (
+            "status", "summary",
+        ),
+    },
+    "operation.show-provider-formula": {
+        "body": "ShowProviderFormula",
+        "request": (
+            "correlationId", "formulaManagementProviderRef", "formulaRef",
+            "ident", "name", "root", "sourceRefs",
+        ),
+        "requestRequired": (
+            "ident", "name",
+        ),
+        "response": (
+            "exitCode", "formulaRef", "openQuestionRefs", "path", "reason",
+            "resultRefs", "status", "summary", "text",
         ),
         "responseRequired": (
             "status", "summary",
@@ -4765,6 +5707,24 @@ TRACKER_KEY = "dotdiw.tracker"
 DEFAULT_TRACKER = "local"
 TRACKERS_DIR = os.path.join(DOTDIW_HOME, "trackers")
 TRACKERS_SHARED = os.path.join("share", PROG, "trackers")
+# Where a formula management provider's module may be, in the order they are
+# looked in, and the registry of the providers registered under a name. The
+# registry is the home's, so every registered provider serves every checkout.
+PROVIDERS_DIR = os.path.join(DOTDIW_HOME, "formula-providers")
+PROVIDERS_SHARED = os.path.join("share", PROG, "formula-providers")
+PROVIDER_REGISTRY = os.path.join(DOTDIW_HOME, "formula-providers.json")
+PROVIDER_NAME = r"[A-Za-z0-9]+"
+PROVIDER_MODULE = r"[a-z0-9][a-z0-9-]*"
+# A provider's own id for a formula: letters, digits, dots, hyphens and
+# underscores, starting with a letter or a digit -- nothing a path or a shell
+# reads as more than a name.
+PROVIDER_FORMULA_ID = r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}"
+PROVIDER_LOCK = os.path.join(DOTDIW_HOME, "formula-providers.lock")
+# module name -> its PROVIDER table: the shipped ones, then each loaded.
+PROVIDER_MODULES: dict[str, dict[str, Any]] = {}
+# The directory provider's last listing of each store: each id and the file
+# that holds it, so that a show reads one file.
+DIRECTORY_FOUND: dict[str, dict[str, str]] = {}
 TRACKER_NAME = r"[a-z][a-z0-9-]*"
 BAD_TRACKER_NAME = (
     "%s cannot be a tracker's name. A name uses lowercase letters, digits and hyphens, "
@@ -4840,11 +5800,218 @@ def register_tracker(name: str, table: Any) -> None:
     TRACKERS[name] = table
 
 
-def tracker_dirs() -> list[str]:
-    """Where a module may be, in the order they are looked in: the home
-    directory, then share/dotdiw/trackers above the bin/ this tool runs from,
-    then the same above Cellar/ when this file is inside a Homebrew keg. A
-    package cannot write to a home directory; it can write there."""
+def formula_files(top: str) -> list[str]:
+    """Every formula file under top, as local storage finds one: a directory
+    whose name starts with a dot left out, no symbolic link followed, each
+    directory's files in order."""
+    out: list[str] = []
+    for here, dirs, names in os.walk(top):
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        for name in sorted(names):
+            path = os.path.join(here, name)
+            if not name.endswith((".formula.toml", ".formula.json")) or os.path.islink(path):
+                continue
+            if os.path.isfile(path):  # a FIFO or a device is never opened
+                out.append(path)
+    return out
+
+
+def provider_dirs() -> list[str]:
+    """Where a provider module may be: the places a tracker is looked for,
+    each with a directory of its own."""
+    return package_dirs(PROVIDERS_DIR, PROVIDERS_SHARED)
+
+
+def load_provider(module: str) -> tuple[dict[str, Any] | None, str]:
+    """A provider module's PROVIDER table by the module's name, a shipped one
+    first, then the first file of that name in provider_dirs; with why it is
+    None: module-not-found, or not-a-provider for a file that raised on load,
+    holds no table, or whose table lacks describe, list or show."""
+    if module in PROVIDER_MODULES:
+        return PROVIDER_MODULES[module], ""
+    if not re.fullmatch(PROVIDER_MODULE, module or ""):
+        return None, "module-not-found"
+    path = None
+    for directory in provider_dirs():
+        if os.path.isfile(os.path.join(directory, module + ".py")):
+            path = os.path.join(directory, module + ".py")
+            break
+    if path is None:
+        return None, "module-not-found"
+    name = "dotdiw_provider_" + module.replace("-", "_")
+    loader = module_loader(name, path)
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    if spec is None:
+        return None, "not-a-provider"
+    loaded = importlib.util.module_from_spec(spec)
+    vars(loaded)["dotdiw_version"] = VERSION
+    sys.modules[loader.name] = loaded
+    try:
+        loader.exec_module(loaded)
+    except Exception:
+        return None, "not-a-provider"
+    table = getattr(loaded, "PROVIDER", None)
+    if not isinstance(table, dict):
+        return None, "not-a-provider"
+    operations = table.get("operations")
+    if not isinstance(operations, dict) or not all(
+        callable(operations.get(k)) for k in ("describe", "list", "show")
+    ):
+        return None, "not-a-provider"
+    info = table.setdefault("info", {})
+    if not isinstance(info, dict):
+        return None, "not-a-provider"
+    info["origin"], info["source"] = "loaded", path
+    PROVIDER_MODULES[module] = table
+    return table, ""
+
+
+def read_registry() -> dict[str, Any]:
+    """The registry under the home: the registered providers by name, and the
+    names removed since, whose suffixes no formula answers to any more."""
+    try:
+        with open(os.path.expanduser(PROVIDER_REGISTRY), encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    providers = data.get("providers")
+    removed = data.get("removed")
+    return {
+        "providers": {
+            name: entry
+            for name, entry in (providers if isinstance(providers, dict) else {}).items()
+            if isinstance(entry, dict) and isinstance(entry.get("module"), str)
+        },
+        "removed": sorted(
+            {n for n in (removed if isinstance(removed, list) else []) if isinstance(n, str)}
+        ),
+    }
+
+
+def read_providers() -> dict[str, dict[str, Any]]:
+    """The registered providers by name, from the registry under the home."""
+    return dict(read_registry()["providers"])
+
+
+def write_registry(registry: dict[str, Any]) -> None:
+    """The registry under the home, written whole through a file beside it,
+    and only under registry_lock."""
+    path = os.path.expanduser(PROVIDER_REGISTRY)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".tmp", "w", encoding="utf-8") as fh:
+        json.dump(
+            {"providers": registry["providers"], "removed": sorted(registry["removed"])},
+            fh,
+            indent=2,
+            sort_keys=True,
+        )
+        fh.write("\n")
+    os.replace(path + ".tmp", path)
+
+
+@contextlib.contextmanager
+def registry_lock() -> Iterator[None]:
+    """The registry held for one read, change and write: a second register or
+    remove waits for the first, so that neither loses what the other wrote."""
+    path = os.path.expanduser(PROVIDER_LOCK)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as fh:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+
+def suffix_owner(ident: str, registry: dict[str, Any]) -> str | None:
+    """The registered or removed provider whose suffix the ident carries, or
+    None: an id with a provider's suffix is that provider's alone."""
+    return next(
+        (
+            n
+            for n in sorted(set(registry["providers"]) | set(registry["removed"]))
+            if len(ident) > len(n) + 1 and ident.endswith("-" + n)
+        ),
+        None,
+    )
+
+
+def shell_word(text: str) -> str:
+    """Free text as one word of a command printed to be copied: in double
+    quotes, as dotdiw has always printed it, unless something in it is read by
+    a shell inside them -- then quoted so that nothing in it is."""
+    if re.search(r'["$`\\!\n]', text):
+        return shlex.quote(text)
+    return '"%s"' % text
+
+
+# The provider that ships with dotdiw: a directory on the file system, outside
+# any checkout, answering list and show -- the reference for writing others.
+def directory_store(location: str | None) -> str:
+    """The directory a store is; raised when it is not there, so that a store
+    that is gone leaves the provider out in one line instead of answering
+    nothing."""
+    if not location or not os.path.isdir(location):
+        raise RuntimeError(
+            "its store is unavailable: no directory at %s" % (location or "no location")
+        )
+    return location
+
+
+def directory_describe(request: dict[str, Any]) -> dict[str, Any]:
+    """The directory provider answers list and show, for a directory that is
+    there, recorded by its absolute path so that it names one store from every
+    directory dotdiw runs in."""
+    location = request.get("location")
+    absolute = os.path.abspath(os.path.expanduser(location)) if location else None
+    return {"answers": ["list", "show"], "location": directory_store(absolute)}
+
+
+def directory_list(request: dict[str, Any]) -> dict[str, Any]:
+    """Every formula in the directory: its id, description and examples."""
+    store = directory_store(request.get("location"))
+    formulas: list[dict[str, Any]] = []
+    found: dict[str, str] = {}
+    for path in formula_files(store):
+        f = load_formula(os.path.dirname(path), os.path.basename(path))
+        if f:
+            formulas.append({"id": f["id"], "description": f["desc"], "examples": f["examples"]})
+            found.setdefault(f["id"], path)
+    DIRECTORY_FOUND[store] = found
+    return {"formulas": formulas}
+
+
+def directory_show(request: dict[str, Any]) -> dict[str, Any]:
+    """One formula's text by its id, as its file in the directory holds it:
+    the file the last listing found it in, or, when there was none, the first
+    that holds it."""
+    store = directory_store(request.get("location"))
+    known = (DIRECTORY_FOUND.get(store) or {}).get(request.get("id") or "")
+    for path in [known] if known and os.path.isfile(known) else formula_files(store):
+        f = load_formula(os.path.dirname(path), os.path.basename(path))
+        if f and f["id"] == request.get("id"):
+            with open(path, encoding="utf-8") as fh:
+                return {"text": fh.read(), "format": "json" if path.endswith(".json") else "toml"}
+    return {}
+
+
+PROVIDER_MODULES["directory"] = {
+    "info": {"name": "directory", "version": VERSION, "origin": "shipped"},
+    "operations": {
+        "describe": directory_describe,
+        "list": directory_list,
+        "show": directory_show,
+    },
+}
+
+
+def package_dirs(home: str, shared_under: str) -> list[str]:
+    """Where a module may be, in the order they are looked in: home, under the
+    home directory, then shared_under above the bin/ this tool runs from, then
+    the same above Cellar/ when this file is inside a Homebrew keg. A package
+    cannot write to a home directory; it can write there."""
     here = os.path.abspath(__file__)
     prefixes = []
     if os.path.basename(os.path.dirname(here)) == "bin":
@@ -4852,12 +6019,25 @@ def tracker_dirs() -> list[str]:
     real, cellar = os.path.realpath(here), os.sep + "Cellar" + os.sep
     if cellar in real:
         prefixes.append(real.split(cellar)[0])
-    dirs = [os.path.expanduser(TRACKERS_DIR)]
+    dirs = [os.path.expanduser(home)]
     for prefix in prefixes:
-        shared = os.path.join(prefix, TRACKERS_SHARED)
+        shared = os.path.join(prefix, shared_under)
         if shared not in dirs:
             dirs.append(shared)
     return dirs
+
+
+def module_loader(name: str, path: str) -> importlib.machinery.SourceFileLoader:
+    """The loader of a module file. A package's file is a symlink into its
+    keg; it is read from there, so that its bytecode goes with the keg and not
+    into the directory packages share."""
+    return importlib.machinery.SourceFileLoader(name, os.path.realpath(path))
+
+
+def tracker_dirs() -> list[str]:
+    """Where a tracker module may be: share/dotdiw/trackers under a prefix,
+    ~/.dotdiw/trackers first."""
+    return package_dirs(TRACKERS_DIR, TRACKERS_SHARED)
 
 
 def tracker_file(name: str) -> str | None:
@@ -4888,9 +6068,7 @@ def load_tracker(name: str, given: str | None = None) -> bool:
     path = given or tracker_file(name)
     if path is None:
         return False
-    # A package's file is a symlink into its keg. Read from there, so that its
-    # bytecode goes with the keg and not into the directory packages share.
-    loader = importlib.machinery.SourceFileLoader("dotdiw_tracker_" + name, os.path.realpath(path))
+    loader = module_loader("dotdiw_tracker_" + name, path)
     spec = importlib.util.spec_from_loader(loader.name, loader)
     if spec is None:
         return False
@@ -6519,6 +7697,23 @@ def beads_need(request: AddNeedRequest) -> AddNeedResponse:
     }
 
 
+@contextlib.contextmanager
+def beads_serial(root: str | None) -> Iterator[None]:
+    """beads_pour's: one cook and its pour at a time in a workspace, held by a
+    lock beside the workspace's store."""
+    ws = workspace(root) if root else None
+    if not ws:
+        yield
+        return
+    os.makedirs(ws, exist_ok=True)
+    with open(os.path.join(ws, "pour.lock"), "a", encoding="utf-8") as fh:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+
 def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
     """operation.pour-steps: bd's own pour from the formula's file, when the
     path is given, so that a poured molecule keeps bd's behaviour and bytes;
@@ -6539,19 +7734,28 @@ def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
         return failed_as(PourStepsResponse, *BEADS_NO_WORKSPACE)
     path, ref = request.get("path"), request["formulaRef"]
     if path or request.get("terminal"):
-        if path:
-            code, _, _ = beads_quiet(["cook", path, "--persist", "--force"], root)
-            if code != 0:
-                # Older bd without --force on cook: the stale proto is better
-                # than none, and bd may already hold the formula.
-                code, _, _ = beads_quiet(["cook", path, "--persist"], root)
+        # bd keeps one cooked copy per formula id: a second cook between a
+        # first and its pour would hand the first the second's steps.
+        with beads_serial(root) if path else contextlib.nullcontext():
+            if path:
+                code, out, err = beads_quiet(["cook", path, "--persist", "--force"], root)
                 if code != 0:
-                    beads_quiet(["formula", "show", ref], root)
-        code, out, err = beads_run(
-            ["mol", "pour", ref] + list(request.get("arguments") or []),
-            root,
-            bool(request.get("terminal")),
-        )
+                    # A pour of whatever proto bd held instead would pour a
+                    # version of the formula that nobody asked for.
+                    said = " ".join((err or out).split())[:240] or "it exited %d" % code
+                    return {
+                        "status": "failed",
+                        "exitCode": 1,
+                        "printed": False,
+                        "reason": "adapter-failed",
+                        "summary": "The tracker could not cook %s, so nothing was poured: %s"
+                        % (path, said),
+                    }
+            code, out, err = beads_run(
+                ["mol", "pour", ref] + list(request.get("arguments") or []),
+                root,
+                bool(request.get("terminal")),
+            )
         if code != 0:
             return {
                 "status": "failed",
@@ -6825,7 +8029,15 @@ def beads_forward(request: Request) -> Response:
                 "printed": False,
                 "summary": refused,
             }
-    code, out, _ = beads_run(args, request.get("root"), True)
+    # A cook forwarded as typed holds the lock a pour holds from its cook to
+    # its pour, so that it never lands between the two -- whatever flags come
+    # before it, so any command with cook or mol among its words holds it.
+    with (
+        beads_serial(request.get("root"))
+        if {"cook", "mol"} & set(args)
+        else contextlib.nullcontext()
+    ):
+        code, out, _ = beads_run(args, request.get("root"), True)
     return {
         "status": "completed" if code == 0 else "failed",
         "exitCode": code,
@@ -7559,6 +8771,8 @@ def show_teach(request: Request, response: Response) -> None:
 
 
 def show_index(request: Request, response: Response) -> None:
+    for line in response.get("providersLeftOut") or []:
+        sys.stderr.write("%s: %s It is left out of this run.\n" % (PROG, line))
     if response["status"] == "failed" and response.get("fileCount"):
         n = response["fileCount"]
         sys.stderr.write(
@@ -7568,6 +8782,26 @@ def show_index(request: Request, response: Response) -> None:
             "elsewhere.\n"
             % (PROG, sys.version_info[0], sys.version_info[1], n, "" if n == 1 else "s", PROG)
         )
+
+
+def show_providers(request: Request, response: Response) -> None:
+    if response["status"] != "completed":
+        sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
+        for rel in response.get("clashing") or []:
+            sys.stderr.write("  %s\n" % rel)
+        return
+    if request.get("action") != "list":
+        print(response["summary"])
+        return
+    providers = response.get("providers") or []
+    if not providers:
+        print("No formula management provider is registered.")
+    for p in providers:
+        where = ("  " + p["location"]) if p.get("location") else ""
+        what = ", ".join(p.get("answers") or [])
+        if p.get("unavailable"):
+            what = "unavailable: %s" % p["unavailable"]
+        print("  %-12s %-12s %s%s" % (p["name"], p["module"], what, where))
 
 
 def show_list(request: Request, response: Response) -> None:
@@ -7587,6 +8821,7 @@ def show_list(request: Request, response: Response) -> None:
                             "examples": f["examples"],
                         },
                         **({"verifyUsing": f["verifyUsing"]} if f.get("verifyUsing") else {}),
+                        **({"provider": f["provider"]} if f.get("provider") else {}),
                     )
                     for f in forms
                 ],
@@ -7597,13 +8832,16 @@ def show_list(request: Request, response: Response) -> None:
         print("No formulas in this repo yet. %s learn says how to write one." % PROG)
     else:
         w = max(len(f["formulaRef"]) for f in forms)
-        print("%d formula%s in this repo:" % (len(forms), "" if len(forms) == 1 else "s"))
+        # The header 1.1 printed holds while every formula is in this repo.
+        here = "" if any(f.get("provider") for f in forms) else " in this repo"
+        print("%d formula%s%s:" % (len(forms), "" if len(forms) == 1 else "s", here))
         for f in sorted(forms, key=lambda g: g["name"]):
             d = " ".join(f["description"].split())
             if len(d) > 70 - w:
                 d = d[: 69 - w] + "…"
             print("  %-*s  %s" % (w, f["formulaRef"], d))
-            print("  %-*s  %s" % (w, "", f["path"]))
+            where = "from the %s provider" % f["provider"] if f.get("provider") else f["path"]
+            print("  %-*s  %s" % (w, "", where))
         print("\nRun one: %s formula pour <id>" % PROG)
 
 
@@ -7612,6 +8850,8 @@ def show_show(request: Request, response: Response) -> None:
         sys.stdout.write(response["text"])
     elif response["status"] == "failed" and response.get("path"):
         sys.stderr.write("%s: %s\n" % (response["path"], response["summary"]))
+    elif response.get("reason") in ("ambiguous", "provider-formula-unserved", "provider-failed"):
+        sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
 
 
 def show_match(request: Request, response: Response) -> None:
@@ -7625,12 +8865,17 @@ def show_match(request: Request, response: Response) -> None:
         if len(d) > 74 - w:
             d = d[: 73 - w] + "…"
         print("  %-*s  %s" % (w, f["name"], d), file=sys.stderr)
-        print("  %-*s  %s" % (w, "", f["path"]), file=sys.stderr)
+        where = "from the %s provider" % f["provider"] if f.get("provider") else f["path"]
+        print("  %-*s  %s" % (w, "", where), file=sys.stderr)
     # One command. It used to print `cook --persist && mol wisp create`,
     # whose wisp is ephemeral and never synced via git -- which is
     # management and sharing both given up. `formula pour` is the durable one,
     # and it cooks from the formula's own path first.
-    print("  Run it: %s formula pour %s" % (PROG, top[0]["formulaRef"]), file=sys.stderr)
+    print(
+        "  Run it: %s formula pour %s"
+        % (PROG, shlex.quote(response.get("pourRef") or top[0]["formulaRef"])),
+        file=sys.stderr,
+    )
 
 
 def show_notice(found: list[dict[str, Any]]) -> None:
@@ -7650,7 +8895,8 @@ def show_notice(found: list[dict[str, Any]]) -> None:
             file=sys.stderr,
         )
         print(
-            '      %s formula new "%s" --from %s' % (PROG, p["title"], p["workRef"]),
+            "      %s formula new %s --from %s"
+            % (PROG, shell_word(p["title"]), shlex.quote(p["workRef"])),
             file=sys.stderr,
         )
     if len(found) > TOP_N:
@@ -8156,6 +9402,7 @@ SHOW = {
     "operation.forward-to-the-tracker": show_forward,
     "operation.teach-the-conventions": show_teach,
     "operation.index-the-project": show_index,
+    "operation.answer-through-a-formula-provider": show_providers,
     "operation.list-formulas": show_list,
     "operation.show-formula": show_show,
     "operation.match-formulas": show_match,
@@ -8364,6 +9611,29 @@ def main() -> int:
             )["exitCode"]
         )
 
+    if argv[:2] == ["formula", "provider"]:
+        given = argv[3:]
+        at = None
+        if "--at" in given:
+            k = given.index("--at")
+            at = given[k + 1] if k + 1 < len(given) else ""
+            given = given[:k] + given[k + 2 :]
+        action = argv[2] if len(argv) > 2 else ""
+        if action == "register" and len(given) == 2:
+            asked = {"action": "register", "name": given[0], "module": given[1], "location": at}
+        elif action == "list" and not given and at is None:
+            asked = {"action": "list"}
+        elif action == "remove" and len(given) == 1 and at is None:
+            asked = {"action": "remove", "name": given[0]}
+        else:
+            sys.stderr.write(
+                "usage: %s formula provider register <name> <module> [--at <location>] "
+                "| list | remove <name>\n" % PROG
+            )
+            return 2
+        answered = invoke("operation.answer-through-a-formula-provider", {"root": root, **asked})
+        return int(answered["exitCode"])
+
     if argv[0] == "formula" and len(argv) > 1:
         plain = [a for a in argv[2:] if not a.startswith("-")]
         flags = [a for a in argv[2:] if a.startswith("-")]
@@ -8372,7 +9642,8 @@ def main() -> int:
             return int(listed["exitCode"])
         if argv[1] == "show" and len(plain) == 1 and not flags:
             shown = invoke("operation.show-formula", {"root": root, "ident": plain[0]})
-            if shown["status"] != "blocked":
+            # Only an id that names no formula at all is the tracker's to answer.
+            if shown["status"] != "blocked" or shown.get("reason") != "formula-not-found":
                 return int(shown["exitCode"])
 
     if ws is None:

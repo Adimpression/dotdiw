@@ -287,7 +287,9 @@ $ dotdiw check
 Each formula carries example titles, and `check` runs every one of them through
 the ranker **with that example removed from the index first**. A formula its own
 examples cannot retrieve is reported as undiscoverable — because it is. Leave the
-example in and the test proves only that an indexed string can find itself.
+example in and the test proves only that an indexed string can find itself. A
+formula file that does not parse is named too, since nothing can find it, and a
+formula HEAD does not hold is named as one nobody else can see.
 
 `create` runs the same check quietly every time, so the moment that fires for
 discovery is the moment that enforces.
@@ -296,10 +298,17 @@ discovery is the moment that enforces.
 
 ## How it works
 
-**Formulas are found with `git ls-files '*.formula.toml'`.** Anywhere in the
-tree. The suffix is the convention, not the directory — nothing is registered,
-nothing is copied into a config folder, and a formula you did not commit is
-invisible. That is the sharing convention made mechanical rather than advisory.
+**Formulas are found on the file system.** Anywhere in the tree, every
+directory whose name starts with a dot left out. The suffix is the convention,
+not the directory — nothing is registered, nothing is copied into a config
+folder. A formula you did not commit is found in your checkout alone, and
+`dotdiw check` names it as one nobody else can see.
+
+**Formulas kept elsewhere come through a provider**, registered once under a
+name that every one of its formulas then carries as a suffix. Each provider's
+list is read once per run, and its formulas are matched and listed from it as
+the ones in the tree are; a formula's text is fetched from the provider, and
+written under your home, only when it is shown or poured.
 
 **Retrieval is SQLite's FTS5**, which the interpreter already ships: bm25 ranking
 and a porter stemmer, so a word is worth what it is distinctive and "failing"
@@ -386,7 +395,7 @@ owns only what is its own.
 - `carrier.yaml`, `reliant-enactments/` -- who may stand in the product's
   position, and one real occasion of reliance.
 - `poa/product-model.yaml` and `operation-idl.json` -- the governed source and
-  the operation algebra derived from it: forty-four operations, each traced
+  the operation algebra derived from it: fifty operations, each traced
   to a duty, a step and a lawful lifecycle transition, ten of them the
   tracker interface an adapter answers. Each step and journey of the model
   declares, in its operation block, what its operation takes, returns and
@@ -533,6 +542,53 @@ account they belong to, once, before any work is written as that person, and
 `tracker use jira` names it each time. It is tested against a stub of the API in
 `test_jira.py` and against nothing live.
 
+## Formula management providers
+
+Nothing changes unless you register one. The formulas in a checkout are in
+local storage, the file system, found wherever they sit in the tree. A formula
+management provider keeps its formulas in its own store, on a file system or
+behind an API endpoint, and serves every checkout once you register it under a
+name of letters and digits; `--at` names its store:
+
+```bash
+dotdiw formula provider register acme directory --at ~/shared/formulas
+```
+
+Every formula it serves carries that name as a suffix after a hyphen.
+`mol-cut-release` in that directory is `mol-cut-release-acme` everywhere dotdiw
+shows or takes an id: in `formula list`, which says it comes from the acme
+provider, in `formula show`, in what `create` surfaces, and in `formula pour`,
+which pours it as it pours a formula in the checkout. An id names its formula
+first, then a path exactly as given, then a file's name, and two formulas that
+answer at the same step are refused; an id with a provider's suffix answers to
+that provider alone, and a local formula that declares one is reached only by
+its path, with `dotdiw check` saying to rename it. `dotdiw
+formula provider list` names what is registered and what each answers, and a
+registration that cannot answer, with why. `dotdiw formula provider remove
+<name>` takes a registration away; from then on an id with its suffix is
+refused, never handed to the tracker, which may still hold a copy.
+
+Registering refuses, in one line, a name already taken in any case, a name
+that is not letters and digits, a module that is not installed, a module that
+does not answer list and show, and a store that is not there. A directory is
+recorded by its absolute path, so it names one store from every directory you
+run dotdiw in. While the checkout holds a formula whose id ends in a hyphen and
+that name, registering refuses and names the file, so that one id never names
+two formulas; `dotdiw check` names such a formula in any checkout afterwards. A
+provider's ids are letters, digits, dots, hyphens and underscores. A provider
+that fails, or answers outside that shape, is left out of the run whole, with
+one line naming it, and the formulas in the checkout surface as before.
+
+dotdiw records each registration under your home, in
+`~/.dotdiw/formula-providers.json`, one change at a time; the formulas stay in
+the provider's store. `directory`, a directory of formula files outside any
+checkout, ships inside dotdiw. Any other provider is one Python file, `<module>.py`, in
+`~/.dotdiw/formula-providers/` or in `share/dotdiw/formula-providers/` beside
+the `bin/` dotdiw runs from, where a package named
+`dotdiw-formula-provider-<module>` installs it.
+[`formula-providers/README.md`](formula-providers/README.md) says how to write
+one.
+
 ## Commands
 
 ```bash
@@ -541,7 +597,7 @@ dotdiw init --tracker <name>                 # ...on a tracker you name, instead
 dotdiw create "<what you're about to do>"    # where all work starts
 dotdiw formula new "<what it's for>"         # write a procedure down
 dotdiw formula new "..." --from <id>         # ...with steps from work already done
-dotdiw formula list                          # what this project holds
+dotdiw formula list                          # what this project holds, and what its providers serve
 dotdiw formula pour <id>                     # instantiate it as tracked, ordered steps
 dotdiw check                                 # whether every formula here can be found
 dotdiw learn                                 # all of it, for whoever found the command
@@ -550,6 +606,9 @@ dotdiw tracker use <name>                    # choose afterwards; the work in th
 dotdiw tracker migrate <from> <to>           # move it; the source is left as it was
 dotdiw tracker check <name or path>          # prove an adapter against the scenario that defines one
 dotdiw tracker new <name>                    # write the file a tracker of your own starts from
+dotdiw formula provider register <name> <module> [--at <location>]   # serve a provider's formulas under <name>
+dotdiw formula provider list                 # what is registered, and what each answers
+dotdiw formula provider remove <name>        # take a registration away
 ```
 
 `list`, `ready`, `show`, `close`, `update` and `dep add` are the tracker's,

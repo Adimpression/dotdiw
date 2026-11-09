@@ -10,10 +10,11 @@ hold the program to the file without any of that, from the source alone.
     python3 -I test_promise.py
 
 The sort of every top-level definition in `dotdiw` -- infrastructure, the
-door, the tracker door, an adapter, the command-line interface, one
-operation's helpers, or an operation -- is written here. It is the proof that
-no behaviour is shared outside the operation algebra, and the test that fails
-when a function is added without saying which of the seven it is.
+door, the tracker door, an adapter, the shipped formula management provider,
+the command-line interface, one operation's helpers, or an operation -- is
+written here. It is the proof that no behaviour is shared outside the
+operation algebra, and the test that fails when a function is added without
+saying which of the eight it is.
 
 The door is held too: its table is a fresh generation from the IDL, a body is
 reached only through it, `main()` calls only it and infrastructure, nothing
@@ -32,6 +33,11 @@ The bodies reach a tracker only through the tracker door; every bd command
 the beads adapter runs is declared on the operation of the interface it
 answers, or on the body its extra serves; and the terminal is touched by
 the pass-through's runner alone.
+
+And the shipped formula management provider, the eighth: directory, a
+directory of formula files outside any checkout, answering list and show. It
+calls no operation, and the bodies reach it through its table alone, as they
+reach a provider module loaded from a file.
 """
 
 import ast
@@ -89,6 +95,27 @@ INFRASTRUCTURE = {
     "witness_on",
     "witness",
     "witnessed",
+    "formula_files",
+    "package_dirs",
+    "module_loader",
+    "provider_dirs",
+    "load_provider",
+    "read_registry",
+    "read_providers",
+    "write_registry",
+    "registry_lock",
+    "suffix_owner",
+    "shell_word",
+}
+
+# The formula management provider that ships inside dotdiw: a directory on the
+# file system, answering list and show. Like an adapter, it is reached through
+# its table by the bodies, never by name.
+PROVIDERS = {
+    "directory_store",
+    "directory_describe",
+    "directory_list",
+    "directory_show",
 }
 
 # The door: the one way an operation is invoked, holding the request and the
@@ -127,6 +154,7 @@ TRACKER = {
 ADAPTERS = {
     "beads": {
         "beads_find",
+        "beads_serial",
         "beads_store",
         "beads_env",
         "beads_quiet",
@@ -213,12 +241,14 @@ INTERFACE = {
     "show_check_tracker",
     "show_migrate",
     "show_new_tracker",
+    "show_providers",
 }
 
 # Module-level definitions that are part of exactly one operation's body.
 HELPERS = {
     "WriteFormula": {"Titles", "slug", "past_titles", "steps_from"},
     "CheckTracker": {"conformance_scenario", "candidate_registered"},
+    "ShowProviderFormula": {"toml_text"},
 }
 
 # What runs a tracker or git command, and the dependency it crosses into.
@@ -479,6 +509,7 @@ class TheSort(unittest.TestCase):
             | INTERFACE
             | DOOR
             | TRACKER
+            | PROVIDERS
             | adapters
             | helpers
             | records
@@ -488,8 +519,9 @@ class TheSort(unittest.TestCase):
             set(self.source.defs),
             expected,
             "a top-level definition is not infrastructure, interface, "
-            "the door, the tracker door, an adapter, an operation, "
-            "one operation's helper, or a record type of the IDL",
+            "the door, the tracker door, an adapter, the shipped formula "
+            "management provider, an operation, one operation's helper, "
+            "or a record type of the IDL",
         )
 
     def test_every_operation_is_one_function_taking_one_request(self):
@@ -575,7 +607,7 @@ class TheSort(unittest.TestCase):
         """Nor does the door, which reaches a body only through its table; nor
         does an adapter, which reaches nothing above the tracker door."""
         adapters = set().union(*ADAPTERS.values())
-        for name in INFRASTRUCTURE | DOOR | TRACKER | adapters:
+        for name in INFRASTRUCTURE | DOOR | TRACKER | PROVIDERS | adapters:
             called = self.source.names_called(name)
             self.assertFalse(called & set(self.operations), "%s calls %s" % (name, called))
             self.assertFalse(called & set().union(*HELPERS.values()), name)
@@ -583,6 +615,15 @@ class TheSort(unittest.TestCase):
         for name in adapters:
             called = self.source.names_called(name)
             self.assertFalse(called & (DOOR | TRACKER), "%s calls %s" % (name, called))
+
+    def test_the_bodies_reach_the_shipped_provider_through_its_table(self):
+        """No body, helper, interface or infrastructure function calls the
+        directory provider by name; PROVIDER_MODULES holds it, and the bodies
+        call what load_provider answers."""
+        helpers = set().union(*HELPERS.values())
+        for name in set(self.operations) | helpers | INTERFACE | INFRASTRUCTURE:
+            called = self.source.names_called(name) & PROVIDERS
+            self.assertFalse(called, "%s calls %s" % (name, called))
 
     def test_only_the_adapter_names_the_binary(self):
         """The plumbing of the tracker underneath -- finding it, running it,

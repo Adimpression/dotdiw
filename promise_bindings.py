@@ -96,6 +96,12 @@ BINDINGS = (
     "MigrateWorkspace",
     "ShipATracker",
     "WriteTracker",
+    "AnswerThroughAFormulaProvider",
+    "RegisterProvider",
+    "DescribeProvider",
+    "ListProviderFormulas",
+    "ShowProviderFormula",
+    "RemoveProvider",
 )
 
 
