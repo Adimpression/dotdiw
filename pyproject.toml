@@ -1,6 +1,6 @@
 [project]
 name = "dotdiw"
-version = "3.0.0"
+version = "4.0.0"
 description = "Workflow discovery for a project: when work starts, the procedure that applies surfaces on its own."
 readme = "README.md"
 license = "Apache-2.0"
@@ -38,7 +38,7 @@ python_version = "3.11"
 # apparatus the numbers came from, kept as they ran; ruff reads them, mypy does
 # not.
 files = ["dotdiw", "promise_bindings.py", "trackers", "poa", "test_promise.py",
-         "test_dotdiw.py", "test_tracker.py", "test_jira.py"]
+         "test_dotdiw.py", "test_tracker.py", "test_jira.py", "suites.py"]
 strict = true
 warn_unreachable = true
 

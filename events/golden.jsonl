@@ -10,4 +10,4 @@
 {"observedEventId": "r3e-10", "label": "step_closed", "workId": "tap-r3e", "moleculeId": "tap-mol-gxc", "stepId": "tap-mol-8z8", "occurredAt": "2026-11-01T04:51:41Z", "observedAt": "2026-11-01T04:51:42Z", "source": "beadsIssues"}
 {"observedEventId": "r3e-11", "label": "step_closed", "workId": "tap-r3e", "moleculeId": "tap-mol-gxc", "stepId": "tap-mol-vn7", "occurredAt": "2026-11-01T04:51:41Z", "observedAt": "2026-11-01T04:51:42Z", "source": "beadsIssues"}
 {"observedEventId": "r3e-12", "label": "step_closed", "workId": "tap-r3e", "moleculeId": "tap-mol-gxc", "stepId": "tap-mol-tb8", "occurredAt": "2026-11-01T04:51:42Z", "observedAt": "2026-11-01T04:51:43Z", "source": "beadsIssues"}
-{"observedEventId": "r3e-13", "label": "molecule_closed", "workId": "tap-r3e", "moleculeId": "tap-mol-gxc", "occurredAt": "2026-11-01T04:51:43Z", "observedAt": "2026-11-01T04:51:44Z", "source": "beadsIssues"}
+{"observedEventId": "r3e-13", "label": "molecule_closed", "workId": "tap-r3e", "moleculeId": "tap-mol-gxc", "everyStepClosed": true, "occurredAt": "2026-11-01T04:51:43Z", "observedAt": "2026-11-01T04:51:44Z", "source": "beadsIssues"}

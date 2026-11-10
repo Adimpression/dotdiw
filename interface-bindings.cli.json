@@ -493,7 +493,7 @@
       "operationId": "operation.run-a-tracker-command",
       "affordance": {
         "label": "dotdiw <any tracker command>",
-        "shape": "Everything the tracker does, under dotdiw's name. Under beads: list, show, close, update, dep, sync, help and the rest, passed through. Under an adapter without a pass-through: list, ready, show, close, update and dep add, answered through the tracker interface and shown as records; any other command is refused.",
+        "shape": "Everything the tracker does, under dotdiw's name, save what dotdiw cannot check against a run's steps before it runs. Under beads: list, show, ready, close, update, dep, link, help and the rest, passed through, a close, an update and an edge once checked; a batch, raw SQL, an import, a sync, a delete, a duplicate and the like refused by name. Under an adapter without a pass-through: list, ready, show, close, update and dep add, answered through the tracker interface and shown as records; any other command is refused.",
         "command": "dotdiw <command> [arguments]",
         "inputMapping": [
           {
@@ -757,6 +757,45 @@
           "step.show-provider-formula",
           "step.remove-provider"
         ]
+      }
+    },
+    {
+      "bindingId": "binding.cli-claim",
+      "interfaceKind": "cli",
+      "interfaceName": "dotdiw",
+      "operationId": "operation.record-what-a-step-found",
+      "affordance": {
+        "label": "dotdiw claim",
+        "shape": "A claimed step's values recorded, and the run read back with its claims and its means to prove it filled in.",
+        "command": "dotdiw claim <id> [label: value ...] [--json]",
+        "inputMapping": [
+          {
+            "from": "<id>",
+            "to": "id"
+          },
+          {
+            "from": "label: value lines, as arguments or on standard input",
+            "to": "values"
+          },
+          {
+            "from": "--json",
+            "to": "json"
+          }
+        ]
+      },
+      "coverage": {
+        "coverageKind": "fulfills",
+        "dutyIds": [
+          "duty.keep-what-a-run-found"
+        ],
+        "journeyIds": [
+          "journey.record-what-a-step-found"
+        ],
+        "stepIds": [
+          "step.record-claim",
+          "step.read-run"
+        ],
+        "explanation": "The command line projects the operation; it decides nothing about what the operation means."
       }
     }
   ]

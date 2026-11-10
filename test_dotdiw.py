@@ -48,6 +48,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tomllib
 import unittest
@@ -64,6 +65,17 @@ HOOK = '#!/bin/sh\necho ran >> "$(git rev-parse --show-toplevel)/%s"\n'
 
 def have_bd():
     return shutil.which("bd") is not None
+
+
+def uses(*binaries):
+    """Mark a test class or a test with the binaries it runs beyond Python and
+    git -- "bd", "poa" -- which say the suite it is in (suites.py)."""
+
+    def mark(obj):
+        obj.uses = frozenset(binaries)
+        return obj
+
+    return mark
 
 
 if TYPE_CHECKING:
@@ -272,6 +284,7 @@ class Repo:
                 json.dump(state, fh, indent=2)
 
 
+@uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class Adoption(unittest.TestCase):
     """What `dotdiw init` may and may not change."""
@@ -486,6 +499,7 @@ class Adoption(unittest.TestCase):
         self.assertEqual(stray, [], written)
 
 
+@uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class Repair(unittest.TestCase):
     """Undoing what v0.1.0 did to repositories that already ran it."""
@@ -724,6 +738,7 @@ class Repair(unittest.TestCase):
         self.assertNotIn("put right", out)
 
 
+@uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class Metrics(unittest.TestCase):
     """bd's usage metrics are off before this tool runs anything else.
@@ -871,6 +886,7 @@ class Version(unittest.TestCase):
         self.assertTrue(p.stdout.startswith("dotdiw "), p.stdout)
 
 
+@uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class TheName(unittest.TestCase):
     """What dotdiw says names the tracker and never bd (invariant.one-name-for-all-four)."""
@@ -891,7 +907,7 @@ class TheName(unittest.TestCase):
         lines = p.stdout.strip().split("\n")
         self.assertEqual(len(lines), 2, p.stdout)
         self.assertRegex(lines[1], r"^  tracker beads \d+(\.\d+)+$")
-        self.assertNotIn("3.0.0", lines[1], "the tracker underneath, not this tool")
+        self.assertNotIn("4.0.0", lines[1], "the tracker underneath, not this tool")
 
     def test_without_the_tracker_the_message_is_the_install_command(self):
         """Nothing on PATH but the system: one line, the command for the tracker
@@ -1107,6 +1123,7 @@ class InterfaceRecords(_TestBase):
         self.assertEqual(self.ask("show-item", id=poured["rootId"])["item"]["status"], "closed")
 
 
+@uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
     """The beads adapter answers the interface in records, quietly, against
@@ -1115,6 +1132,1532 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
     same one line's reason."""
 
     ADAPTER = "beads"
+
+    def test_a_close_another_made_first_is_named_closed_already(self):
+        """bd keeps the session of the close that closed an item: a close of
+        an item another writer closed already names it closed already, and
+        closes nothing of its own -- whether that writer closed it before
+        this close read it, or between the read and bd's close."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Closed elsewhere")["item"]["id"]
+        code, _, err = self.m.beads_quiet(["close", made], self.repo.path)
+        self.assertEqual(code, 0, err)
+        out = self.ask("close-item", id=made)
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", []), out)
+        self.assertIn("closed already", out["summary"])
+        late = self.ask("create-item", title="Closed meanwhile")["item"]["id"]
+        real = self.m.beads_quiet
+
+        def the_other_closes_it_first(args, root=None, **given):
+            if args[:2] == ["close", late]:
+                code, _, err = real(["close", late], root, session="another")
+                self.assertEqual(code, 0, err)
+            return real(args, root, **given)
+
+        self.m.beads_quiet = the_other_closes_it_first
+        try:
+            out = self.ask("close-item", id=late)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", []), out)
+        self.assertIn("closed already", out["summary"])
+
+    def test_a_close_not_read_back_is_not_named_this_ones(self):
+        """What a close closed is read back after it, by the session bd kept:
+        where bd cannot show the item then, the close names nothing closed,
+        and fails saying why."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Not read back")["item"]["id"]
+        real = self.m.beads_quiet
+        ran = []
+
+        def show_fails_after_the_close(args, at=None, **given):
+            if args[:1] == ["close"]:
+                ran.append(args)
+            elif args[:1] == ["show"] and ran:
+                return 1, "", "the store is busy"
+            return real(args, at, **given)
+
+        self.m.beads_quiet = show_fails_after_the_close
+        try:
+            out = self.ask("close-item", id=made)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        # bd did not say that it holds the item no more, and the close does not either.
+        self.assertEqual(
+            out["summary"],
+            "%s could not be read back after the close, so whether this close closed it is not "
+            "known." % made,
+        )
+        self.assertFalse(out.get("closedIds"), out)
+
+    def test_a_show_that_leaves_out_an_item_bd_holds_is_no_reading_of_it(self):
+        """Asked whose close it was, bd answers without an error and shows no
+        row; asked again, it shows the item. A show with no row for an item
+        bd holds does not say the item is gone: whose close it was is not
+        known, and the close fails saying that and no more."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Left out of a show")["item"]["id"]
+        real = self.m.beads_quiet
+        ran = []
+
+        def the_first_show_after_the_close_shows_nothing(args, at=None, **given):
+            if args[:1] == ["close"]:
+                ran.append("close")
+            elif args[:1] == ["show"] and ran == ["close"]:
+                ran.append("show")
+                return 0, "[]", ""
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_first_show_after_the_close_shows_nothing
+        try:
+            out = self.ask("close-item", id=made)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual(ran, ["close", "show"])
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(
+            out["summary"],
+            "%s could not be read back after the close, so whether this close closed it is not "
+            "known." % made,
+        )
+        self.assertFalse(out.get("closedIds"), out)
+        self.assertEqual(self.ask("show-item", id=made)["item"]["status"], "closed")
+
+    def test_a_molecule_bd_closes_with_its_last_step_is_named_after_it(self):
+        """bd closes a molecule of its own accord when its last child closes,
+        under the same close: named after the step, as the local adapter
+        names a root its last step closed."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        step = poured["stepIds"][0]
+        out = self.ask("close-item", id=step)
+        self.assertEqual(out["closedIds"], [step, poured["rootId"]], out)
+
+    def moved_run(self):
+        """A run of two steps, the second moved under an item of no run, so
+        that the root's last child is the first: its root and steps."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps",
+            formulaRef="m",
+            title="m",
+            steps=[{"id": "a", "title": "A"}, {"id": "b", "title": "B"}],
+        )
+        root, (a, b) = poured["rootId"], poured["stepIds"]
+        elsewhere = self.ask("create-item", title="Elsewhere")["item"]["id"]
+        moved = self.ask("update-item", id=b, parent=elsewhere)
+        self.assertEqual(moved["status"], "completed", moved)
+        return root, a, b
+
+    def test_a_root_named_by_its_short_id_is_held_as_by_its_full_one(self):
+        """bd reads an id without its prefix as the full id, and so does the
+        close: a root named so is refused while a step poured in its run
+        stands open under another parent, and the full id is the one named.
+        bd closes the root of its own accord when its last child closes,
+        though that step stands open: it is opened again."""
+        root, a, b = self.moved_run()
+
+        def short(ident):
+            return ident.rsplit("-", 1)[1]
+
+        out = self.ask("close-item", id=short(a))
+        self.assertEqual(out["closedIds"], [a], out)
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+        out = self.ask("close-item", id=short(root))
+        self.assertEqual((out["status"], out.get("blockedBy")), ("blocked", [b]), out)
+        self.assertEqual(out["summary"], "%s is blocked by %s." % (root, b))
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+        self.assertEqual(self.ask("close-item", id=short(b))["closedIds"], [b])
+        self.assertEqual(self.ask("close-item", id=short(root))["closedIds"], [root])
+
+    def test_a_root_bd_closed_over_a_step_open_elsewhere_that_will_not_open_fails_the_close(
+        self,
+    ):
+        """Where the root bd closed of its own accord, over a step of its run
+        open elsewhere, will not open again, the close fails, naming the root
+        among what it closed, and why: closed it is, against the rule."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+
+        def opening_again_fails(args, at=None, **given):
+            if args[:1] == ["batch"]:  # the write that opens an item again
+                return 1, "", "the store is busy"
+            return real(args, at, **given)
+
+        self.m.beads_quiet = opening_again_fails
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out["exitCode"]), ("failed", 1), out)
+        self.assertEqual(out["closedIds"], [a, root], out)
+        self.assertIn(
+            "%s closed of the tracker's own accord while %s stood open, and it could not be "
+            "opened again: the store is busy" % (root, b),
+            out["summary"],
+        )
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "closed")
+
+    def test_a_root_bd_closes_is_held_to_its_run_as_it_stands_after_the_close(self):
+        """Another writer opens a step of the run again between the close's
+        first read and bd's close of the root's last child: bd closes the root
+        of its own accord, and the close, reading the run again after it,
+        finds the step open and opens the root again."""
+        root, a, b = self.moved_run()
+        self.assertEqual(self.ask("close-item", id=b)["closedIds"], [b])
+        real = self.m.beads_quiet
+
+        def the_other_opens_the_step_first(args, at=None, **given):
+            if args[:2] == ["close", a]:
+                code, _, err = real(["reopen", b], at)
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_other_opens_the_step_first
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", [a]), out)
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_a_close_of_what_another_closed_first_holds_the_root_bd_closed_again(self):
+        """Another close closes the root's last child between this close's
+        read and its own close of it; bd, closing the child again, closes the
+        root again under this close's session. The item is named closed
+        already, and the root, a step of its run standing open elsewhere, is
+        opened again."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+        first: list[str] = []
+
+        def another_closes_it_first(args, at=None, **given):
+            if args[:2] == ["close", a] and not first:
+                first.append(a)
+                other = self.ask("close-item", id=a)
+                self.assertEqual(other["closedIds"], [a], other)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = another_closes_it_first
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", []), out)
+        self.assertIn("%s was closed already." % a, out["summary"])
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_a_listing_that_leaves_out_the_item_named_closes_nothing(self):
+        """What stands open in a run is read from bd's listing before the
+        close. A listing that does not hold the item named is not every
+        item, so nothing is known to stand closed: the close fails before bd
+        is asked anything of it, and the root, both its steps open
+        elsewhere, stays open. So it does for an item of no run, which no
+        other account of a run's items would find left out."""
+        root, a, b = self.moved_run()
+        other = self.ask("create-item", title="Other")["item"]["id"]
+        self.assertEqual(self.ask("update-item", id=a, parent=other)["status"], "completed")
+        plain = self.ask("create-item", title="Plain")["item"]["id"]
+        real = self.m.beads_quiet
+        for named, leaves_out in ((root, None), (plain, plain)):
+            with self.subTest(named=named):
+                ran: list[list[str]] = []
+
+                def every_listing_leaves_it_out(
+                    args, at=None, leaves_out=leaves_out, ran=ran, **given
+                ):
+                    if args[:1] in (["close"], ["batch"]):
+                        ran.append(args)
+                    code, out, err = real(args, at, **given)
+                    if args[:1] == ["list"]:
+                        kept = [r for r in json.loads(out) if r.get("id") != leaves_out]
+                        out = json.dumps(kept if leaves_out else [])
+                    return code, out, err
+
+                self.m.beads_quiet = every_listing_leaves_it_out
+                try:
+                    out = self.ask("close-item", id=named)
+                finally:
+                    self.m.beads_quiet = real
+                self.assertEqual(
+                    (out["status"], out.get("reason")), ("failed", "adapter-failed"), out
+                )
+                self.assertFalse(out.get("closedIds"), out)
+                self.assertEqual(ran, [])
+                self.assertEqual(self.ask("show-item", id=named)["item"]["status"], "open")
+        self.assertEqual(
+            out["summary"],
+            "Nothing closed: the tracker shows %s, and its list of every item leaves it out, so "
+            "what a close of it waits on could not be read." % plain,
+        )
+
+    def test_a_listing_that_is_no_list_of_rows_is_no_listing(self):
+        """bd's listing is a JSON array of issues. Anything else it prints
+        with exit 0 is a failed read, not a tracker holding nothing."""
+        self.ask("open-tracker", prefix="t")
+        self.ask("create-item", title="Held")
+        real = self.m.beads_quiet
+        for printed in ("", "not json", '{"error": "busy"}', '[1, "two"]', '[{"title": "no id"}]'):
+            with self.subTest(printed=printed):
+
+                def bd_prints(args, at=None, printed=printed, **given):
+                    if args[:1] == ["list"]:
+                        return 0, printed, ""
+                    return real(args, at, **given)
+
+                self.m.beads_quiet = bd_prints
+                try:
+                    out = self.ask("list-items", scope="all")
+                finally:
+                    self.m.beads_quiet = real
+                self.assertEqual(
+                    (out["status"], out.get("reason")), ("failed", "adapter-failed"), out
+                )
+        self.assertEqual(len(self.ask("list-items", scope="all")["items"]), 1)
+
+    def test_a_step_moved_under_its_root_as_the_close_runs_holds_that_root(self):
+        """Another writer moves the step under its run's root between the
+        close's read and bd's close of it: bd closes that root of its own
+        accord, its last child closing, while another step of the run stands
+        open elsewhere. The close holds the roots as they stand after it,
+        not the parent it read before: the root is opened again."""
+        root, a, b = self.moved_run()
+        other = self.ask("create-item", title="Other")["item"]["id"]
+        self.assertEqual(self.ask("update-item", id=a, parent=other)["status"], "completed")
+        real = self.m.beads_quiet
+
+        def the_other_moves_it_first(args, at=None, **given):
+            if args[:2] == ["close", a]:
+                code, _, err = real(["update", a, "--parent", root], at)
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_other_moves_it_first
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", [a]), out)
+        self.assertIn(
+            "%s closed of the tracker's own accord while %s stood open, so it is open again."
+            % (root, b),
+            out["summary"],
+        )
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_a_step_opened_again_as_its_root_closes_blocks_that_close(self):
+        """Another writer opens a step of the run again, under another
+        parent, between the close's listing and bd's close of the root. bd
+        knows no run and closes the root. The close holds the root as it
+        stands after it: the root is set back to the status it had, the
+        close is blocked by the step, and nothing is named closed."""
+        root, a, b = self.moved_run()
+        self.assertEqual(self.ask("close-item", id=a)["closedIds"], [a])
+        self.assertEqual(self.ask("close-item", id=b)["closedIds"], [b])
+        started = self.ask("update-item", id=root, status="in_progress")
+        self.assertEqual(started["status"], "completed", started)
+        real = self.m.beads_quiet
+
+        def the_other_opens_the_step_first(args, at=None, **given):
+            if args[:2] == ["close", root]:
+                code, _, err = real(["reopen", b], at)
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_other_opens_the_step_first
+        try:
+            out = self.ask("close-item", id=root)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("blockedBy")), ("blocked", [b]), out)
+        self.assertEqual(out["closedIds"], [], out)
+        self.assertEqual(
+            out["summary"],
+            "%s closed while %s stood open, so it is in_progress again." % (root, b),
+        )
+        self.assertNotIn("item", out)
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "in_progress")
+
+    def test_a_root_another_closes_over_open_steps_as_a_close_runs_is_opened_again(self):
+        """Another writer closes a root, the steps of its run open under
+        other parents, while a close of an item of no run is under way. The
+        root stood open before that close and stands closed after it against
+        the rule, so it is opened again, whoever closed it; it is no close
+        of this one's."""
+        root, a, b = self.moved_run()
+        other = self.ask("create-item", title="Other")["item"]["id"]
+        self.assertEqual(self.ask("update-item", id=a, parent=other)["status"], "completed")
+        plain = self.ask("create-item", title="Plain")["item"]["id"]
+        real = self.m.beads_quiet
+
+        def the_other_closes_the_root_first(args, at=None, **given):
+            if args[:2] == ["close", plain]:
+                code, _, err = real(["close", root], at, session="another")
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_other_closes_the_root_first
+        try:
+            out = self.ask("close-item", id=plain)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", [plain]), out)
+        self.assertIn(
+            "%s stood closed while %s stood open, so it is open again."
+            % (root, ", ".join(sorted([a, b]))),
+            out["summary"],
+        )
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_an_item_another_deletes_as_the_close_runs_is_no_gap_in_the_listing(self):
+        """Another writer deletes an item of no part in the close while it
+        runs. The listing after the close leaves that item out, and the
+        tracker, asked for it by id, holds it no more: the listing is every
+        item, and the close stands."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Made")["item"]["id"]
+        gone = self.ask("create-item", title="Gone")["item"]["id"]
+        real = self.m.beads_quiet
+
+        def the_other_deletes_one_first(args, at=None, **given):
+            if args[:2] == ["close", made]:
+                code, _, err = real(["delete", gone, "--force"], at)
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_other_deletes_one_first
+        try:
+            out = self.ask("close-item", id=made)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", [made]), out)
+        self.assertEqual(self.ask("show-item", id=gone)["reason"], "item-not-found")
+
+    def test_a_root_another_deletes_as_the_close_runs_is_no_gap_in_the_listing(self):
+        """Another writer deletes two roots of no part in the close while it
+        runs, and their steps stand. bd reads an id it holds nothing of as
+        that of the one item whose id begins with it: asked for the first
+        root, it shows its one step; for the second, of two steps, it finds
+        no issue. Neither answer is the root, so bd holds both no more: the
+        listing after the close is every item, and the close stands."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Made")["item"]["id"]
+        one, two = (
+            self.ask("pour-steps", formulaRef="m", title="m", steps=steps)
+            for steps in (
+                [{"id": "a", "title": "A"}],
+                [{"id": "a", "title": "A"}, {"id": "b", "title": "B"}],
+            )
+        )
+        real = self.m.beads_quiet
+
+        def the_other_deletes_the_roots_first(args, at=None, **given):
+            if args[:2] == ["close", made]:
+                for run in (one, two):
+                    code, _, err = real(["delete", run["rootId"], "--force"], at)
+                    self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_other_deletes_the_roots_first
+        try:
+            out = self.ask("close-item", id=made)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", [made]), out)
+        self.assertEqual(
+            self.ask("show-item", id=one["rootId"])["item"]["id"],
+            one["stepIds"][0],
+            "bd shows the step for its root's id",
+        )
+        self.assertEqual(self.ask("show-item", id=two["rootId"])["reason"], "item-not-found")
+
+    def test_a_listing_after_the_close_that_leaves_out_what_the_tracker_holds_is_no_listing(self):
+        """bd closes the root with its last child, a step of the run open
+        elsewhere, and the listing after the close leaves that step out --
+        and so does bd's query of the items of a run -- though the tracker
+        holds it. The rule cannot be held of that listing: the close fails
+        naming the step left out, and names nothing closed."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+        ran = []
+
+        def the_listing_after_leaves_out_the_step(args, at=None, **given):
+            code, out, err = real(args, at, **given)
+            if args[:1] == ["close"]:
+                ran.append(args)
+            elif args[:1] in (["list"], ["query"]) and ran and code == 0:
+                out = json.dumps([r for r in json.loads(out) if r.get("id") != b])
+            return code, out, err
+
+        self.m.beads_quiet = the_listing_after_leaves_out_the_step
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(
+            out["summary"],
+            "%s could not be read back after the close, so whether this close closed it is not "
+            "known. The tracker's list of every item leaves out %s, which it listed before."
+            % (a, b),
+        )
+        self.assertNotIn("closedIds", out)
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "closed")
+
+    def test_a_listing_that_leaves_out_a_step_of_a_run_both_times_closes_nothing(self):
+        """A root's step moved under another item, open, and every listing of
+        bd's leaves it out, before the close and after it, the root shown in
+        each. The root keeps each step of its run on its own row, so such a
+        listing is no listing of every item: nothing is closed, and the step
+        left out is named."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, (a,) = poured["rootId"], poured["stepIds"]
+        elsewhere = self.ask("create-item", title="Elsewhere")["item"]["id"]
+        self.assertEqual(self.ask("update-item", id=a, parent=elsewhere)["status"], "completed")
+        real = self.m.beads_quiet
+
+        def every_listing_leaves_out_the_step(args, at=None, **given):
+            code, out, err = real(args, at, **given)
+            if args[:1] == ["list"] and code == 0:
+                out = json.dumps([r for r in json.loads(out) if r.get("id") != a])
+            return code, out, err
+
+        self.m.beads_quiet = every_listing_leaves_out_the_step
+        try:
+            out = self.ask("close-item", id=root)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertIn(
+            "The tracker's list of every item leaves out %s, which it holds in a run with %s."
+            % (a, root),
+            out["summary"],
+        )
+        self.assertNotIn("closedIds", out)
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_a_root_deleted_before_it_is_opened_again_opens_no_other_item(self):
+        """bd closes the root with its last child while a step of its run
+        stands open elsewhere, so the root is to be opened again. Another
+        writer deletes the root and that step just before: bd's update reads
+        the root's id as its one step left's, and would open that. The
+        root's id is read whole, so no other item is opened, and the close
+        fails saying the root could not be opened again, and why."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+        seen = []
+
+        def the_other_deletes_the_root_first(args, at=None, **given):
+            if args[:1] == ["close"]:
+                seen.append("closed")
+            elif seen == ["closed"] and args[:1] in (["update"], ["batch"]):
+                seen.append("deleted")
+                for gone in (root, b):
+                    code, _, err = real(["delete", gone, "--force"], at)
+                    self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_other_deletes_the_root_first
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual(seen, ["closed", "deleted"])
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertRegex(
+            out["summary"],
+            re.escape(
+                "%s closed of the tracker's own accord while %s stood open, and it could not "
+                "be opened again: " % (root, b)
+            )
+            + r".*not found",
+        )
+        self.assertEqual(
+            self.ask("show-item", id=a)["item"]["status"], "closed", "no other item was opened"
+        )
+
+    def test_an_update_of_an_item_held_no_more_names_the_one_written(self):
+        """bd's update reads an id it holds nothing of as the one item whose
+        id begins with it -- a deleted root's as its one step left's -- and
+        writes that one. An update of a root deleted before it is asked is
+        not found, and the step keeps its title. One deleted as bd's update
+        runs has bd write the step in its place: the update fails, naming
+        the step written."""
+        self.ask("open-tracker", prefix="t")
+        runs = [
+            self.ask("pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}])
+            for _ in range(2)
+        ]
+        (first, (a,)), (second, (b,)) = [(r["rootId"], r["stepIds"]) for r in runs]
+        code, _, err = self.m.beads_quiet(["delete", first, "--force"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        out = self.ask("update-item", id=first, title="Renamed")
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        self.assertEqual(self.ask("show-item", id=a)["item"]["title"], "A")
+        real = self.m.beads_quiet
+
+        def deleted_as_the_update_runs(args, at=None, **given):
+            if args[:2] == ["update", second]:
+                code, _, err = real(["delete", second, "--force"], at)
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = deleted_as_the_update_runs
+        try:
+            out = self.ask("update-item", id=second, title="Renamed")
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        self.assertEqual(
+            out["summary"],
+            "The tracker holds %s no more, and wrote the update to %s in its place." % (second, b),
+        )
+        self.assertEqual(self.ask("show-item", id=b)["item"]["title"], "Renamed")
+
+    def test_a_claims_values_are_declined_and_nothing_is_written(self):
+        """bd sets a value only through its update, which reads an id it
+        holds nothing of as another item's, and no write of bd's that reads
+        an id whole sets one. So record-values is declined as unsupported,
+        and nothing is written to the item, by any id; the values a create is
+        given, for a move, are the new item's own, and are kept."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps",
+            formulaRef="m",
+            title="m",
+            steps=[{"id": "a", "title": "A", "claim": {"statement": "{{ n }}", "slots": ["n"]}}],
+        )
+        root, (a,) = poured["rootId"], poured["stepIds"]
+        code, before, err = self.m.beads_quiet(["show", a, "--json"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        for ident in (a, root, "t-nothing"):
+            with self.subTest(ident=ident):
+                out = self.ask("record-values", id=ident, values=[{"label": "n", "text": "1"}])
+                self.assertEqual((out["status"], out.get("reason")), ("failed", "unsupported"), out)
+                self.assertEqual(
+                    out["summary"],
+                    "This tracker records no claim's values in this release: it cannot yet "
+                    "hold such a write to the item named, so nothing was recorded on %s." % ident,
+                )
+        code, after, err = self.m.beads_quiet(["show", a, "--json"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(after), json.loads(before), "nothing written")
+        claimed = self.m.invoke(
+            "operation.record-claim",
+            {
+                "root": self.repo.path,
+                "tracker": "beads",
+                "id": a,
+                "values": [{"label": "n", "text": "1"}],
+            },
+        )
+        self.assertEqual((claimed["status"], claimed.get("reason")), ("failed", "unsupported"))
+        moved = self.ask(
+            "create-item", title="Moved", step="a", run=root, values=[{"label": "n", "text": "7"}]
+        )
+        self.assertEqual(
+            self.ask("show-item", id=moved["item"]["id"])["item"].get("values"),
+            [{"label": "n", "text": "7"}],
+        )
+
+    def test_a_need_of_an_item_held_no_more_is_given_to_no_other(self):
+        """bd's dep add reads a deleted root's id as its one step left's. A
+        need asked of that root is given to nothing: it is not found, and
+        the step needs nothing."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, (a,) = poured["rootId"], poured["stepIds"]
+        other = self.ask("create-item", title="Other")["item"]["id"]
+        code, _, err = self.m.beads_quiet(["delete", root, "--force"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        out = self.ask("add-need", id=root, needs=other)
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        self.assertEqual(self.ask("show-item", id=a)["item"].get("needs"), [], "no other written")
+
+    def test_an_item_made_in_a_run_writes_nothing_else(self):
+        """An item made in a run is kept in it by the one create that makes
+        it. So where the run's root is deleted as the item is made, nothing
+        is written in the root's place -- bd's update would read its id as
+        the one step left's -- and that step is as it was."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, (a,) = poured["rootId"], poured["stepIds"]
+
+        def held(ident):
+            code, out, err = self.m.beads_quiet(["show", ident, "--json"], self.repo.path)
+            self.assertEqual(code, 0, err)
+            row = json.loads(out)[0]
+            return row.get("metadata"), row.get("labels"), row.get("title")
+
+        before = held(a)
+        code, _, err = self.m.beads_quiet(["delete", root, "--force"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        made = self.ask("create-item", title="Moved in", step="b", run=root)
+        self.assertEqual(made["status"], "completed", made)
+        self.assertEqual(held(a), before, "nothing written to the step left")
+
+    def test_a_parent_takes_the_place_of_the_one_the_item_has(self):
+        """A parent is written by bd's batch, by the id read whole, as its
+        edges -- each parent the item stands under taken away and the new one
+        given, in one write: an item moved twice has one parent, the last;
+        and a parent that would wait on the item is refused as a cycle."""
+        self.ask("open-tracker", prefix="t")
+        a, b, c = [self.ask("create-item", title=t)["item"]["id"] for t in ("A", "B", "C")]
+        self.assertEqual(self.ask("update-item", id=c, parent=a)["item"].get("parent"), a)
+        self.assertEqual(self.ask("update-item", id=c, parent=b)["item"].get("parent"), b)
+        self.assertEqual(self.ask("show-item", id=a).get("children"), [])
+        self.assertEqual([k["id"] for k in self.ask("show-item", id=b)["children"]], [c])
+        self.assertEqual(self.ask("update-item", id=b, parent=c).get("reason"), "cycle")
+
+    def test_a_reparent_stopped_after_its_write_leaves_the_item_one_parent(self):
+        """bd's update takes the old parent away in the write that gives the
+        new one: a reparent stopped right after that write -- ^C, a crash --
+        before anything else is read, leaves the item under the new parent
+        alone."""
+        self.ask("open-tracker", prefix="t")
+        p1, p2 = [self.ask("create-item", title=t)["item"]["id"] for t in ("P1", "P2")]
+        c = self.ask("create-item", title="C", parent=p1)["item"]["id"]
+        real = self.m.beads_quiet
+        wrote: list[str] = []
+
+        def stopped_after_the_write(args, at=None, **given):
+            if wrote:
+                raise KeyboardInterrupt
+            answer = real(args, at, **given)
+            if args[:2] == ["update", c]:
+                wrote.append("update")
+            return answer
+
+        self.m.beads_quiet = stopped_after_the_write
+        try:
+            with self.assertRaises(KeyboardInterrupt):
+                self.ask("update-item", id=c, parent=p2)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual(wrote, ["update"])
+        self.assertEqual(
+            {p: [k["id"] for k in self.ask("show-item", id=p)["children"]] for p in (p1, p2)},
+            {p1: [], p2: [c]},
+        )
+
+    def test_a_parent_another_gives_meanwhile_leaves_the_item_one_parent(self):
+        """Another writer moves the item under a third parent after it is
+        read and before bd's update writes the parent asked. bd's update
+        takes away every parent the item has in the write that gives the new
+        one, so the item has one parent, the one asked, and no other lists
+        it."""
+        self.ask("open-tracker", prefix="t")
+        p1, p2, p3 = [self.ask("create-item", title=t)["item"]["id"] for t in ("P1", "P2", "P3")]
+        c = self.ask("create-item", title="C", parent=p1)["item"]["id"]
+        real = self.m.beads_quiet
+        moved: list[str] = []
+
+        def moved_meanwhile(args, at=None, **given):
+            if args[:2] == ["update", c] and not moved:
+                moved.append(p3)
+                code, _, err = real(["update", c, "--parent", p3, "--json"], at)
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = moved_meanwhile
+        try:
+            out = self.ask("update-item", id=c, parent=p2)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual(moved, [p3])
+        self.assertEqual((out["status"], out["item"].get("parent")), ("completed", p2), out)
+        self.assertEqual(
+            {p: [k["id"] for k in self.ask("show-item", id=p)["children"]] for p in (p1, p2, p3)},
+            {p1: [], p2: [c], p3: []},
+        )
+
+    def test_two_reparents_at_once_leave_the_item_under_one_parent(self):
+        """Two reparents of one item run at once, each past its read before
+        either writes. bd's update takes every parent away in the write that
+        gives the new one, so both complete, and the item stands under one
+        of the two alone, never under both or neither."""
+        self.ask("open-tracker", prefix="t")
+        p0, p1, p2 = [self.ask("create-item", title=t)["item"]["id"] for t in ("P0", "P1", "P2")]
+        c = self.ask("create-item", title="C", parent=p0)["item"]["id"]
+        real = self.m.beads_quiet
+        both = threading.Barrier(2)
+
+        def both_read_before_either_writes(args, at=None, **given):
+            if args[:2] == ["update", c]:
+                both.wait(30)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = both_read_before_either_writes
+        said: dict[str, str] = {}
+
+        def reparent(parent):
+            said[parent] = self.ask("update-item", id=c, parent=parent)["status"]
+
+        runs = [threading.Thread(target=reparent, args=(p,)) for p in (p1, p2)]
+        try:
+            for run in runs:
+                run.start()
+            for run in runs:
+                run.join(60)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual(said, {p1: "completed", p2: "completed"})
+        under = {
+            p: [k["id"] for k in self.ask("show-item", id=p)["children"]] for p in (p0, p1, p2)
+        }
+        self.assertIn(under, ({p0: [], p1: [c], p2: []}, {p0: [], p1: [], p2: [c]}))
+
+    def test_a_parent_for_an_item_deleted_as_it_is_written_names_the_one_moved(self):
+        """bd's update reads a deleted root's id as its one step's, and no
+        update of bd's that sets a parent reads an id whole. A parent asked
+        for a root deleted as bd's update runs is given to the step in its
+        place: the update fails, naming the step written."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, (a,) = poured["rootId"], poured["stepIds"]
+        elsewhere = self.ask("create-item", title="Elsewhere")["item"]["id"]
+        real = self.m.beads_quiet
+        gone: list[str] = []
+
+        def deleted_as_the_write_runs(args, at=None, **given):
+            if args[:2] == ["update", root] and not gone:
+                gone.append(root)
+                code, _, err = real(["delete", root, "--force"], at)
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = deleted_as_the_write_runs
+        try:
+            out = self.ask("update-item", id=root, parent=elsewhere, title="Renamed")
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual(gone, [root])
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        self.assertEqual(
+            out["summary"],
+            "The tracker holds %s no more, and wrote the update to %s in its place." % (root, a),
+        )
+
+    def test_a_priority_outside_0_to_4_is_refused(self):
+        """bd's batch keeps any priority it is given, which bd's own update
+        refuses: one outside 0 to 4 is refused before anything is written,
+        with a parent asked or without, and the item keeps its own."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="P")["item"]["id"]
+        parent = self.ask("create-item", title="Parent")["item"]["id"]
+        for priority in (5, -1):
+            for given in ({}, {"parent": parent}):
+                out = self.ask("update-item", id=made, priority=priority, **given)
+                self.assertEqual(out["status"], "failed", out)
+                self.assertIn("A priority is 0 to 4, 0 the highest: %d." % priority, out["summary"])
+        shown = self.ask("show-item", id=made)["item"]
+        self.assertEqual((shown.get("priority"), shown.get("parent")), (2, None))
+        self.assertEqual(self.ask("update-item", id=made, priority=4)["item"]["priority"], 4)
+
+    def test_a_close_of_a_root_held_no_more_closes_no_other(self):
+        """bd reads a deleted root's id, full or short, as its one step's. A
+        close of either closes nothing: the root is not found, and the step
+        stands open."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, (a,) = poured["rootId"], poured["stepIds"]
+        code, _, err = self.m.beads_quiet(["delete", root, "--force"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        for word in (root, root.rsplit("-", 1)[1]):
+            out = self.ask("close-item", id=word)
+            self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+            self.assertIn(
+                "holds no item %s: asked for it, it shows %s, whose id runs on past it" % (word, a),
+                out["summary"],
+            )
+        self.assertEqual(self.ask("show-item", id=a)["item"]["status"], "open")
+
+    def test_a_step_of_a_run_without_its_label_is_still_found_by_its_id(self):
+        """A step of a run is moved under another item, bd itself sets its
+        labels without the one that keeps it in its run, and every listing
+        of bd's leaves it out. bd's query still finds it, by its id, which
+        runs on from its root's; so the listing is no listing of every item,
+        and the root is not closed."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, (a,) = poured["rootId"], poured["stepIds"]
+        elsewhere = self.ask("create-item", title="Elsewhere")["item"]["id"]
+        self.assertEqual(self.ask("update-item", id=a, parent=elsewhere)["status"], "completed")
+        code, out, err = self.m.beads_quiet(
+            ["update", a, "--set-labels", "ready-for-review", "--json"], self.repo.path
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)[0].get("labels"), ["ready-for-review"])
+        real = self.m.beads_quiet
+
+        def every_listing_leaves_out_the_step(args, at=None, **given):
+            code, out, err = real(args, at, **given)
+            if args[:1] == ["list"] and code == 0:
+                out = json.dumps([r for r in json.loads(out) if r.get("id") != a])
+            return code, out, err
+
+        self.m.beads_quiet = every_listing_leaves_out_the_step
+        try:
+            out = self.ask("close-item", id=root)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertIn(
+            "The tracker's list of every item leaves out %s, which it holds in a run with %s."
+            % (a, root),
+            out["summary"],
+        )
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def ten(self, title="m"):
+        """A run of ten steps: the root, step 1, and step 10, the one item
+        whose id runs on from step 1's, as bd numbers a root's children."""
+        poured = self.ask(
+            "pour-steps",
+            formulaRef=title,
+            title=title,
+            steps=[{"id": "s%d" % k, "title": "S%d" % k} for k in range(10)],
+        )
+        one, ten = poured["stepIds"][0], poured["stepIds"][9]
+        self.assertEqual((one[-2:], ten[-3:]), (".1", ".10"))
+        return poured["rootId"], one, ten
+
+    def deleting(self, ident, when):
+        """A beads_quiet that deletes the item given, by bd itself as another
+        writer would, just before bd is asked what when says of its words."""
+        real = self.m.beads_quiet
+        bd = shutil.which("bd") or "bd"
+
+        def deleted_first(args, at=None, **given):
+            words = list(args)
+            if args[:1] == ["batch"]:
+                with open(args[-1], encoding="utf-8") as fh:
+                    words = fh.read().split()
+            if when(words):
+                subprocess.run(
+                    [bd, "delete", ident, "--force"],
+                    env=dict(os.environ, BEADS_DIR=self.m.beads_env(self.repo.path)),
+                    capture_output=True,
+                )
+            return real(args, at, **given)
+
+        return deleted_first
+
+    def test_a_reparent_refused_changes_nothing_of_the_item(self):
+        """A parent and an assignee asked together, the parent no item bd
+        holds: all of it is written, or none, so the item keeps the assignee
+        and the parent it had -- nothing of it is changed to guard a write."""
+        self.ask("open-tracker", prefix="t")
+        was = self.ask("create-item", title="Was")["item"]["id"]
+        made = self.ask("create-item", title="Moved", parent=was)["item"]["id"]
+        self.assertEqual(self.ask("update-item", id=made, assignee="alice")["status"], "completed")
+        out = self.ask("update-item", id=made, parent="t-nope", assignee="bob")
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        item = self.ask("show-item", id=made)["item"]
+        self.assertEqual((item.get("assignee"), item.get("parent")), ("alice", was))
+
+    def test_a_close_of_a_step_deleted_as_it_closes_names_the_sibling_bd_closed(self):
+        """bd's close reads a deleted step's id as the one item whose id
+        begins with it -- step 1's as step 10's -- and closes that one, and
+        no close of bd's that holds its rule reads an id whole. A step
+        deleted before the close is asked is not found, and step 10 stands
+        open. One deleted as bd's close runs has step 10 closed in its
+        place: the close fails, naming step 10 as closed by it, in step 1's
+        place."""
+        self.ask("open-tracker", prefix="t")
+        real = self.m.beads_quiet
+        _, one, ten = self.ten("m-before")
+        code, _, err = real(["delete", one, "--force"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        out = self.ask("close-item", id=one)
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        self.assertFalse(out.get("closedIds"), out)
+        self.assertEqual(self.ask("show-item", id=ten)["item"]["status"], "open")
+        _, one, ten = self.ten("m-as-it-closes")
+        self.m.beads_quiet = self.deleting(one, lambda w, one=one: w[:2] == ["close", one])
+        try:
+            out = self.ask("close-item", id=one)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(out["closedIds"], [ten], out)
+        self.assertIn("The tracker closed %s in its place." % ten, out["summary"])
+        self.assertEqual(self.ask("show-item", id=ten)["item"]["status"], "closed")
+
+    def test_a_close_bds_rule_refuses_writes_nothing(self):
+        """bd's close holds its rule in the write that closes: refused over
+        an open need, the item stands as it was, and bd keeps no event of a
+        close, nor of a status, for it."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Waits")["item"]["id"]
+        need = self.ask("create-item", title="Need")["item"]["id"]
+        self.assertEqual(self.ask("add-need", id=made, needs=need)["status"], "completed")
+        out = self.ask("close-item", id=made, closeReason="early")
+        self.assertEqual((out["status"], out.get("blockedBy")), ("blocked", [need]), out)
+        self.assertEqual(self.ask("show-item", id=made)["item"]["status"], "open")
+        code, events, err = self.m.beads_quiet(
+            ["history", made, "--events", "--json"], self.repo.path
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual([e["event_type"] for e in json.loads(events)], ["created"])
+
+    def test_a_step_made_under_another_item_without_its_label_is_found_by_its_run(self):
+        """An item of a run made under another item, as a move into beads
+        makes a step that stood elsewhere -- its id under that item's, not
+        its root's -- whose labels bd itself set without the run's, and which
+        every listing of bd's leaves out: bd's query of every item still
+        finds it, by the run its own metadata names, so the listing is no
+        listing of every item, and the root is not closed."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, (a,) = poured["rootId"], poured["stepIds"]
+        self.assertEqual(self.ask("close-item", id=a)["status"], "completed")
+        # bd closed the root with its last step; it is opened again.
+        self.assertEqual(self.ask("update-item", id=root, status="open")["status"], "completed")
+        elsewhere = self.ask("create-item", title="Elsewhere")["item"]["id"]
+        moved = self.ask("create-item", title="Moved", parent=elsewhere, run=root, step="b")[
+            "item"
+        ]["id"]
+        self.assertTrue(moved.startswith(elsewhere + "."), moved)
+        code, out, err = self.m.beads_quiet(
+            ["label", "remove", moved, "dotdiw-run", "--json"], self.repo.path
+        )
+        self.assertEqual(code, 0, err)
+        real = self.m.beads_quiet
+
+        def every_listing_leaves_it_out(args, at=None, **given):
+            code, out, err = real(args, at, **given)
+            if args[:1] == ["list"] and code == 0:
+                out = json.dumps([r for r in json.loads(out) if r.get("id") != moved])
+            return code, out, err
+
+        self.m.beads_quiet = every_listing_leaves_it_out
+        try:
+            out = self.ask("close-item", id=root)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertIn(
+            "The tracker's list of every item leaves out %s, which it holds in a run with %s."
+            % (moved, root),
+            out["summary"],
+        )
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+        self.assertEqual(self.ask("show-item", id=moved)["item"]["status"], "open")
+
+    def test_a_title_is_written_as_given(self):
+        """bd's update writes a title as given: quotes, a backslash, a line
+        break."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Plain")["item"]["id"]
+        for given in ('She said "it is done" \\ twice', "Two\nlines"):
+            with self.subTest(given=given):
+                out = self.ask("update-item", id=made, title=given)
+                self.assertEqual((out["status"], out["item"]["title"]), ("completed", given), out)
+                self.assertEqual(self.ask("show-item", id=made)["item"]["title"], given)
+
+    def test_an_item_is_kept_in_its_run_by_no_edge(self):
+        """An item of a run is kept in it by a label of dotdiw's, no edge: bd
+        keeps one edge between two items, so a need of the root's on a step
+        of its run, moved elsewhere, is still the tracker's to take."""
+        root, a, b = self.moved_run()
+        out = self.ask("add-need", id=root, needs=b)
+        self.assertEqual(out["status"], "completed", out)
+        self.assertIn(b, self.ask("show-item", id=root)["item"]["needs"])
+
+    def test_an_id_that_would_be_two_writes_in_a_batch_writes_nothing(self):
+        """bd's batch reads a line by its words: an id holding a line of its
+        own is no id, and nothing is written -- not the close it carries
+        either."""
+        self.ask("open-tracker", prefix="t")
+        one = self.ask("create-item", title="One")["item"]["id"]
+        two = self.ask("create-item", title="Two")["item"]["id"]
+        code, _, err = self.m.beads_batch(
+            [["update", "%s status=open\nclose %s" % (one, two), "status=open"]], self.repo.path
+        )
+        self.assertNotEqual(code, 0)
+        self.assertIn("no issue found", err)
+        self.assertEqual(self.ask("show-item", id=two)["item"]["status"], "open")
+
+    def test_the_item_named_gone_after_its_close_is_not_read_back(self):
+        """Another writer deletes the item right after bd closes it. The
+        listing after the close leaves it out and bd holds it no more, so
+        nothing of it is read back: the close fails saying so, names nothing
+        closed, and answers no item."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Made")["item"]["id"]
+        real = self.m.beads_quiet
+
+        def the_other_deletes_it_after(args, at=None, **given):
+            code, out, err = real(args, at, **given)
+            if args[:2] == ["close", made]:
+                gone, _, said = real(["delete", made, "--force"], at)
+                self.assertEqual(gone, 0, said)
+            return code, out, err
+
+        self.m.beads_quiet = the_other_deletes_it_after
+        try:
+            out = self.ask("close-item", id=made)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(
+            out["summary"],
+            "%s could not be read back after the close, so whether this close closed it is not "
+            "known. The tracker holds it no more." % made,
+        )
+        self.assertEqual(out["closedIds"], [])
+        self.assertNotIn("item", out)
+
+    def test_the_item_named_gone_before_its_session_is_read_is_not_read_back(self):
+        """Another writer deletes the item after the listing that follows its
+        close, and before bd is asked whose close it was. bd shows no row for
+        it and holds it no more: the close fails saying so, names nothing
+        closed, and answers no item."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Made")["item"]["id"]
+        real = self.m.beads_quiet
+        ran = []
+
+        def the_other_deletes_it_before_the_show(args, at=None, **given):
+            if args[:1] == ["close"]:
+                ran.append("close")
+            elif args[:1] == ["show"] and ran == ["close"]:
+                ran.append("delete")
+                gone, _, said = real(["delete", made, "--force"], at)
+                self.assertEqual(gone, 0, said)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = the_other_deletes_it_before_the_show
+        try:
+            out = self.ask("close-item", id=made)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual(ran, ["close", "delete"])
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(
+            out["summary"],
+            "%s could not be read back after the close, so whether this close closed it is not "
+            "known. The tracker holds it no more." % made,
+        )
+        self.assertEqual(out["closedIds"], [])
+        self.assertNotIn("item", out)
+
+    def test_the_item_named_gone_after_its_close_still_holds_the_run(self):
+        """bd closes the root with its last child, a step of the run open
+        elsewhere, and another writer deletes that child right after. Nothing
+        of the child is read back, so the close fails saying so -- and the
+        root is opened again all the same, in that attempt."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+
+        def the_other_deletes_it_after(args, at=None, **given):
+            code, out, err = real(args, at, **given)
+            if args[:2] == ["close", a]:
+                gone, _, said = real(["delete", a, "--force"], at)
+                self.assertEqual(gone, 0, said)
+            return code, out, err
+
+        self.m.beads_quiet = the_other_deletes_it_after
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(
+            out["summary"],
+            "%s could not be read back after the close, so whether this close closed it is not "
+            "known. The tracker holds it no more. %s closed of the tracker's own accord while %s "
+            "stood open, so it is open again." % (a, root, b),
+        )
+        self.assertEqual(out["closedIds"], [])
+        self.assertNotIn("item", out)
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_the_item_named_gone_after_its_close_with_no_mark_read_still_holds_the_run(self):
+        """bd closes the root with its last child, a step of the run open
+        elsewhere; another writer deletes that child right after, and bd will
+        not show the root. Whose close the root's was is not known and
+        nothing of the child is read back: the close fails saying the child
+        is held no more, and the root is opened again all the same."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+        ran: list[str] = []
+
+        def the_other_deletes_it_and_the_root_is_not_shown(args, at=None, **given):
+            if args[:1] == ["show"] and ran and root in args:
+                return 1, "", "the store is busy"
+            code, out, err = real(args, at, **given)
+            if args[:2] == ["close", a]:
+                ran.append("close")
+                gone, _, said = real(["delete", a, "--force"], at)
+                self.assertEqual(gone, 0, said)
+            return code, out, err
+
+        self.m.beads_quiet = the_other_deletes_it_and_the_root_is_not_shown
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(
+            out["summary"],
+            "%s could not be read back after the close, so whether this close closed it is not "
+            "known. The tracker holds it no more. %s stood closed while %s stood open, so it is "
+            "open again." % (a, root, b),
+        )
+        self.assertEqual(out["closedIds"], [])
+        self.assertNotIn("item", out)
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_a_root_named_gone_after_its_close_is_not_opened_again_in_its_steps_place(self):
+        """Another writer opens the root's one step again right after bd
+        closes the root, and deletes the root before bd is asked whose close
+        it was. The root, gone, is no item as they stand: nothing opens it
+        again, where bd would read its id as the step's and write to that."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, step = poured["rootId"], poured["stepIds"][0]
+        self.assertEqual(self.ask("close-item", id=step)["closedIds"], [step, root])
+        again = self.ask("update-item", id=root, status="open")
+        self.assertEqual(again["status"], "completed", again)
+        real = self.m.beads_quiet
+        ran: list[str] = []
+
+        def the_other_opens_the_step_and_deletes_the_root(args, at=None, **given):
+            if args[:1] == ["show"] and ran == ["close"]:
+                ran.append("delete")
+                gone, _, said = real(["delete", root, "--force"], at)
+                self.assertEqual(gone, 0, said)
+            code, out, err = real(args, at, **given)
+            if args[:2] == ["close", root]:
+                ran.append("close")
+                opened, _, said = real(["update", step, "--json", "-s", "open"], at)
+                self.assertEqual(opened, 0, said)
+            return code, out, err
+
+        self.m.beads_quiet = the_other_opens_the_step_and_deletes_the_root
+        try:
+            out = self.ask("close-item", id=root)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual(ran, ["close", "delete"])
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(
+            out["summary"],
+            "%s could not be read back after the close, so whether this close closed it is not "
+            "known. The tracker holds it no more." % root,
+        )
+        self.assertEqual(out["closedIds"], [])
+        self.assertNotIn("item", out)
+        shown = self.ask("show-item", id=root)
+        self.assertEqual(shown["item"]["id"], step, "bd shows the step for its root's id")
+        self.assertEqual(shown["item"]["status"], "open")
+
+    def test_a_close_whose_receipt_cannot_be_read_still_holds_the_run(self):
+        """bd closed the root's last child, and the root with it, and then
+        cannot show them: whose close each was is not known, so the close
+        fails naming nothing closed -- and the root, a step of its run open
+        elsewhere, is opened again all the same, in that attempt."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+        ran = []
+
+        def show_fails_after_the_close(args, at=None, **given):
+            if args[:1] == ["close"]:
+                ran.append(args)
+            elif args[:1] == ["show"] and ran:
+                return 1, "", "the store is busy"
+            return real(args, at, **given)
+
+        self.m.beads_quiet = show_fails_after_the_close
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertIn("%s could not be read back after the close" % a, out["summary"])
+        self.assertFalse(out.get("closedIds"), out)
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_a_close_run_again_sets_right_what_the_first_left(self):
+        """A close that could read nothing back after bd closed the root over
+        a step open elsewhere fails, and leaves the root closed. Run again,
+        with bd answering, it names the item closed already and holds the
+        run as it stands: the root is opened again."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+        ran = []
+
+        def nothing_is_listed_after_the_close(args, at=None, **given):
+            if args[:1] == ["close"]:
+                ran.append(args)
+            elif args[:1] == ["list"] and ran:
+                return 0, "[]\n", ""
+            return real(args, at, **given)
+
+        self.m.beads_quiet = nothing_is_listed_after_the_close
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertIn("%s could not be read back after the close" % a, out["summary"])
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "closed")
+        out = self.ask("close-item", id=a)
+        self.assertEqual((out["status"], out["closedIds"]), ("completed", []), out)
+        self.assertIn("%s was closed already." % a, out["summary"])
+        self.assertIn(
+            "%s stood closed while %s stood open, so it is open again." % (root, b), out["summary"]
+        )
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_a_close_bd_fails_after_making_still_holds_the_run(self):
+        """bd closes the root's last child, and the root with it, and then
+        exits with an error that names no refusal. What it did is read from
+        the tracker, not from how it exited: the close fails with bd's
+        words, names the step it closed, and the root, a step of its run
+        open elsewhere, is opened again in that attempt."""
+        root, a, b = self.moved_run()
+        real = self.m.beads_quiet
+
+        def bd_fails_after_closing(args, at=None, **given):
+            if args[:1] == ["close"]:
+                code, _, err = real(args, at, **given)
+                self.assertEqual(code, 0, err)
+                return 1, "", "the store is busy"
+            return real(args, at, **given)
+
+        self.m.beads_quiet = bd_fails_after_closing
+        try:
+            out = self.ask("close-item", id=a)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(out["closedIds"], [a], out)
+        self.assertEqual(out["item"]["status"], "closed", "as the tracker holds it")
+        self.assertIn("the store is busy", out["summary"])
+        self.assertIn(
+            "%s closed of the tracker's own accord while %s stood open, so it is open again."
+            % (root, b),
+            out["summary"],
+        )
+        self.assertEqual(self.ask("show-item", id=root)["item"]["status"], "open")
+
+    def test_a_close_bd_answers_and_does_not_make_is_no_close(self):
+        """bd exits 0, printing the item as closed, and the item stands open:
+        nothing is named closed, or closed already, the close fails saying
+        that it stands open, and the item is given as the tracker holds it."""
+        self.ask("open-tracker", prefix="t")
+        made = self.ask("create-item", title="Left open")["item"]["id"]
+        real = self.m.beads_quiet
+
+        def bd_closes_nothing(args, at=None, **given):
+            if args[:1] == ["close"]:
+                return 0, json.dumps([{"id": made, "status": "closed"}]), ""
+            return real(args, at, **given)
+
+        self.m.beads_quiet = bd_closes_nothing
+        try:
+            out = self.ask("close-item", id=made)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertEqual(out["closedIds"], [], out)
+        self.assertEqual(
+            out["summary"],
+            "The tracker answered the close without an error, and %s stands open." % made,
+        )
+        self.assertEqual(out["item"]["status"], "open", "as the tracker holds it")
+        self.assertEqual(self.ask("show-item", id=made)["item"]["status"], "open")
+
+    def test_what_is_no_listing_is_no_empty_one_for_children_or_the_ready(self):
+        """show-item's children and ready-items are read from listings of
+        bd's, as list-items is: what bd prints there that is no JSON array of
+        issues is a failed read, not an item with no children, or nothing
+        ready."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, step = poured["rootId"], poured["stepIds"][0]
+        real = self.m.beads_quiet
+        for verb, operation, request in (
+            ("list", "show-item", {"id": root}),
+            ("ready", "ready-items", {}),
+        ):
+            for printed in ("", '{"error": "busy"}', '[{"title": "no id"}]'):
+                with self.subTest(operation=operation, printed=printed):
+
+                    def bd_prints(args, at=None, verb=verb, printed=printed, **given):
+                        if args[:1] == [verb]:
+                            return 0, printed, ""
+                        return real(args, at, **given)
+
+                    self.m.beads_quiet = bd_prints
+                    try:
+                        out = self.ask(operation, **request)
+                    finally:
+                        self.m.beads_quiet = real
+                    self.assertEqual(
+                        (out["status"], out.get("reason")), ("failed", "adapter-failed"), out
+                    )
+        self.assertEqual([c["id"] for c in self.ask("show-item", id=root)["children"]], [step])
+        self.assertIn(step, [i["id"] for i in self.ask("ready-items")["items"]])
+
+    def test_an_upgrade_that_reads_no_listing_moves_nothing_and_leaves_the_workspace_unmarked(
+        self,
+    ):
+        """The upgrade reads every issue from bd's listing. What bd prints
+        there that is no JSON array of issues is a failed read: the upgrade
+        fails and the workspace is left unmarked, so that the next one still
+        moves the means."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        marker = os.path.join(self.repo.workspace(), "means-in-metadata")
+        old = self.ask("create-item", title="Poured by 2.0", description="Ship it.")["item"]["id"]
+        p = subprocess.run(
+            ["bd", "update", old, "--description", "Ship it.\n\nVerify using:\n- run:make check"],
+            capture_output=True,
+            text=True,
+            env=dict(os.environ, BEADS_DIR=os.path.join(self.repo.workspace(), ".beads")),
+        )
+        self.assertEqual(p.returncode, 0, p.stderr)
+        os.unlink(marker)
+        real = self.m.beads_quiet
+
+        def bd_lists_nothing_readable(args, at=None, **given):
+            if args[:1] == ["list"]:
+                return 0, "", ""
+            return real(args, at, **given)
+
+        asked = {"root": self.repo.path, "tracker": "beads", "apply": True}
+        self.m.beads_quiet = bd_lists_nothing_readable
+        try:
+            cut = self.m.invoke_extra("upgrade", dict(asked))
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((cut["status"], cut.get("reason")), ("failed", "adapter-failed"), cut)
+        self.assertFalse(os.path.exists(marker))
+        done = self.m.invoke_extra("upgrade", dict(asked))
+        self.assertEqual(done["status"], "completed", done)
+        self.assertIn("out of 1 description", done["done"][0])
+        self.assertTrue(os.path.exists(marker))
+
+    def test_children_are_not_listed_under_a_parent_that_could_not_be_shown(self):
+        """list-items under a parent reads the parent as bd's show reads it
+        first. Where that show fails, the listing fails: under the id as
+        given bd lists nothing, which would read as no children. A parent bd
+        holds no more has none."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        root, step = poured["rootId"], poured["stepIds"][0]
+        real = self.m.beads_quiet
+
+        def bd_shows_nothing(args, at=None, **given):
+            if args[:1] == ["show"]:
+                return 1, "", "the store is busy"
+            return real(args, at, **given)
+
+        self.m.beads_quiet = bd_shows_nothing
+        try:
+            out = self.ask("list-items", scope="all", parent=root)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertIn("the store is busy", out["summary"])
+        under = self.ask("list-items", scope="all", parent=root)
+        self.assertEqual([i["id"] for i in under["items"]], [step])
+        gone = self.ask("list-items", scope="all", parent="t-nosuch")
+        self.assertEqual((gone["status"], gone["items"]), ("completed", []), gone)
+
+    def test_an_upgrade_reads_the_issues_a_plain_listing_leaves_out(self):
+        """bd's list leaves out an issue made ephemeral unless asked. One
+        that keeps its means in its description is moved all the same, since
+        after the upgrade the means are read from the metadata alone."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        marker = os.path.join(self.repo.workspace(), "means-in-metadata")
+        env = dict(os.environ, BEADS_DIR=os.path.join(self.repo.workspace(), ".beads"))
+        text = "Ship it.\n\nVerify using:\n- run:make check"
+        p = subprocess.run(
+            ["bd", "create", "Made ephemeral", "--ephemeral", "--description", text, "--json"],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(p.returncode, 0, p.stderr)
+        old = json.loads(p.stdout)["id"]
+        os.unlink(marker)
+        asked = {"root": self.repo.path, "tracker": "beads", "apply": True}
+        done = self.m.invoke_extra("upgrade", dict(asked))
+        self.assertEqual(done["status"], "completed", done)
+        self.assertIn("out of 1 description", done["done"][0])
+        item = self.ask("show-item", id=old)["item"]
+        self.assertEqual(
+            (item["description"], item["verifyUsing"]), ("Ship it.", ["run:make check"])
+        )
+
+    def test_a_short_id_is_read_as_bd_reads_it_for_children_too(self):
+        """show-item and list-items read a short id as bd's show does, for
+        the item's children as for the item: bd's list reads no short id for
+        a parent."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps",
+            formulaRef="m",
+            title="m",
+            steps=[{"id": "a", "title": "A"}, {"id": "b", "title": "B"}],
+        )
+        short = poured["rootId"].rsplit("-", 1)[1]
+        shown = self.ask("show-item", id=short)
+        self.assertEqual(sorted(c["id"] for c in shown["children"]), sorted(poured["stepIds"]))
+        listed = self.ask("list-items", parent=short)
+        self.assertEqual(sorted(i["id"] for i in listed["items"]), sorted(poured["stepIds"]))
+
+    def test_bd_is_given_its_store_and_session_by_each_run_never_by_the_process(self):
+        """Each run of bd is told this checkout's store and a close's session
+        in an environment of its own: nothing is set on the process, whose
+        environment every request running in it shares."""
+        before = {k: os.environ.get(k) for k in ("BEADS_DIR", "CLAUDE_SESSION_ID")}
+        self.ask("open-tracker", prefix="t")
+        one = self.ask("create-item", title="One")["item"]["id"]
+        two = self.ask("create-item", title="Two")["item"]["id"]
+        self.assertEqual(self.ask("close-item", id=one)["closedIds"], [one])
+        with contextlib.redirect_stdout(io.StringIO()):
+            out = self.m.invoke_extra(
+                "forward",
+                {
+                    "root": self.repo.path,
+                    "tracker": "beads",
+                    "arguments": ["close", two],
+                    "mark": "a-mark",
+                    "marked": [two],
+                },
+            )
+        self.assertEqual(out.get("markedIds"), [two], out)
+        self.assertEqual({k: os.environ.get(k) for k in before}, before)
 
     def test_it_says_who_bd_records_and_that_nobody_checked(self):
         self.addCleanup(os.environ.pop, "BEADS_ACTOR", None)
@@ -1133,7 +2676,7 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
 
     def test_what_it_says_of_itself(self):
         info = self.ask("describe-tracker")["info"]
-        self.assertEqual(info["extras"], ["forward", "metrics-off", "upgrade"])
+        self.assertEqual(info["extras"], ["forward", "metrics-off", "upgrade", "read"])
         self.assertTrue(self.ask("open-tracker", prefix="t")["path"].endswith(".beads"))
 
     def test_the_extras(self):
@@ -1237,6 +2780,7 @@ def a_store_as_2_0_kept_it(path, rows):
     conn.close()
 
 
+@uses("bd")
 class TheBeadsMetadata(InterfaceRecords, unittest.TestCase):
     """Under beads, the means to prove a run are the issue's metadata, and a
     workspace an earlier version poured into is brought up to date by the
@@ -1447,6 +2991,106 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
     def test_it_names_nobody(self):
         self.assertIsNone(self.ask("describe-tracker").get("actor"))
 
+    def test_a_check_of_a_tracker_runs_alone_in_its_process(self):
+        """A check changes the working directory, the environment and the
+        adapters registered for its length, which every request in the
+        process shares: a request asked while it runs waits until it ends."""
+        checking, go_check, listed = threading.Event(), threading.Event(), threading.Event()
+        real_scenario, real_files = self.m.conformance_scenario, self.m.formula_files
+
+        def scenario_held(ask, prefix):
+            checking.set()
+            go_check.wait(30)
+            return []
+
+        def listing_seen(root):
+            listed.set()
+            return real_files(root)
+
+        self.m.conformance_scenario, self.m.formula_files = scenario_held, listing_seen
+        self.addCleanup(setattr, self.m, "conformance_scenario", real_scenario)
+        self.addCleanup(setattr, self.m, "formula_files", real_files)
+        checker = threading.Thread(
+            target=self.m.invoke,
+            args=("operation.check-tracker", {"root": self.repo.path, "name": "local"}),
+        )
+        lister = threading.Thread(
+            target=self.m.invoke, args=("operation.list-formulas", {"root": self.repo.path})
+        )
+        checker.start()
+        try:
+            self.assertTrue(checking.wait(30), "the check began")
+            lister.start()
+            self.assertFalse(listed.wait(2), "a request ran while the check ran")
+        finally:
+            go_check.set()
+            checker.join(30)
+            if lister.ident is not None:
+                lister.join(30)
+        self.assertTrue(listed.is_set(), "the request ran once the check ended")
+
+    def test_a_request_lets_go_of_no_lock_another_request_holds(self):
+        """Two requests at once in one process, each in a thread of its own:
+        one began before the other's close took the checkout's lock and ends
+        while that close has yet to log what it wrote. It lets go of no lock
+        of the close's, which holds the lock until its log is written."""
+        self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        step = poured["stepIds"][0]
+        lock = os.path.join(self.repo.workspace(), self.m.TRACKER_LOCK)
+        listing, logging = threading.Event(), threading.Event()
+        go_list, go_log = threading.Event(), threading.Event()
+        real_files, real_log = self.m.formula_files, self.m.witness_from
+
+        def listing_held(root):
+            if threading.current_thread() is lister:
+                listing.set()
+                go_list.wait(30)
+            return real_files(root)
+
+        def logging_held(operation, request, response):
+            if operation == "operation.forward-to-the-tracker":
+                logging.set()
+                go_log.wait(30)
+            real_log(operation, request, response)
+
+        self.m.formula_files, self.m.witness_from = listing_held, logging_held
+        self.addCleanup(setattr, self.m, "formula_files", real_files)
+        self.addCleanup(setattr, self.m, "witness_from", real_log)
+        lister = threading.Thread(
+            target=self.m.invoke, args=("operation.list-formulas", {"root": self.repo.path})
+        )
+        closer = threading.Thread(
+            target=self.m.invoke,
+            args=(
+                "operation.forward-to-the-tracker",
+                {"root": self.repo.path, "tracker": "local", "arguments": ["close", step]},
+            ),
+        )
+        lister.start()
+        try:
+            self.assertTrue(listing.wait(30), "the listing began")
+            closer.start()
+            self.assertTrue(logging.wait(30), "the close wrote, and has yet to log it")
+            go_list.set()
+            lister.join(30)
+            with open(lock, "a", encoding="utf-8") as fh:
+                try:
+                    fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    taken = True
+                    fcntl.flock(fh, fcntl.LOCK_UN)
+                except BlockingIOError:
+                    taken = False
+            self.assertFalse(taken, "the listing let go of the close's lock")
+        finally:
+            go_list.set()
+            go_log.set()
+            lister.join(30)
+            if closer.ident is not None:
+                closer.join(30)
+
     def test_what_it_says_of_itself(self):
         info = self.ask("describe-tracker")["info"]
         self.assertEqual(info["extras"], ["upgrade"])
@@ -1515,7 +3159,7 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
         )
         asked = self.m.invoke_extra("upgrade", {"root": self.repo.path, "tracker": "local"})
         self.assertEqual(asked["status"], "completed")
-        self.assertEqual(len(asked["pending"]), 1)
+        self.assertEqual(len(asked["pending"]), 2)
         self.assertEqual(asked["done"], [])
         conn = sqlite3.connect(os.path.join(self.repo.workspace(), "dotdiw.sqlite"))
         columns = [r[1] for r in conn.execute("PRAGMA table_info(items)")]
@@ -1527,6 +3171,7 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
         self.assertEqual(done["status"], "completed")
         self.assertEqual(done["pending"], [])
         self.assertIn("out of 3 descriptions", done["done"][0])
+        self.assertEqual(done["done"][1], "the store keeps each poured step's claim and its values")
         expect = {
             "t-a": ("Ship it.", ["run:make check"]),
             "t-b": (None, ["run:make check"]),
@@ -1543,6 +3188,33 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
             "upgrade", {"root": self.repo.path, "tracker": "local", "apply": True}
         )
         self.assertEqual((again["pending"], again["done"]), ([], []), "once")
+
+    def test_a_store_made_by_3_0_takes_step_claims_when_init_asks(self):
+        """A store 3.0.0 made has no place for a step's claim: the upgrade says
+        so, adds it with apply, and a pour then keeps each step's claim."""
+        self.ask("open-tracker", prefix="t")
+        store = os.path.join(self.repo.workspace(), "dotdiw.sqlite")
+        conn = sqlite3.connect(store)
+        with conn:
+            for column in ("step", "claim", "claim_values", "run"):
+                conn.execute("ALTER TABLE items DROP COLUMN %s" % column)
+            conn.execute("UPDATE meta SET value = '2' WHERE key = 'schema'")
+        conn.close()
+        asked = self.m.invoke_extra("upgrade", {"root": self.repo.path, "tracker": "local"})
+        self.assertEqual(asked["pending"], ["its store has no place for a step's claim"])
+        done = self.m.invoke_extra(
+            "upgrade", {"root": self.repo.path, "tracker": "local", "apply": True}
+        )
+        self.assertEqual(done["done"], ["the store keeps each poured step's claim and its values"])
+        claim = {"statement": "Counted {{ n }}.", "slots": ["n"]}
+        poured = self.ask(
+            "pour-steps",
+            formulaRef="mol-x",
+            title="mol-x",
+            steps=[{"id": "a", "title": "A", "claim": claim}],
+        )
+        item = self.ask("show-item", id=poured["stepIds"][0])["item"]
+        self.assertEqual((item["step"], item["claim"]), ("a", claim))
 
     def test_the_notice_the_past_titles_and_from_read_every_item(self):
         """Past the 300th item, a procedure built by hand is noticed, its steps
@@ -1621,21 +3293,102 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
         self.ask("open-tracker", prefix="t")
         a = self.ask("create-item", title="A")["item"]["id"]
         b = self.ask("create-item", title="B")["item"]["id"]
-        other, real, seen = self.other_connection(), self.m.local_reaches, []
+        other, real, seen = self.other_connection(), self.m.local_waiting, []
 
-        def reaches(conn, start, target):
-            found = real(conn, start, target)
+        def waiting(conn, start):
+            found = real(conn, start)
             sql = "INSERT INTO edges (id, needs) VALUES (?, ?)"
             seen.append(self.meddle(other, sql, (b, a)))
             return found
 
-        self.m.local_reaches = reaches
-        self.addCleanup(setattr, self.m, "local_reaches", real)
+        self.m.local_waiting = waiting
+        self.addCleanup(setattr, self.m, "local_waiting", real)
         out = self.ask("add-need", id=a, needs=b)
         self.assertEqual(out["status"], "completed", out)
         self.assertEqual(seen, ["database is locked"])
-        self.m.local_reaches = real
+        self.m.local_waiting = real
         self.assertEqual(self.ask("add-need", id=b, needs=a)["reason"], "cycle")
+
+    def a_root_its_step_and_a_task(self):
+        """A poured root, the one step it waits on, and a task of its own."""
+        if self.ask("describe-tracker").get("path") is None or not os.path.exists(
+            self.ask("describe-tracker")["path"]
+        ):
+            self.ask("open-tracker", prefix="t")
+        poured = self.ask(
+            "pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}]
+        )
+        task = self.ask("create-item", title="T")["item"]["id"]
+        return poured["rootId"], poured["stepIds"][0], task
+
+    def test_a_root_and_its_step_cannot_come_to_wait_on_each_other(self):
+        """A root waits on its step, as its parent and as the root of its run:
+        the step cannot need the root, nor the root stand under the step or
+        under itself."""
+        root, step, _ = self.a_root_its_step_and_a_task()
+        for operation, request in (
+            ("add-need", {"id": step, "needs": root}),
+            ("update-item", {"id": root, "parent": step}),
+            ("update-item", {"id": root, "parent": root}),
+        ):
+            out = self.ask(operation, **request)
+            self.assertEqual(out.get("reason"), "cycle", (operation, request, out))
+        self.assertEqual(self.ask("close-item", id=step)["closedIds"], [step, root])
+
+    def test_the_last_step_closes_the_root_of_its_run_wherever_it_stands(self):
+        """Inside the adapter, in the close's own write: a step moved under
+        another run's root, the last open step of the run it was poured in,
+        closes that run's root, named after it; the root it stands under now,
+        with a step of its own open, stays open."""
+        self.ask("open-tracker", prefix="t")
+        first = self.ask("pour-steps", formulaRef="m", title="m", steps=[{"id": "a", "title": "A"}])
+        second = self.ask(
+            "pour-steps", formulaRef="n", title="n", steps=[{"id": "b", "title": "B"}]
+        )
+        moved = second["stepIds"][0]
+        out = self.ask("update-item", id=moved, parent=first["rootId"])
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual(self.ask("close-item", id=moved)["closedIds"], [moved, second["rootId"]])
+        self.assertEqual(self.ask("show-item", id=first["rootId"])["item"]["status"], "open")
+
+    def test_a_parent_and_a_need_cannot_close_a_cycle_between_them(self):
+        """A root put under a task while that task is made to need the root's
+        step, by two writers at once, each at the moment the other has
+        checked: the second waits for the first, and its own check sees it,
+        so the run can still close."""
+        for first, second in (
+            (("update-item", "parent"), ("add-need", "need")),
+            (("add-need", "need"), ("update-item", "parent")),
+        ):
+            with self.subTest(first=first[0]):
+                root, step, task = self.a_root_its_step_and_a_task()
+                writes = {
+                    "parent": ("UPDATE items SET parent = ? WHERE id = ?", (task, root)),
+                    "need": ("INSERT INTO edges (id, needs) VALUES (?, ?)", (step, task)),
+                }
+                asks = {
+                    "parent": ("update-item", {"id": root, "parent": task}),
+                    "need": ("add-need", {"id": step, "needs": task}),
+                }
+                other, real = self.other_connection(), self.m.local_waiting
+                seen: list[str] = []
+
+                def waiting(conn, start, real=real, seen=seen, other=other, sql=writes[second[1]]):
+                    found = real(conn, start)
+                    if not seen:
+                        seen.append(self.meddle(other, *sql))
+                    return found
+
+                self.m.local_waiting = waiting
+                out = self.ask(asks[first[1]][0], **asks[first[1]][1])
+                self.m.local_waiting = real
+                self.assertEqual(out["status"], "completed", out)
+                self.assertEqual(seen, ["database is locked"])
+                out = self.ask(asks[second[1]][0], **asks[second[1]][1])
+                self.assertEqual(out.get("reason"), "cycle", out)
+                if first[1] == "need":  # the step needs the task first
+                    self.assertEqual(self.ask("close-item", id=task)["closedIds"], [task])
+                self.assertEqual(self.ask("close-item", id=step)["closedIds"], [step, root])
 
     def test_a_need_cannot_slip_in_under_a_close(self):
         """Another writer adds a need at the moment the close has found no
@@ -2101,7 +3854,7 @@ title = "The first step"
         self.assertIn("this repository is adopted; its tracker is", out)
 
         code, out = self.dotdiw("--version")
-        self.assertEqual(out.strip().split("\n")[1], "  tracker local 3.0.0", out)
+        self.assertEqual(out.strip().split("\n")[1], "  tracker local 4.0.0", out)
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap")
         self.assertEqual(code, 0, out)
@@ -2213,11 +3966,12 @@ def none(request):
     return _ok(items=[])
 def ok(request):
     return _ok()
-TRACKER = {"info": {"name": "boom", "version": "0", "interface": 3, "checkTarget": "scratch"},
+TRACKER = {"info": {"name": "boom", "version": "0", "interface": 4, "checkTarget": "scratch"},
            "operations": {"operation.open-tracker": open_tracker, "operation.describe-tracker": describe,
                           "operation.create-item": create, "operation.add-need": ok,
                           "operation.pour-steps": ok, "operation.close-item": ok, "operation.show-item": ok,
-                          "operation.list-items": none, "operation.update-item": ok, "operation.ready-items": none},
+                          "operation.list-items": none, "operation.update-item": ok, "operation.ready-items": none,
+                          "operation.record-values": ok},
            "extras": {}, "store": store}
 """
 
@@ -2298,7 +4052,9 @@ def impl_create_item(request):
         return _no("parent-not-found")
     item = _make(data, request["title"], id=request.get("id"), priority=request.get("priority"),
                  parent=parent, description=request.get("description"),
-                 verifyUsing=list(request.get("verifyUsing") or []) or None)
+                 verifyUsing=list(request.get("verifyUsing") or []) or None,
+                 step=request.get("step"), claim=request.get("claim"), run=request.get("run"),
+                 values=list(request.get("values") or []) or None)
     _save(request["root"], data)
     return _ok(item=item)
 
@@ -2332,6 +4088,8 @@ def impl_list_items(request):
         items = [i for i in items if i["status"] != "closed"]
     if request.get("parent"):
         items = [i for i in items if i["parent"] == request["parent"]]
+    if request.get("run") is not None:
+        items = [i for i in items if i.get("run") == request["run"]]
     return _ok(items=items[: request.get("limit") or len(items)])
 
 
@@ -2347,7 +4105,8 @@ def impl_close_item(request):
     if item is None:
         return _no("item-not-found")
     kids = [i["id"] for i in data["items"].values() if i["parent"] == item["id"]]
-    blockers = _open(data, item["needs"] + kids)
+    poured = [i["id"] for i in data["items"].values() if i.get("run") == item["id"] and i["id"] not in kids]
+    blockers = _open(data, item["needs"] + kids + poured)
     if blockers:
         return {"status": "blocked", "summary": "blocked", "blockedBy": blockers, "exitCode": 1}
     item.update(status="closed", reason=request.get("closeReason"))
@@ -2388,27 +4147,81 @@ def impl_pour_steps(request):
     data = _load(request["root"])
     root = _make(data, request["title"], kind="root", description=request.get("description"),
                  verifyUsing=request.get("verifyUsing"))
-    made = {s["id"]: _make(data, s["title"], parent=root["id"]) for s in steps}
+    made = {s["id"]: _make(data, s["title"], parent=root["id"], step=s["id"], claim=s.get("claim"),
+                           run=root["id"])
+            for s in steps}
     for s in steps:
         made[s["id"]]["needs"] = [made[n]["id"] for n in needs[s["id"]]]
     _save(request["root"], data)
     return _ok(rootId=root["id"], stepIds=[made[s["id"]]["id"] for s in steps])
 
 
+def impl_record_values(request):
+    data = _load(request["root"])
+    item = data["items"].get(request["id"])
+    if item is None:
+        return _no("item-not-found")
+    values = [dict(v) for v in item.get("values") or []]
+    for v in request["values"]:
+        at = next((i for i, h in enumerate(values) if h["label"] == v["label"]), None)
+        if not v["text"]:
+            if at is not None:
+                values.pop(at)
+        elif at is None:
+            values.append(dict(v))
+        else:
+            values[at] = dict(v)
+    if values:
+        item["values"] = values
+    else:
+        item.pop("values", None)
+    _save(request["root"], data)
+    return _ok(item=item)
+
+
 """
 ACME = (
     ACME_BODIES
     + """TRACKER = {
-    "info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": []},
+    "info": {"name": "acme", "version": "1.0.0", "interface": 4, "checkTarget": "scratch", "extras": []},
     "operations": {
         "operation.%s" % name.replace("_", "-"): globals()["impl_" + name]
         for name in ("open_tracker", "describe_tracker", "create_item", "add_need", "pour_steps",
-                     "close_item", "show_item", "list_items", "update_item", "ready_items")
+                     "close_item", "show_item", "list_items", "update_item", "ready_items",
+                     "record_values")
     },
     "extras": {},
     "store": acme_store,
 }
 """
+)
+
+# acme as a tracker that reads an id it holds nothing of as that of the one
+# item whose id begins with it -- as bd reads a deleted root's id as its only
+# step's -- and from which another deletes the item ACME_GONE names as it is
+# asked for. An item of its that is gone leaves the needs naming it behind.
+ACME_LOOSE = (
+    ACME.replace(
+        "def impl_open_tracker(request):\n",
+        "def _read(data, ident):\n"
+        '    near = [i for i in data["items"] if i.startswith(ident)]\n'
+        '    one = data["items"][near[0]] if len(near) == 1 else None\n'
+        '    return data["items"].get(ident) or one\n'
+        "\n\n"
+        "def impl_open_tracker(request):\n",
+    )
+    .replace('item = data["items"].get(request["id"])', 'item = _read(data, request["id"])')
+    .replace(
+        'todo.extend(data["items"][at]["needs"])',
+        'todo.extend((data["items"].get(at) or {"needs": []})["needs"])',
+    )
+    .replace(
+        'def impl_show_item(request):\n    data = _load(request["root"])\n',
+        'def impl_show_item(request):\n    data = _load(request["root"])\n'
+        '    if request["id"] == os.environ.get("ACME_GONE"):\n'
+        '        data["items"].pop(request["id"], None)\n'
+        '        _save(request["root"], data)\n',
+    )
 )
 
 
@@ -2531,6 +4344,7 @@ class TheWordFormulaPour(unittest.TestCase):
             load_module("dotdiw_declared_now").CONVENTIONS, then.replace(unfound, found)
         )
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_under_beads_both_spellings_print_the_same(self):
         repo = Repo()
@@ -2722,6 +4536,28 @@ class TheMeansToProveARun(unittest.TestCase):
         code, out = self.dotdiw("check")
         self.assertNotIn("GONE.md", out)
 
+    def test_check_leaves_a_file_a_claim_names_to_the_run(self):
+        """A file of this repository named by a claimed slot is known only once
+        the run records it, so check looks for no such file in git."""
+        self.repo.write(
+            "night.formula.toml",
+            'formula = "mol-staff-the-night"\n'
+            'description = "Staff the overnight shift and file its roster. Use when a night '
+            'needs cover."\n'
+            'examples = ["Staff the overnight shift", "File the night roster", '
+            '"Cover the night shift"]\n'
+            'verify-using = ["git+https://example.invalid/acme/shop.git#{{ staffing.report-path }}"]\n'
+            '[[steps]]\nid = "staffing"\ntitle = "File the roster"\n'
+            '[steps.claim]\nstatement = "The roster is filed at {{ report-path }}."\n'
+            '"report-path:" = {}\n',
+        )
+        self.repo.git("add", "-A")
+        self.repo.git("commit", "-qm", "a means a claim fills")
+        code, out = self.dotdiw("check")
+        self.assertNotIn("report-path", out)
+        self.assertNotIn("which git does not track here", out)
+
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
     def test_under_beads_the_means_follow_its_own_output(self):
         repo = Repo(tracker=None)
@@ -2760,6 +4596,7 @@ class TheMeansToProveARun(unittest.TestCase):
         self.assertEqual(shown["metadata"]["dotdiw"]["verifyUsing"], self.MEANS)
         self.assertNotIn("Verify using:", shown.get("description") or "")
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
     def test_under_beads_a_pour_answers_its_steps_in_the_formulas_order(self):
         repo = Repo(tracker=None)
@@ -2782,6 +4619,7 @@ class TheMeansToProveARun(unittest.TestCase):
             titles, ["Step six", "Step five", "Step four", "Step three", "Step two", "Step one"]
         )
 
+    @uses("bd")
     def test_under_beads_a_pour_that_fails_after_its_root_names_it(self):
         """The pour made its root and a step, and bd refused the next: the pour
         is a failure, and the line said names the root and what it made; with
@@ -2828,6 +4666,7 @@ class TheMeansToProveARun(unittest.TestCase):
             % (record["rootId"], record["stepIds"][0]),
         )
 
+    @uses("bd")
     def test_a_pour_prints_the_same_under_beads_as_under_local(self):
         said = []
         for tracker in ("beads", "local"):
@@ -2843,6 +4682,7 @@ class TheMeansToProveARun(unittest.TestCase):
             said.append(re.sub(r"w-[a-z0-9.]+", "<id>", out))
         self.assertEqual(said[0], said[1])
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_init_stops_where_the_beads_store_cannot_be_brought_up_to_date(self):
         """bd refuses the upgrade's update: init stops in one line naming it,
@@ -2897,6 +4737,7 @@ class TheMeansToProveARun(unittest.TestCase):
         code, out = repo.dotdiw("list")
         self.assertEqual(code, 0, out)
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_init_passes_an_issue_whose_metadata_holds_dotdiw_of_its_own(self):
         """An issue an earlier version made with dotdiw in its metadata as a
@@ -2928,6 +4769,7 @@ class TheMeansToProveARun(unittest.TestCase):
         self.assertIn('"run:make smoke-test",', out)
 
 
+@uses("bd")
 class TheArgumentsBeadsIsGiven(unittest.TestCase):
     """Under beads, create reads dotdiw's own flags, a value never taken for an
     option, and what is typed through the pass-through reaches bd read option
@@ -3021,6 +4863,7 @@ class TheTrackerCommands(unittest.TestCase):
         self.repo.git("add", "-A")
         self.repo.git("commit", "-qm", "the project as it stands")
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_an_assignee_of_me_under_beads_is_the_name_bd_records(self):
         repo = self.repo
@@ -3117,11 +4960,11 @@ class TheTrackerCommands(unittest.TestCase):
         lines = [line for line in out.splitlines() if line.strip()]
         self.assertEqual(len(lines), 2, out)
         self.assertRegex(lines[0], r"^  beads\s+not installed\s+shipped$")
-        self.assertRegex(lines[1], r"^  local\s+3\.0\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(lines[1], r"^  local\s+4\.0\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.repo.dotdiw("tracker", "check", "local", env=env)
         self.assertEqual(code, 0, out)
-        self.assertEqual(out.count("  pass  operation."), 10, out)
-        self.assertIn("\u2713 local passed 10 of 10.", out)
+        self.assertEqual(out.count("  pass  operation."), 11, out)
+        self.assertIn("\u2713 local passed 11 of 11.", out)
         self.assertEqual(
             sorted(os.listdir(os.path.join(self.repo.home, ".dotdiw"))),
             [self.repo.key()],
@@ -3143,17 +4986,19 @@ class TheTrackerCommands(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("local is the source and the target both", out)
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_check_beads(self):
         code, out = self.repo.dotdiw("init", "--prefix", "w", "--tracker", "beads")
         self.assertEqual(code, 0, out)
         code, out = self.repo.dotdiw("tracker", "check", "beads")
         self.assertEqual(code, 0, out)
-        self.assertIn("\u2713 beads passed 10 of 10.", out)
+        self.assertIn("\u2713 beads passed 11 of 11.", out)
         self.assertEqual(
             sorted(os.listdir(os.path.join(self.repo.home, ".dotdiw"))), [self.repo.key()]
         )
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_a_workspace_moves_from_beads_to_local_and_back(self):
         repo = self.repo
@@ -3206,7 +5051,7 @@ class TheTrackerCommands(unittest.TestCase):
         # A root moves as a task until question.how-migrate-copies-a-root is settled.
         self.assertEqual(moved[root]["kind"], "task")
         self.assertEqual(
-            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 3.0.0"
+            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 4.0.0"
         )
 
         code, out = repo.dotdiw("tracker", "migrate", "beads", "local")
@@ -3246,6 +5091,7 @@ class TheTrackerCommands(unittest.TestCase):
         )
 
 
+@uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class PrefixCase(unittest.TestCase):
     """A copy of the tool installed in a temporary prefix laid out as Homebrew
@@ -3427,6 +5273,121 @@ class ACheckByPathLeavesTheProcessAsItWas(PrefixCase):
         self.assertEqual(ran["after"], ran["before"])
 
 
+# A check paused once its scratch store is open, and a write asked meanwhile
+# through a bound name, from another thread, by a root relative to the
+# checkout the write is meant for.
+A_BOUND_WRITE_DURING_A_CHECK = """
+import json
+import os
+import sys
+import threading
+
+sys.path.insert(0, %(here)r)
+import promise_bindings as bound
+
+dotdiw = bound.load_dotdiw()
+os.chdir(%(repo)r)
+paused, go, answered = threading.Event(), threading.Event(), threading.Event()
+real = dotdiw.conformance_scenario
+
+
+def scenario_held(answering, prefix):
+    def asking(operation, **request):
+        out = answering(operation, **request)
+        if operation == "open-tracker" and not paused.is_set():
+            paused.set()
+            go.wait(60)
+        return out
+
+    return real(asking, prefix)
+
+
+dotdiw.conformance_scenario = scenario_held
+checked, made = {}, {}
+checker = threading.Thread(
+    target=lambda: checked.update(bound.CheckTracker({"root": %(repo)r, "name": "local"}))
+)
+checker.start()
+paused.wait(60)
+
+
+def write():
+    made.update(bound.CreateItem({"root": ".", "title": "Meant for the checkout"}))
+    answered.set()
+
+
+writer = threading.Thread(target=write)
+writer.start()
+early = answered.wait(2)
+go.set()
+checker.join(60)
+writer.join(60)
+listed = bound.ListItems({"root": %(repo)r, "scope": "all"})
+print(
+    json.dumps(
+        {
+            "early": early,
+            "made": made.get("status"),
+            "checked": checked.get("summary"),
+            "titles": [i["title"] for i in listed.get("items") or []],
+        }
+    )
+)
+"""
+
+
+class ABoundWriteWaitsWhileACheckRuns(unittest.TestCase):
+    """A check of a tracker runs alone in its process, in a scratch checkout
+    it makes and removes, which is the working directory for its length. A
+    write asked meanwhile through the tracker interface's bound name, by a
+    root relative to the checkout it is meant for, waits until the check
+    ends, and lands in that checkout, never in the check's. The local
+    adapter answers, so nothing but Python and git runs."""
+
+    def setUp(self):
+        top = tempfile.mkdtemp(prefix="dotdiw-bound-")
+        self.addCleanup(shutil.rmtree, top, True)
+        self.home, self.repo = os.path.join(top, "home"), os.path.join(top, "repo")
+        os.makedirs(self.home)
+        os.makedirs(self.repo)
+        self.env = {"HOME": self.home, "PATH": "/usr/bin:/bin"}
+        for args in (
+            ["init", "-q", "."],
+            ["config", "user.email", "t@example.invalid"],
+            ["config", "user.name", "T"],
+        ):
+            subprocess.run(["git"] + args, cwd=self.repo, capture_output=True, check=True)
+
+    def test_a_bound_write_asked_during_a_check_lands_in_its_own_checkout(self):
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, "init"],
+            cwd=self.repo,
+            env=self.env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        p = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                A_BOUND_WRITE_DURING_A_CHECK % {"here": os.path.dirname(DOTDIW), "repo": self.repo},
+            ],
+            cwd=self.repo,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        self.assertEqual(p.returncode, 0, p.stderr)
+        ran = json.loads(p.stdout.splitlines()[-1])
+        self.assertFalse(ran["early"], "the bound write ran while the check ran alone")
+        self.assertEqual(ran["made"], "completed", ran)
+        self.assertEqual(ran["checked"], "local passed 11 of 11.", ran)
+        self.assertEqual(ran["titles"], ["Meant for the checkout"], ran)
+
+
 class ThePlanFormula(PrefixCase):
     """What track-items-plan-file.formula.toml promises about a plan's order and its
     text. The walk is the layout its steps name, on each tracker at hand."""
@@ -3481,6 +5442,7 @@ class ThePlanFormula(PrefixCase):
     def test_the_layout_keeps_the_order_under_local(self):
         self.walk("local")
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_the_layout_keeps_the_order_under_beads(self):
         self.walk("beads", {"PATH": "%s:/usr/bin:/bin" % os.path.dirname(shutil.which("bd") or "")})
@@ -3519,7 +5481,7 @@ class ThePlacesAModuleIsFound(PrefixCase):
         self.assertIn("loaded, from %s" % path, self.line_of("acme", out)[0])
         code, out = self.run_tool("tracker", "check", "acme")
         self.assertEqual(code, 0, out)
-        self.assertIn("✓ acme passed 10 of 10.", out)
+        self.assertIn("✓ acme passed 11 of 11.", out)
         code, out = self.run_tool("init", "--tracker", "acme", "--prefix", "a")
         self.assertEqual(code, 0, out)
         code, out = self.run_tool("create", "Work on acme")
@@ -3527,6 +5489,89 @@ class ThePlacesAModuleIsFound(PrefixCase):
         code, out = self.run_tool("list")
         self.assertEqual(code, 0, out)
         self.assertIn("Work on acme", out)
+
+    def test_through_dotdiw_a_modules_root_closes_with_its_last_step(self):
+        """A module may leave a poured root open when its last step closes, as
+        acme does; through dotdiw the root closes after it, named after the
+        step, as it does under every adapter."""
+        self.module(self.homed, "acme", ACME)
+        with open(os.path.join(self.repo, "staffing.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(TheClaimCommand.STAFFING)
+        for args in (["add", "-A"], ["commit", "-qm", "a formula"]):
+            subprocess.run(["git"] + args, cwd=self.repo, capture_output=True)
+        self.assertEqual(self.run_tool("init", "--tracker", "acme", "--prefix", "a")[0], 0)
+        env = {"HOME": self.home, "PATH": "/usr/bin:/bin"}
+        p = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                self.tool,
+                "formula",
+                "pour",
+                "confirm-overnight-staffing",
+                "--json",
+            ],
+            cwd=self.repo,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        root, (step,) = json.loads(p.stdout)["rootId"], json.loads(p.stdout)["stepIds"]
+        code, out = self.run_tool("close", step)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(
+            [line.split(" ")[2] for line in out.splitlines() if line.startswith("\u2713 Closed")],
+            [step, root],
+        )
+        code, out = self.run_tool("show", root, "--json")
+        self.assertEqual(json.loads(out)["status"], "closed", out)
+        # A root the module cannot show is named, and the close fails.
+        busy = ACME.replace(
+            '    data = _load(request["root"])\n    item = data["items"].get(request["id"])\n'
+            "    if item is None:\n"
+            '        return _no("item-not-found")\n'
+            '    kids = [i for i in data["items"].values() if i["parent"] == request["id"]]\n',
+            '    if request["id"] == os.environ.get("ACME_BUSY"):\n'
+            '        return _no("adapter-failed")\n'
+            '    data = _load(request["root"])\n    item = data["items"].get(request["id"])\n'
+            "    if item is None:\n"
+            '        return _no("item-not-found")\n'
+            '    kids = [i for i in data["items"].values() if i["parent"] == request["id"]]\n',
+        )
+        self.assertNotEqual(busy, ACME)
+        self.module(self.homed, "acme", busy)
+        p = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                self.tool,
+                "formula",
+                "pour",
+                "confirm-overnight-staffing",
+                "--json",
+            ],
+            cwd=self.repo,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        root, (step,) = json.loads(p.stdout)["rootId"], json.loads(p.stdout)["stepIds"]
+        code, out = self.run_tool("close", step, env={"ACME_BUSY": root})
+        self.assertEqual(code, 1, out)
+        self.assertIn(
+            "%s, which the close of %s may have left with nothing open, could not be read"
+            % (root, step),
+            out,
+        )
+        # A parent that no pour made is no root: its last child closes alone.
+        code, out = self.run_tool("create", "A parent")
+        parent = group1(r"Created issue: (\S+)", out)
+        code, out = self.run_tool("create", "Its child", "--parent", parent)
+        code, out = self.run_tool("close", group1(r"Created issue: (\S+)", out))
+        self.assertEqual(code, 0, out)
+        code, out = self.run_tool("show", parent, "--json")
+        self.assertEqual(json.loads(out)["status"], "open", out)
 
     def test_the_home_directory_comes_first(self):
         self.module(self.shared, "acme", ACME.replace('"1.0.0"', '"1.0.0-shared"'))
@@ -3602,7 +5647,7 @@ class ThePlacesAModuleIsFound(PrefixCase):
         )
         code, out = self.run_tool("tracker", "use", "acme")
         self.assertEqual(code, 1, out)
-        self.assertIn("written for tracker interface 99; this dotdiw supports interface 3", out)
+        self.assertIn("written for tracker interface 99; this dotdiw supports interface 4", out)
         self.assertNotIn("Traceback", out)
         self.assertEqual(len([s for s in out.splitlines() if s.strip()]), 1, out)
         code, out = self.run_tool("tracker", "list")
@@ -3613,8 +5658,8 @@ class ThePlacesAModuleIsFound(PrefixCase):
         path = self.module(os.path.join(self.repo, "sub"), "acme", ACME)
         code, out = self.run_tool("tracker", "check", "./sub/acme.py")
         self.assertEqual(code, 0, out)
-        self.assertEqual(out.count("  pass  operation."), 10, out)
-        self.assertIn("\u2713 acme passed 10 of 10.", out)
+        self.assertEqual(out.count("  pass  operation."), 11, out)
+        self.assertIn("\u2713 acme passed 11 of 11.", out)
         self.assertEqual(self.left_in_the_home_directory(), [], "nothing is installed")
         self.assertEqual(os.listdir(os.path.dirname(path)), ["acme.py"], "nothing beside it")
 
@@ -3670,21 +5715,21 @@ class ThePlacesAModuleIsFound(PrefixCase):
         self.module(self.repo, "acme", ACME)
         code, out = self.run_tool("tracker", "check", "acme.py")
         self.assertEqual(code, 0, out)
-        self.assertIn("\u2713 acme passed 10 of 10.", out)
+        self.assertIn("\u2713 acme passed 11 of 11.", out)
 
     def test_a_file_is_checked_outside_any_repository(self):
         outside = os.path.join(self.top, "outside")
         self.module(outside, "acme", ACME)
         code, out = self.run_tool("tracker", "check", "./acme.py", cwd=outside)
         self.assertEqual(code, 0, out)
-        self.assertIn("\u2713 acme passed 10 of 10.", out)
+        self.assertIn("\u2713 acme passed 11 of 11.", out)
 
     def test_a_path_is_what_is_checked_when_the_name_is_also_installed(self):
         self.module(self.homed, "acme", "def broken(:\n")
         self.module(self.repo, "acme", ACME)
         code, out = self.run_tool("tracker", "check", "./acme.py")
         self.assertEqual(code, 0, out)
-        self.assertIn("\u2713 acme passed 10 of 10.", out)
+        self.assertIn("\u2713 acme passed 11 of 11.", out)
 
     def test_a_file_whose_operations_all_raise_gets_a_line_each(self):
         raising = "OPERATIONS = %r\n" % sorted(
@@ -3700,18 +5745,19 @@ class ThePlacesAModuleIsFound(PrefixCase):
                 "list-items",
                 "update-item",
                 "ready-items",
+                "record-values",
             )
         )
         raising += (
             "def _raises(request):\n"
             '    raise NotImplementedError("not yet")\n'
-            'TRACKER = {"info": {"name": "acme", "version": "0", "interface": 3, "checkTarget": "scratch"},\n'
+            'TRACKER = {"info": {"name": "acme", "version": "0", "interface": 4, "checkTarget": "scratch"},\n'
             '           "operations": {op: _raises for op in OPERATIONS}}\n'
         )
         self.module(self.repo, "acme", raising)
         code, out = self.run_tool("tracker", "check", "./acme.py")
         self.assertEqual(code, 1, out)
-        self.assertEqual(out.count("  FAIL  operation."), 10, out)
+        self.assertEqual(out.count("  FAIL  operation."), 11, out)
         self.assertIn("\u2717 acme failed at operation.open-tracker", out)
         self.assertNotIn("Traceback", out)
         self.assertEqual(self.left_in_the_home_directory(), [])
@@ -3848,8 +5894,112 @@ class WhoATrackerActsAs(PrefixCase):
         self.assertNotIn("Assignees", out)
 
 
+class AnIdTheTrackerGaveIsReadWhole(PrefixCase):
+    """A tracker may read an id it holds nothing of as that of another item,
+    as bd reads a deleted root's id as its only step's (ACME_LOOSE). A word
+    typed is read as the tracker reads it. An id the tracker itself gave --
+    a step's run, a need, an id it listed -- is whole: where the tracker
+    shows an item of another id for it, dotdiw takes it as not found."""
+
+    def holding(self, *items):
+        """The loose module in use, its store holding the items given and no
+        other; the store's path."""
+        self.assertEqual(ACME_LOOSE.count('item = _read(data, request["id"])'), 4)
+        self.assertIn('or {"needs": []}', ACME_LOOSE)
+        self.assertIn('os.environ.get("ACME_GONE")', ACME_LOOSE)
+        self.module(self.homed, "acme", ACME_LOOSE)
+        code, out = self.run_tool("init", "--tracker", "acme", "--prefix", "a")
+        self.assertEqual(code, 0, out)
+        (path,) = glob.glob(os.path.join(self.home, ".dotdiw", "**", "acme.json"), recursive=True)
+        blank = {
+            "title": "An item",
+            "kind": "task",
+            "status": "open",
+            "priority": 2,
+            "parent": None,
+            "reason": None,
+            "needs": [],
+        }
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(
+                {"prefix": "a", "count": 99, "items": {i["id"]: dict(blank, **i) for i in items}},
+                fh,
+            )
+        return path
+
+    def held(self, path):
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)["items"]
+
+    def test_a_step_whose_root_is_gone_reads_no_run(self):
+        """The step names a root the tracker holds no more, and the tracker
+        shows the step for the root's id: the run is not found, and none is
+        read from the step in its root's place."""
+        claim = {"statement": "Roster {{ roster-id }} is staffed.", "slots": ["roster-id"]}
+        self.holding({"id": "a-1.1", "run": "a-1", "step": "staffing", "claim": claim})
+        code, out = self.run_tool("show", "a-1", "--json")
+        self.assertEqual(json.loads(out)["id"], "a-1.1", "a word typed, read as the tracker reads")
+        p = subprocess.run(
+            [sys.executable, "-I", self.tool, "claim", "a-1.1", "--json"],
+            cwd=self.repo,
+            env={"HOME": self.home, "PATH": "/usr/bin:/bin"},
+            input="",
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn(
+            "The tracker holds no item a-1: asked for it, it shows a-1.1.", p.stdout + p.stderr
+        )
+
+    def test_a_close_closes_no_other_item_in_a_gone_roots_place(self):
+        """The item closed names a root the tracker holds no more, and the
+        tracker reads that root's id as another item's: that item is no root
+        of the run, and stays open."""
+        path = self.holding({"id": "a-2", "run": "a-1"}, {"id": "a-10"})
+        code, out = self.run_tool("close", "a-2")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(
+            [line.split(" ")[2] for line in out.splitlines() if line.startswith("\u2713 Closed")],
+            ["a-2"],
+        )
+        self.assertEqual(
+            {i: o["status"] for i, o in self.held(path).items()},
+            {"a-2": "closed", "a-10": "open"},
+        )
+
+    def test_a_need_is_not_refused_for_what_another_item_waits_on(self):
+        """The item needs one the tracker holds no more, whose id the tracker
+        reads as another item's. What that other item waits on is nothing the
+        first waits on: a need the other way round is no deadlock, and is
+        added."""
+        path = self.holding(
+            {"id": "a-2", "needs": ["a-1"]}, {"id": "a-10", "needs": ["a-3"]}, {"id": "a-3"}
+        )
+        code, out = self.run_tool("dep", "add", "a-3", "a-2")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.held(path)["a-3"]["needs"], ["a-2"])
+
+    def test_a_move_copies_no_other_item_under_a_listed_id(self):
+        """Another deletes a root after the move lists it, and the tracker,
+        asked for it by id, shows its step: the move stops there, and writes
+        no copy of the root from the step's record."""
+        self.holding(
+            {"id": "a-1", "kind": "root"},
+            {"id": "a-1.1", "parent": "a-1", "run": "a-1", "step": "staffing"},
+        )
+        code, out = self.run_tool("tracker", "migrate", "acme", "local", env={"ACME_GONE": "a-1"})
+        self.assertEqual(code, 1, out)
+        self.assertIn(
+            "acme could not show a-1: The tracker holds no item a-1: asked for it, it shows a-1.1.",
+            out,
+        )
+        code, out = self.run_tool("list", "--all", "--tracker", "local")
+        self.assertIn("Total: 0 issues", out)
+
+
 class TheFileATrackerStartsFrom(PrefixCase):
-    """dotdiw tracker new writes one file: the ten operations raising until
+    """dotdiw tracker new writes one file: the eleven operations raising until
     they are filled, and the table that declares them. The check says which are
     left, and filled in it passes."""
 
@@ -3864,6 +6014,7 @@ class TheFileATrackerStartsFrom(PrefixCase):
         "list_items",
         "update_item",
         "ready_items",
+        "record_values",
     )
 
     def written(self, *where):
@@ -3899,13 +6050,13 @@ class TheFileATrackerStartsFrom(PrefixCase):
         self.assertEqual(os.listdir(self.repo).count("acme.py"), 1)
         text = self.written("acme.py")
         self.assertIn('"name": "acme"', text)
-        self.assertIn('"interface": 3', text)
+        self.assertIn('"interface": 4', text)
         self.assertNotIn("<NAME>", text)
         for internal in ("correlationId", "trackerRef", "terminal", "printed", "resultRefs"):
             self.assertNotIn(internal, text)
         code, out = self.run_tool("tracker", "check", "./acme.py")
         self.assertEqual(code, 1, out)
-        self.assertEqual(out.count("  FAIL  operation."), 10, out)
+        self.assertEqual(out.count("  FAIL  operation."), 11, out)
         self.assertNotIn("Traceback", out)
 
     def test_filled_in_it_passes(self):
@@ -3922,11 +6073,11 @@ class TheFileATrackerStartsFrom(PrefixCase):
             fh.write(filled)
         code, out = self.run_tool("tracker", "check", "./acme.py")
         self.assertEqual(code, 0, out)
-        self.assertIn("\u2713 acme passed 10 of 10.", out)
+        self.assertIn("\u2713 acme passed 11 of 11.", out)
         self.module(self.shared, "acme", filled)
         code, out = self.run_tool("tracker", "check", "acme")
         self.assertEqual(code, 0, out)
-        self.assertIn("\u2713 acme passed 10 of 10.", out)
+        self.assertIn("\u2713 acme passed 11 of 11.", out)
 
     def test_it_goes_where_it_is_told(self):
         os.makedirs(os.path.join(self.repo, "one"))
@@ -4034,6 +6185,7 @@ class WithoutTheBeadsBinary(unittest.TestCase):
                 self.assertEqual(self.repo.config("dotdiw.tracker"), "")
                 self.assertEqual(os.listdir(self.repo.path), [".git"], "nothing in the tree")
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
     def test_a_checkout_on_beads_is_told_the_one_command(self):
         ident = self.on_beads_with_the_binary_gone()
@@ -4061,6 +6213,17 @@ class WithoutTheBeadsBinary(unittest.TestCase):
         code, out = self.repo.dotdiw("--version", env=self.env)
         self.assertEqual(code, 0, out)
 
+    def test_a_command_dotdiw_cannot_check_is_refused_with_or_without_the_binary(self):
+        """A command dotdiw would refuse with the tracker on the machine is
+        refused without it too, before anything asks for the binary."""
+        self.on_beads_with_the_binary_gone()
+        for args in (("sql", "SELECT 1"), ("batch",), ("delete", "x")):
+            with self.subTest(args=args):
+                code, out = self.repo.dotdiw(*args, env=self.env)
+                self.assertEqual(code, 1, out)
+                self.assertIn("dotdiw does not run %s" % args[0], out)
+
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
     def test_steps_from_work_on_a_tracker_that_is_gone_says_so(self):
         ident = self.on_beads_with_the_binary_gone()
@@ -4069,6 +6232,7 @@ class WithoutTheBeadsBinary(unittest.TestCase):
         self.assertEqual(out.strip(), self.SAID)
         self.assertNotIn("repeat-it.formula.toml", os.listdir(self.repo.path))
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
     def test_the_work_is_there_when_the_binary_comes_back(self):
         self.on_beads_with_the_binary_gone()
@@ -4173,7 +6337,7 @@ class WhatAModuleGetsWrong(PrefixCase):
             with self.subTest(args=args):
                 code, out = self.run_tool(*args, env={"GIT_DIR": git_dir})
                 self.assertEqual(code, 0, out)
-                self.assertIn("passed 10 of 10", out)
+                self.assertIn("passed 11 of 11", out)
                 self.assertEqual(self.key(), key)
                 self.assertEqual(self.key("dotdiw.tracker"), "local")
         code, out = self.run_tool("list")
@@ -4201,7 +6365,7 @@ class WhatAModuleGetsWrong(PrefixCase):
         code, out = self.run_tool("tracker", "check", path)
         self.assertEqual(code, 1, out)
         self.assertRegex(out, r"FAIL  operation.create-item: .*SystemExit")
-        self.assertEqual(len(re.findall(r"(?m)^  (?:pass|FAIL)  ", out)), 10, out)
+        self.assertEqual(len(re.findall(r"(?m)^  (?:pass|FAIL)  ", out)), 11, out)
 
     def test_a_chosen_module_that_exits_does_not_silence_a_command(self):
         self.acme()
@@ -4272,7 +6436,7 @@ class WhatAModuleGetsWrong(PrefixCase):
                 )
                 code, out = self.run_tool("tracker", "check", path)
                 self.assertEqual(code, 0, out)
-                self.assertIn("acme passed 10 of 10", out)
+                self.assertIn("acme passed 11 of 11", out)
                 code, out = self.run_tool("init", "--tracker", "acme")
                 self.assertEqual(code, 0, out)
                 code, out = self.run_tool("create", "Named")
@@ -4382,8 +6546,8 @@ class WhatAModuleGetsWrong(PrefixCase):
         its mistakes stay its own, and the list prints where it really is."""
         path = self.acme(
             (
-                '"info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": []},',
-                '"info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": [],'
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 4, "checkTarget": "scratch", "extras": []},',
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 4, "checkTarget": "scratch", "extras": [],'
                 ' "origin": "shipped", "source": "/nowhere"},',
             ),
             (
@@ -4421,7 +6585,7 @@ class WhatAModuleGetsWrong(PrefixCase):
         )
         code, out = self.run_tool("tracker", "check", path)
         self.assertEqual(code, 0, out)
-        self.assertIn("acme passed 10 of 10", out)
+        self.assertIn("acme passed 11 of 11", out)
 
     def test_the_check_with_nowhere_to_work_is_one_line(self):
         path = self.acme(directory=self.top)
@@ -4471,17 +6635,18 @@ class WhatAModuleGetsWrong(PrefixCase):
     def test_a_number_that_is_not_a_number_says_so(self):
         path = self.acme(
             (
-                '"info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": []},',
-                '"info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": [],'
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 4, "checkTarget": "scratch", "extras": []},',
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 4, "checkTarget": "scratch", "extras": [],'
                 ' "interface": "1"},',
             ),
             directory=self.top,
         )
         code, out = self.run_tool("tracker", "check", path)
         self.assertEqual(code, 1, out)
-        self.assertIn("written for tracker interface '1'; this dotdiw supports interface 3", out)
+        self.assertIn("written for tracker interface '1'; this dotdiw supports interface 4", out)
         self.assertNotIn("DoorError", out)
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
     def test_an_old_tree_does_not_move_a_checkout_off_its_module(self):
         self.acme(*self.ELSEWHERE)
@@ -4492,6 +6657,7 @@ class WhatAModuleGetsWrong(PrefixCase):
         self.assertEqual(self.key("dotdiw.tracker"), "acme")
         self.assertNotIn("earlier version", out)
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
     def test_the_check_of_beads_leaves_the_checkout_as_it_was(self):
         self.assertEqual(self.run_tool("init", "--tracker", "local")[0], 0)
@@ -4674,7 +6840,7 @@ class WhatAModuleGetsWrong(PrefixCase):
         )
 
     def test_the_scenario_holds_what_the_other_commands_rely_on(self):
-        """Ten of ten is what compatible means, so what `migrate`, `list` and
+        """Eleven of eleven is what compatible means, so what `migrate`, `list` and
         `mol pour` rely on is in it."""
         for why, old, new, operation in (
             (
@@ -4729,10 +6895,64 @@ class WhatAModuleGetsWrong(PrefixCase):
             ),
             (
                 "a step is not of kind task",
-                'made = {s["id"]: _make(data, s["title"], parent=root["id"]) for s in steps}',
-                'made = {s["id"]: _make(data, s["title"], parent=root["id"], kind="root")'
-                " for s in steps}",
+                'claim=s.get("claim"),\n',
+                'claim=s.get("claim"), kind="root",\n',
                 "pour-steps",
+            ),
+            (
+                "a pour forgets a step's claim",
+                'claim=s.get("claim"),\n',
+                "claim=None,\n",
+                "record-values",
+            ),
+            (
+                "a pour forgets the run a step was poured in",
+                'run=root["id"])',
+                "run=None)",
+                "record-values",
+            ),
+            (
+                "a created item forgets the run a move carries",
+                'run=request.get("run"),',
+                "run=None,",
+                "record-values",
+            ),
+            (
+                "a close forgets the items poured in a run",
+                'item["needs"] + kids + poured)',
+                'item["needs"] + kids)',
+                "record-values",
+            ),
+            (
+                "a list in a run answers every item",
+                '    if request.get("run") is not None:\n'
+                '        items = [i for i in items if i.get("run") == request["run"]]\n',
+                "",
+                "record-values",
+            ),
+            (
+                "a list in an empty run answers every item",
+                '    if request.get("run") is not None:\n',
+                '    if request.get("run"):\n',
+                "record-values",
+            ),
+            (
+                "a list in a run answers its root's children",
+                '        items = [i for i in items if i.get("run") == request["run"]]\n',
+                '        items = [i for i in items if i["parent"] == request["run"]]\n',
+                "record-values",
+            ),
+            (
+                "record-values keeps a label given empty",
+                "            if at is not None:\n                values.pop(at)\n",
+                "            pass\n",
+                "record-values",
+            ),
+            (
+                "a created item forgets the values a move carries",
+                'values=list(request.get("values") or []) or None)',
+                "values=None)",
+                "record-values",
             ),
             (
                 "a created item forgets the means a move carries",
@@ -4754,6 +6974,1682 @@ class WhatAModuleGetsWrong(PrefixCase):
                 self.assertIn("FAIL  operation.%s" % operation, out)
 
 
+# A formula management provider with title and description fields alone, as
+# the spec writes one: its means and each step's id and claim in descriptions.
+PLAIN_PROVIDER = """FORMULA = {
+    "description": (
+        "Verify using:\\n"
+        "- json+https://rosters.example.org/{{ staffing.roster-id }} | .capacity == "
+        '{{ staffing.capacity }} and .shift_date == "{{ staffing.shift-date }}"\\n'
+    ),
+    "steps": [
+        {
+            "title": "Check the overnight roster",
+            "description": (
+                "Step ID: staffing\\n\\nClaim:\\nRoster {{ roster-id }} covers {{ capacity }} "
+                "people for the overnight shift starting {{ shift-date }}.\\n"
+                "roster-id:\\ncapacity:\\nshift-date:\\n"
+            ),
+        }
+    ],
+}
+
+PROVIDER = {
+    "info": {"name": "plain", "version": "0.1", "interface": 2},
+    "operations": {
+        "describe": lambda r: {"answers": ["list", "show"]},
+        "list": lambda r: {
+            "formulas": [
+                {
+                    "id": "confirm-overnight-staffing",
+                    "description": "Confirm an overnight shift is staffed. Use when dispatching.",
+                    "examples": [],
+                }
+            ]
+        },
+        "show": lambda r: {"formula": FORMULA} if r.get("id") == "confirm-overnight-staffing" else {},
+    },
+}
+"""
+
+
+class TheClaimCommand(unittest.TestCase):
+    """dotdiw claim, the command line's binding of record-what-a-step-found:
+    label: value lines from its arguments, or from standard input when there
+    are none, a line that is not one refusing the whole input, the run
+    printed with its claims and means filled in, and --json the same as
+    data. Each run resolves from its own step record."""
+
+    STAFFING = """formula = "confirm-overnight-staffing"
+description = "Confirm an overnight shift is staffed. Use when dispatching an overnight shift."
+examples = ["Confirm the overnight shift", "Check night cover", "Dispatch the night shift"]
+verify-using = [
+  'json+https://rosters.example.org/{{ staffing.roster-id }} | .capacity == {{ staffing.capacity }} and .shift_date == "{{ staffing.shift-date }}"',
+]
+
+[[steps]]
+id = "staffing"
+title = "Check the overnight roster"
+
+[steps.claim]
+statement = "Roster {{ roster-id }} covers {{ capacity }} people for the overnight shift starting {{ shift-date }}."
+"roster-id:" = {}
+"capacity:" = {}
+"shift-date:" = {}
+"""
+
+    def setUp(self):
+        self.repo = Repo(tracker="local")
+        self.addCleanup(self.repo.close)
+        self.repo.write("staffing.formula.toml", self.STAFFING)
+        code, out = self.repo.dotdiw("init", "--tracker", "local")
+        self.assertEqual(code, 0, out)
+
+    def run_tool(self, *args, given=""):
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW] + list(args),
+            cwd=self.repo.path,
+            env=self.repo.env,
+            input=given,
+            capture_output=True,
+            text=True,
+        )
+        return p.returncode, p.stdout, p.stderr
+
+    def poured(self):
+        code, out, err = self.run_tool("formula", "pour", "confirm-overnight-staffing", "--json")
+        self.assertEqual(code, 0, out + err)
+        return json.loads(out)["stepIds"][0]
+
+    def test_lines_given_are_recorded_and_the_run_printed(self):
+        step = self.poured()
+        code, out, err = self.run_tool(
+            "claim", step, "roster-id: 42", "capacity: 80", "shift-date: 2026-11-13"
+        )
+        self.assertEqual(code, 0, out + err)
+        self.assertIn(
+            "claim:\nRoster 42 covers 80 people for the overnight shift starting 2026-11-13.\n", out
+        )
+        self.assertIn(
+            "verify-using:\njson+https://rosters.example.org/42 | .capacity == 80 and "
+            '.shift_date == "2026-11-13"\n',
+            out,
+        )
+
+    def test_lines_on_standard_input_are_recorded_the_same_way(self):
+        step = self.poured()
+        code, out, err = self.run_tool(
+            "claim", step, "--json", given="roster-id: 7\ncapacity: 65\nshift-date: 2026-11-14\n"
+        )
+        self.assertEqual(code, 0, out + err)
+        run = json.loads(out)
+        self.assertEqual(
+            run["steps"][0]["claim"],
+            "Roster 7 covers 65 people for the overnight shift starting 2026-11-14.",
+        )
+        self.assertEqual(run["open"], [])
+
+    def test_a_line_that_is_not_label_value_refuses_the_whole_input(self):
+        step = self.poured()
+        code, out, err = self.run_tool("claim", step, "roster-id: 42", "Roster: 1")
+        self.assertEqual(code, 2, out + err)
+        self.assertIn("not a label: value line, so nothing was recorded: 'Roster: 1'", err)
+        code, out, err = self.run_tool("claim", step, "--json")
+        self.assertEqual(json.loads(out)["steps"][0]["values"], [], "nothing was recorded")
+
+    def test_the_pour_says_how_to_record_each_claim(self):
+        code, out, err = self.run_tool("formula", "pour", "confirm-overnight-staffing")
+        self.assertEqual(code, 0, out + err)
+        step = self.poured()
+        code, out, err = self.run_tool("formula", "pour", "confirm-overnight-staffing")
+        said = re.search(
+            r"(?m)^(\S+) has a claim\. When it is done, record it: dotdiw claim (\S+) (.*)$", out
+        )
+        if said is None:
+            self.fail(out)
+        self.assertEqual(said.group(1), said.group(2))
+        self.assertEqual(
+            said.group(3), "'roster-id: <value>' 'capacity: <value>' 'shift-date: <value>'"
+        )
+        self.assertNotEqual(said.group(1), step)
+
+    MEANS_42 = (
+        'json+https://rosters.example.org/42 | .capacity == 80 and .shift_date == "2026-11-13"'
+    )
+
+    MEANS_7 = 'json+https://rosters.example.org/7 | .capacity == 65 and .shift_date == "2026-11-14"'
+
+    def root_of(self, step, *tracker):
+        return json.loads(self.run_tool(*tracker, "claim", step, "--json")[1])["root"]
+
+    def recorded_twice(self, apart=0.0):
+        """Two runs: the first's roster 42 covering 80, the second's 7 covering 65."""
+        one = self.poured()
+        time.sleep(apart)
+        two = self.poured()
+        self.run_tool("claim", one, "roster-id: 42", "capacity: 80", "shift-date: 2026-11-13")
+        self.run_tool("claim", two, "roster-id: 7", "capacity: 65", "shift-date: 2026-11-14")
+        return one, two, self.root_of(one), self.root_of(two)
+
+    def did(self, *args):
+        code, out, err = self.run_tool(*args)
+        self.assertEqual(code, 0, out + err)
+        return out
+
+    def read(self, named, *tracker):
+        run = json.loads(self.run_tool(*tracker, "claim", named, "--json")[1])
+        return run["root"], [s["item"] for s in run["steps"]], run["verifyUsing"], run["open"]
+
+    def test_a_run_reads_only_the_steps_it_poured(self):
+        one, two, root, other = self.recorded_twice()
+        self.did("update", two, "--parent", root)
+        self.assertEqual(self.read(root), (root, [one], [self.MEANS_42], []))
+        # The step moved is read in the run it was poured in, from itself and its root.
+        for named in (two, other):
+            self.assertEqual(self.read(named), (other, [two], [self.MEANS_7], []))
+
+    def test_a_run_closes_after_every_step_poured_in_it(self):
+        """A root whose step was moved under another root stays open until
+        that step closes, and says which step it waits on."""
+        one, two, root, other = self.recorded_twice()
+        self.did("update", two, "--parent", root)
+        code, out, err = self.run_tool("close", other)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(two, out + err)
+        self.did("close", two)
+        self.did("close", other)
+
+    def status_of(self, ident, *tracker):
+        shown = json.loads(self.run_tool(*tracker, "show", ident, "--json")[1])
+        return (shown[0] if isinstance(shown, list) else shown)["status"]
+
+    def test_the_last_step_closes_the_root_of_its_run_wherever_it_stands(self):
+        one, two, root, other = self.recorded_twice()
+        self.did("update", two, "--parent", root)
+        self.assertIn("Closed %s" % other, self.did("close", two))
+        self.assertEqual(self.status_of(other), "closed")
+        self.assertEqual(self.status_of(root), "open", "a root with an open step of its own")
+
+    def test_a_root_cannot_come_to_wait_on_itself(self):
+        """A root put under a step of its own run, or a step of its run made to
+        need it, would wait on what waits on it: refused, and the run still
+        closes."""
+        one, two, root, other = self.recorded_twice()
+        self.did("update", two, "--parent", root)
+        for args in (("update", other, "--parent", two), ("dep", "add", two, other)):
+            code, out, err = self.run_tool(*args)
+            self.assertEqual(code, 1, out + err)
+            self.assertIn("which waits on it to close, so neither could close", err)
+        self.did("close", two)
+        self.assertEqual(self.status_of(other), "closed")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_the_command_line_holds_a_root_while_a_step_of_its_run_is_open(self):
+        """bd's own close runs under beads, so dotdiw holds the root first,
+        as close-item does, and the same for a root put under its own step."""
+        self.did("tracker", "use", "beads")
+        # The fixture names local in DOTDIW_TRACKER, which outranks tracker use.
+        beads = ("--tracker", "beads")
+        made = []
+        for _ in range(2):
+            out = self.did(*beads, "formula", "pour", "confirm-overnight-staffing", "--json")
+            made.append((json.loads(out)["rootId"], json.loads(out)["stepIds"][0]))
+        (root, one), (other, two) = made
+        self.did(*beads, "update", two, "--parent", root)
+        code, out, err = self.run_tool(*beads, "close", other)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("cannot close blocked issue: %s is blocked by [%s]" % (other, two), err)
+        self.assertEqual(self.status_of(other, *beads), "open")
+        code, out, err = self.run_tool(*beads, "update", other, "--parent", two)
+        self.assertEqual(code, 1, out + err)
+        self.did(*beads, "close", two)
+        self.did(*beads, "close", other)
+        self.assertEqual(self.status_of(other, *beads), "closed")
+
+    def beads_runs(self):
+        """Two runs under beads, the second's step moved under the first's
+        root, so that the second's root waits on a step standing elsewhere."""
+        self.did("tracker", "use", "beads")
+        # The fixture names local in DOTDIW_TRACKER, which outranks tracker use.
+        beads = ("--tracker", "beads")
+        made = []
+        for _ in range(2):
+            out = self.did(*beads, "formula", "pour", "confirm-overnight-staffing", "--json")
+            made.append((json.loads(out)["rootId"], json.loads(out)["stepIds"][0]))
+        (root, one), (other, two) = made
+        self.did(*beads, "update", two, "--parent", root)
+        return beads, root, one, other, two
+
+    def witnessed(self):
+        path = os.path.join(self.repo.workspace(), "witness.jsonl")
+        if not os.path.exists(path):
+            return []
+        with open(path, encoding="utf-8") as fh:
+            return [json.loads(line) for line in fh if line.strip()]
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_every_way_of_closing_a_root_is_held(self):
+        """bd closes under two names, after options before its verb, by a
+        short id, by an update to closed and by force: each is held before
+        bd runs while the root's moved step is open."""
+        beads, root, one, other, two = self.beads_runs()
+        short = other.rsplit("-", 1)[1]
+        for args in (
+            ("done", other),
+            ("--json", "close", other),
+            ("close", short),
+            ("close", "--force", other),
+            ("update", other, "--status", "closed"),
+            ("update", other, "--status=closed"),
+            ("--actor", "someone", "update", "-s", "closed", other),
+            ("update", other, "-sclosed"),
+            ("update", other, "-s=closed"),
+            ("update", other, "-s", "open", "--status", "closed"),
+            ("-q", "close", other),
+            ("close", "--help=false", other),
+            ("close", other, "-h=false"),
+            ("close", "--json=1", other),
+        ):
+            code, out, err = self.run_tool(*beads, *args)
+            self.assertEqual(code, 1, (args, out + err))
+            self.assertIn("cannot close blocked issue: %s is blocked by [%s]" % (other, two), err)
+            self.assertEqual(self.status_of(other, *beads), "open", args)
+        # What the command line cannot read as the tracker would, or that
+        # closes what it does not name, or another store's, does not run.
+        self.did(*beads, "show", other)
+        refused: tuple[tuple[tuple[str, ...], str], ...] = (
+            (("close",), "close with no id"),
+            (("update", "--status", "closed"), "update with no id"),
+            (("close", other, "--db", os.path.join(self.repo.path, "elsewhere.db")), "close --db"),
+            (("--global", "close", other), "close --global"),
+            (("--no-such-option", "close", other), "it cannot read the command"),
+            (("close", other, "--no-such-option"), "it cannot read the command"),
+            (("dep", "add", two, root, "--blocked-by", other), "naming more than one need"),
+        )
+        for asked, said in refused:
+            env = dict(self.repo.env, BD_LAST_TOUCHED_FALLBACK="1")
+            p = subprocess.run(
+                [sys.executable, "-I", DOTDIW, *beads, *asked],
+                cwd=self.repo.path,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(p.returncode, 1, (asked, p.stdout + p.stderr))
+            self.assertIn(said, p.stderr, asked)
+            self.assertEqual(self.status_of(other, *beads), "open", asked)
+        # bd closes over an open child or an open need when forced; dotdiw does not.
+        parent = group1(r"Created issue: (\S+)", self.did(*beads, "create", "A parent"))
+        child = group1(
+            r"Created issue: (\S+)", self.did(*beads, "create", "Its child", "--parent", parent)
+        )
+        needing = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Needing"))
+        needed = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Needed"))
+        self.did(*beads, "dep", "add", needing, needed)
+        for ident, waits in ((parent, child), (needing, needed)):
+            code, out, err = self.run_tool(*beads, "close", "--force", ident)
+            self.assertEqual(code, 1, out + err)
+            self.assertIn("cannot close blocked issue: %s is blocked by [%s]" % (ident, waits), err)
+            self.assertEqual(self.status_of(ident, *beads), "open")
+
+    def batch(self, *lines):
+        """A file of bd batch lines, outside the checkout."""
+        fd, path = tempfile.mkstemp(prefix="dotdiw-batch-", suffix=".txt")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write("".join(line + "\n" for line in lines))
+        self.addCleanup(os.remove, path)
+        return path
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_command_dotdiw_cannot_check_is_refused_before_it_runs(self):
+        """A command of the tracker's whose closes or waits dotdiw cannot check
+        before it runs -- a batch, raw SQL, an import, a duplicate, a delete,
+        a todo done, an update of what dotdiw keeps on an item or to a status
+        of the tracker's own -- is refused, and nothing it would have written
+        is: the root stays open over its moved step, which stays open, and no
+        edge comes to be."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        ops = self.batch("close %s" % other, "close %s" % two, "dep add %s %s" % (two, other))
+        for args in (
+            ("batch", "-f", ops),
+            ("--json", "batch", "-f", ops),
+            ("batch", "--help=false", "-f", ops),
+            ("batch", "--readonly=false", "-f", ops),
+            ("sql", "UPDATE issues SET status = 'closed'"),
+            ("import", ops),
+            ("duplicate", other, "--of", root),
+            ("supersede", other, "--with", root),
+            ("delete", two),
+            ("todo", "done", two),
+            ("mol", "squash", other),
+            ("epic", "close-eligible"),
+            ("orphans", "--fix"),
+            ("new", "Made by the tracker", "--deps", other),
+            ("update", two, "--unset-metadata", "dotdiw"),
+            ("update", two, "--set-metadata", "dotdiw_value.capacity=99"),
+            ("update", other, "--status", "shipped"),
+            ("dep", "add", "--file", ops),
+            ("sync",),
+        ):
+            code, out, err = self.run_tool(*beads, *args)
+            self.assertEqual(code, 1, (args, out + err))
+            verb = [a for a in args if a != "--json"][0]
+            self.assertIn("dotdiw does not run %s" % verb, err)
+        self.assertEqual(self.status_of(other, *beads), "open")
+        self.assertEqual(self.status_of(two, *beads), "open")
+        self.assertEqual(self.read(two, *beads)[0], other, "the step is still in its run")
+        self.assertEqual(
+            [e for e in self.witnessed() if e["label"] in ("step_closed", "molecule_closed")], []
+        )
+        # A word the tracker knows by no command is the tracker's to refuse.
+        code, out, err = self.run_tool(*beads, "frobnicate", "--now")
+        self.assertNotEqual(code, 0)
+        self.assertIn('unknown command "frobnicate"', out + err)
+        self.assertNotIn("dotdiw does not run", err)
+        # One it knows that dotdiw does not -- as a later tracker may add -- is refused.
+        env = self.shim(
+            'if [ "$1" = help ] && [ "$2" = frobnicate ]; then '
+            "printf 'Usage:\\n  bd frobnicate [flags]\\n'; exit 0; fi\n"
+            'if [ "$1" = frobnicate ] && [ "$2" = --help ]; then '
+            "printf 'Usage:\\n  bd frobnicate [flags]\\n\\nFlags:\\n"
+            "  -h, --help   help for frobnicate\\n      --now    now\\n'; exit 0; fi"
+        )
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "frobnicate", "--now"],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn("dotdiw does not run frobnicate:", p.stderr)
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_only_a_pour_makes_a_root(self):
+        """A quick capture or an update that asks for the type a root has is
+        refused, however the type is spelled and whatever stands before the
+        verb, and no item is made -- nor where the tracker's help for the
+        command cannot be read, since then its type cannot be checked."""
+        beads, root, one, other, two = self.beads_runs()
+        before = len(json.loads(self.run_tool(*beads, "list", "--all", "--json")[1]))
+        for args in (
+            ("q", "Root without a pour", "--type", "molecule"),
+            ("q", "Root without a pour", "-tmolecule"),
+            ("q", "Root without a pour", "--type=Molecule"),
+            ("--json", "q", "Root without a pour", "-t", "molecule"),
+            ("update", one, "-tmolecule"),
+            ("--json", "update", one, "--type", "molecule"),
+            ("update", one, "--type", "mol"),
+            ("update", one, "-tMol"),
+        ):
+            code, out, err = self.run_tool(*beads, *args)
+            self.assertEqual(code, 1, (args, out + err))
+            self.assertIn("Only formula pour makes a root", out + err, args)
+        env = self.shim('if [ "$1" = q ] && [ "$2" = --help ]; then exit 1; fi')
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "q", "Root without a pour", "-t", "molecule"],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn("cannot read the command as the tracker would", p.stdout + p.stderr)
+        self.assertEqual(
+            len(json.loads(self.run_tool(*beads, "list", "--all", "--json")[1])), before
+        )
+        shown = json.loads(self.run_tool(*beads, "show", one, "--json")[1])
+        self.assertEqual((shown[0] if isinstance(shown, list) else shown)["issue_type"], "task")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_close_another_writer_made_first_is_not_this_ones(self):
+        """Between the check and the tracker's close, another writer closes
+        the same step in the tracker itself; this close then fails, or closes
+        nothing more: either way it logs no close, and closes no root on
+        that writer's behalf, since what the tracker keeps of the first close
+        is not this one's mark -- whatever bd answers after the close, its
+        help included. Where the tracker cannot be read back after the close,
+        the step that writer closed is not opened again."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        mark = os.path.join(tempfile.mkdtemp(prefix="dotdiw-mark-"), "closed")
+        self.addCleanup(shutil.rmtree, os.path.dirname(mark), True)
+        for fails, reads in ((True, True), (False, True), (False, False)):
+            with self.subTest(fails=fails, reads=reads):
+                self.did(*beads, "reopen", two)
+                if os.path.exists(mark):
+                    os.remove(mark)
+                env = self.shim(
+                    'if [ "$1" = close ] && [ "$2" = --help ] && [ -e %(m)s ]; then exit 1; fi\n'
+                    'if [ "$1" = close ] && [ "$2" != --help ]; then touch %(m)s; '
+                    "env -u CLAUDE_SESSION_ID %(bd)s close %(two)s >/dev/null 2>&1; %(fail)s fi\n"
+                    'if [ "$1" = list ] && [ -e %(m)s ] && [ %(reads)s = no ]; then '
+                    'echo "the store is busy" >&2; exit 1; fi'
+                    % {
+                        "m": mark,
+                        "bd": shutil.which("bd"),
+                        "two": two,
+                        "fail": "exit 1;" if fails else "",
+                        "reads": "yes" if reads else "no",
+                    }
+                )
+                p = subprocess.run(
+                    [sys.executable, "-I", DOTDIW, *beads, "close", two],
+                    cwd=self.repo.path,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(p.returncode, 0 if reads and not fails else 1, p.stdout + p.stderr)
+                if not reads:
+                    self.assertIn("%s could not be read back after the close" % two, p.stderr)
+                self.assertEqual(self.status_of(two, *beads), "closed")
+                self.assertEqual(self.status_of(other, *beads), "open", "no root closed for it")
+                self.assertEqual(
+                    [
+                        e
+                        for e in self.witnessed()
+                        if e["label"] in ("step_closed", "molecule_closed")
+                    ],
+                    [],
+                )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_two_commands_at_once_cannot_each_pass_the_check(self):
+        """A reparent waits in the tracker after its check, holding the
+        checkout; a need that would close a cycle with it waits its turn, and
+        its own check then sees the reparent and refuses."""
+        beads, root, one, other, two = self.beads_runs()
+        task = group1(r"Created issue: (\S+)", self.did(*beads, "create", "A task"))
+        marks = tempfile.mkdtemp(prefix="dotdiw-marks-")
+        self.addCleanup(shutil.rmtree, marks, True)
+        started, release = os.path.join(marks, "started"), os.path.join(marks, "release")
+        env = self.shim(
+            'if { [ "$1" = update ] || [ "$1" = batch ]; } && [ "$2" != --help ]; then touch %s; '
+            "n=0; while [ ! -e %s ] && [ $n -lt 600 ]; do sleep 0.1; n=$((n+1)); done; fi"
+            % (started, release)
+        )
+        first = subprocess.Popen(
+            [sys.executable, "-I", DOTDIW, *beads, "update", root, "--parent", task],
+            cwd=self.repo.path,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for _ in range(600):
+            if os.path.exists(started):
+                break
+            time.sleep(0.1)
+        self.assertTrue(os.path.exists(started), "the reparent reached the tracker")
+        second = subprocess.Popen(
+            [sys.executable, "-I", DOTDIW, *beads, "dep", "add", one, task],
+            cwd=self.repo.path,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        # Long enough for the need to check and write, were it not held.
+        for _ in range(200):
+            if second.poll() is not None:
+                break
+            time.sleep(0.1)
+        self.assertIsNone(second.poll(), "the need waits while the reparent holds the checkout")
+        open(release, "w").close()
+        out, err = first.communicate(timeout=120)
+        self.assertEqual(first.returncode, 0, out + err)
+        out, err = second.communicate(timeout=120)
+        self.assertEqual(second.returncode, 1, out + err)
+        self.assertIn("which waits on it to close, so neither could close", err)
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_what_a_close_closed_over_an_open_step_is_opened_again(self):
+        """Between the check and the tracker's close, another writer opens the
+        root's step again, and the close is forced: read back after it ran,
+        the root is open again, and so is the item named after it that closed
+        over it. Where the tracker cannot be read back at all, nothing is
+        opened again -- not what the close named, nor a root bd closed with
+        its last step -- since nothing is known to be this close's, and
+        opening an item could undo another writer's close: the command fails
+        naming each item it named. The log records none of it."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        self.did(*beads, "close", two)  # root's only step left open is one
+        mark = os.path.join(tempfile.mkdtemp(prefix="dotdiw-mark-"), "closed")
+        self.addCleanup(shutil.rmtree, os.path.dirname(mark), True)
+        # The close of the root's last step, which bd closes the root with, as
+        # it closes a molecule under no parent, where the tracker cannot be
+        # read back after: neither is opened again.
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then touch %(m)s; fi\n'
+            'if [ "$1" = list ] && [ -e %(m)s ]; then echo "the store is busy" >&2; exit 1; fi'
+            % {"m": mark}
+        )
+        logged = len(self.witnessed())
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", one],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn("%s could not be read back after the close" % one, p.stderr)
+        self.assertEqual(self.status_of(one, *beads), "closed")
+        self.assertEqual(self.status_of(root, *beads), "closed", "bd closed it with its last step")
+        self.assertEqual(
+            [
+                e
+                for e in self.witnessed()[logged:]
+                if e["label"] in ("step_closed", "molecule_closed")
+            ],
+            [],
+        )
+        self.did(*beads, "reopen", root, one)
+        above = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Above"))
+        self.did(*beads, "update", root, "--parent", above)
+        self.did(*beads, "close", one)
+        self.assertEqual(self.status_of(root, *beads), "closed", "it closed with its last step")
+        self.did(*beads, "reopen", root)
+        for whole in (True, False):
+            with self.subTest(whole=whole):
+                if os.path.exists(mark):
+                    os.remove(mark)
+                env = self.shim(
+                    'if [ "$1" = close ] && [ "$2" != --help ] && [ ! -e %(m)s ]; then touch %(m)s; '
+                    "%(bd)s reopen %(one)s >/dev/null 2>&1; fi\n"
+                    'if [ "$1" = list ] && [ -e %(m)s ] && [ %(whole)s = no ]; then '
+                    'echo "the store is busy" >&2; exit 1; fi'
+                    % {
+                        "m": mark,
+                        "bd": shutil.which("bd"),
+                        "one": one,
+                        "whole": "yes" if whole else "no",
+                    }
+                )
+                logged = len(self.witnessed())
+                p = subprocess.run(
+                    [sys.executable, "-I", DOTDIW, *beads, "close", "--force", root, above],
+                    cwd=self.repo.path,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+                if whole:
+                    for ident, waits in ((root, one), (above, root)):
+                        self.assertIn(
+                            "%s closed while %s stood open, so it is open again." % (ident, waits),
+                            p.stderr,
+                        )
+                else:
+                    for ident in (root, above):
+                        self.assertIn(
+                            "%s could not be read back after the close, so whether this "
+                            "command closed it, and after what it waits on, is not known; "
+                            "nothing of it is logged" % ident,
+                            p.stderr,
+                        )
+                self.assertEqual(self.status_of(above, *beads), "open" if whole else "closed")
+                self.assertEqual(self.status_of(root, *beads), "open" if whole else "closed")
+                self.assertEqual(
+                    [
+                        e
+                        for e in self.witnessed()[logged:]
+                        if e["label"] in ("step_closed", "molecule_closed")
+                    ],
+                    [],
+                    "a close the read-back opened again, or could not read, is not logged",
+                )
+                self.did(*beads, "close", one)
+                self.assertEqual(self.status_of(root, *beads), "closed")
+                self.did(*beads, "reopen", root)
+                if self.status_of(above, *beads) == "closed":
+                    self.did(*beads, "reopen", above)
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_listing_that_leaves_out_what_a_close_names_is_no_listing(self):
+        """The tracker answers a listing with no rows, and exit 0, and its
+        query of the items of a run the same. Before the close, the item
+        named is shown and not listed, so what stands open is not known:
+        nothing runs. After it, the same: the command fails naming
+        what it could not read back, and logs no close. Run again with the
+        tracker answering, the root bd closed with its last child, a step of
+        its run open elsewhere, is opened again."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        elsewhere = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Elsewhere"))
+        self.did(*beads, "update", one, "--parent", elsewhere)  # root's last child is two
+        env = self.shim('if [ "$1" = list ] || [ "$1" = query ]; then echo "[]"; exit 0; fi')
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", two],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn("Nothing ran: the tracker shows %s" % two, p.stderr)
+        self.assertEqual(self.status_of(two, *beads), "open")
+        mark = os.path.join(tempfile.mkdtemp(prefix="dotdiw-mark-"), "closed")
+        self.addCleanup(shutil.rmtree, os.path.dirname(mark), True)
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then touch %(m)s; fi\n'
+            'if { [ "$1" = list ] || [ "$1" = query ]; } && [ -e %(m)s ]; then\n'
+            '  echo "[]"; exit 0\n'
+            "fi" % {"m": mark}
+        )
+        logged = len(self.witnessed())
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", two],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertRegex(
+            p.stderr,
+            re.escape(
+                "%s could not be read back after the close, so whether this command closed "
+                "it, and after what it waits on, is not known; nothing of it is logged: the "
+                "tracker's list of every item leaves out " % two
+            )
+            + r"\S+"
+            + re.escape(", which it listed before."),
+        )
+        self.assertEqual(self.status_of(root, *beads), "closed", "bd closed it with its last child")
+        self.assertEqual(
+            [
+                e
+                for e in self.witnessed()[logged:]
+                if e["label"] in ("step_closed", "molecule_closed")
+            ],
+            [],
+        )
+        code, out, err = self.run_tool(*beads, "close", two)
+        self.assertIn(
+            "%s stood closed while %s stood open, so it is open again." % (root, one), out + err
+        )
+        self.assertEqual(self.status_of(root, *beads), "open")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_listing_after_a_close_that_leaves_out_an_open_step_is_no_listing(self):
+        """After the close the tracker lists every item but one: a step of the
+        run, open under an item of no run, which it still shows by its id,
+        and leaves out of its query of the items of a run too.
+        Read as every item, that listing passes the root bd closed with its
+        last child as a run with nothing open. It is not every item: the
+        command fails naming what the listing leaves out, and logs no close.
+        Run again with the tracker answering, the root is opened again."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        elsewhere = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Elsewhere"))
+        self.did(*beads, "update", one, "--parent", elsewhere)  # root's last child is two
+        mark = os.path.join(tempfile.mkdtemp(prefix="dotdiw-mark-"), "closed")
+        self.addCleanup(shutil.rmtree, os.path.dirname(mark), True)
+        less = (
+            "import json, sys; "
+            "print(json.dumps([r for r in json.load(sys.stdin) if r['id'] != '%s']))" % one
+        )
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then touch %(mark)s; fi\n'
+            'if { [ "$1" = list ] || [ "$1" = query ]; } && [ -e %(mark)s ]; then\n'
+            '  %(bd)s "$@" | %(python)s -c "%(less)s"; exit 0\n'
+            "fi" % {"mark": mark, "bd": shutil.which("bd"), "python": sys.executable, "less": less}
+        )
+        logged = len(self.witnessed())
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", two],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn(
+            "%s could not be read back after the close, so whether this command closed it, "
+            "and after what it waits on, is not known; nothing of it is logged: the tracker's "
+            "list of every item leaves out %s, which it listed before." % (two, one),
+            p.stderr,
+        )
+        self.assertEqual(self.status_of(root, *beads), "closed", "bd closed it with its last child")
+        self.assertEqual(
+            [
+                e
+                for e in self.witnessed()[logged:]
+                if e["label"] in ("step_closed", "molecule_closed")
+            ],
+            [],
+        )
+        code, out, err = self.run_tool(*beads, "close", two)
+        self.assertIn(
+            "%s stood closed while %s stood open, so it is open again." % (root, one), out + err
+        )
+        self.assertEqual(self.status_of(root, *beads), "open")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_an_item_another_deletes_as_a_close_runs_is_no_gap_in_the_listing(self):
+        """Another writer deletes an item of no part in the close while it
+        runs. The listing after the close leaves that item out, and the
+        tracker, asked for it by id, holds it no more: the listing is every
+        item, and the close stands and is logged."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        gone = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Gone"))
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then %s delete %s --force >/dev/null; fi'
+            % (shutil.which("bd"), gone)
+        )
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", one],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(self.status_of(one, *beads), "closed")
+        self.assertNotEqual(self.run_tool(*beads, "show", gone)[0], 0, "the item is gone")
+        self.assertEqual(
+            [e.get("stepId") for e in self.witnessed() if e["label"] == "step_closed"], [one]
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_root_another_deletes_as_a_close_runs_is_no_gap_in_the_listing(self):
+        """Another writer deletes the root of a run of no part in the close
+        while it runs, and its one step stands. bd, asked for that root by
+        id, shows the step, the one item whose id begins with the root's. An
+        answer of another id is no item held: the listing after the close is
+        every item, and the close stands and is logged."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        poured = json.loads(
+            self.did(*beads, "formula", "pour", "confirm-overnight-staffing", "--json")
+        )
+        third, step = poured["rootId"], poured["stepIds"][0]
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then %s delete %s --force >/dev/null; fi'
+            % (shutil.which("bd"), third)
+        )
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", one],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(self.status_of(one, *beads), "closed")
+        shown = json.loads(self.run_tool(*beads, "show", third, "--json")[1])
+        self.assertEqual(
+            (shown[0] if isinstance(shown, list) else shown)["id"],
+            step,
+            "bd shows the step for its root's id",
+        )
+        self.assertEqual(
+            [e.get("stepId") for e in self.witnessed() if e["label"] == "step_closed"], [one]
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_step_named_gone_after_its_close_is_not_read_back(self):
+        """Another writer deletes the step right after bd closes it. The
+        tracker holds it no more, so whether this command closed it is not
+        read back: the command fails naming it, and logs nothing of it."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        bd = shutil.which("bd")
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then %s "$@"; rc=$?; '
+            "%s delete %s --force >/dev/null 2>&1; exit $rc; fi" % (bd, bd, one)
+        )
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", one],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn(
+            "%s could not be read back after the close, so whether this command closed it, and "
+            "after what it waits on, is not known; nothing of it is logged: the tracker holds it "
+            "no more." % one,
+            p.stderr,
+        )
+        self.assertNotEqual(self.run_tool(*beads, "show", one)[0], 0, "the step is gone")
+        self.assertEqual(
+            [e for e in self.witnessed() if e["label"] in ("step_closed", "molecule_closed")], []
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_step_closed_before_and_gone_after_is_no_close_unread(self):
+        """A step closed already is named again, and another writer deletes
+        it as bd runs. It did not stand open before the command, so the
+        command did not close it and has nothing of it to read back: the
+        command ends as bd ended, and logs no close."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        self.did(*beads, "close", one)
+        bd = shutil.which("bd")
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then %s "$@"; rc=$?; '
+            "%s delete %s --force >/dev/null 2>&1; exit $rc; fi" % (bd, bd, one)
+        )
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", one],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertNotIn("could not be read back", p.stderr)
+        self.assertNotEqual(self.run_tool(*beads, "show", one)[0], 0, "the step is gone")
+        self.assertEqual(
+            [e["stepId"] for e in self.witnessed() if e["label"] == "step_closed"],
+            [one],
+            "the close before it, and no other",
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_step_whose_root_is_gone_reads_no_run(self):
+        """A run's root is deleted and its one step stands, naming that root
+        as its run. bd, asked for the root by id, shows the step. An item of
+        another id is not the root: the step's run is not found, and no run
+        is read from the step in its root's place."""
+        beads, root, one, other, two = self.beads_runs()
+        code, out = self.repo.bd("delete", other, "--force")
+        self.assertEqual(code, 0, out)
+        code, out, err = self.run_tool(*beads, "claim", two, "--json")
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(
+            "The tracker holds no item %s: asked for it, it shows %s." % (other, two), out + err
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_command_logs_no_close_another_writer_made(self):
+        """A title's update runs while another writer closes the last step of a
+        run in the tracker itself: the update logs no close, and closes no
+        root on that writer's behalf."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        env = self.shim(
+            'if { [ "$1" = update ] || [ "$1" = batch ]; } && [ "$2" != --help ]; then '
+            "%s close %s >/dev/null 2>&1; fi" % (shutil.which("bd"), two)
+        )
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "update", one, "--title", "Renamed"],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(self.status_of(two, *beads), "closed", "the other writer closed it")
+        self.assertEqual(self.status_of(other, *beads), "open")
+        self.assertEqual(
+            [e for e in self.witnessed() if e["label"] in ("step_closed", "molecule_closed")], []
+        )
+        # A close of one's own while another writer closes a step elsewhere:
+        # only what the close named is logged, and the other step is not.
+        self.did(*beads, "reopen", two)
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then %s close %s >/dev/null 2>&1; fi'
+            % (shutil.which("bd"), two)
+        )
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", one],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        steps = [e["stepId"] for e in self.witnessed() if e["label"] == "step_closed"]
+        self.assertEqual(steps, [one])
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_root_the_tracker_closes_over_a_moved_step_is_opened_again(self):
+        """The tracker closes a root of its own accord when its last child
+        closes, though a step poured in its run stands open under another
+        root: read back, the root is open again, and stays so until that
+        step closes, when dotdiw closes it and logs it after the step."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        extra = group1(
+            r"Created issue: (\S+)", self.did(*beads, "create", "Extra", "--parent", other)
+        )
+        code, out, err = self.run_tool(*beads, "close", extra)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(self.status_of(other, *beads), "open", "its moved step is open")
+        self.assertEqual(
+            [e for e in self.witnessed() if e["label"] == "molecule_closed"], [], out + err
+        )
+        self.did(*beads, "close", two)
+        self.assertEqual(self.status_of(other, *beads), "closed")
+        closes = [
+            (e["label"], e.get("stepId") or e["moleculeId"])
+            for e in self.witnessed()
+            if e["label"] in ("step_closed", "molecule_closed")
+        ]
+        self.assertEqual(closes, [("step_closed", two), ("molecule_closed", other)])
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_close_is_held_to_every_item_and_logs_only_its_own(self):
+        """A pinned root, which bd's list of open items leaves out, is held
+        to its run as any other: forced, its close is refused while a step of
+        its run stands open. An update to closed of a step another writer
+        closed first is no close of this command's, though bd writes this
+        command's session over that writer's. A close naming a step twice,
+        whole and short, closes it once and logs it once."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        self.did(*beads, "update", other, "--status", "pinned")
+        code, out, err = self.run_tool(*beads, "close", "--force", other)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn("cannot close blocked issue: %s is blocked by [%s]" % (other, two), err)
+        self.assertEqual(self.status_of(other, *beads), "pinned")
+        self.did(*beads, "update", other, "--status", "open")
+        p = subprocess.run(
+            [shutil.which("bd") or "bd", "close", one],
+            cwd=self.repo.path,
+            env=dict(
+                self.repo.env,
+                CLAUDE_SESSION_ID="another-writer",
+                BEADS_DIR=os.path.join(self.repo.workspace(), ".beads"),
+            ),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.did(*beads, "update", one, "--status", "closed")
+        self.assertEqual(
+            [e for e in self.witnessed() if e["label"] in ("step_closed", "molecule_closed")], []
+        )
+        self.did(*beads, "close", two, two.rsplit("-", 1)[1])
+        self.assertEqual(
+            [e.get("stepId") for e in self.witnessed() if e["label"] == "step_closed"], [two]
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_step_bd_lists_only_when_asked_still_holds_its_root(self):
+        """A step of a run made ephemeral, which bd's list leaves out unless
+        asked, still stands open: the root bd closes of its own accord over
+        it is opened again."""
+        beads, root, one, other, two = self.beads_runs()
+        extra = group1(
+            r"Created issue: (\S+)", self.did(*beads, "create", "Extra", "--parent", other)
+        )
+        self.did(*beads, "update", two, "--ephemeral")
+        self.did(*beads, "close", extra)
+        self.assertEqual(self.status_of(other, *beads), "open")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_root_closed_over_a_moved_step_opens_again_without_a_receipt(self):
+        """The tracker closes a root of its own accord when its last child
+        closes, though a step poured in its run stands open under another
+        root. Where the session the close ran under cannot be read back
+        after it -- the read fails, or answers nothing -- nothing is logged
+        and the command fails; the root is opened again all the same, from
+        the tracker as it stands, since a root closed while a step of its run
+        stands open is opened again, whoever closed it. So the close run
+        again opens a root that a close outside dotdiw left so."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        extra = group1(
+            r"Created issue: (\S+)", self.did(*beads, "create", "Extra", "--parent", other)
+        )
+        mark = os.path.join(tempfile.mkdtemp(prefix="dotdiw-mark-"), "closed")
+        self.addCleanup(shutil.rmtree, os.path.dirname(mark), True)
+        for receipt in ("fails", "says nothing"):
+            with self.subTest(receipt=receipt):
+                if os.path.exists(mark):
+                    os.remove(mark)
+                env = self.shim(
+                    'if [ "$1" = close ] && [ "$2" != --help ]; then touch %(m)s; fi\n'
+                    'if [ "$1" = show ] && [ -e %(m)s ]; then %(answer)s; fi'
+                    % {
+                        "m": mark,
+                        "answer": 'echo "the store is busy" >&2; exit 1'
+                        if receipt == "fails"
+                        else "echo '[]'; exit 0",
+                    }
+                )
+                logged = len(self.witnessed())
+                p = subprocess.run(
+                    [sys.executable, "-I", DOTDIW, *beads, "close", extra],
+                    cwd=self.repo.path,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+                self.assertIn("%s could not be read back after the close" % extra, p.stderr)
+                self.assertEqual(self.status_of(extra, *beads), "closed")
+                self.assertEqual(self.status_of(other, *beads), "open", "its moved step is open")
+                self.assertEqual(
+                    [
+                        e
+                        for e in self.witnessed()[logged:]
+                        if e["label"] in ("step_closed", "molecule_closed")
+                    ],
+                    [],
+                )
+                self.did(*beads, "reopen", extra)
+        code, out = self.repo.bd("close", extra)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.status_of(other, *beads), "closed", "bd closed it with its child")
+        self.did(*beads, "close", extra)
+        self.assertEqual(self.status_of(other, *beads), "open")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_the_log_records_only_what_the_tracker_closed(self):
+        """A root's id given as a close's reason is no close of it: the root
+        stays open and the log records none, while the item closed is."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        self.assertIn(other, [e.get("moleculeId") for e in self.witnessed()])
+        task = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Unrelated"))
+        self.did(*beads, "close", task, "--reason", other)
+        self.assertEqual(self.status_of(task, *beads), "closed")
+        self.assertEqual(self.status_of(other, *beads), "open")
+        self.assertEqual([e for e in self.witnessed() if e["label"] == "molecule_closed"], [])
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_the_last_step_closes_the_root_of_its_run(self):
+        """bd closes no root of its own accord; through dotdiw the root of the
+        run closes with its last step, wherever the step stands, and the log
+        records the step before the molecule."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        # A session given the close is kept, with dotdiw's mark on it.
+        code, out, err = self.run_tool(*beads, "close", two, "--session", "the-worker")
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("Closed %s: every step of it closed." % other, err)
+        self.assertEqual(self.status_of(other, *beads), "closed")
+        self.assertEqual(
+            self.status_of(root, *beads), "open", "a root with an open step of its own"
+        )
+        closes = [
+            (e["label"], e.get("stepId") or e["moleculeId"], e.get("everyStepClosed"))
+            for e in self.witnessed()
+            if e["label"] in ("step_closed", "molecule_closed")
+        ]
+        self.assertEqual(closes, [("step_closed", two, None), ("molecule_closed", other, True)])
+
+    def shim(self, script):
+        """An environment whose bd runs the shell lines given first, and is the
+        real bd after them."""
+        shim = tempfile.mkdtemp(prefix="dotdiw-shim-")
+        self.addCleanup(shutil.rmtree, shim, True)
+        with open(os.path.join(shim, "bd"), "w", encoding="utf-8") as fh:
+            fh.write('#!/bin/sh\n%s\nexec %s "$@"\n' % (script, shutil.which("bd")))
+        os.chmod(os.path.join(shim, "bd"), 0o755)
+        return dict(self.repo.env, PATH=shim + os.pathsep + self.repo.env.get("PATH", ""))
+
+    def busy(self, when):
+        """An environment whose bd answers "the store is busy" when the shell
+        test given holds of its arguments, and is the real bd otherwise."""
+        return self.shim('if %s; then echo "the store is busy" >&2; exit 1; fi' % when)
+
+    def close_under(self, env, *args):
+        return subprocess.run(
+            [sys.executable, "-I", DOTDIW, *args],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_root_deleted_before_it_is_opened_again_opens_no_other_item(self):
+        """bd closes a root of its own accord with its last child, though a
+        step of its run stands open under another root, so the root is to be
+        opened again. Another writer deletes the root and that step just
+        before: bd's update reads the root's id as its one item left's, and
+        would open that. The root's id is read whole, so no other item is
+        opened, and the command fails saying the root could not be."""
+        beads, root, one, other, two = self.beads_runs()
+        extra = group1(
+            r"Created issue: (\S+)", self.did(*beads, "create", "Extra", "--parent", other)
+        )
+        marks = tempfile.mkdtemp(prefix="dotdiw-mark-")
+        self.addCleanup(shutil.rmtree, marks, True)
+        closed, deleted = os.path.join(marks, "closed"), os.path.join(marks, "deleted")
+        env = self.shim(
+            'if [ "$1" = close ] && [ "$2" != --help ]; then touch %(c)s; fi\n'
+            'if [ -e %(c)s ] && [ ! -e %(d)s ] && { [ "$1" = update ] || [ "$1" = batch ]; }; then\n'
+            "  touch %(d)s; %(bd)s delete %(other)s %(two)s --force >/dev/null 2>&1\n"
+            "fi"
+            % {
+                "c": shlex.quote(closed),
+                "d": shlex.quote(deleted),
+                "bd": shlex.quote(shutil.which("bd") or "bd"),
+                "other": other,
+                "two": two,
+            }
+        )
+        p = self.close_under(env, *beads, "close", extra)
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertTrue(os.path.exists(deleted), "the other writer deleted the root first")
+        self.assertRegex(
+            p.stderr,
+            re.escape(
+                "%s closed of the tracker's own accord while %s stood open, and it could not "
+                "be opened again: " % (other, two)
+            )
+            + r".*not found",
+        )
+        self.assertNotIn("open again.", p.stderr)
+        self.assertEqual(
+            self.status_of(extra, *beads), "closed", "no other item was opened in its place"
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_step_left_out_of_every_listing_keeps_its_root_open(self):
+        """A step of a run stands open under another root, and every listing
+        of bd's leaves it out, before the close and after it, its own root
+        shown in each. That root keeps each step of its run on its own row,
+        so such a listing is no listing of every item: the root's close does
+        not run, and the step left out is named."""
+        beads, root, one, other, two = self.beads_runs()
+        keep = tempfile.mkdtemp(prefix="dotdiw-filter-")
+        self.addCleanup(shutil.rmtree, keep, True)
+        leave_out = os.path.join(keep, "leave_out.py")
+        with open(leave_out, "w", encoding="utf-8") as fh:
+            fh.write(
+                "import json, sys\n"
+                "text = sys.stdin.read()\n"
+                "try:\n"
+                "    rows = json.loads(text)\n"
+                "except ValueError:\n"
+                "    sys.stdout.write(text)\n"
+                "else:\n"
+                "    print(json.dumps([r for r in rows if r.get('id') != sys.argv[1]]))\n"
+            )
+        env = self.shim(
+            'if [ "$1" = list ]; then out=$(%(bd)s "$@"); code=$?; '
+            'printf "%%s" "$out" | %(py)s %(script)s %(two)s; exit $code; fi'
+            % {
+                "bd": shlex.quote(shutil.which("bd") or "bd"),
+                "py": shlex.quote(sys.executable),
+                "script": shlex.quote(leave_out),
+                "two": two,
+            }
+        )
+        p = self.close_under(env, *beads, "close", other)
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn(
+            "The tracker's list of every item leaves out %s, which it holds in a run with %s."
+            % (two, other),
+            p.stderr,
+        )
+        self.assertEqual(self.status_of(other, *beads), "open")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_close_the_tracker_answers_without_closing_fails(self):
+        """bd answers a close without an error and closes nothing: read back,
+        the step still stands open, so the command fails saying so, and
+        nothing is logged as closed."""
+        self.repo.env["DOTDIW_WITNESS"] = "1"
+        beads, root, one, other, two = self.beads_runs()
+        env = self.shim('if [ "$1" = close ] && [ "$2" != --help ]; then exit 0; fi')
+        p = self.close_under(env, *beads, "close", two)
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn(
+            "The tracker answered the close without an error, and %s stands open." % two,
+            p.stderr,
+        )
+        self.assertEqual(self.status_of(two, *beads), "open")
+        self.assertEqual(
+            [e for e in self.witnessed() if e["label"] in ("step_closed", "molecule_closed")], []
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_wait_that_cannot_be_read_stops_the_need(self):
+        """The check of a need walks what its item would wait on; where the
+        tracker cannot show one of them, the need is not added, though bd
+        alone would add it."""
+        beads, root, one, other, two = self.beads_runs()
+        near = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Near"))
+        far = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Far"))
+        self.did(*beads, "dep", "add", far, other)
+        self.did(*beads, "dep", "add", near, far)
+        # Only far's own record shows that it needs the root of two's run.
+        env = self.busy('[ "$1" = show ] && [ "$2" = "%s" ]' % far)
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "dep", "add", two, near],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn("Nothing ran: what %s waits on could not be read" % far, p.stderr)
+        shown = json.loads(self.run_tool(*beads, "show", two, "--json")[1])
+        shown = shown[0] if isinstance(shown, list) else shown
+        self.assertNotIn(near, [d.get("depends_on_id") for d in shown.get("dependencies") or []])
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_close_does_not_run_where_the_tracker_cannot_be_read(self):
+        """A close whose check cannot ask what stands open does not run: the
+        item stays open, and the worker is told why."""
+        beads, root, one, other, two = self.beads_runs()
+        task = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Unrelated"))
+        env = self.busy('[ "$1" = list ]')
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "close", task],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn("Nothing ran: what the tracker holds open could not be read", p.stderr)
+        self.assertEqual(self.status_of(task, *beads), "open")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_no_edge_by_any_name_makes_a_root_wait_on_itself(self):
+        """Its step is under another root, so only dotdiw sees that the moved
+        step's root waits on it: a need, a link, a blocks and a parent-child
+        edge from the step to that root, and the root under the step, are
+        each refused, whatever stands before the verb."""
+        beads, root, one, other, two = self.beads_runs()
+        for args in (
+            ("dep", "add", two, other),
+            ("--json", "dep", "add", two, "--blocked-by", other),
+            ("link", two, other),
+            ("dep", other, "--blocks", two),
+            ("link", other, two, "--type", "parent-child"),
+            ("update", other, "--parent", two.rsplit("-", 1)[1]),
+            ("dep", "add", two, other, "--type", "depends-on"),
+            ("dep", "add", two, other, "-t", "blocked-by"),
+            ("dep", "add", two, other, "--type=until"),
+            ("link", two, other, "--type", "tracks"),
+            ("link", two, other, "--type", "a-type-yet-to-come"),
+        ):
+            code, out, err = self.run_tool(*beads, *args)
+            self.assertEqual(code, 1, (args, out + err))
+            self.assertIn("which waits on it to close, so neither could close", err)
+        self.did(*beads, "close", two)
+        self.assertEqual(self.status_of(other, *beads), "closed")
+
+    def deleted_by_bd(self, *ids):
+        """The items given deleted by bd itself, as another writer would:
+        each bd a listing runs deletes them first."""
+        env = self.shim(
+            "%s delete %s --force >/dev/null 2>&1"
+            % (shlex.quote(shutil.which("bd") or "bd"), " ".join(ids))
+        )
+        p = self.close_under(env, "--tracker", "beads", "list", "--all")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+
+    def poured_under_beads(self):
+        self.did("tracker", "use", "beads")
+        # The fixture names local in DOTDIW_TRACKER, which outranks tracker use.
+        beads = ("--tracker", "beads")
+        out = json.loads(
+            self.did(*beads, "formula", "pour", "confirm-overnight-staffing", "--json")
+        )
+        return beads, out["rootId"], out["stepIds"][0]
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_an_update_of_a_root_held_no_more_writes_no_other(self):
+        """bd's update reads a deleted root's id, full or short, as its one
+        step's, and would write that one. Each id an update names is read
+        first, as bd will read it, and one bd shows as an item whose id runs
+        on past it names no item: nothing runs, and the step keeps its
+        title."""
+        beads, root, step = self.poured_under_beads()
+        self.deleted_by_bd(root)
+        for word in (root, root.rsplit("-", 1)[1]):
+            code, out, err = self.run_tool(*beads, "update", word, "--title", "Renamed")
+            self.assertEqual(code, 1, out + err)
+            self.assertIn(
+                "The tracker holds no item %s: asked for it, it shows %s, whose id runs on past "
+                "it." % (word, step),
+                err,
+            )
+        shown = json.loads(self.did(*beads, "show", step, "--json"))
+        row = shown[0] if isinstance(shown, list) else shown
+        self.assertEqual(row["title"], "Check the overnight roster")
+
+    def test_under_beads_an_update_is_bds_own_by_the_id_given(self):
+        """An update through the pass-through is bd's own, printed as bd
+        prints it, a short id read as the full one. A root deleted after
+        dotdiw reads it, as bd is asked to write it, is bd's to read again:
+        bd writes the one step whose id begins with the root's, and says
+        so."""
+        beads, root, step = self.poured_under_beads()
+        code, out, err = self.run_tool(*beads, "update", step, "--title", "Renamed", "-p", "P1")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out.strip(), "\u2713 Updated issue: %s \u2014 Renamed" % step)
+        code, out, err = self.run_tool(*beads, "update", step, "--status", "in_progress", "--json")
+        self.assertEqual(code, 0, out + err)
+        rows = json.loads(out)
+        self.assertEqual(
+            [(r["id"], r["title"], r["priority"], r["status"]) for r in rows],
+            [(step, "Renamed", 1, "in_progress")],
+        )
+        code, out, err = self.run_tool(*beads, "update", step.rsplit("-", 1)[1], "--title", "Short")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(out.strip(), "\u2713 Updated issue: %s \u2014 Short" % step)
+        bd = shlex.quote(shutil.which("bd") or "bd")
+        env = self.shim(
+            'if [ "$1" = update ] && [ "$2" != --help ]; then '
+            "%s delete %s --force >/dev/null 2>&1; fi" % (bd, root)
+        )
+        p = self.close_under(env, *beads, "update", root, "--title", "Again")
+        self.assertIn("Updated issue: %s" % step, p.stdout + p.stderr)
+
+    def test_under_beads_a_claim_is_declined_and_nothing_is_written(self):
+        """bd sets a value only through its update, which reads an id it
+        holds nothing of as another item's. So a claim's values are
+        declined under beads, by the full id or a short one, saying so, and
+        nothing is written; the id is read first all the same, and the short
+        id of a root bd holds no more, which bd reads as its step's, names
+        no item."""
+        beads, root, step = self.poured_under_beads()
+        before = json.loads(self.did(*beads, "show", step, "--json"))
+        for given in (step, step.rsplit("-", 1)[1]):
+            with self.subTest(given=given):
+                code, out, err = self.run_tool(
+                    *beads, "claim", given, "roster-id: 42", "capacity: 80"
+                )
+                self.assertEqual(code, 1, out + err)
+                self.assertIn(
+                    "This tracker records no claim's values in this release: it cannot yet "
+                    "hold such a write to the item named, so nothing was recorded on %s." % step,
+                    err,
+                )
+        self.assertEqual(json.loads(self.did(*beads, "show", step, "--json")), before)
+        self.deleted_by_bd(root)
+        short = root.rsplit("-", 1)[1]
+        code, out, err = self.run_tool(*beads, "claim", short, "roster-id: 7")
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(
+            "The tracker holds no item %s: asked for it, it shows %s, whose id runs on past it."
+            % (short, step),
+            err,
+        )
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_no_command_takes_the_run_label_off_a_step(self):
+        """The label that keeps a step in its run is dotdiw's alone to write,
+        as what it keeps in the step's metadata is: an update that removes
+        it, or sets the step's labels without it, and a label remove of it,
+        each run nothing, however the labels are given together. Labels set
+        with it among them, and labels set on an item of no run, are
+        written."""
+        beads, root, step = self.poured_under_beads()
+
+        def labels(ident):
+            shown = json.loads(self.did(*beads, "show", ident, "--json"))
+            return sorted((shown[0] if isinstance(shown, list) else shown).get("labels") or [])
+
+        for args in (
+            ("update", step, "--set-labels", "ready-for-review"),
+            ("update", step, "--set-labels", ""),
+            ("update", step, "--remove-label", "x,dotdiw-run"),
+            ("update", step, '--remove-label="dotdiw-run"'),
+            ("label", "remove", step, "x,dotdiw-run"),
+            ("--json", "label", "remove", step, "dotdiw-run"),
+        ):
+            code, out, err = self.run_tool(*beads, *args)
+            self.assertEqual(code, 1, (args, out + err))
+            self.assertIn("and only dotdiw writes it", err)
+        self.assertEqual(labels(step), ["dotdiw-run"])
+        self.did(*beads, "update", step, "--set-labels", "ready-for-review,dotdiw-run")
+        self.assertEqual(labels(step), ["dotdiw-run", "ready-for-review"])
+        plain = group1(r"Created issue: (\S+)", self.did(*beads, "create", "Plain"))
+        self.did(*beads, "update", plain, "--set-labels", "ready-for-review")
+        self.assertEqual(labels(plain), ["ready-for-review"])
+
+    def migrated(self):
+        self.did("tracker", "migrate", "local", "beads")
+        with open(
+            os.path.join(self.repo.workspace(), "migration-local-to-beads.json"), encoding="utf-8"
+        ) as fh:
+            return json.load(fh)["ids"]
+
+    @uses("bd")
+    def test_a_move_writes_each_runs_root_before_its_steps(self):
+        """A step moved under another run's root, and its own root moved under
+        an item made after it, so that the root waits on that item while the
+        step's parent is ready: the move still writes the root first, and each
+        run reads its own values after it."""
+        # A second apart, as the store lists items by the second each was made.
+        one, two, root, other = self.recorded_twice(apart=1.1)
+        time.sleep(1.1)
+        later = group1(r"Created issue: (\S+)", self.did("create", "Made later"))
+        self.did("update", two, "--parent", root)
+        self.did("update", other, "--parent", later)
+        ids = self.migrated()
+        # The fixture names local in DOTDIW_TRACKER, which outranks tracker use.
+        beads = ("--tracker", "beads")
+        self.assertEqual(self.read(ids[root], *beads), (ids[root], [ids[one]], [self.MEANS_42], []))
+        self.assertEqual(self.read(ids[two], *beads), (ids[other], [ids[two]], [self.MEANS_7], []))
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_a_closed_run_moves_into_beads_whole_though_bd_refuses_its_updates(self):
+        """A closed run moved from the local store into beads, while bd refuses
+        every update the move asks of it: each step is made, and kept in its
+        run, by the one create that makes it, so nothing of a step waits on a
+        write after it, and none is made twice. The move finishes, the run
+        arrives closed with its step, and a second move changes nothing."""
+        one, two, root, other = self.recorded_twice()
+        self.did("close", one)
+        self.assertEqual(self.status_of(root), "closed")
+        env = self.shim('if [ "$1" = update ]; then echo "refused by the test" >&2; exit 1; fi')
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, "tracker", "migrate", "local", "beads"],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        ids = self.migrated()
+        beads = ("--tracker", "beads")
+        listed = json.loads(self.run_tool(*beads, "list", "--all", "--json")[1])
+        self.assertEqual(
+            sorted(r["id"] for r in listed),
+            sorted(ids[i] for i in (one, two, root, other)),
+            "each item made once",
+        )
+        self.assertEqual(self.status_of(ids[root], *beads), "closed")
+        self.assertEqual(self.status_of(ids[one], *beads), "closed")
+        self.assertEqual(self.read(ids[one], *beads), (ids[root], [ids[one]], [self.MEANS_42], []))
+
+    @uses("bd")
+    def test_a_root_under_its_own_step_keeps_that_parent(self):
+        """A root under its own step, which stands under another run's root,
+        with an item under that step -- made in the store itself, since
+        dotdiw refuses it: the root waits on its step for its parent and the
+        step on the root for its run, so the root is written first and its
+        parent set once both are made, and every item keeps its parent and
+        its run."""
+        one, two, root, other = self.recorded_twice()
+        under = group1(r"Created issue: (\S+)", self.did("create", "Under it", "--parent", two))
+        self.did("update", two, "--parent", root)
+        conn = sqlite3.connect(os.path.join(self.repo.workspace(), "dotdiw.sqlite"))
+        with conn:
+            conn.execute("UPDATE items SET parent = ? WHERE id = ?", (two, other))
+        conn.close()
+        ids = self.migrated()
+        beads = ("--tracker", "beads")
+        self.assertEqual(self.read(ids[two], *beads), (ids[other], [ids[two]], [self.MEANS_7], []))
+        for child, parent in ((under, two), (other, two), (two, root)):
+            shown = json.loads(self.run_tool(*beads, "show", ids[child], "--json")[1])
+            shown = shown[0] if isinstance(shown, list) else shown
+            self.assertEqual(shown["parent"], ids[parent], child)
+
+    @uses("bd")
+    def test_runs_that_wait_on_each_other_stop_the_move_unwritten(self):
+        made = [group1(r"Created issue: (\S+)", self.did("create", t)) for t in ("X", "Y")]
+        conn = sqlite3.connect(os.path.join(self.repo.workspace(), "dotdiw.sqlite"))
+        with conn:
+            for ident, run in zip(made, reversed(made), strict=True):
+                conn.execute("UPDATE items SET run = ? WHERE id = ?", (run, ident))
+        conn.close()
+        code, out, err = self.run_tool("tracker", "migrate", "local", "beads")
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(
+            "The runs of %s wait on each other, so no item was written." % ", ".join(sorted(made)),
+            out + err,
+        )
+        self.assertFalse(
+            os.path.exists(os.path.join(self.repo.workspace(), "migration-local-to-beads.json"))
+        )
+
+    @uses("bd")
+    def test_a_move_carries_the_claims_their_values_and_their_run(self):
+        one = self.poured()
+        self.run_tool("claim", one, "roster-id: 42", "capacity: 80", "shift-date: 2026-11-13")
+        root = json.loads(self.run_tool("claim", one, "--json")[1])["root"]
+        code, out, err = self.run_tool("tracker", "migrate", "local", "beads")
+        self.assertEqual(code, 0, out + err)
+        with open(
+            os.path.join(self.repo.workspace(), "migration-local-to-beads.json"), encoding="utf-8"
+        ) as fh:
+            ids = json.load(fh)["ids"]
+        # The fixture names local in DOTDIW_TRACKER, which outranks tracker use.
+        run = json.loads(self.run_tool("--tracker", "beads", "claim", ids[one], "--json")[1])
+        self.assertEqual(run["root"], ids[root])
+        self.assertEqual(
+            run["steps"][0]["claim"],
+            "Roster 42 covers 80 people for the overnight shift starting 2026-11-13.",
+        )
+        self.assertEqual(run["verifyUsing"], [self.MEANS_42])
+        shown = json.loads(self.run_tool("--tracker", "beads", "show", ids[one], "--json")[1])
+        shown = shown[0] if isinstance(shown, list) else shown
+        self.assertEqual(shown["metadata"]["dotdiw"]["run"], ids[root])
+
+    def provider(self, name, text):
+        where = os.path.join(self.repo.env["HOME"], ".dotdiw", "formula-providers")
+        os.makedirs(where, exist_ok=True)
+        with open(os.path.join(where, name + ".py"), "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    def test_a_provider_with_title_and_description_fields_answers_the_same_run(self):
+        self.provider("plain", PLAIN_PROVIDER)
+        code, out, err = self.run_tool("formula", "provider", "register", "acme", "plain")
+        self.assertEqual(code, 0, out + err)
+        code, out, err = self.run_tool(
+            "formula", "pour", "confirm-overnight-staffing-acme", "--json"
+        )
+        self.assertEqual(code, 0, out + err)
+        step = json.loads(out)["stepIds"][0]
+        code, out, err = self.run_tool(
+            "claim", step, "roster-id: 42", "capacity: 80", "shift-date: 2026-11-13"
+        )
+        self.assertEqual(code, 0, out + err)
+        self.assertIn(
+            "claim:\nRoster 42 covers 80 people for the overnight shift starting 2026-11-13.\n", out
+        )
+        self.assertIn("verify-using:\n%s\n" % self.MEANS_42, out)
+
+    def test_formula_show_answers_a_providers_claim_in_the_form_a_file_takes(self):
+        store = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, store, True)
+        with open(os.path.join(store, "staffing.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(self.STAFFING)
+        code, out, err = self.run_tool(
+            "formula", "provider", "register", "acme", "directory", "--at", store
+        )
+        self.assertEqual(code, 0, out + err)
+        code, out, err = self.run_tool("formula", "show", "confirm-overnight-staffing-acme")
+        self.assertEqual(code, 0, out + err)
+        shown = json.loads(out)
+        shown["formula"] = "confirm-overnight-staffing-kept"
+        self.repo.write("kept.formula.json", json.dumps(shown))
+        code, out, err = self.run_tool(
+            "formula", "pour", "confirm-overnight-staffing-kept", "--json"
+        )
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(
+            json.loads(out)["claims"][0]["slots"], ["roster-id", "capacity", "shift-date"]
+        )
+
+    def test_each_run_resolves_from_its_own_step(self):
+        one, two = self.poured(), self.poured()
+        self.run_tool("claim", one, "roster-id: 42", "capacity: 80", "shift-date: 2026-11-13")
+        self.run_tool("claim", two, "roster-id: 7", "capacity: 65", "shift-date: 2026-11-14")
+        for step, means in (
+            (
+                one,
+                'json+https://rosters.example.org/42 | .capacity == 80 and .shift_date == "2026-11-13"',
+            ),
+            (
+                two,
+                'json+https://rosters.example.org/7 | .capacity == 65 and .shift_date == "2026-11-14"',
+            ),
+        ):
+            code, out, err = self.run_tool("claim", step, "--json")
+            self.assertEqual(json.loads(out)["verifyUsing"], [means])
+
+
+class TheHelpOfDotdiwsOwnCommands(unittest.TestCase):
+    """--help, or -h, on a command dotdiw parses itself prints its usage and
+    what it does and exits 0, wherever it stands among the words, and does
+    nothing else."""
+
+    def setUp(self):
+        self.repo = Repo(tracker=None)
+        self.addCleanup(self.repo.close)
+
+    def test_each_own_command_answers_help(self):
+        for args, usage in (
+            (("claim", "--help"), "dotdiw claim <id> [label: value ...] [--json]"),
+            (("claim", "x-1", "-h"), "dotdiw claim <id>"),
+            (("formula", "pour", "--help"), "dotdiw formula pour <formula> [--json]"),
+            (("mol", "pour", "mol-x", "--help"), "dotdiw formula pour <formula> [--json]"),
+            (("create", "--help"), "dotdiw create <title>"),
+            (("init", "--help"), "dotdiw init [--tracker <name>]"),
+            (("check", "--help"), "dotdiw check"),
+        ):
+            with self.subTest(args=args):
+                code, out = self.repo.dotdiw(*args)
+                self.assertEqual(code, 0, out)
+                self.assertIn(usage, out)
+        with open(os.path.join(self.repo.path, ".git", "config"), encoding="utf-8") as fh:
+            self.assertNotIn("dotdiw", fh.read(), "init --help adopts nothing")
+
+
+@uses("bd")
 class TheUpgradePin(unittest.TestCase):
     """A workspace adopted before there was a choice of tracker holds one
     adapter's store and no choice: every command but init says so, and init
@@ -4982,6 +8878,7 @@ BEYOND = [
 ]
 
 
+@uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class TheBytesUnderBeads(unittest.TestCase):
     """Under the beads adapter, the seventeen commands print what an earlier
@@ -5551,6 +9448,7 @@ class TheFormulaProviders(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("names no formula the acme provider serves", out)
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_under_beads_a_removed_providers_formula_pours_no_copy(self):
         repo = Repo()
@@ -5906,6 +9804,7 @@ class TheFormulaProviders(unittest.TestCase):
         code, listed = self.dotdiw("list", "--all", "--json")
         self.assertEqual(json.loads(listed), [])
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_a_providers_suffix_never_falls_back_to_a_file_name(self):
         """A local file named like a provider's suffixed id, declaring an id
@@ -6019,6 +9918,7 @@ class TheFormulaProviders(unittest.TestCase):
         line = next(x for x in out.splitlines() if "Run it:" in x)
         self.assertEqual(shlex.split(line.split("Run it:", 1)[1])[-1], "zed.formula.toml")
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_the_pour_hint_is_never_read_as_an_option(self):
         """A reference that starts with a hyphen would be read as an option:
@@ -6049,6 +9949,7 @@ class TheFormulaProviders(unittest.TestCase):
                 self.assertEqual(code, 0, out)
                 self.assertIn("Poured mol: created 2 issues", out)
 
+    @uses("bd")
     @unittest.skipUnless(have_bd(), "bd is not installed")
     def test_the_providers_list_and_remove(self):
         self.adopted()

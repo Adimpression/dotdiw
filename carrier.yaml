@@ -9,7 +9,7 @@ productPosition:
 carriers:
   - carrierId: dotdiwCli
     carrierKind: software
-    carries: [workNaming, formulaSurfacing, procedurePouring]
+    carries: [workNaming, formulaSurfacing, procedurePouring, claimRecording]
     strengths:
       - one file on PATH, reached by terminal, script and subprocess by the same path
       - nothing installed or configured per project

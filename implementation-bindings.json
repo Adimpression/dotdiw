@@ -1,7 +1,7 @@
 {
   "trackerInterface": {
-    "number": 3,
-    "digest": "1a119d6cc5a892e1"
+    "number": 4,
+    "digest": "d963b9603d214300"
   },
   "implementationBindings": [
     {
@@ -10,7 +10,7 @@
       "implementationUnit": "promise_bindings::StartNamedWork",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::StartNamedWork, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::StartNamedWork, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.write-a-procedure-down",
@@ -18,7 +18,7 @@
       "implementationUnit": "promise_bindings::WriteAProcedureDown",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::WriteAProcedureDown, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::WriteAProcedureDown, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.adopt-a-repository",
@@ -26,7 +26,7 @@
       "implementationUnit": "promise_bindings::AdoptARepository",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::AdoptARepository, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::AdoptARepository, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.run-a-tracker-command",
@@ -34,7 +34,7 @@
       "implementationUnit": "promise_bindings::RunATrackerCommand",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::RunATrackerCommand, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::RunATrackerCommand, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.find-a-held-procedure",
@@ -42,7 +42,7 @@
       "implementationUnit": "promise_bindings::FindAHeldProcedure",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::FindAHeldProcedure, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::FindAHeldProcedure, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.learn-the-conventions",
@@ -50,7 +50,7 @@
       "implementationUnit": "promise_bindings::LearnTheConventions",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::LearnTheConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::LearnTheConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.answer-through-the-tracker",
@@ -58,7 +58,7 @@
       "implementationUnit": "promise_bindings::AnswerThroughTheTracker",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::AnswerThroughTheTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::AnswerThroughTheTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.choose-a-tracker",
@@ -66,7 +66,7 @@
       "implementationUnit": "promise_bindings::ChooseATracker",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ChooseATracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ChooseATracker, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.move-a-workspace",
@@ -74,7 +74,7 @@
       "implementationUnit": "promise_bindings::MoveAWorkspace",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::MoveAWorkspace, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::MoveAWorkspace, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.ship-a-tracker",
@@ -82,7 +82,7 @@
       "implementationUnit": "promise_bindings::ShipATracker",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ShipATracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ShipATracker, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.name-the-work",
@@ -90,7 +90,7 @@
       "implementationUnit": "promise_bindings::NameTheWork",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::NameTheWork, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::NameTheWork, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.match-formulas",
@@ -98,7 +98,7 @@
       "implementationUnit": "promise_bindings::MatchFormulas",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::MatchFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::MatchFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.pour-procedure",
@@ -106,7 +106,7 @@
       "implementationUnit": "promise_bindings::PourProcedure",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::PourProcedure, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::PourProcedure, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.notice-handmade-procedures",
@@ -114,7 +114,7 @@
       "implementationUnit": "promise_bindings::NoticeHandmadeProcedures",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::NoticeHandmadeProcedures, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::NoticeHandmadeProcedures, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.nudge-towards-a-formula",
@@ -122,7 +122,7 @@
       "implementationUnit": "promise_bindings::NudgeTowardsAFormula",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::NudgeTowardsAFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::NudgeTowardsAFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.write-formula",
@@ -130,7 +130,7 @@
       "implementationUnit": "promise_bindings::WriteFormula",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::WriteFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::WriteFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.describe-and-check",
@@ -138,7 +138,7 @@
       "implementationUnit": "promise_bindings::DescribeAndCheck",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::DescribeAndCheck, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::DescribeAndCheck, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.commit-formula",
@@ -146,7 +146,7 @@
       "implementationUnit": "promise_bindings::CommitFormula",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::CommitFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::CommitFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.adopt-repository",
@@ -154,7 +154,7 @@
       "implementationUnit": "promise_bindings::AdoptRepository",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::AdoptRepository, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::AdoptRepository, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.declare-conventions",
@@ -162,7 +162,7 @@
       "implementationUnit": "promise_bindings::DeclareConventions",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::DeclareConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::DeclareConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.report-what-is-yours-to-commit",
@@ -170,7 +170,7 @@
       "implementationUnit": "promise_bindings::ReportWhatIsYoursToCommit",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ReportWhatIsYoursToCommit, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ReportWhatIsYoursToCommit, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.undo-earlier-adoption",
@@ -178,7 +178,7 @@
       "implementationUnit": "promise_bindings::UndoEarlierAdoption",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::UndoEarlierAdoption, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::UndoEarlierAdoption, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.turn-metrics-off",
@@ -186,7 +186,7 @@
       "implementationUnit": "promise_bindings::TurnMetricsOff",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::TurnMetricsOff, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::TurnMetricsOff, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.forward-to-the-tracker",
@@ -194,7 +194,7 @@
       "implementationUnit": "promise_bindings::ForwardToTheTracker",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ForwardToTheTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ForwardToTheTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.index-the-project",
@@ -202,7 +202,7 @@
       "implementationUnit": "promise_bindings::IndexTheProject",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::IndexTheProject, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::IndexTheProject, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.list-formulas",
@@ -210,7 +210,7 @@
       "implementationUnit": "promise_bindings::ListFormulas",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ListFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ListFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.show-formula",
@@ -218,7 +218,7 @@
       "implementationUnit": "promise_bindings::ShowFormula",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ShowFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ShowFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.resolve-formula",
@@ -226,7 +226,7 @@
       "implementationUnit": "promise_bindings::ResolveFormula",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ResolveFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ResolveFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.teach-the-conventions",
@@ -234,7 +234,7 @@
       "implementationUnit": "promise_bindings::TeachTheConventions",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::TeachTheConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::TeachTheConventions, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.beads-open-tracker",
@@ -397,12 +397,52 @@
       "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.ready-items], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
     },
     {
+      "bindingId": "impl.beads-record-values",
+      "operationId": "operation.record-values",
+      "implementationUnit": "promise_bindings::BeadsRecordValues",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false,
+      "notes": "The beads adapter's callable for this operation, dotdiw::TRACKERS[beads][operations][operation.record-values], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.local-record-values",
+      "operationId": "operation.record-values",
+      "implementationUnit": "promise_bindings::LocalRecordValues",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The local adapter's callable for this operation, dotdiw::TRACKERS[local][operations][operation.record-values], reached only through the tracker door, invoke_tracker, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it."
+    },
+    {
+      "bindingId": "impl.record-what-a-step-found",
+      "operationId": "operation.record-what-a-step-found",
+      "implementationUnit": "promise_bindings::RecordWhatAStepFound",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::RecordWhatAStepFound, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.record-claim",
+      "operationId": "operation.record-claim",
+      "implementationUnit": "promise_bindings::RecordClaim",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::RecordClaim, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.read-run",
+      "operationId": "operation.read-run",
+      "implementationUnit": "promise_bindings::ReadRun",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::ReadRun, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
       "bindingId": "impl.list-trackers",
       "operationId": "operation.list-trackers",
       "implementationUnit": "promise_bindings::ListTrackers",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ListTrackers, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ListTrackers, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.use-tracker",
@@ -410,7 +450,7 @@
       "implementationUnit": "promise_bindings::UseTracker",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::UseTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::UseTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.check-tracker",
@@ -418,7 +458,7 @@
       "implementationUnit": "promise_bindings::CheckTracker",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::CheckTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::CheckTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.migrate-workspace",
@@ -426,7 +466,7 @@
       "implementationUnit": "promise_bindings::MigrateWorkspace",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::MigrateWorkspace, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::MigrateWorkspace, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.write-tracker",
@@ -434,7 +474,7 @@
       "implementationUnit": "promise_bindings::WriteTracker",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::WriteTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::WriteTracker, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.answer-through-a-formula-provider",
@@ -442,7 +482,7 @@
       "implementationUnit": "promise_bindings::AnswerThroughAFormulaProvider",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::AnswerThroughAFormulaProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::AnswerThroughAFormulaProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.register-provider",
@@ -450,7 +490,7 @@
       "implementationUnit": "promise_bindings::RegisterProvider",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::RegisterProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::RegisterProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.describe-provider",
@@ -458,7 +498,7 @@
       "implementationUnit": "promise_bindings::DescribeProvider",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::DescribeProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::DescribeProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.list-provider-formulas",
@@ -466,7 +506,7 @@
       "implementationUnit": "promise_bindings::ListProviderFormulas",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ListProviderFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ListProviderFormulas, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.show-provider-formula",
@@ -474,7 +514,7 @@
       "implementationUnit": "promise_bindings::ShowProviderFormula",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::ShowProviderFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::ShowProviderFormula, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.remove-provider",
@@ -482,7 +522,7 @@
       "implementationUnit": "promise_bindings::RemoveProvider",
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
-      "notes": "The body is dotdiw::RemoveProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py re-exports it under this name for import only, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+      "notes": "The body is dotdiw::RemoveProvider, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     }
   ]
 }

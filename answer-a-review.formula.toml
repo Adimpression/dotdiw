@@ -1,0 +1,61 @@
+formula = "mol-answer-a-review"
+description = "Answer a review of a change in this project: reproduce each finding, fix it at its cause with a test that fails before the fix, and run only the test suites the fixes touch -- never the full suite or the deliberate-break run, which belong to raising the pull request. Use when a reviewer holds approval with findings, when fixes for a review are to be made or checked, or when the full check at pull request time found a bug and the change goes back into review."
+examples = [
+  "Answer the review",
+  "Address the review findings",
+  "Fix the review findings on the branch",
+  "The reviewer held approval with findings",
+  "Answer the seventh review of step claims for 4.0.0",
+  "Answer the fourth review of step claims: the beads pass-through holds the close guard, a reparent cannot deadlock a run, a moved step's run root closes with it, an empty run filter is refused",
+  "Answer the fourteen review findings on the tracker commit",
+  "Answer the review of 5428000 in .REVIEW.md: five findings",
+  "Verify the seven review findings on 7ff50cd and fix those that hold",
+  "Recheck the six step claims review findings",
+  "The full check found a bug in the pull request",
+]
+version = 1
+type = "workflow"
+
+# Written after answering seven reviews of the step claims for 4.0.0 by hand,
+# each followed by every suite and an hour of deliberate breaks. A review runs
+# the suites its fixes touch; the full suite runs when the pull request is
+# raised (mol-make-pull-request), and a bug found there comes back here.
+
+[[steps]]
+id = "open"
+title = "Name the work before touching anything: `dotdiw create \"Answer the <n>th review of <change>\"`"
+
+[[steps]]
+id = "reproduce"
+title = "Reproduce each finding before changing code; one that does not reproduce is answered with what was run and what it showed"
+needs = ["open"]
+
+[[steps]]
+id = "fix"
+title = "Fix each finding at its cause, each with a test that fails before the fix and passes after it"
+needs = ["reproduce"]
+
+[[steps]]
+id = "suites"
+title = "Run the suites the fixes touch and no other: `python3 -I suites.py fast` always; `python3 -I suites.py bd` when the beads adapter, the pass-through or a test that runs bd changed; `python3 -I suites.py poa` when the witness contract or the witness log changed. Not `all`, and not the deliberate-break run: those are for the pull request"
+needs = ["fix"]
+
+[[steps]]
+id = "idl"
+title = "If the POA model, a binding or the witness contract changed, run the IDL and contract steps of mol-check-promise-artifacts -- validate, derive, complete, check, replay, sweep -- without its test step"
+needs = ["fix"]
+
+[[steps]]
+id = "lint"
+title = "Format, lint and type-check: `uv run ruff format --check .`, `uv run ruff check .`, `uv run mypy`"
+needs = ["fix"]
+
+[[steps]]
+id = "report"
+title = "Tell the reviewer in plain sentences: each finding, what changed, and the test that shows it fixed; and which suites ran and which did not"
+needs = ["suites", "idl", "lint"]
+
+[[steps]]
+id = "close"
+title = "Close the item. The change goes to mol-make-pull-request only once the review passes"
+needs = ["report"]

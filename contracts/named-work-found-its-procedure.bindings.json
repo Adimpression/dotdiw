@@ -33,7 +33,10 @@
         "antiGoldenTraceIds": [
           "antitrace.procedure-poured-unnamed",
           "antitrace.poured-what-never-surfaced",
-          "antitrace.create-both-surfaced-and-silent"
+          "antitrace.create-both-surfaced-and-silent",
+          "antitrace.run-closed-before-its-steps",
+          "antitrace.run-closed-with-a-step-unclosed",
+          "antitrace.run-closed-by-an-older-witness"
         ],
         "objectIds": [
           "object.work",
@@ -177,6 +180,7 @@
       "requiredFields": [
         "workId",
         "moleculeId",
+        "everyStepClosed",
         "occurredAt",
         "observedAt"
       ],
@@ -196,6 +200,21 @@
           }
         ]
       },
+      "source": "beadsIssues"
+    },
+    {
+      "bindingId": "binding.obs.molecule-closed-early",
+      "operationId": "operation.forward-to-the-tracker",
+      "eventClassId": "event.molecule-closed-early",
+      "observedLabels": [
+        "molecule_closed"
+      ],
+      "requiredFields": [
+        "workId",
+        "moleculeId",
+        "occurredAt",
+        "observedAt"
+      ],
       "source": "beadsIssues"
     }
   ],

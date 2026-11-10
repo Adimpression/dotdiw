@@ -46,6 +46,17 @@ def have_bd():
     return shutil.which("bd") is not None
 
 
+def uses(*binaries):
+    """Mark a test class or a test with the binaries it runs beyond Python and
+    git -- "bd", "poa" -- which say the suite it is in (suites.py)."""
+
+    def mark(obj):
+        obj.uses = frozenset(binaries)
+        return obj
+
+    return mark
+
+
 class Present:
     """A home with every adapter present installed, a stub Jira up, and a
     repository keyed to a workspace under that home; dotdiw loaded once."""
@@ -112,6 +123,7 @@ class Present:
         )
 
 
+@uses("bd")
 class EveryAdapterPresent(unittest.TestCase):
     """The scenario, through the door, against each adapter here."""
 
@@ -146,6 +158,7 @@ class EveryAdapterPresent(unittest.TestCase):
                             "operation.list-items",
                             "operation.update-item",
                             "operation.pour-steps",
+                            "operation.record-values",
                         ].index(op),
                     ),
                 )
@@ -165,7 +178,7 @@ class EveryAdapterPresent(unittest.TestCase):
             "info": {
                 "name": "lax",
                 "version": "0",
-                "interface": 3,
+                "interface": 4,
                 "origin": "shipped",
                 "checkTarget": "lax",
             },
@@ -238,7 +251,7 @@ class Memory:
             return {
                 "status": "completed",
                 "summary": "memory",
-                "info": {"name": self.name, "version": "0", "interface": 3, "origin": "loaded"},
+                "info": {"name": self.name, "version": "0", "interface": 4, "origin": "loaded"},
                 "exitCode": 0,
             }
 
@@ -312,6 +325,11 @@ class Memory:
         def listing(request):
             return {"status": "completed", "summary": "x", "items": list(self.items.values())}
 
+        def record_values(request):
+            item = self.items[request["id"]]
+            item["values"] = list(request["values"])
+            return {"status": "completed", "summary": "recorded", "item": item}
+
         def pour(request):
             return {"status": "failed", "reason": "no-steps", "exitCode": 1, "summary": "none"}
 
@@ -319,7 +337,7 @@ class Memory:
             "info": {
                 "name": self.name,
                 "version": "0",
-                "interface": 3,
+                "interface": 4,
                 "origin": "loaded",
                 "checkTarget": "scratch",
             },
@@ -334,6 +352,7 @@ class Memory:
                 "operation.list-items": listing,
                 "operation.update-item": update,
                 "operation.ready-items": listing,
+                "operation.record-values": record_values,
             },
             "extras": {},
         }
@@ -488,6 +507,7 @@ class AnInterruptedMove(unittest.TestCase):
         )
 
 
+@uses("bd")
 class MovingBetweenAdapters(unittest.TestCase):
     """A workspace's work moves from each adapter present to each other one
     with everything intact, the source unchanged, and nothing twice."""

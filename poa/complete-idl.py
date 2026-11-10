@@ -415,6 +415,7 @@ def tracker_door_source(idl: Idl) -> str:
         out += '    "%s": {\n' % op["operationId"]
         out += names_tuple("request", sorted(f["name"] for f in req))
         out += names_tuple("requestRequired", sorted(f["name"] for f in req if f["required"]))
+        out += '        "requestType": %s,\n' % class_name(op["requestType"])
         out += names_tuple("response", sorted(f["name"] for f in resp))
         out += names_tuple("responseRequired", sorted(f["name"] for f in resp if f["required"]))
         out += '        "responseType": %s,\n' % class_name(op["responseType"])
@@ -472,7 +473,7 @@ def read_verify_using(text: str | None) -> tuple[str | None, list[str]]:
 
 def skeleton_source(idl: Idl) -> str:
     """What `dotdiw tracker new` writes, as text dotdiw holds between its own
-    markers: the ten operations raising until they are filled, each saying the
+    markers: the eleven operations raising until they are filled, each saying the
     fields it takes and answers, and the table that declares them. <NAME> is
     the tracker's name, put in when the file is written."""
     types = by_id(idl["types"], "typeId")

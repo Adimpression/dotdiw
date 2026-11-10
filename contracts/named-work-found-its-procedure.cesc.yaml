@@ -15,8 +15,15 @@ purpose: >
   tracker of that day and kept so that one log reads under one contract
   across versions, covers closes that went through dotdiw, whichever tracker
   answered; a step closed in the tracker itself, outside dotdiw, is invisible
-  to it, so a story can be incomplete through no fault of the work. A pour is
-  attributed to the create
+  to it, so a story can be incomplete through no fault of the work. The
+  tracker refuses to close a root while an item poured in its run is open,
+  so a molecule closes after every step of it; the log, which sees only the
+  closes that went through dotdiw, must show one of them before it. Each
+  molecule's close says whether the log showed every step of it closed by
+  then; only one that says so completes, and one that does not -- that
+  says otherwise, or says nothing, as a log written before 4.0.0 does --
+  is classed apart, as closed early, and waits on a completion that cannot
+  come, so its story is incomplete. A pour is attributed to the create
   that surfaced its formula, failing that to the most recently named work; a
   pour the log cannot place is exactly what this contract exists to refuse.
 sourceSemanticStack:
@@ -58,6 +65,9 @@ semanticSources:
     - antitrace.procedure-poured-unnamed
     - antitrace.poured-what-never-surfaced
     - antitrace.create-both-surfaced-and-silent
+    - antitrace.run-closed-before-its-steps
+    - antitrace.run-closed-with-a-step-unclosed
+    - antitrace.run-closed-by-an-older-witness
   objectIds:
     - object.work
     - object.formula
@@ -182,6 +192,10 @@ eventClasses:
         - molecule_closed
     count:
       perCase: zeroOrOne
+    predicates:
+      - field: everyStepClosed
+        op: equals
+        value: true
     consumes:
       - objectId: object.molecule
         state: poured
@@ -190,6 +204,17 @@ eventClasses:
       - objectId: object.work
         state: done
         keyField: workId
+  closed_early:
+    eventClassId: event.molecule-closed-early
+    label:
+      anyOf:
+        - molecule_closed
+    count:
+      perCase: zeroOrOne
+    predicates:
+      - field: everyStepClosed
+        op: notEquals
+        value: true
 causality:
   - relationId: relation.named-before-surfaced
     before: named
@@ -223,6 +248,22 @@ causality:
     requiredEvidence:
       anyOf:
         - sameCaseKey
+  - relationId: relation.a-step-closed-before-completed
+    before: step_closed
+    after: completed
+    quantifier: exists
+    meaning: enables
+    requiredEvidence:
+      anyOf:
+        - sameCaseKey
+  - relationId: relation.every-step-closed-before-the-molecule
+    before: completed
+    after: closed_early
+    quantifier: exists
+    meaning: enables
+    requiredEvidence:
+      anyOf:
+        - sameCaseKey
   - relationId: relation.poured-before-completed
     before: poured
     after: completed
@@ -246,7 +287,8 @@ outcomes:
   valid:
     meaning: >
       The work was named first, what applied surfaced with it, the surfaced
-      procedure was poured, and its steps closed after the pour.
+      procedure was poured, its steps closed after the pour, and the
+      molecule, where it closed, closed after every step of it.
     emitWhen:
       - allRequiredCausalitySatisfied
       - allRequiredObjectsPassed
@@ -259,7 +301,8 @@ outcomes:
   incomplete:
     meaning: >
       A downstream event is observed without its required predecessor: a pour
-      with no naming, or a pour of a formula that never surfaced.
+      with no naming, a pour of a formula that never surfaced, or a molecule
+      closed before every step of it, or by a close the log cannot vouch for.
     emitWhen:
       - downstreamClaimHasMissingRequiredPredecessor
   caveated:
@@ -316,6 +359,37 @@ traceExpectations:
     rejectionReason: >
       One create cannot both surface a formula and report silence; a log that
       says both is evidence of nothing.
+  - traceId: antitrace.run-closed-before-its-steps
+    traceKind: anti-golden
+    fixtureUri: ../events/run-closed-before-its-steps.jsonl
+    expectedStatus: incomplete
+    violatedRefs:
+      - relation.a-step-closed-before-completed
+    rejectionReason: >
+      A molecule's close says every step of it closed, and the log shows no
+      step closed before it: the close's word alone cannot say the
+      procedure's steps were done, whatever the tracker holds.
+  - traceId: antitrace.run-closed-with-a-step-unclosed
+    traceKind: anti-golden
+    fixtureUri: ../events/run-closed-with-a-step-unclosed.jsonl
+    expectedStatus: incomplete
+    violatedRefs:
+      - relation.every-step-closed-before-the-molecule
+    rejectionReason: >
+      A molecule closed while the log shows a step of it unclosed: the close
+      is recorded as one the log cannot vouch for, and a story that rests on
+      it cannot be called kept.
+  - traceId: antitrace.run-closed-by-an-older-witness
+    traceKind: anti-golden
+    fixtureUri: ../events/run-closed-by-an-older-witness.jsonl
+    expectedStatus: incomplete
+    violatedRefs:
+      - relation.every-step-closed-before-the-molecule
+    rejectionReason: >
+      A molecule's close that does not say whether every step of it closed
+      first, as a log written before 4.0.0 does not, with one of its two
+      steps closed: a close the log cannot vouch for is no completion,
+      whatever wrote it.
 changePolicy:
   compatibilityClasses:
     - additive

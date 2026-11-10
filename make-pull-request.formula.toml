@@ -1,5 +1,5 @@
 formula = "mol-make-pull-request"
-description = "Commit and push in this project as a pull request, a PR: confirm there is one branch besides main and that this is it, decide what belongs in the commit, sweep the staged change for credentials and personal data, check the conventions still hold, move the version line when a release ships the change, write a message that says what is now true in plain sentences with a first line that fits the line, review it as the reader will, then commit — one commit per branch, its message the pull request's description — and get it onto the remote only once somebody has asked for a push and named where it goes. Use when you are about to commit, when you have changes to land, when you are writing a commit message, when something needs pushing, or when a pull request is to be created."
+description = "Commit and push in this project as a pull request, a PR: confirm there is one branch besides main and that this is it, decide what belongs in the commit, sweep the staged change for credentials and personal data, check the conventions still hold, pass the promise check with every test suite on the tree to be committed -- a bug it finds sends the change back into review -- move the version line when a release ships the change, write a message that says what is now true in plain sentences with a first line that fits the line, review it as the reader will, then commit — one commit per branch, its message the pull request's description — and get it onto the remote only once somebody has asked for a push and named where it goes. Use when you are about to commit, when you have changes to land, when you are writing a commit message, when something needs pushing, or when a pull request is to be created."
 examples = [
   "Commit what I just changed",
   "Write the commit message for this change",
@@ -14,8 +14,13 @@ examples = [
   "Create the PR",
   "Open a pull request for this change",
 ]
-version = 7
+version = 10
 type = "workflow"
+
+# Version 10: the deliberate breaks run here, every one, and their table is
+# the record in measurements/results/mutation-tracker.txt. A review runs only
+# its own (mol-answer-a-review), so without this step the record falls behind
+# the table it is the record of.
 
 [[steps]]
 id = "branch"
@@ -35,6 +40,16 @@ needs = ["scope"]
 id = "conventions"
 title = "Run `dotdiw check` and fix anything it reports"
 needs = ["scope"]
+
+[[steps]]
+id = "promise"
+title = "Run the promise check on the tree to be committed -- `dotdiw mol pour mol-check-promise-artifacts`, followed through with every test suite: `python3 -I suites.py all`. A pull request is pushed only on a tree that has passed it. A bug it finds goes back into review: fix it under mol-answer-a-review, and raise the pull request again once that review passes"
+needs = ["scope"]
+
+[[steps]]
+id = "breaks"
+title = "Run every deliberate break on the tree to be committed, from measurements/: `python3 -I measure/mutate_tracker.py`, every mutation caught, and write the table it prints to measurements/results/mutation-tracker.txt, so that the record covers each entry the table holds. A mutation that survives is a rule nothing holds: it goes back into review like a bug"
+needs = ["promise"]
 
 [[steps]]
 id = "message"
@@ -59,7 +74,7 @@ needs = ["review"]
 [[steps]]
 id = "commit"
 title = "Stage only what belongs and commit"
-needs = ["sweep", "conventions", "version", "single"]
+needs = ["sweep", "conventions", "promise", "breaks", "version", "single"]
 
 [[steps]]
 id = "verify"

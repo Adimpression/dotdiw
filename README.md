@@ -140,6 +140,37 @@ this repository that git does not track. Before the root closes, whoever ran
 the release proves it with them: runs the command, reads the file, opens the
 link.
 
+A step can also declare a claim: what whoever does it can assert once it is
+done, in the formula's own terms. The claim is a `statement` with a
+`{{ label }}` placeholder for each slot, and each slot is declared by its label
+in lowercase kebab-case followed by a colon:
+
+```toml
+[steps.claim]
+statement = "Tagged {{ name }} at commit {{ commit }}."
+"name:" = {}
+"commit:" = {}
+```
+
+The pour names each claimed step and the command that records it.
+`dotdiw claim <id> 'name: v2.4.0' 'commit: 9f3c2ab'` records the values on that
+step, from its arguments or, given none, from standard input, and prints the
+run, from the steps its pour made and no other, wherever each stands now, read
+from any of them or its root: each claim filled from its own
+values, and `verify-using` filled from them, where `{{ tag.name }}` reads the
+`tag` step's `name`, split at the last dot. A value fills `verify-using` only
+when it is simple -- letters, digits and `. _ : / @ + -` -- and a placeholder
+with no value stays as written and is named open; `--json` prints the run as
+data. Under the beads tracker, `dotdiw claim` reads a run back but records no
+values in this release, since beads cannot yet hold such a write to the step
+named; the command says so and writes nothing. A claim the formula cannot
+declare well is named by `dotdiw check`, and so
+is a `verify-using` placeholder that names no claimed slot; a file of this
+repository that a slot names is left to the run, which records it. A root stays
+open while a step poured in its run is open, wherever that step stands, and
+closes with the last of them; `dotdiw update --parent` and `dotdiw dep add`
+refuse to make a root wait on a step that waits on it.
+
 ### 2. Priya starts her work the way the project says to
 
 ```console
@@ -395,8 +426,8 @@ owns only what is its own.
 - `carrier.yaml`, `reliant-enactments/` -- who may stand in the product's
   position, and one real occasion of reliance.
 - `poa/product-model.yaml` and `operation-idl.json` -- the governed source and
-  the operation algebra derived from it: fifty operations, each traced
-  to a duty, a step and a lawful lifecycle transition, ten of them the
+  the operation algebra derived from it: fifty-four operations, each traced
+  to a duty, a step and a lawful lifecycle transition, eleven of them the
   tracker interface an adapter answers. Each step and journey of the model
   declares, in its operation block, what its operation takes, returns and
   calls, and the tracker and git commands it runs. `poa derive` writes the
@@ -410,8 +441,9 @@ owns only what is its own.
   request, response and shared record of the IDL, which the bodies and the
   adapters inside it are typed by.
 - `promise_bindings.py` -- every operation bound to its one body in `dotdiw`,
-  under the IDL's name, and each operation of the tracker interface to the
-  adapter that answers it. `dotdiw` is shaped by it: one function per
+  under the IDL's name, and asked of the door as a command asks it, and each
+  operation of the tracker interface to the adapter that answers it. `dotdiw`
+  is shaped by it: one function per
   operation, nothing shared between them but infrastructure, every operation
   invoked through one door generated from the IDL, which holds the request
   and the response to their types; the tracker behind a second door of the
@@ -423,7 +455,10 @@ owns only what is its own.
 - `contracts/`, `events/` -- the witness contract: which observed events are
   allowed to count as "work was named and its procedure surfaced", proved
   against this tool's own 0.2.1 release, a run recorded with the witness log
-  on, and three anti-golden traces it must reject.
+  on, and six anti-golden traces it must reject, three of them a molecule's
+  close the log cannot vouch for: one that claims every step closed with none
+  in the log, one before every step closed, and one from an older log, which
+  does not say.
 
 `check-promise-artifacts.formula.toml` is how they are re-derived and checked.
 
@@ -486,8 +521,10 @@ dotdiw brings: one sqlite file under `~/.dotdiw/<key>/`, nothing to install
 and nothing running. `dotdiw tracker list` names what is registered and which
 this checkout uses. `init --tracker <name>` chooses at adoption and `dotdiw
 tracker use <name>` afterwards, leaving the work in the old one where it is;
-`dotdiw tracker migrate <from> <to>` moves it, parents before children, needs,
-close reasons, descriptions and the means to prove a run with them, ids kept
+`dotdiw tracker migrate <from> <to>` moves it, parents and each run's root
+before what stands under them or was poured in them, needs, close reasons,
+descriptions, the means to prove a run, and each step's claim, values and run
+with them, ids kept
 where the target accepts them and mapped in a file under the workspace where it
 does not, and never writes to the source. If the target refuses any write the move fails and names it, and the
 next run finishes what the first left. One command can go elsewhere with `--tracker <name>` or
@@ -504,7 +541,15 @@ work print the same bytes. It needs its own binary, installed with
 `brew install beads`. A checkout on beads without the binary is told that command
 in one line. Under beads every command dotdiw does not own
 runs in the tracker unchanged, interactive prompts included, and `dotdiw
---help` lists them; the tracker records its role beside the key, maintainer,
+--help` lists them, save those whose closes or waits dotdiw cannot check
+against a run's steps before they run -- a batch, raw SQL, an import, a
+duplicate, a delete, and the like -- which it refuses by name; a command it
+checks is read as the tracker reads it, and a close counts as dotdiw's only
+where the tracker kept dotdiw's mark on it. The tracker reads each id again
+as it runs, so an item deleted between dotdiw's check and the tracker's write
+may have that write land on the item whose id begins with its id, such as its
+only step; dotdiw names that item where it can, and writes held to the item
+checked wait for a later release; the tracker records its role beside the key, maintainer,
 the answer it would otherwise ask for; a `BEADS_DIR` of your own is
 overridden for the tracker dotdiw runs; and any run that reaches the tracker,
 chosen or not, turns its anonymous usage metrics off before asking it anything,
@@ -515,7 +560,7 @@ metrics and no commands beyond the tracker's own, `list`, `ready`, `show`,
 and anything else it refuses by name.
 
 A tracker not built into dotdiw is one file, `<name>.py`, exposing a table,
-`TRACKER`, that holds the ten operations of the interface as callables.
+`TRACKER`, that holds the eleven operations of the interface as callables.
 `dotdiw tracker new <name>` writes the file to start from. dotdiw finds it in
 `~/.dotdiw/trackers/`, or in `share/dotdiw/trackers/` beside the `bin/` it runs
 from, where a package named `dotdiw-tracker-<name>` installs it.
@@ -639,9 +684,17 @@ uv run mypy
 with the types the tool declares. Every request, response and shared record
 of the IDL is a class in `dotdiw`, generated by `poa/complete-idl.py` between
 its own markers, so a body that answers with a field or a reason the IDL
-does not name fails the type check before it fails the door. The four
-suites run with `python3 -m unittest`; `check-promise-artifacts.formula.toml`
-is the whole sequence, re-derivation and conformance included.
+does not name fails the type check before it fails the door. The tests run
+in three suites, by what they run beyond Python and git: `python3 -I
+suites.py fast` runs nothing more, `bd` runs the beads tracker's own binary,
+and `poa` runs POA; `all` runs the three. `check-promise-artifacts.formula.toml`
+is the whole sequence, re-derivation and conformance included. The runs that
+reach bd, `bd` and `all`, keep every temp directory on a RAM disk made for the
+run and gone after it -- hdiutil's on macOS, `/dev/shm` on Linux -- since bd
+opens its store on each command, and a store in memory opens in about half
+the time: the whole `bd` suite ran in 24 minutes instead of 36.
+`DOTDIW_TEST_ON_DISK=1` keeps them on the disk, as does a machine that offers
+no RAM disk.
 
 ## The name
 

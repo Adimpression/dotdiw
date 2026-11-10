@@ -146,6 +146,23 @@ lexicon:
     forbiddenAliases: []
     examples:
       - mol-ship-a-release-acme is mol-ship-a-release from the provider registered as acme.
+  - termId: term.claim
+    term: Claim
+    definition: >
+      What a formula step's worker can assert once the step is done, as its
+      drafter writes it: a statement with a {{ label }} placeholder for each
+      slot, and its slots, each a lowercase kebab-case label.
+    allowedAliases: []
+    forbiddenAliases:
+      - checklist
+  - termId: term.claim-value
+    term: Claim value
+    definition: >
+      What a worker records for one slot of a step's claim in a run: the
+      slot's label and its text, kept on the item poured for the step.
+    allowedAliases: []
+    forbiddenAliases: []
+
 ambiguityPolicy:
   principle: >
     Where the words of a title and the words of a description disagree,
@@ -283,6 +300,18 @@ realWorldModel:
         explanation: >
           The pour is acknowledged at once; the tracker creates one issue per
           step, which can take longer than a second.
+    - interactionId: interaction.record-what-a-step-found
+      name: Record what a step found
+      description: >
+        A worker who did a claimed step records its values, and anyone reads
+        the run's claims back.
+      participantObjectIds:
+        - object.work
+        - object.molecule
+      expectedRealWorldDuration:
+        class: mixed
+        explanation: >
+          A local tracker answers at once; a hosted one, over the network.
     - interactionId: interaction.write-procedure
       name: Write a procedure down
       description: >
@@ -543,7 +572,10 @@ realWorldModel:
     - invariantId: invariant.one-name-for-all-four
       name: One name for all four
       statement: >
-        Everything the tracker does is reachable under dotdiw's name. An
+        Everything the tracker does is reachable under dotdiw's name, save
+        the commands whose closes or waits dotdiw cannot check against a
+        run's steps before they run, which it refuses, naming the command,
+        so that nothing it would refuse is written. An
         adapter's name appears only where the worker chose or asked for it:
         the list of adapters, the choice of one, the tracker line of the
         version reported, the refusal of a name the worker gave, a line saying
@@ -643,9 +675,13 @@ realWorldModel:
         types. The adapter that answers is the one the request names, else
         the workspace's, else local. An adapter returns records: it never
         writes to the terminal, prompts, or reads it, and nothing it holds
-        is made in the repository's tree. The answer is held to its type down
-        to the values: a record's fields, each item of a list, the values of
-        an enum, and a completed answer holds the record its callers read. An
+        is made in the repository's tree. The request is held to its type down
+        to the kinds of its values, so that a filter of the wrong kind is
+        refused and never dropped, while a word of an enum is the adapter's to
+        refuse, as bad-status refuses a status it cannot reach. The answer is
+        held to its type down to the values: a record's fields, each item of a
+        list, the values of an enum, and a completed answer holds the record
+        its callers read. An
         exit code left out is read from the status, and one against the status
         is outside the interface. A loaded adapter that raises, exits, or answers
         outside the interface, is a failed response naming it and the operation
@@ -1266,6 +1302,14 @@ objectives:
       Declaration, management, sharing and discovery under one command, so no
       task ever requires typing the tracker's own name.
     successMeaning: A worker never has to know which tracker is underneath.
+  - objectiveId: objective.a-run-says-what-it-found
+    title: A run says what it found
+    description: >
+      Whoever does a step of a procedure records what they found, in the
+      terms its drafter chose, on the work poured for it.
+    successMeaning: >
+      A run's means to prove it can be filled from what its steps recorded,
+      and checked by whoever holds them.
 
 duties:
   - dutyId: duty.surface-procedures-when-work-starts
@@ -1418,6 +1462,33 @@ duties:
       - interaction.learn
     invariantIds: []
     version: 0.3.0
+  - dutyId: duty.keep-what-a-run-found
+    title: Keep what a run found
+    intent: >
+      Let a worker record what a claimed step found, and let anyone read a
+      run's claims and its means to prove it, filled from what was recorded.
+    scope: >
+      Covers recording a claim's values on an open claimed step through the
+      tracker that holds it, and reading a run back: each claim filled from
+      its own values, the root's verify-using filled by step id from simple
+      values, and every placeholder left open.
+    nonGoals:
+      - Running the means to prove a run; whoever holds them does that.
+      - Judging whether a value recorded is true.
+    criticality: medium
+    status: active
+    objectiveIds:
+      - objective.a-run-says-what-it-found
+    primaryJourneyIds:
+      - journey.record-what-a-step-found
+    usesRealWorldObjectIds:
+      - object.work
+      - object.molecule
+    usesRealWorldInteractionIds:
+      - interaction.record-what-a-step-found
+    invariantIds:
+      - invariant.one-tracker-door
+    version: 4.0.0
 
 journeys:
   - journeyId: journey.start-named-work
@@ -2327,6 +2398,7 @@ journeys:
       - step.list-items
       - step.update-item
       - step.ready-items
+      - step.record-values
     sliIds: []
     sloIds: []
     goldenTraceIds: []
@@ -2903,6 +2975,135 @@ journeys:
             scalar: integer
           required: false
           summary: "The process exit code the command line ends with."
+  - journeyId: journey.record-what-a-step-found
+    dutyId: duty.keep-what-a-run-found
+    title: Record what a step found
+    description: >
+      A worker who did a claimed step records the values of its claim, and
+      reads the run back: each claim filled from its own values, and the
+      root's means to prove it filled from them.
+    purpose: A run says what its steps found, in its drafter's terms.
+    trigger: A claimed step is done, or someone wants a run's claims.
+    preconditions:
+      - The run was poured from a formula one of whose steps declares a claim.
+    primaryFlow:
+      - The values given, when there are any, are recorded on the step.
+      - The run is read back, its claims and its means filled in.
+    completionCriteria:
+      - Every value given is on the step, and the run is answered.
+    variants: []
+    failureBoundaries: []
+    nonGoals:
+      - Running the means to prove a run.
+    inputObjectIds:
+      - object.work
+    outputObjectIds:
+      - object.work
+    invariantIds:
+      - invariant.one-tracker-door
+    stepIds:
+      - step.record-claim
+      - step.read-run
+    sliIds: []
+    sloIds: []
+    goldenTraceIds: []
+    antiGoldenTraceIds: []
+    timing:
+      realWorldLatencyClass: mixed
+      syncExpectation: synchronous
+      causalJustification: >-
+        One tracker write and the run read back, through the adapter the
+        checkout chose; a hosted one answers over the network.
+    networkBoundaryIds:
+      - boundary.dotdiw-to-tracker
+    status: active
+    version: 4.0.0
+    operation:
+      calls:
+        - operationId: operation.record-claim
+          callPurpose: >-
+            Compose operation.record-claim as a governed journey step, when
+            values are given.
+          required: false
+          failurePropagation: propagate
+        - operationId: operation.read-run
+          callPurpose: >-
+            Compose operation.read-run as a governed journey step.
+          required: true
+          failurePropagation: propagate
+      derivedFrom:
+        - sourceKind: manual-decision
+          sourceRef: journey.record-what-a-step-found
+          reason: "Records a claim's values, when given, then reads the run."
+      requestFields:
+        - name: root
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The repository the interface resolved; bodies never ask git for it
+            themselves.
+        - name: tracker
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The adapter to answer, by its registered name; unsaid, the
+            workspace's dotdiw.tracker answers, and unsaid there, local.
+        - name: id
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "A step of the run, or its root."
+        - name: values
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.claim-value
+          required: false
+          summary: >-
+            The values to record, each a label in lowercase kebab-case and its
+            text; a label given empty removes its value.
+          cardinality: many
+        - name: json
+          valueType:
+            kind: scalar
+            scalar: boolean
+          required: false
+          summary: "Whether the run is answered as data on the command line."
+      responseFields:
+        - name: run
+          valueType:
+            kind: type-ref
+            typeId: type.claim-run
+          required: false
+          summary: "The run, its claims and its means to prove it filled from what was recorded."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - item-not-found
+              - no-claim
+              - step-closed
+              - bad-label
+              - adapter-failed
+              - tracker-unknown
+              - unsupported
+          required: false
+          summary: "Why nothing was recorded or read, when that is so."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: >-
+            What the command line exits with for this response: 0 unless the
+            tracker or the operation failed.
+
 steps:
   - stepId: step.name-the-work
     journeyId: journey.start-named-work
@@ -3172,6 +3373,7 @@ steps:
     when: The worker runs dotdiw formula pour with that formula.
     then: One tracked issue per step is created under a root, each blocked by the steps it needs.
     thenAssertions:
+      - The answer names each claimed step the pour made, its statement and its slots, so that whoever does the step knows what to record and every carrier can say so; the command line prints the command that records it.
       - dotdiw mol pour, the older spelling, does the same and prints the same.
       - A step cannot be closed before the steps it needs.
       - The root names the formula it was poured from.
@@ -3284,6 +3486,18 @@ steps:
           summary: >-
             The formula poured, resolved from the ident given; absent when the
             ident named no formula and the tracker was asked as typed.
+        - name: claims
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.claimed-step
+          required: false
+          summary: >-
+            Each claimed step the pour made, its statement and its slots, and
+            every placeholder still open, so that whoever does the step knows
+            what to record.
+          cardinality: many
         - name: stepRefs
           valueType:
             kind: list
@@ -3646,12 +3860,15 @@ steps:
     when: The description and examples are written in the words people use for the work, and dotdiw check is run.
     then: check reports whether the formula is found from each of its examples, each one taken out of the index while it is searched for, together with the other convention problems -- an uncommitted formula, a local formula whose id reads like a registered provider's suffixed id, a formula outside the repository, a description too short to name a situation, a scaffold still carrying TODO, too few examples, a verify-using value it cannot read or one longer than a line, a file of this repository that verify-using names and git does not track, instruction files that do not say where work starts.
     thenAssertions:
+      - A verify-using placeholder that names no slot of a step's claim, by the step's id and the slot's label after the last dot, is named with the formula.
       - An example that fails is named, with the formula it should reach.
       - A formula found in local storage that HEAD does not hold -- new, staged, or under an ignored directory -- is reported as one nobody else can see, whether or not it parses.
       - A formula file that does not parse is named, since nothing can find it.
       - A local formula whose id carries the suffix of a registered or removed provider is named with the provider, to rename.
       - The same check runs quietly after every create, and after doctor and lint, printing only the first few problems.
       - A verify-using value check cannot read, one longer than a line, and a file of this repository that a value names and git does not track are each named with the formula; the file is looked for in the checkout, and no remote is contacted.
+      - A file that a claimed slot names is not looked for, since it is known only once the run records it.
+      - A step's claim that cannot be read is named with the formula and the step.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -4237,10 +4454,13 @@ steps:
           operationRef: "product.beads::list --all --json"
           callPurpose: >-
             Through the beads adapter's upgrade extra, when init asks: every
-            issue read, so that the means to prove a run an earlier version
-            kept in a description move into the issue's metadata; an issue
-            marked as moved is left as it is, and so is one whose metadata
-            holds dotdiw as a value of its own, null included.
+            issue read, those bd's list leaves out unless asked included, so
+            that the means to prove a run an earlier version kept in a
+            description move into the issue's metadata; an issue marked as
+            moved is left as it is, and so is one whose metadata holds dotdiw
+            as a value of its own, null included. What bd prints that is no
+            list of issues moves nothing and leaves the workspace unmarked,
+            so that a later init reads them again.
           failurePropagation: propagate
         - dependencyId: dependency.beads
           operationRef: "product.beads::update --description --metadata"
@@ -4479,13 +4699,24 @@ steps:
     title: Forward to the tracker
     given: A command dotdiw does not own, or cook, which is the tracker's underneath.
     when: dotdiw runs it.
-    then: Under beads the command runs with the worker's terminal, through a pty when it is interactive, every occurrence of the tracker's name in the stream is rewritten to dotdiw on the way out, and the exit code is the tracker's; under an adapter with no pass-through, list, ready, show, close, update and dep add are answered from its records, --help, -h and help with the conventions text as bare dotdiw gives it, and any other command is refused as unsupported.
+    then: Under beads the command runs, where dotdiw can check what it would close and make wait before it runs, with the worker's terminal, through a pty when it is interactive, every occurrence of the tracker's name in the stream is rewritten to dotdiw on the way out, and the exit code is the tracker's; under an adapter with no pass-through, list, ready, show, close, update and dep add are answered from its records, --help, -h and help with the conventions text as bare dotdiw gives it, and any other command is refused as unsupported.
     thenAssertions:
       - Interactive prompts still work.
       - A word split across two reads is still rewritten.
       - Without the tracker on the machine, the worker is told in one line how to install the tracker this checkout chose, and the exit code is 127.
       - The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts.
       - A description typed through the pass-through reaches the tracker exactly as typed.
+      - Under a pass-through that reads commands for dotdiw, as the beads adapter's does, a command runs only where dotdiw can check what it would close and what it would make wait before it runs; a pass-through that reads none forwards each command as given, its closes and waits not dotdiw's to check. One that closes nothing and makes nothing wait runs as it is; close, done, update, dep and link run once checked; any other command of the tracker's -- a batch, raw SQL, an import, a duplicate, a delete, a todo done, a pull of another store's changes or a restore over this one's, an update of what dotdiw keeps on an item or to a status of the tracker's own, a file of needs, and the like -- is refused before it runs, and so is one the tracker knows by a word dotdiw does not; a word the tracker knows by no command is the tracker's to refuse.
+      - Under a pass-through, a command dotdiw checks is read as the tracker itself will read it, from the tracker's own help for that command and by the rules its options follow -- a value after "=", in the next word or joined to its letter; letters run together; a switch given true or false; the last of an option of one value -- so that no spelling of it is checked as one thing and run as another. One it cannot read so does not run -- a quick capture included, whose type then cannot be checked -- nor does a close or an update that names no id, which the tracker may take for the last item touched, nor a need given twice over, which may be read either way, nor a command that points the tracker at a store not this checkout's. Help given as true runs help alone; given false, the command is read as any other. An update or a quick capture asking for the type a root has is refused, however the type is spelled.
+      - Under a pass-through, a close -- by close or done, or by an update to the closed status, whatever options stand before the verb and whether an id is given whole or short -- is refused before the tracker's command runs while what the item waits on stands open, an open need, an open child or an open item poured in its run, as close-item refuses it, so that no run closes before its steps through dotdiw; what stands open is read from every item, a pinned one included, which the tracker's list of open items leaves out.
+      - Under a pass-through, a close runs under a session of its own, which the tracker keeps on what it closes and keeps through a later close; what it named is read back after it ran, and what carries that session -- each id named, in the order named, and a root above them the tracker closed of its own accord as its last child closed -- is this command's close, and nothing else is, whoever else is writing; an item another writer closed first is no close of this command's, logged nor followed, whether this one then fails or closes nothing more. One closed while what it waits on stood open, another writer having opened or moved it meanwhile, is opened again to the status it had, and so is one after it that closed over it; a close the command named, so opened again, fails it, while one the tracker made of its own accord leaves the command's own standing. What stood closed before the command is no close of its, whatever session the tracker now keeps on it -- an update to the closed status writes its own over the first close's -- and an item named twice, whole and short, is one close. And whoever closed what, a root that stands closed while an item poured in its run stands open is opened again, where the command named it, or an item it named stands under it or was poured in it, or it stood open before the command -- the tracker closes a root of its own accord when its last child closes, knowing no run; so the close run again sets right a root an earlier close left so. Where the marks cannot be read back -- the tracker shows nothing for an id asked, and does not say it holds it no more -- nothing is known to be this command's close, so nothing is logged or followed, and the command fails naming each id it named, the rule held all the same; where the items cannot be read, nothing can be held either, and it fails the same way. A list of the items after the close that leaves out one listed before, which the tracker still holds, is not every item and is no reading of them; one the tracker holds no more is no gap, and whether it holds one is asked by that whole id, an item shown under another id being no item held. An item the command named that stood open before it and that the tracker holds no more after it is not read back, so nothing of it is logged, and the command fails naming it, its other closes standing. And where the tracker's command ended without an error, an id it named that stood open before it and stands open after it was not closed by it, and the command fails saying so.
+      - Under every adapter, a command that closes an item or makes one wait holds the workspace's lock from its check through its write, and on until the witness log has what it wrote, so that two dotdiw commands at once on this machine cannot each pass the check before the other writes, and the log has their closes in the order the tracker made them; one kept waiting a minute does not run. The lock is the request's own, as all it holds is, so that another request running in the same process lets go of none of it. A writer outside dotdiw is not held.
+      - Under a pass-through, a command that could close an item does not run where what stands open cannot be read, or what an id it names cannot be, or where the tracker's list of every item leaves out one it names; under any tracker, a parent or a need does not go to the tracker where what its item would wait on cannot be read, and a root a close may have left with nothing open that cannot be read is named and fails the close; a tracker the interface cannot reach at all is left to answer the command itself.
+      - Under every adapter, a close that leaves the item's poured root, or the root of the run it was poured in, with nothing open closes that root too, named after the item.
+      - Under any tracker, update --parent, dep add, dep --blocks and link refuse a parent or a need that waits on the item to close -- through its needs, its children or the items poured in its run -- or that is the item itself, since then it could never close; an edge of any type but those that make nothing wait is held as a need, a parent-child edge as a parent.
+      - Under any tracker, what an item waits on, and a root a close left due, are asked for by the whole ids the tracker itself gave, and an item shown under another id is taken as not found -- a tracker may read an id it holds nothing of as another item's, as bd reads a deleted root's as its only step's -- so that nothing is refused, closed or followed on another item's record.
+      - Under a pass-through, an update runs only once each id it names is shown as the tracker reads it, a short one as the full one; where the tracker shows an item whose id runs on past the word -- begins with it, or holds it after a dash, and neither is it nor ends with it -- the word is a whole id the tracker holds nothing of, read as another item's, as bd reads a deleted root's id, full or short, as its only step's, and nothing runs. The command then goes to the tracker as typed, and a deletion between that reading and the tracker's own command, which reads the word again, is the tracker's -- bd reads an id whole only in its batch and its delete -- so under beads an item deleted after that reading may have an update, a close or an edge written to the one item whose id begins with its id, in its place. A command held to the item read is not offered under beads.
+      - Under beads, a command that takes off an item the label that marks the items of a run -- an update that removes it, or sets the labels of an item that carries it without it, and a label remove of it -- is refused before it runs, as an update of what dotdiw keeps in an item's metadata is; only dotdiw writes it. Labels given together are read as bd splits them.
     relatedObjectIds:
       - object.tracker-command
     relatedInteractionIds:
@@ -4501,8 +4732,12 @@ steps:
           operationRef: "product.beads::*"
           callPurpose: >-
             Through the beads adapter's forward extra, the pass-through, on
-            this body's behalf: whatever command was given, unchanged, with
-            the worker's terminal; the tracker's exit code is the worker's.
+            this body's behalf: whatever command was given and not refused,
+            unchanged, with the worker's terminal, a close under a session of
+            its own, and bd show after it for what closed under that session;
+            the tracker's exit code is the worker's. Through its read extra,
+            bd's own help: the command a word names, and how bd reads each
+            option of it.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.tracker"
@@ -4533,7 +4768,10 @@ steps:
         - operationId: operation.list-items
           callPurpose: >-
             Under an adapter without a pass-through: list, open or all,
-            perhaps under a parent.
+            perhaps under a parent. Under a pass-through, before a close:
+            what stands open; and after it: every item, to read back what it
+            closed. Under any: every item, for what a parent or a need would
+            wait on.
           required: true
           failurePropagation: propagate
         - operationId: operation.ready-items
@@ -4541,19 +4779,29 @@ steps:
           required: true
           failurePropagation: propagate
         - operationId: operation.show-item
-          callPurpose: "Under an adapter without a pass-through: show <id>."
+          callPurpose: >-
+            Under an adapter without a pass-through: show <id>. Under any:
+            the id a word names as the tracker reads it, short or whole; the
+            needs of what a parent or a need would wait on; whether a root
+            a close left due is open and a root; and, under a pass-through,
+            whether the tracker still holds an item its list after a close
+            leaves out. An item shown under another id than the whole one
+            asked for is taken as not found.
           required: true
           failurePropagation: propagate
         - operationId: operation.close-item
           callPurpose: >-
             Under an adapter without a pass-through: close <id>... with its
-            reason, one call per id.
+            reason, one call per id. Under any: the poured root, and the root
+            of the run, that an item's close left with nothing open.
           required: true
           failurePropagation: propagate
         - operationId: operation.update-item
           callPurpose: >-
             Under an adapter without a pass-through: update <id> with a title,
-            status, priority, parent or assignee.
+            status, priority, parent or assignee. Under a pass-through: an
+            item a close named that closed over what stood open, or a root
+            above it that closed while it ran, set back to the status it had.
           required: true
           failurePropagation: propagate
         - operationId: operation.add-need
@@ -4691,6 +4939,7 @@ steps:
       - The background is capped so that a create stays faster than the tracker call it follows.
       - A Python without tomllib, or a SQLite without FTS5, is reported and the run stops rather than answering that the project holds nothing.
       - A formula's verify-using is read with it and adds nothing to what a title reaches.
+      - A step's claim is read with its formula -- a statement, and its slots, each declared by its label in lowercase kebab-case followed by a colon and holding an empty table -- and adds nothing to what a title reaches; one that is not a table, has no statement, holds anything else, or has a placeholder naming none of its slots is not read.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -4871,6 +5120,7 @@ steps:
     then: The formula is printed as it is written, from where it is written; a provider's formula as its provider shows it, under its suffixed id.
     thenAssertions:
       - The text is the file's, not a rendering of the tracker's cooked copy.
+      - A provider's formula is printed as JSON in the form a file takes, a step's claim as its statement and a key for each slot, its label and a colon, so that what is printed, kept as a formula file, pours with its claims.
       - An id refused as ambiguous, as a provider's formula the provider does not serve, or for a provider that failed, is said in one line and never handed to the tracker.
     relatedObjectIds:
       - object.formula
@@ -4956,6 +5206,7 @@ steps:
       - An ident with the suffix of a registered or removed provider that names none of its formulas is refused, and never handed to the tracker.
       - A provider's formula is asked of its provider only when it is resolved, and nothing is written for it.
       - The formula answered for a file in the tree is the one the index read when it resolved the id, so that a pour pours what was selected; nothing reads the file again for it.
+      - The formula answered carries each step's claim, as the index read it.
       - Nothing outside the repository and the registered providers is searched.
     relatedObjectIds:
       - object.formula
@@ -5305,6 +5556,7 @@ steps:
     when: A body asks for an item with a title, a priority and perhaps a parent, a description, and the means to prove a run that a move carries.
     then: The item exists, open, with an id, and comes back as a record.
     thenAssertions:
+      - A step, its claim and its values given for a move are kept, and come back from show exactly as given.
       - The id carries the workspace prefix where the adapter honours one.
       - The parent must exist, or the create fails naming it.
       - The item's kind is task; only a pour makes a root.
@@ -5312,6 +5564,7 @@ steps:
       - The description and the means come back from show exactly as given, a description that reads like the means included.
       - The tracker is handed the item's fields alone, and no words typed and no terminal.
       - A create the tracker made and could not read back fails, naming the item it made.
+      - Under beads, an item made in a run carries dotdiw's run label, given in the one create that makes it, so that bd's query for the label -- no listing -- answers it wherever it stands, and nothing is left to write once it is made.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -5391,6 +5644,33 @@ steps:
             move hands over with an item; the adapter keeps them as it keeps a
             root's and returns them exactly as given.
           cardinality: many
+        - name: step
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The formula step the item was poured from, which a move hands over."
+        - name: claim
+          valueType:
+            kind: type-ref
+            typeId: type.step-claim
+          required: false
+          summary: "That step's claim, which a move hands over; returned exactly as given."
+        - name: run
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: "The root of the run the item was poured in, by its id where the move made it."
+        - name: values
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.claim-value
+          required: false
+          summary: "The values recorded for the claim, which a move hands over."
+          cardinality: many
         - name: id
           valueType:
             kind: scalar
@@ -5439,8 +5719,9 @@ steps:
     when: A body says one needs the other.
     then: The edge exists and shows on both items.
     thenAssertions:
-      - A need that would close a cycle is refused.
+      - A need that would close a cycle is refused; the local adapter counts as a wait an item's needs, its children and the items poured in its run, and checks under its write lock, so that two writers at once cannot each pass the check.
       - A need on an item that does not exist is refused naming it.
+      - Both ids are the items' own, read whole, and no other item is given the need in either's place; under beads the edge is written through bd's batch, which reads an id whole.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -5455,8 +5736,11 @@ steps:
       visibility: internal-only
       externalCalls:
         - dependencyId: dependency.beads
-          operationRef: "product.beads::dep add"
-          callPurpose: "Under the beads adapter: a blocks edge between two issues."
+          operationRef: "product.beads::batch --json -f"
+          callPurpose: >-
+            Under the beads adapter: a blocks edge between two issues, written
+            to both ids read whole, since bd's dep add reads an id it holds
+            nothing of as another item's.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
@@ -5541,6 +5825,8 @@ steps:
       - Under beads, the root and each step are made with bd create, in the order the needs allow, each title and description handed to bd as a value and never read as a flag, and the step ids come back in the formula's order.
       - A pour that fails after making its root names the root and the steps it made, a step the tracker made and could not read back included.
       - Steps that share an id are refused before anything is made, and nothing is poured.
+      - Each step's id and claim are kept on the item made for it, with the run it was poured in, and come back from show exactly as given; a pour that cannot keep them fails and names the root.
+      - Under beads, each step carries dotdiw's run label, given in the one create that makes it, so that bd's query for the label -- no listing -- answers every step of every run, wherever each stands.
     relatedObjectIds:
       - object.tracker
       - object.molecule
@@ -5678,7 +5964,13 @@ steps:
     then: The item is closed and keeps the reason.
     thenAssertions:
       - Refused while an open need exists, with the blocking ids named.
-      - A poured root closes itself when its last step closes.
+      - A root is refused while an item poured in its run is open, whatever parent the item stands under, with the item named, so that a run closes after every step of it. The id is read as the tracker reads it, a short one as the full one, before the run is looked for, and the full one is named; an item the tracker shows whose id runs on past the one given -- bd reads a deleted root's id, full or short, as its only step's -- is no item of that id, and nothing is closed.
+      - An item closed already, by another close or another writer, is named as closed already and not among the ids this close closed, and the tracker's close is not run for it again; the beads adapter tells them apart by the session bd keeps on each close, read back after it, and by nothing else; where that cannot be read back, the close is not named this one's, and fails saying so.
+      - Under beads the close is bd's own, which holds bd's rule -- no open child, no need still open -- in the write that closes, so that no item closes while what it waits on stands open. No write of bd's that holds that rule reads an id whole -- bd's close reads an id it holds nothing of as the one item whose id begins with it, a deleted root's as its only step's, a deleted step's as a sibling's whose number runs on from its own -- so an item deleted between the read and bd's close may have another closed in its place. That one, read back by the session it carries, is named among the ids this close closed, and as closed in the place of the item named, and the close fails. A close held to the item read is not offered under beads.
+      - The close of a poured root's last step may close the root too, and the root of the run the step was poured in, wherever the step stands, each named in closedIds after the step; or leave them to closes of their own, which dotdiw makes after it, so that through dotdiw they close under every adapter.
+      - Where the tracker knows no run, as bd does not, every item is listed before the close, and again after the tracker's close ran. A list that leaves out the item named is not every item, and nothing is closed on its word. A list after the close that leaves out one listed before that the tracker still holds is not every item either, and the close fails naming what it leaves out; one the tracker holds no more is no gap, and it holds one only where it shows it under the id asked, since bd shows another item for an id it holds nothing of. Where it is the item named that the tracker holds no more after its close, nothing of it is read back; the rule is held of the rest all the same, and the close fails saying so, naming what else it is known to have closed, and no item.
+      - There the rule is held of the items as they stand after the close, not as they stood when first read, and on every path -- the item closed already or not, the session read back or not, the tracker's close answered with an error or not. What this close closed while what it waits on stands open is opened again, to the status it had. A root that stands closed while an item poured in its run stands open is opened again, whoever closed it, where the close named it, or the item named stands under it or was poured in it, or it stood open before the close; so a close run again sets right what an earlier one left. Where the item named is opened again the close is blocked by what it waits on; where the items or the session cannot be read back, or one will not open again, the close fails, naming what it closed, and why. What is opened again is written to its id read whole, so that one deleted meanwhile opens no other item in its place -- bd reads an id it holds nothing of as another item's, a deleted root's as its only step's -- and fails the close instead.
+      - What the tracker's close did is read from the tracker, not from how it exited. Under the beads adapter only a refusal bd gives its reason for -- what blocks the item, or no such item -- is answered as it stands, nothing having closed; any other error is followed by the same reads and the same rule, and the close fails with bd's words, naming what it closed; a close bd answers without an error that leaves the item open fails saying so. Where the close is not blocked, the item comes back as the tracker holds it after the close.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -5696,14 +5988,55 @@ steps:
         - dependencyId: dependency.beads
           operationRef: "product.beads::close"
           callPurpose: >-
-            Under the beads adapter: bd close with the reason; bd itself
-            refuses while an open need or an open child exists.
+            Under the beads adapter: bd close with the reason, under a session
+            of its own that bd keeps on what it closes; bd itself refuses
+            while an open need or an open child exists, in the write that
+            closes. An error bd gives no such reason for is not taken for no
+            close: the tracker is read after it all the same.
           failurePropagation: propagate
         - dependencyId: dependency.beads
           operationRef: "product.beads::list --json --brief"
           callPurpose: >-
-            Under the beads adapter: the open children that refused a close,
-            named back.
+            Under the beads adapter: every item, before the close and after
+            it, so that a root is refused while an item poured in its run is
+            open, wherever it stands, and what stands closed against that
+            after the close is found, whoever closed it; a list before the
+            close that leaves out the item named, or after it one listed
+            before that bd still holds, is not every item, nor is one that
+            leaves out an item of a run. And the open children that refused a
+            close, named back.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
+          operationRef: "product.beads::query --all --json"
+          callPurpose: >-
+            Under the beads adapter: every item bd holds, of which each item
+            of a run -- by dotdiw's run label, by the run its own metadata
+            names, or by an id under that of a root listed or of a run an
+            item names -- a list of every item must hold; a query, not a
+            listing, so that a listing that leaves one out is seen to,
+            whatever labels or parent an item has been given since.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
+          operationRef: "product.beads::show"
+          callPurpose: >-
+            Under the beads adapter: the item as bd reads its id, a short one
+            as the full one, with its status and parent; after the close,
+            which of the item, any other item bd's close printed, and the
+            roots closed since carry this close's session, so that only those
+            are named this close's; and whether bd still holds an item the
+            list after the close leaves out, or shows no session for: held
+            only where bd shows it under the id asked, since bd shows another
+            item for an id it holds nothing of.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
+          operationRef: "product.beads::batch --json -f"
+          callPurpose: >-
+            Under the beads adapter: what stands closed against the run rule
+            after the close, opened again to the status it had -- the item
+            named, or a root closed while an item poured in its run stands
+            open -- written through bd's batch, which reads an id whole, so
+            that one deleted meanwhile opens no other; one that will not open
+            fails the close.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
@@ -5798,7 +6131,9 @@ steps:
     when: A body asks for the item.
     then: The record comes back with its needs, its children, its reason if closed, and its description and verify-using as given.
     thenAssertions:
+      - Each item's step, claim and values come back exactly as given, for the item and for each of its children.
       - An id that does not exist fails naming it.
+      - The id is read as the tracker reads it, a short one as the full one, for the item and for its children alike; children that cannot be read, an answer that is no list of them included, fail it.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -5895,10 +6230,14 @@ steps:
     sequence: 8
     title: List items
     given: An open tracker.
-    when: A body asks for the open items, or all of them, perhaps under a parent.
+    when: A body asks for the open items, or all of them, perhaps under a parent or in a run.
     then: The records come back, open first, newest last.
     thenAssertions:
       - The list is what the index and the handmade notice read; nothing else of the tracker's is read for them.
+      - In a run, the list is the items poured in it and no other, whatever parent each stands under now.
+      - Every item is listed, those a tracker leaves out of its own lists unless asked included -- under beads one made ephemeral, one of an infrastructure type, a gate -- so that no item of a run stands open where no check sees it; a parent is read as the tracker reads an id.
+      - A listing is answered whole or not at all, since what it leaves out is taken for not there -- an answer of the tracker's that is no list of items, each with its id, fails it, and so does a parent the tracker could not show; a parent the tracker holds no more has no children.
+      - Under beads, a listing of every item that leaves out an item of a run -- which bd's query of every item, no listing, tells three ways at once, by dotdiw's run label, by the run the item's own metadata names, which only dotdiw writes, and by id, every item whose id runs on from that of a root listed or of a run an item names, so that an item whose labels were edited is still found by its metadata, and by its id where bd made it under its root, which bd keeps wherever the item is moved -- or the root of a run, is no listing of every item, and fails, naming it, so that no close is held to a run read short; one bd holds no more is no gap, and a query that cannot be read fails the listing too.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -5916,8 +6255,28 @@ steps:
         - dependencyId: dependency.beads
           operationRef: "product.beads::list --json --brief"
           callPurpose: >-
-            Under the beads adapter: the open issues, or all of them, perhaps
-            under a parent.
+            Under the beads adapter: the open issues, or all of them, those bd
+            lists only when asked included, perhaps under a parent; in a run,
+            all of them, kept where the metadata names the run, since bd
+            filters no nested key.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
+          operationRef: "product.beads::query --all --json"
+          callPurpose: >-
+            Under the beads adapter: every item bd holds, of which each item
+            of a run -- by dotdiw's run label, by the run its own metadata
+            names, or by an id under that of a root listed or of a run an
+            item names -- a listing of every item must hold; a query, not a
+            listing, so that a listing that leaves one out is seen to,
+            whatever labels or parent an item has been given since.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
+          operationRef: "product.beads::show"
+          callPurpose: >-
+            Under the beads adapter: a parent's id as bd reads it, a short one
+            as the full one, since bd's list reads no short id for a parent;
+            and whether bd still holds an item a listing of every item leaves
+            out, held only where bd shows it under the id asked.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
@@ -5956,6 +6315,14 @@ steps:
             scalar: string
           required: false
           summary: "Only the children of this item."
+        - name: run
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            Only the items poured in the run under this root, wherever each
+            stands now.
         - name: limit
           valueType:
             kind: scalar
@@ -6006,7 +6373,9 @@ steps:
       - A status outside the set is refused.
       - Closing through update is refused; close is the one way to close.
       - An assignee of me is whoever the adapter acts as; any other is the tracker's own id for a person, never a name to search for, and a tracker that checks refuses one it does not know.
-      - An update that asks the tracker for the type a root has is refused in one line.
+      - An update that asks the tracker for the type a root has is refused in one line, however the type is spelled.
+      - A parent that waits on the item to close -- through its needs, its children or the items poured in its run -- or is the item itself may be refused as cycle; the local adapter refuses it under its write lock, so that two writers at once cannot each pass the check.
+      - An id the tracker holds no more is not found, nothing written. Under beads a status given alone -- how an item is opened again -- is written through bd's batch, which reads the id whole, with nothing read first, so that a reopen needs no read another writer may have made fail. Any other update reads the id as bd reads it first, a short one as the full one, and is then bd's update of the full id, which writes all of it or none and holds bd's own rules -- a parent it holds nothing of, or one that would make a cycle, is refused with nothing written -- and a parent given takes every parent the item had away in the same write, so that two given at once leave the item under one. bd's update reads an id it holds nothing of as the one item whose id begins with it, so an item deleted between the read and bd's update may have the update written to another in its place; bd names the item it wrote, and the update fails, naming it. An update held to the item read is not offered under beads. The item is read back after, and a priority outside 0 to 4 is refused.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -6021,10 +6390,25 @@ steps:
       visibility: internal-only
       externalCalls:
         - dependencyId: dependency.beads
+          operationRef: "product.beads::batch --json -f"
+          callPurpose: >-
+            Under the beads adapter: a status given alone, written to the id
+            read whole.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
           operationRef: "product.beads::update"
           callPurpose: >-
-            Under the beads adapter: title, status, priority, parent or
-            assignee.
+            Under the beads adapter: any other update, bd's own, all of it or
+            none, a parent given taking every other away in the same write;
+            bd names the item it wrote, and one other than the one read is
+            not this update's.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
+          operationRef: "product.beads::show"
+          callPurpose: >-
+            Under the beads adapter: the item read first, a short id as the
+            full one, for any update but a status alone; and after, the item
+            as bd holds it, under the id read.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
@@ -6110,6 +6494,7 @@ steps:
               - bad-status
               - assignee-not-found
               - close-through-update
+              - cycle
               - not-installed
               - no-workspace
           required: false
@@ -6136,6 +6521,7 @@ steps:
     then: The open items with no open need come back.
     thenAssertions:
       - An item whose need was closed is in the set at once.
+      - An answer of the tracker's that is no list of items fails; it is not read as an empty set.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -6197,6 +6583,109 @@ steps:
               - adapter-failed
               - not-installed
               - no-workspace
+          required: false
+          summary: "Why the operation failed, when it did."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+        - name: tracker
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The adapter that answered, stamped by the tracker door; what the
+            witness log records.
+  - stepId: step.record-values
+    journeyId: journey.answer-through-the-tracker
+    sequence: 11
+    title: Record a claim's values
+    given: An item poured from a step that declares a claim.
+    when: A body records values for the claim.
+    then: Each label given has its value, and the record comes back.
+    thenAssertions:
+      - Writers recording different labels on one item at once all keep what they recorded; no write replaces the values it did not name.
+      - A write is applied whole or not at all, so that a write cut short reads as it was and writers of the same labels at once leave one write whole, never old values beside new ones; a tracker that sets one field at a time keeps each write whole in a field of its own and reads the writes in order.
+      - Each label given gets its value, replacing any earlier one.
+      - A label given with an empty value is removed.
+      - Every other label stays as it was.
+      - The values come back from show exactly as given, in the order they were first recorded.
+      - An id that does not exist fails naming it.
+      - A tracker that cannot hold a write of values to the item named declines every record-values as unsupported, and writes nothing.
+      - Under beads record-values is declined as unsupported, nothing written. bd sets a value only through its update, which reads an id it holds nothing of as the one item whose id begins with it, and no write of bd's that reads an id whole sets one, so an item deleted as the write ran would have the value written to another. The values a create is given, for a move, are the new item's own from the start, and are kept.
+    relatedObjectIds:
+      - object.tracker
+      - object.work
+    relatedInteractionIds:
+      - interaction.answer-through-adapter
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: Nothing of its own; the run is printed by whoever asked.
+    status: active
+    operation:
+      visibility: internal-only
+      externalCalls:
+        - dependencyId: dependency.git
+          operationRef: "product.git::config --local --get dotdiw.workspace"
+          callPurpose: >-
+            The key this checkout's store sits under, read once per process by
+            the adapter that answers.
+          failurePropagation: propagate
+      requestFields:
+        - name: tracker
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The adapter to answer, by its registered name; unsaid, the
+            workspace's dotdiw.tracker answers, and unsaid there, local.
+        - name: root
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The repository the interface resolved; bodies never ask git for it
+            themselves.
+        - name: id
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "The item whose claim the values are for."
+        - name: values
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.claim-value
+          required: true
+          summary: >-
+            The values to record: each label given gets its value, replacing
+            any earlier one, a label given with an empty value is removed, and
+            every other label stays.
+          cardinality: many
+      responseFields:
+        - name: item
+          valueType:
+            kind: type-ref
+            typeId: type.tracker-item
+          required: false
+          summary: "The item as it now stands."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - tracker-unknown
+              - adapter-failed
+              - item-not-found
+              - not-installed
+              - no-workspace
+              - unsupported
           required: false
           summary: "Why the operation failed, when it did."
         - name: exitCode
@@ -6406,12 +6895,14 @@ steps:
     when: dotdiw tracker check <name> runs, or dotdiw tracker check <path> for a file not installed.
     then: The conformance scenario runs against the target and each operation is reported pass or fail.
     thenAssertions:
+      - The scenario proves step claims -- a pour keeps each step's id and claim, record-values sets a value and removes one given empty, show-item returns step, claim and values for an item and its children, and create-item takes them for a move.
       - Never against live work unasked; the target is the adapter's to declare.
       - A failing adapter is named with the operation that failed.
       - A file checked by path is left as it was, and nothing is written beside it.
       - A file checked by path is read as it stands, whatever bytecode is cached beside it.
       - After a check by path, the adapter of that name, its module and what the loader remembers of it are as they were.
       - The checkout the check was asked from is not touched, whatever GIT_DIR says.
+      - The check runs alone in its process -- it changes, for its length, the working directory, the environment and the adapter registered under the name, which every request running in the process shares -- so that a request asked while it runs waits until it ends, whichever way it is asked from outside -- of the door, the tracker door, an adapter's extra or an adapter's own callable, a bound name of any of them -- and no write meant for a checkout lands in the check's own.
       - The scenario covers what the other commands rely on, a need already there, a scope, a limit, a parent under either scope, a status refused, a poured root's kind, root, every other item's, task, and, each returned as given, a root's description and verify-using, a description that reads like the means, and the means a move carries among them.
     relatedObjectIds:
       - object.tracker-adapter
@@ -6482,6 +6973,12 @@ steps:
           required: true
           failurePropagation: propagate
         - operationId: operation.ready-items
+          callPurpose: >-
+            The conformance scenario, one operation of the interface at a
+            time, against the scratch workspace.
+          required: true
+          failurePropagation: propagate
+        - operationId: operation.record-values
           callPurpose: >-
             The conformance scenario, one operation of the interface at a
             time, against the scratch workspace.
@@ -6585,6 +7082,8 @@ steps:
     when: dotdiw tracker migrate <from> <to> runs.
     then: Open items, then closed ones with their reasons, then the needs are written into the target.
     thenAssertions:
+      - Each item's step, claim and values move with it, and so does its run, as the id the move gave the run's root.
+      - A run's root is written before every step poured in it, whatever parent each stands under, so that no run is cut; where a parent and a run wait on each other, as for a root moved under a step of its own run, the item is written first and its parent set once both are made, so that no parent is lost either; runs that wait on each other stop the move before any item is written.
       - The source is unchanged.
       - Ids are kept where the target accepts them, else a mapping is recorded under the workspace.
       - Run twice, the second run changes nothing.
@@ -6592,6 +7091,7 @@ steps:
       - The next run makes only the items not yet made, and finishes the needs, statuses and closes of those an earlier run left.
       - Assignees do not carry over, and the move says how many items had one.
       - Each item is read whole with show-item, and its description and verify-using move with it exactly as given; a root's arrive on the task it becomes, and a second move carries them again.
+      - An item the source shows under another id than the one it listed -- deleted since, its id read as another item's -- is not copied from that record; the move fails naming it, and the next run continues.
       - A root moves as a task; how migrate copies a root is question.how-migrate-copies-a-root.
     relatedObjectIds:
       - object.tracker
@@ -6737,7 +7237,7 @@ steps:
     title: Write the file a tracker starts from
     given: A name for the tracker.
     when: dotdiw tracker new <name> runs.
-    then: <name>.py is written in the directory given, else the current one, with the ten operations raising until they are filled and the table that declares them.
+    then: <name>.py is written in the directory given, else the current one, with the eleven operations raising until they are filled and the table that declares them.
     thenAssertions:
       - A name with anything but lowercase letters, digits and hyphens, the name of a built-in adapter, or a file that exists is refused in one line and nothing is written.
       - The check command it prints runs as printed, whatever the directory is called.
@@ -7041,8 +7541,10 @@ steps:
     when: A body of dotdiw asks for that formula, to show it or to pour it.
     then: The formula comes back as data -- its description, its means to prove and its steps -- held to their shape.
     thenAssertions:
+      - "Where the answer leaves them out, a provider with title and description fields keeps them in its descriptions, and dotdiw reads them into the same model as a file's -- the means under a Verify using: heading of the formula's description, and in a step's description its id on a Step ID: line, its needs on a Needs: line, and its claim under a Claim: heading, the statement and then a line for each slot, its label and a colon."
       - A pour of it carries nothing about the provider.
       - Its answer is held to its shape before anything is taken from it -- a description that is text, steps that are a list, each with an id and a title once and needs that are step ids, and means to prove each one line in a form check reads -- and a formula outside it is refused in one line naming the provider. Only the means to prove and a step's needs may be left out, and nothing given is replaced by a default.
+      - A step's claim in the answer is held to its shape too -- a statement, and its slots' labels in lowercase kebab-case, each once, every placeholder naming one -- and may be left out; a claim outside it refuses the formula in the same line.
       - Nothing is written for it; a pour hands the tracker the steps it answered, and formula show prints it in the form a .formula.json file takes.
       - It is asked when a formula is shown or poured, and never while the project is indexed.
     relatedObjectIds:
@@ -7181,6 +7683,226 @@ steps:
             scalar: integer
           required: false
           summary: "The process exit code the command line ends with."
+  - stepId: step.record-claim
+    journeyId: journey.record-what-a-step-found
+    sequence: 1
+    title: Record a claim's values
+    given: An item poured from a step that declares a claim, still open.
+    when: A worker gives values for its slots.
+    then: The values are recorded on the item, through the tracker that holds it.
+    thenAssertions:
+      - Each label given is lowercase kebab-case, or nothing is recorded and the label is named.
+      - An item that has no claim, or is closed, records nothing, and says why in one line; so does an item whose tracker declines a claim's values as unsupported, as beads does.
+      - Each label given gets its value, replacing any earlier one; a label given empty is removed; every other label stays.
+      - The id is read as the tracker reads it, a short one as the full one, and the values are recorded on the item so shown, by its full id; where the tracker shows an item whose id runs on past the one given -- bd reads a deleted root's id, full or short, as its only step's -- the id names no item, and nothing is recorded.
+    relatedObjectIds:
+      - object.work
+    relatedInteractionIds:
+      - interaction.record-what-a-step-found
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: Nothing of its own; the run read back is what is shown.
+    status: active
+    operation:
+      calls:
+        - operationId: operation.show-item
+          callPurpose: >-
+            The item as it stands: whether it has a claim, and whether it is
+            still open.
+          required: true
+          failurePropagation: propagate
+        - operationId: operation.record-values
+          callPurpose: >-
+            The values, recorded on the item by the adapter that holds it.
+          required: true
+          failurePropagation: propagate
+      externalCalls:
+        - dependencyId: dependency.git
+          operationRef: "product.git::config --local --get dotdiw.workspace"
+          callPurpose: >-
+            The key this checkout's store sits under, read once per process by
+            the adapter that answers.
+          failurePropagation: propagate
+        - dependencyId: dependency.git
+          operationRef: "product.git::rev-parse --show-toplevel"
+          callPurpose: >-
+            The checkout, when the request carries no root, to read the
+            workspace's adapter from.
+          failurePropagation: propagate
+      requestFields:
+        - name: root
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The repository the interface resolved; bodies never ask git for it
+            themselves.
+        - name: tracker
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The adapter to answer, by its registered name; unsaid, the
+            workspace's dotdiw.tracker answers, and unsaid there, local.
+        - name: id
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "The step to record the values on."
+        - name: values
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.claim-value
+          required: true
+          summary: >-
+            The values to record, each a label in lowercase kebab-case and its
+            text; a label given empty removes its value.
+          cardinality: many
+      responseFields:
+        - name: item
+          valueType:
+            kind: type-ref
+            typeId: type.tracker-item
+          required: false
+          summary: "The item as it now stands."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - item-not-found
+              - no-claim
+              - step-closed
+              - bad-label
+              - adapter-failed
+              - tracker-unknown
+              - unsupported
+          required: false
+          summary: "Why nothing was recorded or read, when that is so."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: >-
+            What the command line exits with for this response: 0 unless the
+            tracker or the operation failed.
+  - stepId: step.read-run
+    journeyId: journey.record-what-a-step-found
+    sequence: 2
+    title: Read a run's claims
+    given: A step of a run, or its root.
+    when: Anyone asks for the run's claims.
+    then: The run comes back with each claim filled from its own values and the root's means filled from them.
+    thenAssertions:
+      - A run reads only the steps it poured, wherever each stands now; a step moved under its root from another run is left out, and none of its values fills this run's claims or means, while the run it was poured in keeps it.
+      - A placeholder of verify-using names a step by its id, however the id is written, and one of its slots after the last dot; every placeholder the run cannot fill is named open.
+      - A step is read in the run it was poured in, by the root it names, not by the parent it stands under; any other item is taken as the root.
+      - A root the tracker holds no more is not found, whatever item the tracker shows for its id -- bd shows the one step left of a deleted root -- and no run is read from that item in the root's place.
+      - "In a claim, {{ label }} reads the step's own value; in the root's verify-using, {{ step.label }} reads that step's value."
+      - "A value fills verify-using only when it is simple -- letters, digits and . _ : / @ + - alone -- so that no value can change what a means says beyond its slot; any other value leaves its placeholder as written."
+      - Every placeholder left open is named, and a placeholder whose value is missing stays as written.
+    relatedObjectIds:
+      - object.work
+      - object.molecule
+    relatedInteractionIds:
+      - interaction.record-what-a-step-found
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: The run's claims and its means to prove it, filled in.
+    status: active
+    operation:
+      kind: query
+      idempotency:
+        idempotencyClass: query-only
+        explanation: >-
+          Reads the run through the tracker; changes nothing.
+      derivedFrom:
+        - sourceKind: manual-decision
+          sourceRef: step.read-run
+          reason: "Reads a run's claims and fills its means."
+      calls:
+        - operationId: operation.show-item
+          callPurpose: >-
+            The item named, and the root of the run it names, with its means.
+          required: true
+          failurePropagation: propagate
+        - operationId: operation.list-items
+          callPurpose: >-
+            The steps poured in the run, wherever each stands now, each with
+            its step, claim and values.
+          required: true
+          failurePropagation: propagate
+      externalCalls:
+        - dependencyId: dependency.git
+          operationRef: "product.git::config --local --get dotdiw.workspace"
+          callPurpose: >-
+            The key this checkout's store sits under, read once per process by
+            the adapter that answers.
+          failurePropagation: propagate
+        - dependencyId: dependency.git
+          operationRef: "product.git::rev-parse --show-toplevel"
+          callPurpose: >-
+            The checkout, when the request carries no root, to read the
+            workspace's adapter from.
+          failurePropagation: propagate
+      requestFields:
+        - name: root
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The repository the interface resolved; bodies never ask git for it
+            themselves.
+        - name: tracker
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The adapter to answer, by its registered name; unsaid, the
+            workspace's dotdiw.tracker answers, and unsaid there, local.
+        - name: id
+          valueType:
+            kind: scalar
+            scalar: string
+          required: true
+          summary: "A step of the run, or its root."
+      responseFields:
+        - name: run
+          valueType:
+            kind: type-ref
+            typeId: type.claim-run
+          required: false
+          summary: "The run, its claims and its means to prove it filled from what was recorded."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - item-not-found
+              - no-claim
+              - step-closed
+              - bad-label
+              - adapter-failed
+              - tracker-unknown
+          required: false
+          summary: "Why nothing was recorded or read, when that is so."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: >-
+            What the command line exits with for this response: 0 unless the
+            tracker or the operation failed.
+
 experience:
   slis:
     - sliId: sli.applicable-formula-surfaces
@@ -7331,14 +8053,17 @@ traces:
       traceType: golden
       title: A recorded run found its procedure
       description: >
-        2026-11-01, a throwaway repository holding one release formula, the
-        witness log on: work named "Release v0.3.0 through the tap" surfaced
-        release-through-tap, which was poured as three steps and closed in
-        order, every event written by dotdiw itself. The log is
-        events/recorded-run.jsonl, as written; the contract calls it valid.
+        2026-11-11, a throwaway repository holding one release formula, the
+        witness log on, under beads: work named "Release v0.3.0 through the
+        tap" surfaced release-through-tap, which was poured as three steps
+        and closed in order, the root closing with its last step, every event
+        written by dotdiw itself. The log is events/recorded-run.jsonl, as
+        written; the contract calls it valid. It replaces the recording of
+        2026-11-01, whose close of the root, written before 4.0.0, does not
+        say whether every step closed first, and so no longer completes.
       dutyId: duty.surface-procedures-when-work-starts
       journeyId: journey.start-named-work
-      scenario: The witness log's first real story, recorded rather than reconstructed.
+      scenario: A real story of the witness log, recorded rather than reconstructed.
       trigger: DOTDIW_WITNESS=1 dotdiw create "Release v0.3.0 through the tap"
       events:
         - sequence: 1
@@ -7359,7 +8084,7 @@ traces:
             - step.match-formulas
         - sequence: 3
           title: Poured and closed
-          event: mol pour makes w-mol-7qp with three steps and writes procedure_poured with their ids; each close through dotdiw writes step_closed, the last molecule_closed.
+          event: mol pour makes w-20m with three steps and writes procedure_poured with their ids; each close through dotdiw writes step_closed, and the last step's close closes the root and writes molecule_closed, saying every step closed.
           stateBefore: Named.
           stateAfter: Done.
           observedOutcome: Seven events, one case, which poa match cesc calls valid.
@@ -7371,7 +8096,7 @@ traces:
         - step.name-the-work
         - step.match-formulas
         - step.pour-procedure
-      classificationReason: The first story witnessed rather than reconstructed, and the test suite records it again on every run.
+      classificationReason: A story witnessed rather than reconstructed, and the test suite records it again on every run.
       status: active
     - traceId: trace.formula-written-after-repeating
       traceType: golden
@@ -8112,6 +8837,158 @@ operationTypes:
           scalar: integer
         required: true
         summary: "How many ordered children it has."
+  - typeId: type.claim-value
+    name: ClaimValue
+    kind: record
+    description: >-
+      One value recorded for a step's claim: its slot's label and its text.
+    fields:
+      - name: label
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The slot's label, lowercase kebab-case."
+      - name: text
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The value, as the worker gave it; empty in record-values removes the label."
+  - typeId: type.step-claim
+    name: StepClaim
+    kind: record
+    description: >-
+      What a step's worker can assert once the step is done: a statement with
+      a placeholder for each slot, and its slots' labels in the formula's
+      order.
+    fields:
+      - name: statement
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The statement, its placeholders as the formula writes them."
+      - name: slots
+        valueType:
+          kind: list
+          itemType:
+            kind: scalar
+            scalar: string
+        required: true
+        summary: "The slots' labels, lowercase kebab-case, in the formula's order."
+        cardinality: many
+  - typeId: type.claimed-step
+    name: ClaimedStep
+    kind: record
+    description: >-
+      One claimed step of a run, read back: its item, its step id, its
+      statement, its values, the claim filled from them, and every
+      placeholder left open.
+    fields:
+      - name: item
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The item poured for the step."
+      - name: step
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The formula step's id."
+      - name: status
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: "The item's status."
+      - name: statement
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The claim's statement as the formula writes it."
+      - name: slots
+        valueType:
+          kind: list
+          itemType:
+            kind: scalar
+            scalar: string
+        required: true
+        summary: "The claim's slots, in the formula's order."
+        cardinality: many
+      - name: values
+        valueType:
+          kind: list
+          itemType:
+            kind: type-ref
+            typeId: type.claim-value
+        required: true
+        summary: "The values recorded, in the order first recorded."
+        cardinality: many
+      - name: claim
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The statement with each placeholder filled from its value, where there is one."
+      - name: open
+        valueType:
+          kind: list
+          itemType:
+            kind: scalar
+            scalar: string
+        required: true
+        summary: "Each placeholder of the statement left as written."
+        cardinality: many
+  - typeId: type.claim-run
+    name: ClaimRun
+    kind: record
+    description: >-
+      A run read back: its root, its formula, each claimed step, and the
+      root's verify-using filled from what the steps recorded.
+    fields:
+      - name: root
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The run's root."
+      - name: formula
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: "The formula the run was poured from, by its root's title."
+      - name: steps
+        valueType:
+          kind: list
+          itemType:
+            kind: type-ref
+            typeId: type.claimed-step
+        required: true
+        summary: "Each claimed step of the run, in the order the tracker lists them."
+        cardinality: many
+      - name: verifyUsing
+        valueType:
+          kind: list
+          itemType:
+            kind: scalar
+            scalar: string
+        required: true
+        summary: "The root's means to prove the run, each filled from simple values."
+        cardinality: many
+      - name: open
+        valueType:
+          kind: list
+          itemType:
+            kind: scalar
+            scalar: string
+        required: true
+        summary: "Each placeholder of the means left as written."
+        cardinality: many
   - typeId: type.tracker-item
     name: TrackerItem
     kind: record
@@ -8217,6 +9094,37 @@ operationTypes:
           The means to prove a run, one line each: a poured root's, or those a
           move carried with an item; show-item returns them exactly as given.
         cardinality: many
+      - name: step
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: "The id of the formula step the item was poured from."
+      - name: claim
+        valueType:
+          kind: type-ref
+          typeId: type.step-claim
+        required: false
+        summary: "That step's claim, as poured; show-item returns it exactly as given."
+      - name: run
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: >-
+          The root of the run the item was poured in; a step moved under
+          another root keeps it, and a run reads only its own steps.
+      - name: values
+        valueType:
+          kind: list
+          itemType:
+            kind: type-ref
+            typeId: type.claim-value
+        required: false
+        summary: >-
+          The values recorded for the claim, one per label, in the order they
+          were first recorded; show-item returns them exactly as given.
+        cardinality: many
   - typeId: type.tracker-edge
     name: TrackerEdge
     kind: record
@@ -8264,12 +9172,18 @@ operationTypes:
         required: false
         summary: "Step ids this one needs, by the formula."
         cardinality: many
+      - name: claim
+        valueType:
+          kind: type-ref
+          typeId: type.step-claim
+        required: false
+        summary: "The step's claim, which the item made for it keeps."
   - typeId: type.formula-step
     name: FormulaStep
     kind: record
     description: >-
-      One step of a formula as data: its id within the formula, its title and
-      the step ids it needs.
+      One step of a formula as data: its id within the formula, its title, the
+      step ids it needs, and its claim when it declares one.
     fields:
       - name: id
         valueType:
@@ -8292,6 +9206,21 @@ operationTypes:
         required: false
         summary: "Step ids this one needs."
         cardinality: many
+      - name: claim
+        valueType:
+          kind: type-ref
+          typeId: type.step-claim
+        required: false
+        summary: "What the step's worker can assert once it is done, when the step declares a claim."
+      - name: description
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: >-
+          A step's description, as a provider with title and description
+          fields keeps a step: its Step ID: line names the step, its Needs:
+          line its needs, and its Claim: block its claim.
   - typeId: type.formula-body
     name: FormulaBody
     kind: record
@@ -8392,8 +9321,10 @@ operationTypes:
         required: false
         summary: >-
           What the adapter offers beyond the interface, by name: forward,
-          for the beads adapter's pass-through; metrics-off; and upgrade, for
-          an adapter whose store an earlier version kept another way.
+          for the beads adapter's pass-through, and read, its reading of a
+          command as the tracker itself will read it; metrics-off; and
+          upgrade, for an adapter whose store an earlier version kept
+          another way.
         cardinality: many
   - typeId: type.tracker-actor
     name: TrackerActor
@@ -10049,6 +10980,260 @@ updates:
       compatibility: breaking
       createdAt: "2026-11-10T05:30:00+08:00"
       approvalStatus: draft
+  - changeId: change.a-step-declares-a-claim
+    changeType: model-update
+    targetRefs:
+      - step.index-the-project
+      - step.resolve-formula
+      - step.describe-and-check
+      - step.show-provider-formula
+      - step.show-formula
+      - object.formula
+    summary: >
+      From 4.0.0, a formula step may declare one claim: what its worker can
+      assert once the step is done. A claim is a statement with a placeholder
+      for each slot, {{ label }}, and its slots, each declared by its label in
+      lowercase kebab-case followed by a colon and holding an empty table.
+      dotdiw reads it with the formula, in TOML and in JSON, and the formula
+      record carries it on its step; a claim it cannot read is left off the
+      step, and check names it, as it names a verify-using placeholder that
+      names no claimed slot. A formula management provider's answer carries
+      a step's claim as its statement and its slots, held to that shape; a
+      provider with title and description fields alone keeps it in the
+      step's description under a Claim: heading, with the step's id and needs
+      on Step ID: and Needs: lines and the formula's means under Verify
+      using:, and dotdiw reads them into the same model. formula show prints
+      a provider's claim in the form a file takes, so what it prints pours
+      with the claim.
+    reason: >
+      A run should be able to say what its steps found, in the terms the
+      formula's drafter chose, so that the means to prove the run can be
+      filled from what was recorded rather than from what a worker remembers.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.keep-procedures-findable
+      affectedJourneys:
+        - journey.find-a-held-procedure
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: low
+      riskExplanation: >
+        A formula without a claim reads as before, and a claim is read and
+        carried with its step.
+    migrationPlan: >
+      None: a formula declares a claim when its drafter wants one.
+    approvalStatus: draft
+    createdAt: "2026-11-10T21:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.door
+      summary: >-
+        type.step-claim joins the IDL, and type.formula-step gains claim: a
+        statement and its slots, in the formula's order; and description,
+        where a provider with title and description fields keeps a step's
+        id, needs and claim.
+      reason: >-
+        A step's claim travels with its formula record, so that what a run's
+        steps found can be recorded in the terms the formula's drafter chose.
+      compatibility: additive
+      createdAt: "2026-11-10T21:00:00+08:00"
+      approvalStatus: draft
+  - changeId: change.tracker-interface-4-carries-step-claims
+    changeType: model-update
+    targetRefs:
+      - step.pour-steps
+      - step.record-values
+      - step.show-item
+      - step.list-items
+      - step.create-item
+      - step.close-item
+      - step.update-item
+      - step.add-need
+      - step.check-tracker
+      - step.migrate-workspace
+      - step.forward-to-the-tracker
+      - invariant.one-tracker-door
+    summary: >
+      From 4.0.0, the tracker interface is number 4 and carries step claims:
+      the item a pour makes for a step keeps the step's id, its claim and
+      the run it was poured in, and list-items answers the items poured in
+      a run, wherever each stands now; record-values, new, sets a claim's
+      values on one item, each label given replacing its value, a label
+      given empty removed and every other kept, so that writers of different
+      labels at once all keep theirs, and each write is applied whole or not
+      at all, so that a write cut short reads as it was and writers of the
+      same labels at once leave one write whole, never old values beside new
+      ones; show-item and list-items answer each item's step,
+      claim, values and run exactly as given; close-item refuses a root
+      while an item poured in its run is open; create-item takes them, and
+      tracker migrate hands them over, each run's root written before its
+      steps and every parent kept, so that they survive a move; and tracker
+      check proves all four. Through dotdiw, under every adapter, the close
+      of a run's last step closes its root too, wherever the step stands.
+      Under a pass-through, dotdiw runs only the tracker's commands whose
+      closes and waits it can check first, and refuses the rest by name; a
+      command it checks is read as the tracker will read it, from the
+      tracker's own help; a close the rules refuse is refused before it
+      runs, under any name or spelling of the command and with any id the
+      tracker reads; a close runs under a session of its own, and only what
+      carries it is taken for its close; a close that came out against the
+      rules is opened again, where the tracker can be read back after it,
+      and where it cannot, nothing is opened again and the command fails
+      naming what it named; and a root it touched, or one that stood open
+      before it, that stands closed while a step of its run stands open is
+      opened again, whoever closed it, so that a close run again sets right
+      one an earlier close left so; a list of items that leaves out one the
+      command names, or after the close one listed before that the tracker
+      still holds, is no list of every item, and nothing is run or held on
+      its word. Under
+      any tracker, dotdiw refuses a parent or a
+      need, of any type that waits, that would leave a run unable to close;
+      a command that closes or makes wait holds the workspace's lock from
+      its check through its write, and on until the witness log has it, so
+      that the log has closes in the order they were made; and the local
+      adapter checks again under its write lock, where update-item may
+      refuse as cycle. The beads adapter reads an id as bd reads it before
+      it holds a close to a run, and holds the close to the run as the items
+      stand after it, by the same rule and on every path -- the item closed
+      already or not, bd's close answered with an error or not -- failing
+      the close where it cannot; what bd prints that is no list of issues
+      is no list, for a close, a listing, an item's children, the ready set
+      and the upgrade alike. Each request keeps what it holds -- its lock, its
+      index -- apart from any other running in the same process, and bd is
+      told its store and a close's session by each run of it, never by the
+      process. A check of a tracker runs alone in its process. Every item
+      of a run is listed for these checks, those bd lists only when asked
+      included; mol, bd's other name for a root's type, is refused with
+      molecule; and an id is read as bd reads it for an item's children
+      too. Under beads every item of a run carries dotdiw's run label from
+      the one create that makes it, which no command through dotdiw takes
+      off, and an id under its root's, so that a listing of every item that
+      leaves one out, which bd's query finds by either, is no listing, and
+      nothing is closed on its word, nor where an item's own metadata names
+      the run and a listing leaves it out; close-item and update-item are
+      bd's own close and update, which hold bd's rules in the write and
+      replace a parent in one write, after the id is read as bd reads it,
+      and each fails naming the item bd wrote where that is another, an
+      item deleted meanwhile; update-item refuses a priority outside 0 to 4;
+      what stands closed against the rule is opened again through bd's
+      batch, which reads an id whole; record-values is declined as
+      unsupported, since no write of bd's that reads an id whole sets a
+      value; and a close the
+      tracker answered without an error, leaving an id the command named
+      open, fails the command. A word a person gives -- to a command
+      through the pass-through, to a claim, to a close -- that the tracker
+      reads as another item's, whose id runs on past the word, names no
+      item, and nothing is written; a short id is read as the full one. A request asked of dotdiw from outside -- through the door,
+      the tracker door, an adapter's extra or its own callable -- begins
+      one of its own, and so waits while a check of a tracker runs alone.
+      A module written for interface 3 is refused in one line naming it.
+      The tracker door holds a request to the kinds of its values, as it held
+      an answer, so that a filter of the wrong kind is refused and never
+      dropped; a word of an enum stays the adapter's to refuse.
+      The witness contract reads a molecule's close as complete only where
+      the log vouches that every step of it closed first; one the log cannot
+      vouch for, from an older log among them, is incomplete.
+    reason: >
+      A step's claim is recorded on the work poured for it, in whichever
+      tracker holds the work, so the tracker that keeps the item keeps what
+      was found by doing it.
+    compatibility: breaking
+    impactAssessment:
+      affectedDuties:
+        - duty.put-all-four-under-one-name
+      affectedJourneys:
+        - journey.answer-through-the-tracker
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.one-tracker-door
+      riskLevel: medium
+      riskExplanation: >
+        An adapter written for interface 3 is refused until its author moves
+        it; the local, beads and Jira adapters move with this change.
+    migrationPlan: >
+      An adapter's author keeps each poured step's id, claim and run, answers
+      record-values without replacing a label it was not given and applies
+      each write whole or not at all, lists the
+      items poured in a run, refuses to close a root while one of them is
+      open, returns step, claim, values and run from show and list, takes
+      them on create, and declares interface 4. A local store kept by 3.0.0 is brought up to date
+      by dotdiw init.
+    approvalStatus: draft
+    createdAt: "2026-11-10T22:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.door
+      summary: >-
+        type.claim-value and operation.record-values join the IDL;
+        type.tracker-step gains claim, type.tracker-item gains step, claim,
+        values and run, create-item takes them, list-items takes run, and
+        update-item may refuse as cycle. The tracker interface is number 4.
+      reason: >-
+        The tracker keeps what a step's worker found, with the work poured for
+        it.
+      compatibility: breaking
+      createdAt: "2026-11-10T22:00:00+08:00"
+      approvalStatus: draft
+  - changeId: change.a-run-records-what-its-steps-found
+    changeType: model-update
+    targetRefs:
+      - journey.record-what-a-step-found
+      - step.record-claim
+      - step.read-run
+      - duty.keep-what-a-run-found
+    summary: >
+      From 4.0.0, a worker records the values of a claimed step's claim, on
+      the item poured for it while it is open, and anyone reads the run back
+      from any of its steps or its root, from the steps it poured and no
+      other, wherever each stands now: each claim filled from its own
+      values, the root's verify-using filled by step id and slot label, split
+      at the last dot, from simple values, and every placeholder it cannot
+      fill named open. A pour names each claimed step it made, with its
+      statement and slots.
+      The command line binds both as dotdiw claim, and prints the command
+      that records a claim after a pour; any other carrier binds the same
+      operations.
+    reason: >
+      A run should say what its steps found in its drafter's terms, so that
+      the means to prove it are filled from what was recorded.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.keep-what-a-run-found
+      affectedJourneys:
+        - journey.record-what-a-step-found
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: low
+      riskExplanation: >
+        New operations; nothing that was is changed.
+    migrationPlan: >
+      None.
+    approvalStatus: draft
+    createdAt: "2026-11-11T00:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.door
+      summary: >-
+        operation.record-what-a-step-found, operation.record-claim and
+        operation.read-run join the IDL, with type.claimed-step and
+        type.claim-run.
+      reason: >-
+        A run says what its steps found.
+      compatibility: additive
+      createdAt: "2026-11-11T00:00:00+08:00"
+      approvalStatus: draft
+
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

@@ -45,6 +45,7 @@ import base64
 import json
 import os
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -238,6 +239,48 @@ def read_verify_using(text: str | None) -> tuple[str | None, list[str]]:
     return description, [line[2:] for line in lines[1:]]
 
 
+# The issue property dotdiw keeps a poured step's id, its claim and its run
+# in, and the prefix of the properties that keep a claim's values: one for
+# each write, named for a moment after every write the issue held when it
+# was written. Jira sets one property at a time, so a write is there whole or
+# not at all, a writer of other labels keeps what it recorded, and the
+# values are the writes read in the order of their names.
+PROPERTY = "dotdiw"
+WRITE = PROPERTY + ".write."
+
+
+def write_moment(key: str) -> int | None:
+    """The moment a write property was written, in microseconds, from its
+    name; None for any other property."""
+    moment = key[len(WRITE) :].partition(".")[0] if key.startswith(WRITE) else ""
+    return int(moment) if moment.isdigit() else None
+
+
+def write_name(properties: dict[str, Any]) -> str:
+    """A new write's property: named for now, or for just after the latest
+    write the issue holds, should a clock be behind it."""
+    moments = [m for m in (write_moment(k) for k in properties) if m is not None]
+    moment = max([time.time_ns() // 1000] + [m + 1 for m in moments])
+    return "%s%020d.%s" % (WRITE, moment, os.urandom(4).hex())
+
+
+def written(properties: dict[str, Any]) -> list[dict[str, str]]:
+    """A claim's values: the writes read in order, each label at the last
+    text written for it, a label written empty removed, in the order each
+    was first recorded."""
+    held: dict[str, str] = {}
+    for key in sorted(k for k in properties if write_moment(k) is not None):
+        write = properties[key]
+        for v in (write.get("values") or []) if isinstance(write, dict) else []:
+            if not isinstance(v, dict) or not isinstance(v.get("text"), str):
+                continue
+            if v["text"]:
+                held[str(v.get("label"))] = v["text"]
+            else:
+                held.pop(str(v.get("label")), None)
+    return [{"label": label, "text": text} for label, text in held.items()]
+
+
 FIELDS = (
     "summary,status,issuetype,parent,labels,priority,issuelinks,created,updated,comment,assignee,"
     "description"
@@ -286,19 +329,43 @@ def record(issue: dict[str, Any]) -> Record:
         out["description"] = description
     if means:
         out["verifyUsing"] = means
+    own = (issue.get("properties") or {}).get(PROPERTY) or {}
+    if isinstance(own.get("step"), str):
+        out["step"] = own["step"]
+    if isinstance(own.get("claim"), dict):
+        out["claim"] = own["claim"]
+    if isinstance(own.get("run"), str):
+        out["run"] = own["run"]
+    values = written(issue.get("properties") or {})
+    if values:
+        out["values"] = values
     return out
 
 
+def full(issue: dict[str, Any]) -> dict[str, Any]:
+    """An issue a search found, read again with every property of its own
+    where it was poured for a step, so that its claim's values come with it:
+    a search answers only the properties it names."""
+    own = (issue.get("properties") or {}).get(PROPERTY) or {}
+    return (fetch(issue["key"]) or issue) if own.get("step") else issue
+
+
 def search(jql: str) -> list[dict[str, Any]]:
-    """Every issue the JQL names, in pages."""
+    """Every issue the JQL names, in pages. A page that holds no list of
+    issues fails the search: it says nothing of the issues it leaves out, and
+    those would be taken for not there -- an open step, for one, under a root
+    about to close."""
     out: list[dict[str, Any]] = []
     token = None
     while True:
-        query = {"jql": jql, "maxResults": 100, "fields": FIELDS}
+        query = {"jql": jql, "maxResults": 100, "fields": FIELDS, "properties": PROPERTY}
         if token:
             query["nextPageToken"] = token
         page = call("GET", "/rest/api/3/search/jql", query=query)
-        out.extend(page.get("issues") or [])
+        issues = page.get("issues") if isinstance(page, dict) else None
+        if not isinstance(issues, list):
+            raise JiraError(200, "a search page that holds no list of issues")
+        out.extend(issues)
         token = page.get("nextPageToken")
         if not token or page.get("isLast"):
             return out
@@ -306,7 +373,9 @@ def search(jql: str) -> list[dict[str, Any]]:
 
 def fetch(key: str) -> dict[str, Any] | None:
     try:
-        issue: dict[str, Any] = call("GET", "/rest/api/3/issue/%s" % key, query={"fields": FIELDS})
+        issue: dict[str, Any] = call(
+            "GET", "/rest/api/3/issue/%s" % key, query={"fields": FIELDS, "properties": "*all"}
+        )
         return issue
     except JiraError as e:
         if e.status == 404:
@@ -500,6 +569,19 @@ def make(request: Request, root: bool = False) -> tuple[Response, str | None]:
             }, None
         return failed(e), None
     key = made["key"]
+    kept = {k: request[k] for k in ("step", "claim", "run") if request.get(k)}
+    values = list(request.get("values") or [])
+    if kept or values:
+        try:
+            if kept:
+                call("PUT", "/rest/api/3/issue/%s/properties/%s" % (key, PROPERTY), kept)
+            if values:
+                path = "/rest/api/3/issue/%s/properties/%s" % (key, write_name({}))
+                call("PUT", path, {"values": values})
+        except JiraError as e:
+            out = failed(e)
+            out["summary"] = "Jira made %s and could not keep its claim: %s" % (key, out["summary"])
+            return out, key
     try:
         issue = held(key)
     except JiraError as e:
@@ -644,7 +726,16 @@ def jira_pour(request: Request) -> Response:
         }
 
     for s in ordered:
-        step, key = make({"root": root, "title": s["title"], "parent": root_id})
+        step, key = make(
+            {
+                "root": root,
+                "title": s["title"],
+                "parent": root_id,
+                "step": s["id"],
+                "claim": s.get("claim"),
+                "run": root_id,
+            }
+        )
         if key is not None:
             ids[s["id"]] = key
         if step["status"] != "completed":
@@ -663,7 +754,8 @@ def jira_pour(request: Request) -> Response:
 
 
 def blockers(project: str, key: str, item: Record) -> list[str]:
-    """Open needs, then open children, of an issue."""
+    """Open needs, then open children, then the open issues poured in its run,
+    wherever they stand, of an issue."""
     open_needs = []
     for n in item["needs"]:
         issue = fetch(n)
@@ -673,9 +765,16 @@ def blockers(project: str, key: str, item: Record) -> list[str]:
         record(i)
         for i in search("project = %s AND parent = %s ORDER BY created ASC" % (project, key))
     ]
-    return open_needs + [
-        c["id"] for c in children if c["status"] != "closed" and c["id"] not in open_needs
+    poured = [
+        record(i)
+        for i in search("project = %s AND statusCategory != Done ORDER BY created ASC" % project)
+        if ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == key
     ]
+    out = list(open_needs)
+    for c in children + poured:
+        if c["status"] != "closed" and c["id"] not in out:
+            out.append(c["id"])
+    return out
 
 
 def close_one(key: str, reason: str | None) -> bool:
@@ -731,18 +830,26 @@ def jira_close(request: Request) -> Response:
                 % (key, item["status"]),
             }
         closed = [key]
+        # The poured root above it, and the root of the run it was poured in,
+        # wherever it stands, each closed when this was its last open step.
+        roots = []
         parent = item.get("parent")
         if parent:
             above = fetch(parent)
+            if above is not None and record(above)["kind"] == "root":
+                roots.append(record(above))
+        run = item.get("run")
+        if run and run != parent:
+            above = fetch(run)
             if above is not None:
-                root = record(above)
-                if (
-                    root["kind"] == "root"
-                    and root["status"] != "closed"
-                    and not blockers(project, parent, root)
-                    and close_one(parent, "every step closed")
-                ):
-                    closed.append(parent)
+                roots.append(record(above))
+        for root in roots:
+            if (
+                root["status"] != "closed"
+                and not blockers(project, root["id"], root)
+                and close_one(root["id"], "every step closed")
+            ):
+                closed.append(root["id"])
         item = record(held(key))
     except JiraError as e:
         return failed(e, [("item-not-found", 404)])
@@ -772,7 +879,7 @@ def jira_show(request: Request) -> Response:
                 "summary": "%s names no issue here." % key,
             }
         children = [
-            record(i)
+            record(full(i))
             for i in search("project = %s AND parent = %s ORDER BY created ASC" % (project, key))
         ]
     except JiraError as e:
@@ -796,8 +903,15 @@ def jira_list(request: Request) -> Response:
     if request.get("parent"):
         jql += " AND parent = %s" % request["parent"]
     jql += " ORDER BY created ASC"
+    run = request.get("run")
     try:
-        items = [record(i) for i in search(jql)]
+        # JQL reaches no property Jira was not told to index, so a run is
+        # kept here, before each of its issues is read again whole.
+        items = [
+            record(full(i))
+            for i in search(jql)
+            if run is None or ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == run
+        ]
     except JiraError as e:
         return failed(e)
     if request.get("scope") != "all":
@@ -900,6 +1014,42 @@ def jira_update(request: Request) -> Response:
     return {"status": "completed", "summary": "Updated %s." % key, "item": item, "exitCode": 0}
 
 
+def jira_record_values(request: Request) -> Response:
+    """operation.record-values: the values given, kept whole in one issue
+    property named after every write the issue holds, so that a write is
+    there whole or not at all and is read after them: a write cut short
+    reads as it was, writers of the same labels at once leave one write
+    whole, and a writer of other labels keeps what it recorded."""
+    if config() is None:
+        return dict(NOT_CONFIGURED)
+    project, refused = opened(request.get("root"))
+    if refused or not project:
+        return refused or dict(NO_WORKSPACE)
+    key = request["id"]
+    try:
+        issue = fetch(key)
+        if issue is None:
+            return {
+                "status": "failed",
+                "reason": "item-not-found",
+                "exitCode": 1,
+                "summary": "%s names no issue here." % key,
+            }
+        name = write_name(issue.get("properties") or {})
+        path = "/rest/api/3/issue/%s/properties/%s" % (key, name)
+        call("PUT", path, {"values": list(request["values"])})
+        issue = held(key)
+    except JiraError as e:
+        return failed(e, [("item-not-found", 404)])
+    count = len(request["values"])
+    return {
+        "status": "completed",
+        "summary": "Recorded %d value%s on %s." % (count, "" if count == 1 else "s", key),
+        "item": record(issue),
+        "exitCode": 0,
+    }
+
+
 def jira_ready(request: Request) -> Response:
     if config() is None:
         return dict(NOT_CONFIGURED)
@@ -928,7 +1078,7 @@ TRACKER = {
     "info": {
         "name": "jira",
         "version": VERSION,
-        "interface": 3,
+        "interface": 4,
         "origin": "loaded",
         "nativeNeeds": True,
         "checkTarget": os.environ.get("JIRA_CHECK_PROJECT"),
@@ -945,6 +1095,7 @@ TRACKER = {
         "operation.list-items": jira_list,
         "operation.update-item": jira_update,
         "operation.ready-items": jira_ready,
+        "operation.record-values": jira_record_values,
     },
     "extras": {},
     "store": store,

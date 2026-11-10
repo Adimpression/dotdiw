@@ -63,11 +63,15 @@ class StubJira:
         self.tokens = []  # the nextPageToken of each search that sent one
         self.no_way_to = set()  # status categories no transition reaches
         self.refuse_children = False  # whether a create under a parent is refused
+        self.refuse_properties = False  # whether an issue property is refused
+        self.cut = None  # a function of a property's method, name and body: True answers 503
         self.unreadable = None  # "all" or "children": issues made then answer 503 when read
         self.unread = set()  # the keys of the issues that answer 503 when read
+        self.properties = {}  # key -> {property: value}, as Jira keeps entity properties
         self.no_myself = False  # whether the site will say who the token is
+        self.no_issues = False  # whether a search answers without its list of issues
 
-    def issue(self, key, wanted=""):
+    def issue(self, key, wanted="", props=""):
         fields = self.issues.get(key)
         if fields is None:
             return None
@@ -108,10 +112,15 @@ class StubJira:
             shown["assignee"] = dict(fields["assignee"], displayName=ACCOUNTS.get(who))
         kept = {k: v for k, v in shown.items() if not k.startswith("_")}
         # A site answers with the fields asked for and no others.
-        return {
+        answer = {
             "key": key,
             "fields": {k: v for k, v in kept.items() if not wanted or k in wanted.split(",")},
         }
+        held = self.properties.get(key) or {}
+        asked = list(held) if props == "*all" else [p for p in props.split(",") if p in held]
+        if asked:
+            answer["properties"] = {p: held[p] for p in asked}
+        return answer
 
     def handle(self, method, path, query, body):
         self.requests.append((method, path))
@@ -149,6 +158,8 @@ class StubJira:
                 and (not parent or (f.get("parent") or {}).get("key") == parent.group(1))
             ]
             keys.sort(key=lambda k: self.issues[k]["created"])
+            if self.no_issues:
+                return 200, {}
             token = query.get("nextPageToken", [""])[0]
             if token:
                 self.tokens.append(token)
@@ -156,7 +167,10 @@ class StubJira:
             size = min(int(query.get("maxResults", ["50"])[0]), self.page_size)
             page = keys[start : start + size]
             answer = {
-                "issues": [self.issue(k, query.get("fields", [""])[0]) for k in page],
+                "issues": [
+                    self.issue(k, query.get("fields", [""])[0], query.get("properties", [""])[0])
+                    for k in page
+                ],
                 "isLast": start + size >= len(keys),
             }
             if not answer["isLast"]:
@@ -208,7 +222,9 @@ class StubJira:
             if method == "GET" and key in self.unread:
                 return 503, {"errorMessages": ["The service is unavailable."]}
             if method == "GET":
-                return 200, self.issue(key, query.get("fields", [""])[0])
+                return 200, self.issue(
+                    key, query.get("fields", [""])[0], query.get("properties", [""])[0]
+                )
             if method == "PUT":
                 fields = (body or {}).get("fields") or {}
                 for k, v in fields.items():
@@ -217,6 +233,22 @@ class StubJira:
                     if k == "assignee" and "name" in (v or {}):
                         return 400, {"errors": {"assignee": "name was removed; use accountId"}}
                     self.issues[key][k] = v
+                return 204, None
+        if rest[:1] == ["issue"] and len(rest) == 4 and rest[2] == "properties":
+            key = rest[1]
+            if key not in self.issues:
+                return 404, {"errorMessages": ["Issue does not exist"]}
+            if method == "PUT" and self.refuse_properties:
+                return 400, {"errorMessages": ["Properties are turned off here."]}
+            if self.cut and self.cut(method, rest[3], body or {}):
+                return 503, {"errorMessages": ["The service is unavailable."]}
+            if method == "PUT":
+                self.properties.setdefault(key, {})[rest[3]] = body
+                return 200, None
+            if method == "DELETE":
+                if rest[3] not in self.properties.get(key, {}):
+                    return 404, {"errorMessages": ["The property does not exist."]}
+                del self.properties[key][rest[3]]
                 return 204, None
         if rest[:1] == ["issue"] and len(rest) == 3 and rest[2] == "assignee" and method == "PUT":
             key = rest[1]
@@ -299,7 +331,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if answer is not None:
             self.wfile.write(json.dumps(answer).encode("utf-8"))
 
-    do_GET = do_POST = do_PUT = _answer
+    do_GET = do_POST = do_PUT = do_DELETE = _answer
 
     def log_message(self, *args):
         pass
@@ -375,7 +407,7 @@ def load_adapter():
 
 class TheTable(unittest.TestCase):
     def test_it_says_which_interface_it_was_written_for(self):
-        self.assertEqual(load_adapter().TRACKER["info"]["interface"], 3)
+        self.assertEqual(load_adapter().TRACKER["info"]["interface"], 4)
 
     def test_steps_that_share_an_id_pour_nothing(self):
         """Refused before Jira is asked: a pour answers one id per step."""
@@ -434,7 +466,7 @@ class TheHostedAdapter(unittest.TestCase):
         self.assertRegex(out, r"(?m)^  jira\s+.*loaded, from %s$" % re.escape(path))
         code, out = self.run_tool(tool, "tracker", "check", "jira")
         self.assertEqual(code, 0, out)
-        self.assertIn("\u2713 jira passed 10 of 10.", out)
+        self.assertIn("\u2713 jira passed 11 of 11.", out)
 
     def test_it_is_listed_with_no_credentials_and_no_network(self):
         """What a package's test block sees under `brew test`."""
@@ -455,11 +487,11 @@ class TheHostedAdapter(unittest.TestCase):
             out,
             r"(?m)^  jira\s+0\.1, site 1001\.0\.0-stub\s+loaded, from .*/\.dotdiw/trackers/jira\.py$",
         )
-        self.assertRegex(out, r"(?m)^  local\s+3\.0\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(out, r"(?m)^  local\s+4\.0\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.home.dotdiw("tracker", "check", "jira")
         self.assertEqual(code, 0, out)
-        self.assertEqual(out.count("  pass  operation."), 10, out)
-        self.assertIn("✓ jira passed 10 of 10.", out)
+        self.assertEqual(out.count("  pass  operation."), 11, out)
+        self.assertIn("✓ jira passed 11 of 11.", out)
         projects = {f["project"]["key"] for f in self.site.stub.issues.values()}
         self.assertEqual(projects, {"CHK"}, "the check fills its declared project and nothing else")
         self.assertNotIn(TOKEN, out)
@@ -628,6 +660,36 @@ class TheHostedAdapter(unittest.TestCase):
                 self.assertIn("Jira made %s and could not read it back" % last, p.stderr)
                 self.assertIn(record["rootId"], p.stderr)
 
+    def test_a_pour_whose_claim_jira_cannot_keep_names_what_it_made(self):
+        """Jira makes a claimed step and refuses its property: the pour fails,
+        and its record and its line name the root and the step Jira made."""
+        self.adopted()
+        formula = "pour-claimed.formula.toml"
+        with open(os.path.join(self.home.path, formula), "w", encoding="utf-8") as fh:
+            fh.write(
+                'formula = "mol-pour-claimed"\n'
+                'description = "Pour it. Use when testing a claim Jira cannot keep."\n'
+                '[[steps]]\nid = "count"\ntitle = "Count"\n'
+                '[steps.claim]\nstatement = "Counted {{ n }}."\n"n:" = {}\n'
+            )
+        subprocess.run(["git", "add", formula], cwd=self.home.path, env=self.home.env)
+        subprocess.run(["git", "commit", "-qm", "f"], cwd=self.home.path, env=self.home.env)
+        stub = self.site.stub
+        stub.refuse_properties = True
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, "formula", "pour", "mol-pour-claimed", "--json"],
+            cwd=self.home.path,
+            env=self.home.env,
+            capture_output=True,
+            text=True,
+        )
+        stub.refuse_properties = False
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        record = json.loads(p.stdout)
+        self.assertEqual(len(record["stepIds"]), 1, record)
+        self.assertIn("Jira made %s and could not keep its claim" % record["stepIds"][0], p.stderr)
+        self.assertIn(record["rootId"], p.stderr)
+
     def test_a_create_names_what_jira_made_and_could_not_read_back(self):
         self.adopted()
         stub = self.site.stub
@@ -687,6 +749,239 @@ class TheHostedAdapter(unittest.TestCase):
         self.assertEqual(closed["status"], "completed", closed)
         self.assertEqual(closed["closedIds"], [poured["stepIds"][0]])
         self.assertEqual(stub.issues[poured["rootId"]]["_status"], "To Do")
+
+    def test_a_writer_of_other_labels_keeps_what_it_recorded(self):
+        """One writer reads the step, another records a different label, then
+        the first records its own: both labels are kept."""
+        self.adopted()
+        patcher = mock.patch.dict(
+            os.environ,
+            {k: self.home.env[k] for k in ("JIRA_SITE", "JIRA_EMAIL", "JIRA_API_TOKEN", "HOME")},
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        ask = load_adapter()
+        claim = {"statement": "{{ n }} {{ m }}", "slots": ["n", "m"]}
+        poured = ask.jira_pour(
+            {
+                "root": self.home.path,
+                "formulaRef": "mol-x",
+                "title": "mol-x",
+                "steps": [{"id": "a", "title": "A", "claim": claim}],
+            }
+        )
+        self.assertEqual(poured["status"], "completed", poured)
+        step = poured["stepIds"][0]
+        real = ask.fetch
+        done: list[int] = []
+
+        def read_then_the_other_writes(key):
+            issue = real(key)
+            if not done:
+                done.append(key)
+                other = ask.jira_record_values(
+                    {"root": self.home.path, "id": step, "values": [{"label": "m", "text": "2"}]}
+                )
+                self.assertEqual(other["status"], "completed", other)
+            return issue
+
+        ask.fetch = read_then_the_other_writes
+        out = ask.jira_record_values(
+            {"root": self.home.path, "id": step, "values": [{"label": "n", "text": "1"}]}
+        )
+        ask.fetch = real
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual(sorted(v["label"] for v in out["item"]["values"]), ["m", "n"])
+
+    ROSTER = (
+        'formula = "mol-roster"\n'
+        'description = "Check a roster. Use when testing a write Jira cuts short."\n'
+        'verify-using = ["run:check-roster {{ count.roster-id }} {{ count.capacity }}"]\n'
+        '[[steps]]\nid = "count"\ntitle = "Count"\n'
+        '[steps.claim]\nstatement = "Roster {{ roster-id }} covers {{ capacity }}."\n'
+        '"roster-id:" = {}\n"capacity:" = {}\n'
+    )
+
+    def claim(self, *args):
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, "claim"] + list(args),
+            cwd=self.home.path,
+            env=self.home.env,
+            input="",
+            capture_output=True,
+            text=True,
+        )
+        return p.returncode, p.stdout, p.stderr
+
+    def roster(self):
+        """A run of one claimed step, roster 42 covering 80 recorded whole."""
+        self.adopted()
+        with open(os.path.join(self.home.path, "roster.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(self.ROSTER)
+        subprocess.run(["git", "add", "-A"], cwd=self.home.path, env=self.home.env)
+        subprocess.run(["git", "commit", "-qm", "f"], cwd=self.home.path, env=self.home.env)
+        code, out = self.home.dotdiw("formula", "pour", "mol-roster")
+        self.assertEqual(code, 0, out)
+        step = re.search(r"dotdiw claim (\S+) ", out)
+        assert step is not None, out
+        code, out, err = self.claim(step.group(1), "roster-id: 42", "capacity: 80")
+        self.assertEqual(code, 0, out + err)
+        return step.group(1)
+
+    def cut_short(self, step, cut, *lines):
+        """The run as read after a claim Jira cut short where cut says."""
+        self.site.stub.cut = cut
+        code, out, err = self.claim(step, *lines)
+        self.site.stub.cut = None
+        self.assertEqual(code, 1, out + err)
+        code, out, err = self.claim(step, "--json")
+        self.assertEqual(code, 0, out + err)
+        run = json.loads(out)
+        return run["steps"][0]["values"], run["open"]
+
+    def test_a_write_jira_refuses_reads_as_it_was(self):
+        """Jira answers 503 for a write of roster 7 covering 65: the run reads
+        roster 42 covering 80, whole, as it was."""
+        step = self.roster()
+        self.assertEqual(
+            self.cut_short(
+                step,
+                lambda method, name, body: (
+                    {"label": "capacity", "text": "65"} in (body.get("values") or [])
+                ),
+                "roster-id: 7",
+                "capacity: 65",
+            ),
+            ([{"label": "roster-id", "text": "42"}, {"label": "capacity", "text": "80"}], []),
+        )
+
+    def in_process(self):
+        """The adapter in this process, and a step of roster and capacity
+        poured through it, for a test that must interleave two writers."""
+        self.adopted()
+        patcher = mock.patch.dict(
+            os.environ,
+            {k: self.home.env[k] for k in ("JIRA_SITE", "JIRA_EMAIL", "JIRA_API_TOKEN", "HOME")},
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        ask = load_adapter()
+        claim = {"statement": "{{ roster-id }} {{ capacity }}", "slots": ["roster-id", "capacity"]}
+        poured = ask.jira_pour(
+            {
+                "root": self.home.path,
+                "formulaRef": "mol-x",
+                "title": "mol-x",
+                "steps": [{"id": "a", "title": "A", "claim": claim}],
+            }
+        )
+        self.assertEqual(poured["status"], "completed", poured)
+        return ask, poured["stepIds"][0]
+
+    def recorded(self, ask, step, roster, capacity):
+        return ask.jira_record_values(
+            {
+                "root": self.home.path,
+                "id": step,
+                "values": [
+                    {"label": "roster-id", "text": roster},
+                    {"label": "capacity", "text": capacity},
+                ],
+            }
+        )
+
+    def overlapped(self, ask, step, first, second):
+        """The second write read, then the first written whole, then the
+        second: what the item holds after."""
+        real = ask.fetch
+        done: list[str] = []
+
+        def read_then_the_other_writes(key):
+            issue = real(key)
+            if not done:
+                done.append(key)
+                self.assertEqual(self.recorded(ask, step, *first)["status"], "completed")
+            return issue
+
+        ask.fetch = read_then_the_other_writes
+        try:
+            out = self.recorded(ask, step, *second)
+        finally:
+            ask.fetch = real
+        return out, [v["text"] for v in ask.record(real(step)).get("values") or []]
+
+    def test_a_write_cut_short_beside_another_leaves_that_one_whole(self):
+        """One writer records roster 9 covering 90 while another, overlapping
+        it, fails recording 7 covering 65: the step reads 9 and 90, never 7
+        beside 90."""
+        ask, step = self.in_process()
+        self.site.stub.cut = lambda method, name, body: (
+            {"label": "capacity", "text": "65"} in (body.get("values") or [])
+        )
+        out, held = self.overlapped(ask, step, ("9", "90"), ("7", "65"))
+        self.site.stub.cut = None
+        self.assertEqual(out["status"], "failed", out)
+        self.assertEqual(held, ["9", "90"])
+
+    def test_writes_of_the_same_labels_at_once_leave_one_whole(self):
+        ask, step = self.in_process()
+        out, held = self.overlapped(ask, step, ("9", "90"), ("7", "65"))
+        self.assertEqual(out["status"], "completed", out)
+        self.assertIn(held, (["9", "90"], ["7", "65"]))
+
+    def test_the_last_step_closes_the_root_of_its_run_wherever_it_stands(self):
+        """A step moved under another run's root closes its own run's root
+        when it is that run's last open step, and leaves the other open."""
+        ask, step = self.in_process()
+        root = ask.record(ask.fetch(step))["run"]
+        other = ask.jira_pour(
+            {
+                "root": self.home.path,
+                "formulaRef": "mol-y",
+                "title": "mol-y",
+                "steps": [{"id": "b", "title": "B"}],
+            }
+        )
+        self.assertEqual(other["status"], "completed", other)
+        moved = ask.jira_update({"root": self.home.path, "id": step, "parent": other["rootId"]})
+        self.assertEqual(moved["status"], "completed", moved)
+        closed = ask.jira_close({"root": self.home.path, "id": step})
+        self.assertEqual(closed["closedIds"], [step, root])
+        self.assertEqual(ask.record(ask.fetch(other["rootId"]))["status"], "open")
+
+    def test_a_search_that_answers_no_list_of_issues_is_no_empty_one(self):
+        """What stands open under a root is read from Jira's search. An answer
+        without its list of issues is a failed read, not a project holding
+        nothing: the root is not closed over its open step, and the listing
+        fails."""
+        ask, step = self.in_process()
+        root = ask.record(ask.fetch(step))["run"]
+        self.site.stub.no_issues = True
+        try:
+            closed = ask.jira_close({"root": self.home.path, "id": root})
+            listed = ask.jira_list({"root": self.home.path, "scope": "all"})
+        finally:
+            self.site.stub.no_issues = False
+        self.assertEqual((closed["status"], closed.get("closedIds")), ("failed", None), closed)
+        self.assertIn("no list of issues", closed["summary"])
+        self.assertEqual(listed["status"], "failed", listed)
+        self.assertEqual(ask.record(ask.fetch(root))["status"], "open")
+        self.assertEqual(
+            [i["id"] for i in ask.jira_list({"root": self.home.path, "scope": "all"})["items"]],
+            [root, step],
+        )
+
+    def test_a_write_is_read_after_every_write_the_step_held(self):
+        """A write named for a moment ahead of this clock is still read before
+        the one made after it."""
+        ask, step = self.in_process()
+        ahead = 32503680000 * 1000000  # 3000-01-01, in microseconds
+        self.site.stub.properties.setdefault(step, {})["dotdiw.write.%020d.ffffffff" % ahead] = {
+            "values": [{"label": "roster-id", "text": "1"}]
+        }
+        out = self.recorded(ask, step, "2", "20")
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual([v["text"] for v in out["item"]["values"]], ["2", "20"])
 
     def test_an_update_with_no_way_to_the_status_is_refused(self):
         self.adopted()
