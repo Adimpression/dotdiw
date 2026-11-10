@@ -19,7 +19,7 @@ imports nothing from dotdiw, and dotdiw reads nothing from it but the table.
 
 ## How dotdiw holds a tracker
 
-**Registered, three ways.** Every one declares interface 2.
+**Registered, three ways.** Every one declares interface 3.
 
 - In the home: `~/.dotdiw/trackers/<name>.py`, looked in first.
 - From a package: `share/dotdiw/trackers/<name>.py` beside the `bin/` dotdiw
@@ -35,10 +35,10 @@ every one it finds.
 `init --tracker` and `tracker use` write; the one adapter holding a store in
 the checkout's workspace.
 
-**Answering, two ways.** In records, one dict in and one out. Or, given
-`terminal` on open, create and pour, by running the tracker's own command on
-the worker's terminal and answering `printed` true. Extras, by name, cover what
-the interface does not.
+**Answering, in records.** One dict in and one out, for every operation: no
+file, no words the worker typed and no terminal reach an adapter, and dotdiw
+prints every answer from its record. Extras, by name, cover what the interface
+does not.
 
 **Where the work lives, three ways.**
 
@@ -67,7 +67,7 @@ whole adapter to read beside it.
 **2. Fill the table.**
 
     TRACKER = {
-        "info": {"name": "<name>", "version": "0.1.0", "interface": 2,
+        "info": {"name": "<name>", "version": "0.1.0", "interface": 3,
                  "nativeNeeds": True, "checkTarget": "scratch", "extras": []},
         "operations": {
             "operation.open-tracker": open_tracker,
@@ -86,8 +86,9 @@ whole adapter to read beside it.
 
 `info` needs `name` and `version`; `origin` is set to `loaded` and `source` to
 the file's path when the module is loaded. `interface` is the number of the
-tracker interface the module was written for, 2 for this dotdiw; without it
-dotdiw reads 1, and a module written for 1 is refused in one line that names it.
+tracker interface the module was written for, 3 for this dotdiw; without it
+dotdiw reads 1, and a module written for 1 or 2 is refused in one line that names
+it.
 `nativeNeeds` says whether the tracker holds needs itself or the adapter keeps
 them in a store of its own.
 `checkTarget` is where `dotdiw tracker check` may create and close items:
@@ -99,9 +100,15 @@ a simple adapter offers nothing.
 `operations` holds the ten operations of the interface by their ids, and
 nothing else, each a callable of exactly one parameter named `request`.
 `extras` holds callables of one `request` by name for what the interface does
-not cover. dotdiw calls two by name: `forward`, with every command it does not
-own, and `metrics-off`, the first time a run reaches the adapter, before
-anything else is asked of it. Without `forward`, `dotdiw --help` prints the
+not cover. dotdiw calls three by name: `forward`, with every command it does
+not own; `metrics-off`, the first time a run reaches the adapter, before
+anything else is asked of it; and `upgrade`, for an adapter whose store an
+earlier version of it kept another way. Every command but init, learn and
+`--version` asks `upgrade` with no `apply`, and it answers `pending`, one line
+for each thing left to bring up to date; init asks with `apply` true, and it
+answers `done`, one line for each thing it brought up to date, or fails, which
+stops init; asked again, it takes up where it stopped and leaves what it already
+brought up to date as it is. Without `forward`, `dotdiw --help` prints the
 conventions and any command dotdiw does not own is refused by name. `store`, a
 key you may add to the table, is a callable of one `root` returning the path of
 the adapter's store under that checkout's workspace; a checkout adopted before a
@@ -150,7 +157,9 @@ it:
   in the record is what counts. The record comes back with status open and kind
   task, since only a pour makes a root; a child carries its parent; an unknown
   parent is `parent-not-found`. The description and `verifyUsing` are kept as
-  `pour-steps` keeps a root's, and come back exactly as given.
+  `pour-steps` keeps a root's, and come back exactly as given. A create the
+  tracker made and could not read back fails, and its summary names the id it
+  made.
 - `add-need`, given `id` and `needs`: the `edge` comes back; an unknown item
   is `item-not-found`; a cycle is `cycle`; a need already there answers
   completed, since a move that was interrupted asks for it again.
@@ -178,8 +187,8 @@ it:
   `description` and `verifyUsing`: a root of kind root with the steps as its
   children, each of kind task, and the needs as edges between the new ids;
   `rootId` and `stepIds` in the given order. An empty list is `no-steps`, a
-  need naming no step `step-not-found`, a cycle among the steps `cycle`, and
-  each of those writes nothing. The root keeps the description and
+  need naming no step `step-not-found`, a cycle among the steps `cycle`, two
+  steps with one id `duplicate-step`, and each of those writes nothing. The root keeps the description and
   `verifyUsing`, the means to prove the run, one line each; `show-item`
   returns both exactly as given, and how the adapter keeps them is its own. A
   tracker with a title and a description and nothing more keeps `verifyUsing`
@@ -187,10 +196,10 @@ it:
   `keep_verify_using` writes that section, and `read_verify_using` reads back
   exactly what it wrote, since a description that would read as holding the
   means gets an empty section after it. Pass every description you write
-  through it, the means or none. A pour that made its root and could not keep
-  the means on it is a failure, naming the root in `rootId` and in its
-  summary. An adapter that pours from the formula file itself, at `path`,
-  ignores any key it does not know.
+  through it, the means or none. A pour that fails after making its root --
+  the means not kept, a step refused, or an item made and not read back -- is
+  a failure that names the root and the steps it made, in `rootId`, `stepIds`
+  and its summary.
 
 Three rules are the adapter's, since the door decides none of them: a close
 is refused while an open need or an open child exists; a poured root closes
@@ -243,9 +252,12 @@ A tracker ships as a package.
 - **The interface.** `info.interface` in the table holds the number of the
   interface the file was written for. When dotdiw raises that number, it refuses
   a file written for the old one, in one line that names it, and the author ships
-  a new version. From 1.0.0, dotdiw speaks interface 2: an item's kind is root
+  a new version. From 1.0.0, dotdiw spoke interface 2: an item's kind is root
   or task, `create-item` takes no kind, and a root keeps its description and
-  `verifyUsing`. A file written for 1 is refused.
+  `verifyUsing`. From 3.0.0, it speaks interface 3: the requests carry data
+  alone, with no `path`, `arguments` or `terminal`, and the answers carry no
+  `printed`; every create and pour answers its record. A file written for 1 or
+  2 is refused.
 - **Trust.** An installed tracker's code runs with your rights whenever dotdiw
   loads it, and `dotdiw tracker list` loads every file it finds. A repository
   cannot make dotdiw run its code: dotdiw loads a file from one only when you

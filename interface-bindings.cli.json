@@ -10,17 +10,32 @@
       "affordance": {
         "label": "dotdiw create",
         "shape": "Name the work and read what applies, in one invocation.",
-        "command": "dotdiw create \"<title>\" [-d <description>] [bd create flags]",
+        "command": "dotdiw create \"<title>\" [-p <0-4>] [--parent <id>] [-d <description>] [--json] [-q]",
         "inputMapping": [
           {
             "from": "<title>",
             "to": "title",
-            "notes": "The first argument that is not a flag or a flag's value."
+            "notes": "The one argument that is not a flag or a flag's value."
           },
           {
             "from": "-d, --description",
             "to": "description",
-            "notes": "Matched together with the title."
+            "notes": "Matched together with the title. A value that starts with a dash is given as --description=<text>."
+          },
+          {
+            "from": "-p, --priority",
+            "to": "priority",
+            "notes": "0 to 4, as 2 or P2."
+          },
+          {
+            "from": "--parent",
+            "to": "parent",
+            "notes": "The item the work goes under."
+          },
+          {
+            "from": "--json",
+            "to": "json",
+            "notes": "The record of the work created, as JSON, and nothing else."
           },
           {
             "from": "--json, -q, --quiet, --silent, DOTDIW_NO_HINTS=1",
@@ -28,9 +43,9 @@
             "notes": "Suppresses what rides along with the create: the match, the re-declaration, the check. The create itself still happens."
           },
           {
-            "from": "every argument",
-            "to": "arguments",
-            "notes": "Forwarded to the tracker's create unchanged."
+            "from": "any other flag",
+            "to": "",
+            "notes": "Refused in one line naming it, as is one of create's own flags given no value; nothing is created."
           }
         ]
       },
@@ -57,7 +72,7 @@
       "affordance": {
         "label": "dotdiw formula pour",
         "shape": "Pour a formula from where it lives, by its id. dotdiw mol pour is the older spelling and does the same.",
-        "command": "dotdiw formula pour <formula-id|file|path> [bd mol pour flags]"
+        "command": "dotdiw formula pour <formula-id|file|path> [--json]"
       },
       "coverage": {
         "coverageKind": "fulfills",
@@ -386,8 +401,8 @@
       "operationId": "operation.adopt-a-repository",
       "affordance": {
         "label": "dotdiw init",
-        "shape": "Adopt the repository: the tracker under your home, keyed to this checkout by one line in .git/config; nothing of it in the repository; the conventions declared and named as yours to commit.",
-        "command": "dotdiw init [--tracker <name>] [--prefix <p>] [the adapter's own init flags]",
+        "shape": "Adopt the repository: what an earlier version left put right first; the tracker under your home, keyed to this checkout by one line in .git/config; nothing of it in the repository; the conventions declared and named as yours to commit.",
+        "command": "dotdiw init [--tracker <name>] [--prefix <p>]",
         "inputMapping": [
           {
             "from": "--tracker <name>",
@@ -396,13 +411,13 @@
           },
           {
             "from": "--prefix <p>",
-            "to": "arguments",
-            "notes": "The id prefix, taken out of the arguments and handed to the adapter as such."
+            "to": "prefix",
+            "notes": "The id prefix, handed to the adapter, which honours it where it can."
           },
           {
-            "from": "every other argument",
-            "to": "arguments",
-            "notes": "Handed to the adapter: under beads, --stealth, --skip-hooks and --skip-agents are inserted when absent and the rest goes to its init unchanged; under local, nothing is read."
+            "from": "any other argument",
+            "to": "",
+            "notes": "Refused in one line naming it; nothing is adopted."
           }
         ]
       },
@@ -488,7 +503,7 @@
           {
             "from": "--tracker <name>",
             "to": "tracker",
-            "notes": "Taken out of the arguments; also DOTDIW_TRACKER."
+            "notes": "Taken out of the arguments; also DOTDIW_TRACKER. Given no name, the command is refused in one line before anything runs."
           }
         ]
       },
@@ -560,8 +575,8 @@
       "interfaceName": "dotdiw",
       "operationId": "operation.undo-earlier-adoption",
       "affordance": {
-        "label": "every dotdiw command",
-        "shape": "Before whatever was typed, a hook override left by v0.1.0 is unset, and a repository an earlier version adopted in its tree is adopted under the home with the same prefix, once, with the command for the in-tree copy named.",
+        "label": "every dotdiw command but init, learn and --version",
+        "shape": "Before whatever was typed, asks whether an earlier version left a hook override, a tracker in the tree or a workspace with no tracker chosen, changing nothing; while one is left, the command is refused in one line naming dotdiw init, which puts it right.",
         "command": "dotdiw <anything>"
       },
       "coverage": {
@@ -575,7 +590,7 @@
         "stepIds": [
           "step.undo-earlier-adoption"
         ],
-        "explanation": "Not a command of its own: a repository is unprotected for as long as the override stands, so it does not wait to be asked."
+        "explanation": "Not a command of its own: a repository is unprotected for as long as the override stands, so every command says so until init puts it right."
       }
     },
     {

@@ -63,6 +63,8 @@ class StubJira:
         self.tokens = []  # the nextPageToken of each search that sent one
         self.no_way_to = set()  # status categories no transition reaches
         self.refuse_children = False  # whether a create under a parent is refused
+        self.unreadable = None  # "all" or "children": issues made then answer 503 when read
+        self.unread = set()  # the keys of the issues that answer 503 when read
         self.no_myself = False  # whether the site will say who the token is
 
     def issue(self, key, wanted=""):
@@ -192,6 +194,8 @@ class StubJira:
                 self.issues[key]["_order"], 60
             )
             self.issues[key]["updated"] = self.issues[key]["created"]
+            if self.unreadable == "all" or (self.unreadable == "children" and parent):
+                self.unread.add(key)
             return 201, {"id": str(len(self.issues)), "key": key}
         if rest[:1] == ["issue"] and len(rest) == 2:
             key = rest[1]
@@ -201,6 +205,8 @@ class StubJira:
                         "Issue does not exist or you do not have permission to see it."
                     ]
                 }
+            if method == "GET" and key in self.unread:
+                return 503, {"errorMessages": ["The service is unavailable."]}
             if method == "GET":
                 return 200, self.issue(key, query.get("fields", [""])[0])
             if method == "PUT":
@@ -369,7 +375,21 @@ def load_adapter():
 
 class TheTable(unittest.TestCase):
     def test_it_says_which_interface_it_was_written_for(self):
-        self.assertEqual(load_adapter().TRACKER["info"]["interface"], 2)
+        self.assertEqual(load_adapter().TRACKER["info"]["interface"], 3)
+
+    def test_steps_that_share_an_id_pour_nothing(self):
+        """Refused before Jira is asked: a pour answers one id per step."""
+        pour = load_adapter().TRACKER["operations"]["operation.pour-steps"]
+        out = pour(
+            {
+                "root": tempfile.gettempdir(),
+                "formulaRef": "m",
+                "title": "m",
+                "steps": [{"id": "a", "title": "A"}, {"id": "a", "title": "A again"}],
+            }
+        )
+        self.assertEqual((out["status"], out["reason"]), ("failed", "duplicate-step"), out)
+        self.assertEqual(out["summary"], "Two steps share the id a, so nothing was poured.")
 
 
 class TheHostedAdapter(unittest.TestCase):
@@ -569,8 +589,53 @@ class TheHostedAdapter(unittest.TestCase):
         stub.refuse_children = False
         self.assertEqual(code, 1, out)
         self.assertIn("That parent cannot have children", out)
+        self.assertRegex(out, r"Poured 0 of 2 steps under DEMO-\d+, and the next failed: ")
         self.assertNotIn("DoorError", out)
         self.assertNotIn("Traceback", out)
+        self.assertEqual(len(out.strip().splitlines()), 1, out)
+
+    def test_a_pour_names_what_jira_made_and_could_not_read_back(self):
+        """Jira makes the root, or then a step, and answers 503 when it is read
+        back: the pour fails, and its record and its line name what Jira made."""
+        self.adopted()
+        formula = "pour-unread.formula.toml"
+        with open(os.path.join(self.home.path, formula), "w", encoding="utf-8") as fh:
+            fh.write(
+                'formula = "mol-pour-unread"\n'
+                'description = "Pour it. Use when testing a read that fails after a create."\n'
+                '[[steps]]\nid = "one"\ntitle = "One"\n'
+                '[[steps]]\nid = "two"\ntitle = "Two"\nneeds = ["one"]\n'
+            )
+        subprocess.run(["git", "add", formula], cwd=self.home.path, env=self.home.env)
+        subprocess.run(["git", "commit", "-qm", "f"], cwd=self.home.path, env=self.home.env)
+        stub = self.site.stub
+        for unreadable, made in (("all", 0), ("children", 1)):
+            with self.subTest(unreadable=unreadable):
+                stub.unreadable = unreadable
+                p = subprocess.run(
+                    [sys.executable, "-I", DOTDIW, "formula", "pour", "mol-pour-unread", "--json"],
+                    cwd=self.home.path,
+                    env=self.home.env,
+                    capture_output=True,
+                    text=True,
+                )
+                stub.unreadable = None
+                self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+                record = json.loads(p.stdout)
+                self.assertRegex(record["rootId"], r"^DEMO-\d+$")
+                self.assertEqual(len(record["stepIds"]), made, record)
+                last = (record["stepIds"] or [record["rootId"]])[-1]
+                self.assertIn("Jira made %s and could not read it back" % last, p.stderr)
+                self.assertIn(record["rootId"], p.stderr)
+
+    def test_a_create_names_what_jira_made_and_could_not_read_back(self):
+        self.adopted()
+        stub = self.site.stub
+        stub.unreadable = "all"
+        code, out = self.home.dotdiw("create", "Made and not read back")
+        stub.unreadable = None
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"Jira made DEMO-\d+ and could not read it back: Jira answered 503")
         self.assertEqual(len(out.strip().splitlines()), 1, out)
 
     def test_a_close_with_no_way_to_done_is_refused(self):

@@ -413,6 +413,77 @@ promiseChanges:
       formula management abstraction, where a formula is kept is the provider's business,
       and a file system or an API endpoint serves the same matching and the
       same pour.
+  - changeId: change.an-earlier-adoption-is-put-right-by-init
+    summary: >
+      From 3.0.0, what an earlier version left in a checkout -- bd's hook
+      directory standing in for the repository's own, a tracker in the tree,
+      a workspace with no tracker chosen -- is put right by dotdiw init alone.
+      Every other command but learn and --version says in one line to run
+      init while anything is left, and changes nothing. What cannot be put
+      right stops init in one line, and nothing is adopted.
+    compatibility: breaking
+    rationale: >
+      Every command put it right before running, writing to the repository's
+      git config on whatever was typed. A repair belongs to the one command
+      that adopts.
+  - changeId: change.the-means-kept-as-data
+    summary: >
+      From 3.0.0, the trackers dotdiw ships keep the means to prove a run as
+      data, the local store in a column of its own and beads in the issue's
+      metadata, and give every description back exactly as it was given. A
+      checkout an earlier version used is brought up to date by dotdiw init,
+      once; an upgrade cut short is taken up where it stopped, and an issue
+      whose metadata holds dotdiw as a value of its own, null included,
+      keeps it.
+    compatibility: breaking
+    rationale: >
+      Both kept the means as the last section of a description, so a
+      description that looked like it held one was rewritten, and so was every
+      description typed through the pass-through.
+  - changeId: change.beads-pours-the-steps-it-is-given
+    summary: >
+      From 3.0.0, a pour under beads makes its root and steps itself, with bd
+      create, in the order the needs allow, and answers the step ids in the
+      formula's order; bd's cook and mol pour are no longer a pour's. Steps
+      that share an id are refused before anything is made, and a pour cut
+      short names the root and the steps it made.
+    compatibility: breaking
+    rationale: >
+      Through bd's own pour, which issue was which step could not be told, and
+      the step ids came back sorted by id instead of in the formula's order.
+  - changeId: change.dotdiw-parses-its-own-flags
+    summary: >
+      From 3.0.0, create, formula pour and init read dotdiw's own flags, and
+      nothing typed goes to the tracker: create takes a title, -p, --parent,
+      -d, --json and -q; formula pour takes --json; init takes --prefix and
+      --tracker. Any other flag is refused in one line, and so is a flag
+      given no value.
+    compatibility: breaking
+    rationale: >
+      create's title was read around a table of bd's flags, so every tracker's
+      create was parsed as bd's, and what was typed went to the tracker as
+      typed.
+  - changeId: change.tracker-interface-3-carries-data-alone
+    summary: >
+      From 3.0.0, the tracker interface is number 3 and carries data alone: no
+      formula file, no words typed and no terminal reach an adapter, and every
+      adapter answers in records, which dotdiw prints. An adapter written for
+      interface 2 is refused until its author moves it.
+    compatibility: breaking
+    rationale: >
+      The interface carried a file, typed words and a terminal so that beads
+      could run bd's own commands as the worker typed them.
+  - changeId: change.a-provider-answers-a-formula-as-data
+    summary: >
+      From 3.0.0, a formula management provider answers show with the formula
+      as data -- its description, its means to prove and its steps -- and says
+      in its info that it was written for formula provider interface 2.
+      Nothing is written for a provider's formula, and formula show prints it
+      as JSON.
+    compatibility: breaking
+    rationale: >
+      show answered a file's text, which dotdiw rewrote and cached as a file.
+      An interface carries data.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

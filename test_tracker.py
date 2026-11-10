@@ -165,7 +165,7 @@ class EveryAdapterPresent(unittest.TestCase):
             "info": {
                 "name": "lax",
                 "version": "0",
-                "interface": 2,
+                "interface": 3,
                 "origin": "shipped",
                 "checkTarget": "lax",
             },
@@ -238,7 +238,7 @@ class Memory:
             return {
                 "status": "completed",
                 "summary": "memory",
-                "info": {"name": self.name, "version": "0", "interface": 2, "origin": "loaded"},
+                "info": {"name": self.name, "version": "0", "interface": 3, "origin": "loaded"},
                 "exitCode": 0,
             }
 
@@ -319,7 +319,7 @@ class Memory:
             "info": {
                 "name": self.name,
                 "version": "0",
-                "interface": 2,
+                "interface": 3,
                 "origin": "loaded",
                 "checkTarget": "scratch",
             },

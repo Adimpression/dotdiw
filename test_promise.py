@@ -77,6 +77,7 @@ INFRASTRUCTURE = {
     "repository_of",
     "checkout_remotes",
     "failed_as",
+    "shared_step_id",
     "steps_in_order",
     "git",
     "repo_root",
@@ -154,7 +155,12 @@ TRACKER = {
 ADAPTERS = {
     "beads": {
         "beads_find",
-        "beads_serial",
+        "beads_metadata",
+        "beads_own",
+        "beads_left_as_given",
+        "beads_means",
+        "beads_moved",
+        "beads_upgrade",
         "beads_store",
         "beads_env",
         "beads_quiet",
@@ -181,6 +187,8 @@ ADAPTERS = {
     },
     "local": {
         "local_store",
+        "local_columns",
+        "local_upgrade",
         "local_connect",
         "local_write",
         "local_refused",
@@ -209,12 +217,13 @@ ADAPTERS = {
 EXTRAS = {
     "forward": "operation.forward-to-the-tracker",
     "metrics-off": "operation.turn-metrics-off",
+    "upgrade": "operation.undo-earlier-adoption",
 }
 
 # The command line: parse the affordance, build the request, call the
 # operation. Infrastructure and operations, nothing else, may be called here.
 INTERFACE = {
-    "extract_query",
+    "own_flags",
     "extract_tracker",
     "main",
     "present",
@@ -248,7 +257,7 @@ INTERFACE = {
 HELPERS = {
     "WriteFormula": {"Titles", "slug", "past_titles", "steps_from"},
     "CheckTracker": {"conformance_scenario", "candidate_registered"},
-    "ShowProviderFormula": {"toml_text"},
+    "ShowProviderFormula": {"formula_body"},
 }
 
 # What runs a tracker or git command, and the dependency it crosses into.
@@ -669,8 +678,8 @@ class TheSort(unittest.TestCase):
         for name in INTERFACE | INFRASTRUCTURE | DOOR:
             self.assertFalse(self.source.names_called(name) & ADAPTERS["beads"], name)
         # And both adapters are in the registry at import, named, shipped,
-        # each saying where its store is; the beads adapter with its two
-        # extras, the local one with none and no runner at all.
+        # each saying where its store is; the beads adapter with its three
+        # extras, the local one with its upgrade alone and no runner at all.
         module = load_module("dotdiw_adapter_registry", SCRIPT)
         self.assertEqual(set(module.TRACKERS), set(ADAPTERS))
         for name in ADAPTERS:
@@ -678,7 +687,7 @@ class TheSort(unittest.TestCase):
             self.assertEqual((info["name"], info["origin"]), (name, "shipped"))
             self.assertTrue(callable(module.TRACKERS[name]["store"]))
         self.assertEqual(sorted(module.TRACKERS["beads"]["extras"]), sorted(EXTRAS))
-        self.assertEqual(module.TRACKERS["local"]["extras"], {})
+        self.assertEqual(sorted(module.TRACKERS["local"]["extras"]), ["upgrade"])
         self.assertEqual(module.DEFAULT_TRACKER, "local")
         for name in ADAPTERS["local"]:
             self.assertFalse(self.source.names_called(name) & set(RUNNERS), name)
@@ -1042,9 +1051,7 @@ class TheDoor(unittest.TestCase):
         called = self.source.names_called("main")
         self.assertIn("invoke", called)
         beyond = (
-            called
-            - INFRASTRUCTURE
-            - {"invoke", "invoke_tracker", "extract_query", "extract_tracker"}
+            called - INFRASTRUCTURE - {"invoke", "invoke_tracker", "own_flags", "extract_tracker"}
         )
         self.assertEqual(beyond, set(), "main() calls %s" % sorted(beyond))
         doors = [
@@ -1163,9 +1170,23 @@ def fake_adapter(module, name="fake", answers=None):
         return operation_
 
     return {
-        "info": {"name": name, "version": "0", "interface": 2, "origin": "shipped"},
+        "info": {"name": name, "version": "0", "interface": 3, "origin": "shipped"},
         "operations": {op: callable_for(op) for op in module.TRACKER_DOOR},
     }
+
+
+POUR_BEFORE = (
+    'formula = "mol-before"\ndescription = "As it read. Use when testing."\n'
+    'verify-using = ["run:make one"]\n[[steps]]\nid = "one"\ntitle = "One"\n'
+)
+POUR_AFTER = (
+    'formula = "mol-after"\ndescription = "Written over. Use when testing."\n'
+    'verify-using = ["run:make two"]\n[[steps]]\nid = "two"\ntitle = "Two"\n'
+)
+POUR_TWICE = (
+    'formula = "mol-twice"\ndescription = "Twice. Use when testing."\n'
+    '[[steps]]\nid = "one"\ntitle = "One"\n[[steps]]\nid = "one"\ntitle = "Again"\n'
+)
 
 
 class TheTrackerDoor(unittest.TestCase):
@@ -1183,6 +1204,97 @@ class TheTrackerDoor(unittest.TestCase):
         # about the door, so they start from an empty one.
         self.assertEqual(set(self.module.TRACKERS), set(ADAPTERS))
         self.module.TRACKERS.clear()
+
+    def kept_pours(self):
+        """An adapter that keeps every pour it is handed, registered as kept,
+        under a home of its own so that no provider of this machine answers."""
+        m = self.module
+        home = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, home, True)
+        saved = os.environ.get("HOME")
+        os.environ["HOME"] = home
+        self.addCleanup(os.environ.__setitem__, "HOME", saved or "")
+        handed = []
+        adapter = fake_adapter(m, "kept")
+
+        def pour(request):
+            handed.append(request)
+            return {
+                "status": "completed",
+                "summary": "Poured.",
+                "rootId": "r",
+                "stepIds": ["s"],
+                "exitCode": 0,
+            }
+
+        adapter["operations"]["operation.pour-steps"] = pour
+        m.register_tracker("kept", adapter)
+        return handed
+
+    def formula_file(self, text):
+        path = os.path.join(self.root, "x.formula.toml")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return path
+
+    def poured(self, ident):
+        return self.module.invoke(
+            "operation.pour-procedure", {"root": self.root, "ident": ident, "tracker": "kept"}
+        )
+
+    def test_a_pour_pours_the_formula_its_lookup_selected(self):
+        """The file is written over right after the pour's lookup read it, in
+        one operation: the pour pours mol-before, as its lookup read it."""
+        m = self.module
+        handed = self.kept_pours()
+        path = self.formula_file(POUR_BEFORE)
+        real = m.IndexTheProject
+
+        def read_then_written_over(request):
+            held = real(request)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(POUR_AFTER)
+            return held
+
+        m.IndexTheProject = read_then_written_over
+        try:
+            out = self.poured("mol-before")
+        finally:
+            m.IndexTheProject = real
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual(out["formulaRef"], "mol-before")
+        self.assertEqual(
+            (handed[0]["formulaRef"], handed[0]["title"]), ("mol-before", "mol-before")
+        )
+        self.assertEqual(
+            ([s["id"] for s in handed[0]["steps"]], handed[0]["verifyUsing"]),
+            (["one"], ["run:make one"]),
+        )
+
+    def test_every_pour_reads_the_formula_afresh(self):
+        """Pours in one process, each an operation of its own: the second pours
+        the formula as its file reads by then, and one after the file is gone
+        pours nothing of it."""
+        handed = self.kept_pours()
+        path = self.formula_file(POUR_BEFORE.replace("mol-before", "mol-x"))
+        self.assertEqual(self.poured("mol-x")["formulaRef"], "mol-x")
+        self.formula_file(POUR_AFTER.replace("mol-after", "mol-x"))
+        self.assertEqual(self.poured("mol-x")["formulaRef"], "mol-x")
+        os.unlink(path)
+        gone = self.poured("mol-x")
+        self.assertIsNone(gone["formulaRef"], gone)
+        self.assertEqual(
+            [([s["id"] for s in h["steps"]], h["verifyUsing"]) for h in handed],
+            [(["one"], ["run:make one"]), (["two"], ["run:make two"]), ([], [])],
+        )
+
+    def test_a_formula_whose_steps_share_an_id_never_reaches_the_tracker(self):
+        handed = self.kept_pours()
+        self.formula_file(POUR_TWICE)
+        out = self.poured("mol-twice")
+        self.assertEqual((out["status"], out["reason"]), ("failed", "duplicate-step"), out)
+        self.assertIn("Two steps of mol-twice share the id one", out["summary"])
+        self.assertEqual(handed, [])
 
     def test_the_registry_holds_an_adapter_to_the_shape(self):
         m = self.module
@@ -1204,7 +1316,7 @@ class TheTrackerDoor(unittest.TestCase):
             m.register_tracker("wrong", wrong)
         self.assertIn(gone, str(held.exception))
         nameless = {
-            "info": {"version": "0", "interface": 2, "origin": "shipped"},
+            "info": {"version": "0", "interface": 3, "origin": "shipped"},
             "operations": whole["operations"],
         }
         with self.assertRaises(m.DoorError) as held:
@@ -1504,29 +1616,35 @@ class TheTrackerDoor(unittest.TestCase):
         )
         self.assertEqual(out["item"], full)
 
-    def test_a_create_or_a_pour_that_printed_itself_may_carry_no_record(self):
-        """bd's own create with -q prints nothing to read an id from: the
-        create happened, and the terminal has had all there is to say."""
+    def test_a_create_or_a_pour_without_its_record_is_the_adapters_mistake(self):
+        """Nothing an adapter does is printed by it, so every completed create
+        and pour carries its record, and one that does not raises at the door."""
         m = self.module
         m.register_tracker(
             "fake",
             fake_adapter(
                 m,
                 answers={
-                    "operation.create-item": {"item": None, "printed": True},
-                    "operation.pour-steps": {"rootId": None, "stepIds": [], "printed": True},
+                    "operation.create-item": {"item": None},
+                    "operation.pour-steps": {"rootId": None, "stepIds": []},
                 },
             ),
         )
-        made = m.invoke_tracker(
-            "operation.create-item", {"root": self.root, "tracker": "fake", "title": "T"}
-        )
-        self.assertEqual(made["status"], "completed")
-        poured = m.invoke_tracker(
-            "operation.pour-steps",
-            {"root": self.root, "tracker": "fake", "formulaRef": "m", "title": "m", "steps": []},
-        )
-        self.assertEqual(poured["status"], "completed")
+        with self.assertRaises(m.DoorError):
+            m.invoke_tracker(
+                "operation.create-item", {"root": self.root, "tracker": "fake", "title": "T"}
+            )
+        with self.assertRaises(m.DoorError):
+            m.invoke_tracker(
+                "operation.pour-steps",
+                {
+                    "root": self.root,
+                    "tracker": "fake",
+                    "formulaRef": "m",
+                    "title": "m",
+                    "steps": [],
+                },
+            )
 
     def test_the_orchestration_reaches_the_interface_by_id(self):
         m = self.module
@@ -1574,7 +1692,7 @@ class TheTrackerDoor(unittest.TestCase):
                 "        out = {'status': 'completed', 'summary': operation, 'exitCode': 0}\n"
                 "        return dict(out, items=[])\n"
                 "    return operation_\n"
-                "TRACKER = {'info': {'name': 'mine', 'version': '1', 'interface': 2},\n"
+                "TRACKER = {'info': {'name': 'mine', 'version': '1', 'interface': 3},\n"
                 "           'operations': {op: _answer(op) for op in OPERATIONS}}\n"
             )
         self.assertFalse(m.load_tracker("../mine"))
@@ -1587,9 +1705,9 @@ class TheTrackerDoor(unittest.TestCase):
 
     def test_a_module_says_which_interface_it_was_written_for(self):
         """Absent means 1, the number every module written before 1.0.0 was
-        written for, and this tool speaks 2: a module that says nothing or says
-        1 is refused by name when it loads, as is any other number this tool
-        does not speak, and never halfway through an operation."""
+        written for, and this tool speaks 3: a module that says nothing, says 1
+        or says 2 is refused by name when it loads, as is any other number this
+        tool does not speak, and never halfway through an operation."""
         m = self.module
         home = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, home, True)
@@ -1613,11 +1731,17 @@ class TheTrackerDoor(unittest.TestCase):
 
         module("unsaid", "absent")
         module("earlier", 1)
+        module("previous", m.TRACKER_INTERFACE - 1)
         module("said", m.TRACKER_INTERFACE)
         module("later", m.TRACKER_INTERFACE + 1)
         module("flag", True)
         self.assertTrue(m.load_tracker("said"))
-        for name, declared in (("unsaid", 1), ("earlier", 1), ("later", m.TRACKER_INTERFACE + 1)):
+        for name, declared in (
+            ("unsaid", 1),
+            ("earlier", 1),
+            ("previous", m.TRACKER_INTERFACE - 1),
+            ("later", m.TRACKER_INTERFACE + 1),
+        ):
             self.assertFalse(m.load_tracker(name), name)
             self.assertIn(
                 "written for tracker interface %d; this dotdiw supports interface %d"
@@ -1729,7 +1853,7 @@ class TheTrackerDoor(unittest.TestCase):
                 "    return operation_\n"
                 "def forward(request):\n"
                 "    raise ValueError('no')\n"
-                "TRACKER = {'info': {'name': 'boom', 'version': '1', 'interface': 2},\n"
+                "TRACKER = {'info': {'name': 'boom', 'version': '1', 'interface': 3},\n"
                 "           'operations': {op: _answer(op) for op in OPERATIONS},\n"
                 "           'extras': {'forward': forward}}\n"
             )
