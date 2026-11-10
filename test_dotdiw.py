@@ -891,7 +891,7 @@ class TheName(unittest.TestCase):
         lines = p.stdout.strip().split("\n")
         self.assertEqual(len(lines), 2, p.stdout)
         self.assertRegex(lines[1], r"^  tracker beads \d+(\.\d+)+$")
-        self.assertNotIn("2.0.0", lines[1], "the tracker underneath, not this tool")
+        self.assertNotIn("3.0.0", lines[1], "the tracker underneath, not this tool")
 
     def test_without_the_tracker_the_message_is_the_install_command(self):
         """Nothing on PATH but the system: one line, the command for the tracker
@@ -2101,7 +2101,7 @@ title = "The first step"
         self.assertIn("this repository is adopted; its tracker is", out)
 
         code, out = self.dotdiw("--version")
-        self.assertEqual(out.strip().split("\n")[1], "  tracker local 2.0.0", out)
+        self.assertEqual(out.strip().split("\n")[1], "  tracker local 3.0.0", out)
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap")
         self.assertEqual(code, 0, out)
@@ -3117,7 +3117,7 @@ class TheTrackerCommands(unittest.TestCase):
         lines = [line for line in out.splitlines() if line.strip()]
         self.assertEqual(len(lines), 2, out)
         self.assertRegex(lines[0], r"^  beads\s+not installed\s+shipped$")
-        self.assertRegex(lines[1], r"^  local\s+2\.0\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(lines[1], r"^  local\s+3\.0\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.repo.dotdiw("tracker", "check", "local", env=env)
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 10, out)
@@ -3206,7 +3206,7 @@ class TheTrackerCommands(unittest.TestCase):
         # A root moves as a task until question.how-migrate-copies-a-root is settled.
         self.assertEqual(moved[root]["kind"], "task")
         self.assertEqual(
-            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 2.0.0"
+            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 3.0.0"
         )
 
         code, out = repo.dotdiw("tracker", "migrate", "beads", "local")

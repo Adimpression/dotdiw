@@ -1488,7 +1488,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "2.0.0"
+VERSION = "3.0.0"
 
 TOP_N = 3
 
