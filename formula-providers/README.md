@@ -15,7 +15,7 @@ imports nothing from dotdiw, and dotdiw reads nothing from it but the table.
 
 ```python
 PROVIDER = {
-    "info": {"name": "acme-api", "version": "0.1.0"},
+    "info": {"name": "acme-api", "version": "0.1.0", "interface": 2},
     "operations": {
         "describe": describe,
         "list": list_formulas,
@@ -23,6 +23,10 @@ PROVIDER = {
     },
 }
 ```
+
+`info` says which formula provider interface the module was written for: 2,
+from dotdiw 3.0.0, when `show` came to answer a formula as data. A module whose
+info names another, or none, is refused in one line.
 
 Each operation is a callable taking one dict and returning one. Every request
 carries `location`, the store the provider was registered with: a directory, a
@@ -40,11 +44,14 @@ answers an empty list for a store that is gone.
   dots, hyphens and underscores, starts with a letter or a digit, and is listed
   once; each description is text; each list of examples is text. The whole
   answer is held to that shape before any of it is taken.
-- `show` takes `id` as well, and answers `{"text": ..., "format": "toml"}`, or
-  `"json"`: the formula as the provider keeps it. For an id it does not hold,
-  it answers `{}`. dotdiw reads the text, sets its `formula` key to the
-  suffixed id however it is spelled, and writes it out again with every other
-  value as given, taking it only when it reads back as exactly that.
+- `show` takes `id` as well, and answers the formula as data, however the
+  provider keeps it: `{"formula": {"description": ..., "verifyUsing": [...],
+  "steps": [{"id": ..., "title": ..., "needs": [...]}, ...]}}`. For an id it
+  does not hold, it answers `{}`. dotdiw holds the answer to that shape -- a
+  description that is text, each means to prove one line in a form `check`
+  reads, each step an id and a title, once, with needs that name step ids --
+  and refuses one outside it. Only `verifyUsing` and a step's `needs` may be
+  left out; nothing given is replaced by a default.
 
 ## How dotdiw holds a provider
 
@@ -63,13 +70,12 @@ dotdiw shows or takes an id. Every registered provider serves every checkout.
 
 **Listed once in a run, shown when wanted.** dotdiw reads each provider's
 list once per process, and matches and lists its formulas from it. It asks
-`show` only when a formula is shown or poured, and writes the text, its
-`formula` key set to the suffixed id, under the checkout's workspace,
-`~/.dotdiw/<key>/formula-providers/`, in a file named for a digest of the
-provider's name, the id and the text. A file is written once and never
-changed, so a pour reads its steps and its means to prove from the very copy
-the tracker cooks. From there it pours as a formula in the checkout does. Nothing about a provider reaches the tracker beyond the formula poured.
-Caching across runs, where the store needs it, is the provider's own.
+`show` only when a formula is shown or poured, and keeps the answer in memory:
+nothing is written for it. A pour hands the tracker the steps `show` answered,
+as it does those of a formula in the checkout, and `formula show` prints the
+formula in the form a `.formula.json` file takes. Nothing about a provider
+reaches the tracker beyond the formula poured. Caching across runs, where the
+store needs it, is the provider's own.
 
 **Left out when it fails.** A provider that raises, or answers outside its
 shape, is left out of that run whole, with one line naming it, and the

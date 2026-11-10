@@ -413,7 +413,6 @@ def jira_open(request: Request) -> Response:
         "summary": "Project %s." % project,
         "path": path,
         "created": created,
-        "printed": False,
         "exitCode": 0,
     }
 
@@ -465,13 +464,15 @@ def jira_describe(request: Request) -> Response:
     }
 
 
-def make(request: Request, root: bool = False) -> Response:
-    """One issue: a task, or a poured root, an Epic labelled root."""
+def make(request: Request, root: bool = False) -> tuple[Response, str | None]:
+    """One issue: a task, or a poured root, an Epic labelled root; and the key
+    Jira answered for it, which an issue Jira made and could not be read back
+    keeps, so that a failure still names what is in Jira."""
     if config() is None:
-        return dict(NOT_CONFIGURED)
+        return dict(NOT_CONFIGURED), None
     project, refused = opened(request.get("root"))
     if refused or not project:
-        return refused or dict(NO_WORKSPACE)
+        return refused or dict(NO_WORKSPACE), None
     priority = 2 if request.get("priority") is None else int(request["priority"])
     fields = {
         "project": {"key": project},
@@ -489,7 +490,6 @@ def make(request: Request, root: bool = False) -> Response:
         fields["description"] = adf(description)
     try:
         made = call("POST", "/rest/api/3/issue", {"fields": fields})
-        issue = held(made["key"])
     except JiraError as e:
         if request.get("parent") and e.status in (400, 404) and fetch(request["parent"]) is None:
             return {
@@ -497,19 +497,25 @@ def make(request: Request, root: bool = False) -> Response:
                 "reason": "parent-not-found",
                 "exitCode": 1,
                 "summary": "%s names no issue here." % request["parent"],
-            }
-        return failed(e)
+            }, None
+        return failed(e), None
+    key = made["key"]
+    try:
+        issue = held(key)
+    except JiraError as e:
+        out = failed(e)
+        out["summary"] = "Jira made %s and could not read it back: %s" % (key, out["summary"])
+        return out, key
     return {
         "status": "completed",
-        "summary": "Created %s." % made["key"],
+        "summary": "Created %s." % key,
         "item": record(issue),
-        "printed": False,
         "exitCode": 0,
-    }
+    }, key
 
 
 def jira_create(request: Request) -> Response:
-    return make(request)
+    return make(request)[0]
 
 
 def reaches(start: str, target: str, seen: set[str] | None = None) -> bool:
@@ -576,6 +582,17 @@ def jira_pour(request: Request) -> Response:
             "exitCode": 1,
             "summary": "No steps to pour.",
         }
+    seen: set[str] = set()
+    for s in steps:
+        if s["id"] in seen:
+            # One id per step comes back, so two steps with one id pour nothing.
+            return {
+                "status": "failed",
+                "reason": "duplicate-step",
+                "exitCode": 1,
+                "summary": "Two steps share the id %s, so nothing was poured." % s["id"],
+            }
+        seen.add(s["id"])
     try:
         ordered = in_order(steps)
     except LookupError as e:
@@ -583,7 +600,7 @@ def jira_pour(request: Request) -> Response:
     except ValueError as e:
         return {"status": "failed", "reason": "cycle", "exitCode": 1, "summary": str(e)}
     root = request.get("root")
-    made = make(
+    made, root_id = make(
         {
             "root": root,
             "title": request["title"],
@@ -593,23 +610,54 @@ def jira_pour(request: Request) -> Response:
         root=True,
     )
     if made["status"] != "completed":
-        return made
-    root_id, ids = made["item"]["id"], {}
+        if root_id is None:
+            return made
+        # Jira made the root: the pour names it, though it poured nothing.
+        return {
+            "status": "failed",
+            "reason": "adapter-failed",
+            "exitCode": 1,
+            "rootId": root_id,
+            "stepIds": [],
+            "summary": "Poured 0 of %d steps under %s: %s" % (len(steps), root_id, made["summary"]),
+        }
+    ids: dict[str, str] = {}
+
+    def cut_short(said: Response) -> Response:
+        """A pour that fails after making its root names the root and the steps
+        it made, so that what is in Jira can be found and put right."""
+        done = [ids[x["id"]] for x in steps if x["id"] in ids]
+        return {
+            "status": "failed",
+            "reason": "adapter-failed",
+            "exitCode": 1,
+            "rootId": root_id,
+            "stepIds": done,
+            "summary": "Poured %d of %d steps under %s%s, and the next failed: %s"
+            % (
+                len(done),
+                len(steps),
+                root_id,
+                " (%s)" % ", ".join(done) if done else "",
+                said["summary"],
+            ),
+        }
+
     for s in ordered:
-        step = jira_create({"root": root, "title": s["title"], "parent": root_id})
+        step, key = make({"root": root, "title": s["title"], "parent": root_id})
+        if key is not None:
+            ids[s["id"]] = key
         if step["status"] != "completed":
-            return step
-        ids[s["id"]] = step["item"]["id"]
+            return cut_short(step)
         for n in s.get("needs") or []:
             edge = jira_need({"root": root, "id": ids[s["id"]], "needs": ids[n]})
             if edge["status"] != "completed":
-                return edge
+                return cut_short(edge)
     return {
         "status": "completed",
         "summary": "Poured %d steps under %s." % (len(ids), root_id),
         "rootId": root_id,
         "stepIds": [ids[s["id"]] for s in steps],
-        "printed": False,
         "exitCode": 0,
     }
 
@@ -880,7 +928,7 @@ TRACKER = {
     "info": {
         "name": "jira",
         "version": VERSION,
-        "interface": 2,
+        "interface": 3,
         "origin": "loaded",
         "nativeNeeds": True,
         "checkTarget": os.environ.get("JIRA_CHECK_PROJECT"),

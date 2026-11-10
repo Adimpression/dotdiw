@@ -34,7 +34,7 @@ held to its type on the way in, the response to its own on the way out, and
 the witness log is appended there, from the response. Orchestrations call
 step operations through the door, and nothing else is shared between
 operations except the infrastructure at the top: running git, the FTS
-storage, file parsing, the workspace and the index held once per process, the
+storage, file parsing, the workspace, the index held for one operation, the
 witness log's append. promise_bindings.py re-exports
 the operations under the IDL's names, and test_promise.py holds each body to
 the calls the IDL declares for it. `main()` is the command line's binding:
@@ -49,7 +49,6 @@ import contextlib
 import datetime
 import fcntl
 import glob
-import hashlib
 import importlib.machinery
 import importlib.util
 import inspect
@@ -175,6 +174,24 @@ class TrackerStep(TypedDict, total=False):
     needs: list[str] | None
 
 
+class FormulaStep(TypedDict, total=False):
+    """One step of a formula as data: its id within the formula, its title and the step ids it
+    needs.
+    """
+    id: Required[str]
+    title: Required[str]
+    needs: list[str] | None
+
+
+class FormulaBody(TypedDict, total=False):
+    """A formula as data, the way a formula management provider answers show: its description, its
+    means to prove, and its steps.
+    """
+    description: Required[str]
+    verifyUsing: list[str] | None
+    steps: Required[list[FormulaStep]]
+
+
 class TrackerInfo(TypedDict, total=False):
     """What an adapter says of itself: its name and version, where it came from, and what it can
     do.
@@ -211,12 +228,12 @@ class NameTheWorkRequest(TypedDict, total=False):
     sourceRefs: list[str] | None
     workRef: str | None
     root: Required[str]
-    arguments: list[str] | None
     title: Required[str]
     tracker: str | None
     priority: int | None
     parent: str | None
     description: str | None
+    json: bool | None
 
 
 class NameTheWorkResponse(TypedDict, total=False):
@@ -228,7 +245,6 @@ class NameTheWorkResponse(TypedDict, total=False):
     workRef: str | None
     exitCode: int | None
     reason: Literal["not-installed", "no-workspace", "tracker-unknown", "adapter-failed"] | None
-    printed: bool | None
     item: TrackerItem | None
     tracker: str | None
 
@@ -265,9 +281,9 @@ class PourProcedureRequest(TypedDict, total=False):
     formulaRef: str | None
     moleculeRef: str | None
     root: Required[str]
-    arguments: list[str] | None
     ident: Required[str]
     tracker: str | None
+    json: bool | None
 
 
 class PourProcedureResponse(TypedDict, total=False):
@@ -283,9 +299,8 @@ class PourProcedureResponse(TypedDict, total=False):
     reason: Literal[
         "not-installed", "no-workspace", "tracker-unknown", "adapter-failed", "no-steps",
         "step-not-found", "cycle", "ambiguous", "provider-formula-unserved",
-        "provider-failed",
+        "provider-failed", "duplicate-step",
     ] | None
-    printed: bool | None
     tracker: str | None
     verifyUsing: list[str] | None
 
@@ -402,9 +417,9 @@ class AdoptRepositoryRequest(TypedDict, total=False):
     sourceRefs: list[str] | None
     repositoryRef: str | None
     root: Required[str]
-    arguments: list[str] | None
     quiet: bool | None
     tracker: str | None
+    prefix: str | None
 
 
 class AdoptRepositoryResponse(TypedDict, total=False):
@@ -421,7 +436,6 @@ class AdoptRepositoryResponse(TypedDict, total=False):
         "not-installed", "no-workspace", "store-unwritable", "tracker-unknown",
         "adapter-failed",
     ] | None
-    printed: bool | None
     tracker: str | None
     actor: TrackerActor | None
 
@@ -454,7 +468,6 @@ class ReportWhatIsYoursToCommitRequest(TypedDict, total=False):
     repositoryRef: str | None
     root: Required[str]
     paths: list[str] | None
-    command: str | None
 
 
 class ReportWhatIsYoursToCommitResponse(TypedDict, total=False):
@@ -474,6 +487,7 @@ class UndoEarlierAdoptionRequest(TypedDict, total=False):
     repositoryRef: str | None
     root: Required[str]
     tracker: str | None
+    apply: bool | None
 
 
 class UndoEarlierAdoptionResponse(TypedDict, total=False):
@@ -482,6 +496,7 @@ class UndoEarlierAdoptionResponse(TypedDict, total=False):
     summary: Required[str]
     resultRefs: list[str] | None
     openQuestionRefs: list[str] | None
+    pending: list[str] | None
     undone: list[str] | None
     command: str | None
     workspace: str | None
@@ -626,6 +641,7 @@ class ResolveFormulaResponse(TypedDict, total=False):
         "formula-not-found", "ambiguous", "provider-formula-unserved", "provider-failed",
     ] | None
     exitCode: int | None
+    formula: FormulaBody | None
 
 
 class TeachTheConventionsRequest(TypedDict, total=False):
@@ -653,8 +669,6 @@ class OpenTrackerRequest(TypedDict, total=False):
     tracker: str | None
     root: str | None
     prefix: str | None
-    arguments: list[str] | None
-    terminal: bool | None
 
 
 class OpenTrackerResponse(TypedDict, total=False):
@@ -670,7 +684,6 @@ class OpenTrackerResponse(TypedDict, total=False):
     path: str | None
     exitCode: int | None
     created: bool | None
-    printed: bool | None
     tracker: str | None
 
 
@@ -710,8 +723,6 @@ class CreateItemRequest(TypedDict, total=False):
     parent: str | None
     description: str | None
     verifyUsing: list[str] | None
-    arguments: list[str] | None
-    terminal: bool | None
     id: str | None
 
 
@@ -727,7 +738,6 @@ class CreateItemResponse(TypedDict, total=False):
         "not-installed",
     ] | None
     exitCode: int | None
-    printed: bool | None
     tracker: str | None
 
 
@@ -769,9 +779,6 @@ class PourStepsRequest(TypedDict, total=False):
     root: str | None
     title: Required[str]
     steps: Required[list[TrackerStep]]
-    arguments: list[str] | None
-    terminal: bool | None
-    path: str | None
     description: str | None
     verifyUsing: list[str] | None
 
@@ -786,10 +793,9 @@ class PourStepsResponse(TypedDict, total=False):
     stepIds: list[str] | None
     reason: Literal[
         "tracker-unknown", "adapter-failed", "no-workspace", "no-steps", "step-not-found",
-        "not-installed", "cycle",
+        "not-installed", "cycle", "duplicate-step",
     ] | None
     exitCode: int | None
-    printed: bool | None
     tracker: str | None
 
 
@@ -1135,8 +1141,7 @@ class ShowProviderFormulaResponse(TypedDict, total=False):
     resultRefs: list[str] | None
     openQuestionRefs: list[str] | None
     formulaRef: str | None
-    text: str | None
-    path: str | None
+    formula: FormulaBody | None
     reason: Literal["provider-unknown", "formula-not-found", "provider-failed"] | None
     exitCode: int | None
 
@@ -1168,13 +1173,13 @@ class StartNamedWorkRequest(TypedDict, total=False):
     formulaRef: str | None
     moleculeRef: str | None
     root: Required[str]
-    arguments: list[str] | None
     title: Required[str]
     description: str | None
     quiet: bool | None
     tracker: str | None
     priority: int | None
     parent: str | None
+    json: bool | None
 
 
 class StartNamedWorkResponse(TypedDict, total=False):
@@ -1221,8 +1226,8 @@ class AdoptARepositoryRequest(TypedDict, total=False):
     repositoryRef: str | None
     conventionsRef: str | None
     root: Required[str]
-    arguments: list[str] | None
     tracker: str | None
+    prefix: str | None
 
 
 class AdoptARepositoryResponse(TypedDict, total=False):
@@ -1274,6 +1279,7 @@ class FindAHeldProcedureResponse(TypedDict, total=False):
     formulaRef: str | None
     path: str | None
     text: str | None
+    formula: FormulaBody | None
     formulas: list[HeldFormula] | None
     formulaCount: int | None
     exitCode: int | None
@@ -1675,35 +1681,6 @@ WITNESS_FILE = "witness.jsonl"
 # carries it as startedAt; the match's occurredAt is the other end.
 STARTED_AT = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
-# bd create and update flags that consume the next argument, so it is never
-# the title, nor read as an option of its own.
-VALUE_FLAGS = {
-    "--title",
-    "-s",
-    "-d",
-    "--description",
-    "-p",
-    "--priority",
-    "-t",
-    "--type",
-    "-a",
-    "--assignee",
-    "-l",
-    "--label",
-    "--labels",
-    "--design",
-    "--acceptance",
-    "--notes",
-    "--parent",
-    "--estimate",
-    "--status",
-    "--due",
-    "--repo",
-    "--db",
-    "--actor",
-    "--external-id",
-}
-
 SCAFFOLD = """# Fill in the description and the steps, then: %(p)s check
 # The description is the mechanism and not a label on one -- it is all that
 # stands between what someone calls their work and this procedure. Name the
@@ -2041,6 +2018,17 @@ def load_formula(root: str, rel: str) -> dict[str, Any] | None:
     }
 
 
+def shared_step_id(steps: list[Any]) -> str | None:
+    """The first step id two steps share, or None: a pour answers one id per
+    step, so a formula that gives two steps one id pours nothing."""
+    seen: set[str] = set()
+    for s in steps:
+        if s["id"] in seen:
+            return str(s["id"])
+        seen.add(s["id"])
+    return None
+
+
 def steps_in_order(steps: list[Any]) -> list[Any]:
     """The steps a tracker makes one at a time, each after those it needs and
     otherwise as declared: declaration order is no part of a formula. A need
@@ -2270,12 +2258,14 @@ class Index:
             self._spread_cache.clear()
 
 
-# root -> (formulas, index or None), held once per process: the tree does not
-# change during one run. The objects are not fields of any response, so this
-# is where a body that needs them finds what IndexTheProject built.
+# root -> (formulas, index or None), held for one operation asked of the door
+# from outside it: its steps share one reading of the formulas, and the next
+# operation reads them again. The objects are not fields of any response, so
+# this is where a body that needs them finds what IndexTheProject built.
 INDEXES: dict[str, tuple[list[dict[str, Any]], Index | None]] = {}
 # Each registered provider's list, asked for once in a run; a registration
-# or a removal forgets it, and the indexes built from it.
+# forgets them all, so that a name registered again is listed from where it
+# points now.
 LISTED: dict[str, Any] = {}
 # The formula files each checkout's index found and could not parse.
 UNPARSED: dict[str, list[str]] = {}
@@ -2545,7 +2535,7 @@ def ResolveFormula(request: ResolveFormulaRequest) -> ResolveFormulaResponse:
             "operation.show-provider-formula",
             {"root": root, "name": found["provider"], "ident": found["ident"]},
         )
-        if shown["status"] != "completed" or not shown.get("path"):
+        if shown["status"] != "completed" or not shown.get("formula"):
             return {
                 "status": "failed",
                 "summary": shown["summary"],
@@ -2554,12 +2544,27 @@ def ResolveFormula(request: ResolveFormulaRequest) -> ResolveFormulaResponse:
                 "path": None,
                 "exitCode": 1,
             }
-        found["rel"] = shown["path"]
+        return {
+            "status": "completed",
+            "summary": "Resolved %s to %s, from the %s provider."
+            % (ident, found["id"], found["provider"]),
+            "formulaRef": found["id"],
+            "path": None,
+            "formula": shown["formula"],
+            "exitCode": 0,
+        }
+    # The formula as this reading parsed it, so that a pour pours the formula
+    # this id selected, whatever is written to its file meanwhile.
     return {
         "status": "completed",
         "summary": "Resolved %s to %s." % (ident, found["rel"]),
         "formulaRef": found["id"],
         "path": found["rel"],
+        "formula": {
+            "description": found["desc"],
+            "verifyUsing": list(found["verifyUsing"]),
+            "steps": list(found["steps"]),
+        },
         "exitCode": 0,
     }
 
@@ -2597,6 +2602,23 @@ def ShowFormula(request: ShowFormulaRequest) -> ShowFormulaResponse:
             "summary": r["summary"],
             "reason": r.get("reason"),
             "exitCode": r["exitCode"],
+        }
+    body = r.get("formula")
+    if body and not r.get("path"):
+        # A provider's formula has no file; it is shown in the form a
+        # .formula.json file takes. A file in the tree is shown as written.
+        shown = {
+            "formula": r["formulaRef"],
+            "description": body["description"],
+            "verify-using": body["verifyUsing"],
+            "steps": body["steps"],
+        }
+        return {
+            "status": "completed",
+            "summary": "Showed %s." % r["formulaRef"],
+            "path": None,
+            "text": json.dumps(shown, indent=2, ensure_ascii=False) + "\n",
+            "exitCode": 0,
         }
     try:
         with open(os.path.join(root, r["path"]), encoding="utf-8") as fh:
@@ -2658,8 +2680,9 @@ def DescribeProvider(request: DescribeProviderRequest) -> DescribeProviderRespon
     if table is None:
         return {
             "status": "blocked",
-            "summary": "%s is not a formula management provider: it raised on load, or "
-            "its PROVIDER table lacks describe, list or show." % module,
+            "summary": "%s is not a formula management provider of interface %d: it "
+            "raised on load, its PROVIDER table lacks describe, list or show, or its info "
+            "names another interface." % (module, PROVIDER_INTERFACE),
             "reason": "not-a-provider",
             "exitCode": 1,
         }
@@ -2776,7 +2799,6 @@ def RegisterProvider(request: RegisterProviderRequest) -> RegisterProviderRespon
         registry["providers"][name] = {"module": module, "location": provider.get("location")}
         registry["removed"] = [n for n in registry["removed"] if n != name]
         write_registry(registry)
-    INDEXES.clear()
     LISTED.clear()
     return {
         "status": "completed",
@@ -2857,76 +2879,49 @@ def ListProviderFormulas(request: ListProviderFormulasRequest) -> ListProviderFo
     }
 
 
-def toml_text(data: dict[str, Any]) -> str:
-    """ShowProviderFormula's: a parsed TOML document written out again, its
-    values as they were -- strings, numbers, booleans, dates and times, arrays,
-    tables and arrays of tables -- with keys bare wherever TOML lets them be."""
-    lines: list[str] = []
-
-    def string(s: str) -> str:
-        out = []
-        for ch in s:
-            if ch in '"\\':
-                out.append("\\" + ch)
-            elif ch in "\b\t\n\f\r":
-                out.append({"\b": "\\b", "\t": "\\t", "\n": "\\n", "\f": "\\f", "\r": "\\r"}[ch])
-            elif ord(ch) < 0x20 or ord(ch) == 0x7F:
-                out.append("\\u%04x" % ord(ch))
-            else:
-                out.append(ch)
-        return '"%s"' % "".join(out)
-
-    def key(k: str) -> str:
-        return k if re.fullmatch(r"[A-Za-z0-9_-]+", k) else string(k)
-
-    def value(v: Any) -> str:
-        if isinstance(v, bool):
-            return "true" if v else "false"
-        if isinstance(v, float):
-            if v != v:
-                return "nan"
-            if v in (float("inf"), float("-inf")):
-                return "inf" if v > 0 else "-inf"
-            return repr(v)
-        if isinstance(v, int):
-            return str(v)
-        if isinstance(v, str):
-            return string(v)
-        if isinstance(v, (datetime.datetime, datetime.date, datetime.time)):
-            return v.isoformat()
-        if isinstance(v, list):
-            return "[%s]" % ", ".join(value(x) for x in v)
-        if isinstance(v, dict):
-            return "{%s}" % ", ".join("%s = %s" % (key(k), value(x)) for k, x in v.items())
-        raise ValueError("a value TOML cannot hold: %s" % type(v).__name__)
-
-    def tables(v: Any) -> bool:
-        return isinstance(v, list) and bool(v) and all(isinstance(x, dict) for x in v)
-
-    def table(path: list[str], body: dict[str, Any], header: str | None) -> None:
-        if header:
-            lines.append(header)
-        for k, v in body.items():
-            if not isinstance(v, dict) and not tables(v):
-                lines.append("%s = %s" % (key(k), value(v)))
-        for k, v in body.items():
-            if isinstance(v, dict):
-                lines.append("")
-                table(path + [k], v, "[%s]" % ".".join(key(p) for p in path + [k]))
-        for k, v in body.items():
-            if tables(v):
-                for item in v:
-                    lines.append("")
-                    table(path + [k], item, "[[%s]]" % ".".join(key(p) for p in path + [k]))
-
-    table([], data, None)
-    return "\n".join(lines) + "\n"
+def formula_body(said: Any) -> FormulaBody:
+    """ShowProviderFormula's: a provider's answer to show held to its shape --
+    a formula with a description, its means to prove, and steps each with an
+    id, a title and the step ids it needs -- or ValueError naming what is
+    outside it."""
+    body = said.get("formula") if isinstance(said, dict) else None
+    if not isinstance(body, dict):
+        raise ValueError("its show answered no formula")
+    description = body.get("description")
+    if not isinstance(description, str):
+        raise ValueError("its description is not text")
+    means = body.get("verifyUsing")
+    means = [] if means is None else means
+    if not isinstance(means, list):
+        raise ValueError("its verifyUsing is not a list")
+    for value in means:
+        why = verify_unread(value)
+        if why:
+            raise ValueError(why)
+    steps = body.get("steps")
+    if not isinstance(steps, list):
+        raise ValueError("its steps are not a list")
+    held: list[FormulaStep] = []
+    for s in steps:
+        ident = s.get("id") if isinstance(s, dict) else None
+        title = s.get("title") if isinstance(s, dict) else None
+        needs = s.get("needs", []) if isinstance(s, dict) else None
+        needs = [] if needs is None else needs
+        if not isinstance(ident, str) or not ident or not isinstance(title, str) or not title:
+            raise ValueError("a step has no id or no title")
+        if not isinstance(needs, list) or not all(isinstance(n, str) for n in needs):
+            raise ValueError("the needs of %s are not a list of step ids" % ident)
+        if any(h["id"] == ident for h in held):
+            raise ValueError("it has the step %s twice" % ident)
+        held.append({"id": ident, "title": title, "needs": list(needs)})
+    answer: FormulaBody = {"description": description, "verifyUsing": list(means), "steps": held}
+    return answer
 
 
 def ShowProviderFormula(request: ShowProviderFormulaRequest) -> ShowProviderFormulaResponse:
-    """step.show-provider-formula: a provider's formula as the provider keeps
-    it, its id suffixed, written to a file under the workspace's home so that
-    it matches, lists, shows and pours as a local one does."""
+    """step.show-provider-formula: a provider's formula, as data, under its
+    suffixed id: its description, its means to prove and its steps, held to
+    their shape. Nothing is written for it."""
     name, ident = request["name"], request["ident"]
     entry = read_providers().get(name)
     if entry is None:
@@ -2948,21 +2943,7 @@ def ShowProviderFormula(request: ShowProviderFormulaRequest) -> ShowProviderForm
     suffixed = "%s-%s" % (ident, name)
     try:
         said = table["operations"]["show"]({"location": entry.get("location"), "id": ident})
-        text = said.get("text") if isinstance(said, dict) else None
-        if isinstance(text, str) and text and said.get("format") == "json":
-            data = json.loads(text)
-            data["formula"] = suffixed
-            text, ext = json.dumps(data, indent=2) + "\n", ".formula.json"
-        elif isinstance(text, str) and text:
-            # The parsed formula key is set to the suffixed id, however the
-            # provider spelled it, and every other value is written out as the
-            # provider gave it; the text is taken only when it reads back as
-            # exactly that.
-            parsed = tomllib.loads(text)
-            data = {"formula": suffixed, **{k: v for k, v in parsed.items() if k != "formula"}}
-            text, ext = toml_text(data), ".formula.toml"
-            if tomllib.loads(text) != data:
-                raise ValueError("its formula does not read back as the provider gave it")
+        body = formula_body(said) if said else None
     except Exception as e:
         return {
             "status": "failed",
@@ -2971,35 +2952,18 @@ def ShowProviderFormula(request: ShowProviderFormulaRequest) -> ShowProviderForm
             "reason": "provider-failed",
             "exitCode": 1,
         }
-    if not isinstance(text, str) or not text:
+    if body is None:
         return {
             "status": "blocked",
             "summary": "The %s provider holds no formula %s." % (name, ident),
             "reason": "formula-not-found",
             "exitCode": 1,
         }
-    root = request.get("root")
-    base = (workspace(root) if root else None) or os.path.expanduser(DOTDIW_HOME)
-    directory = os.path.join(base, "formula-providers")
-    os.makedirs(directory, exist_ok=True)
-    # Named for a digest of the provider's name, the id and the text, never for
-    # the name or the id: two names that differ in case are one name where case
-    # does not count. Written once and never changed, so that a pour reads its
-    # steps and its means to prove from the very copy the tracker cooks,
-    # whatever a show writes meanwhile.
-    key = hashlib.sha256(("%s\0%s\0%s" % (name, ident, text)).encode("utf-8")).hexdigest()[:24]
-    path = os.path.join(directory, key + ext)
-    if not os.path.exists(path):
-        fd, written = tempfile.mkstemp(dir=directory, suffix=".tmp")
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        os.replace(written, path)
     return {
         "status": "completed",
         "summary": "%s, from the %s provider." % (suffixed, name),
         "formulaRef": suffixed,
-        "text": text,
-        "path": path,
+        "formula": body,
         "exitCode": 0,
     }
 
@@ -3019,8 +2983,6 @@ def RemoveProvider(request: RemoveProviderRequest) -> RemoveProviderResponse:
             }
         registry["removed"] = sorted(set(registry["removed"]) | {name})
         write_registry(registry)
-    INDEXES.clear()
-    LISTED.clear()
     provider: FormulaProvider = {
         "name": name,
         "module": str(entry["module"]),
@@ -3177,8 +3139,7 @@ def NoticeHandmadeProcedures(
     """
     root = request["root"]
     listed = invoke_tracker(
-        "operation.list-items",
-        {"root": root, "tracker": request.get("tracker"), "scope": "all", "limit": 300},
+        "operation.list-items", {"root": root, "tracker": request.get("tracker"), "scope": "all"}
     )
     rows = listed.get("items") or [] if listed["status"] == "completed" else []
     byid: dict[str, Any] = {}
@@ -3288,9 +3249,7 @@ def slug(title: str, limit: int = 4) -> str:
     return "-".join(words[:limit]) or "procedure"
 
 
-def past_titles(
-    root: str, tracker: str | None, drop: str | None = None, limit: int = 300
-) -> list[str]:
+def past_titles(root: str, tracker: str | None, drop: str | None = None) -> list[str]:
     """The top-level work this project has named before.
 
     Children of a poured root are left out: those titles came out of a
@@ -3298,7 +3257,7 @@ def past_titles(
     circular. `drop` removes one copy of a title -- the one `create` just made.
     """
     listed = invoke_tracker(
-        "operation.list-items", {"root": root, "tracker": tracker, "scope": "all", "limit": limit}
+        "operation.list-items", {"root": root, "tracker": tracker, "scope": "all"}
     )
     if listed["status"] != "completed":
         return []
@@ -3318,14 +3277,14 @@ def past_titles(
     return titles
 
 
-def steps_from(root: str, tracker: str | None, ident: str, limit: int = 300) -> str | None:
+def steps_from(root: str, tracker: str | None, ident: str) -> str | None:
     """An issue's children as steps, with its blocks edges as `needs`.
 
     The highest-fidelity capture there is: the procedure as it was actually
     carried out, rather than as someone remembers it afterwards.
     """
     listed = invoke_tracker(
-        "operation.list-items", {"root": root, "tracker": tracker, "scope": "all", "limit": limit}
+        "operation.list-items", {"root": root, "tracker": tracker, "scope": "all"}
     )
     if listed["status"] != "completed":
         return None
@@ -3885,14 +3844,11 @@ def RunATrackerCommand(request: RunATrackerCommandRequest) -> RunATrackerCommand
 def NameTheWork(request: NameTheWorkRequest) -> NameTheWorkResponse:
     """step.name-the-work: the work item, created under the title given.
 
-    Through the tracker door, with the terminal: the arguments as typed go
-    to the adapter, so that under beads the create is bd's own, bytes and
-    flags included, and the id comes back in the record.
+    Through the tracker door, with the fields dotdiw's own flags filled: the
+    title, the description, the priority and the parent. The id comes back
+    in the record.
     """
     root = request["root"]
-    args = list(request.get("arguments") or [])
-    if args and args[0] == "create":
-        args = args[1:]
     made = invoke_tracker(
         "operation.create-item",
         {
@@ -3902,22 +3858,15 @@ def NameTheWork(request: NameTheWorkRequest) -> NameTheWorkResponse:
             "description": request.get("description"),
             "priority": request.get("priority"),
             "parent": request.get("parent"),
-            "arguments": args,
-            "terminal": True,
         },
     )
     code = made.get("exitCode", 0 if made["status"] == "completed" else 1)
     work = (made.get("item") or {}).get("id") if code == 0 else None
     return {
         "status": made["status"],
-        "summary": "Named %s." % (work or "the work")
-        if code == 0
-        else "The tracker refused the create."
-        if made.get("printed")
-        else made["summary"],
+        "summary": "Named %s." % (work or "the work") if code == 0 else made["summary"],
         "workRef": work,
         "item": made.get("item") if code == 0 else None,
-        "printed": bool(made.get("printed")),
         "reason": made.get("reason"),
         "tracker": made.get("tracker"),
         "exitCode": code,
@@ -3930,10 +3879,7 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
     The formula is read from where it actually lives, every time, and its
     steps handed to the tracker with their needs: the file is the formula,
     so a formula edited in place pours as it reads now, not as a copy the
-    tracker happened to hold. The beads adapter still pours through its own
-    cook and pour, from the file's path, so that a poured molecule keeps the
-    tracker's behaviour and bytes; the path and the arguments typed after
-    the formula's id go along for that.
+    tracker happened to hold. Every adapter pours the steps it is given.
     """
     root = request["root"]
     r = invoke("operation.resolve-formula", {"root": root, "ident": request.get("ident")})
@@ -3953,54 +3899,52 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
             "reason": r["reason"],
             "exitCode": 1,
         }
-    # The formula is read once, into a snapshot under the workspace named for a
-    # digest of its bytes, and the tracker is handed that very snapshot: the
-    # steps, the description and the means to prove are one version, whatever
-    # is written to the file meanwhile. The file keeps its name, which a tracker
-    # may read an id from.
-    snapshot = None
-    if found:
-        source = os.path.join(root, r["path"])
-        with open(source, "rb") as fh:
-            held = fh.read()
-        directory = os.path.join(
-            workspace(root) or os.path.expanduser(DOTDIW_HOME),
-            "pours",
-            hashlib.sha256(held).hexdigest()[:24],
-        )
-        snapshot = os.path.join(directory, os.path.basename(source))
-        if not os.path.exists(snapshot):
-            os.makedirs(directory, exist_ok=True)
-            fd, written = tempfile.mkstemp(dir=directory, suffix=".tmp")
-            with os.fdopen(fd, "wb") as fh:
-                fh.write(held)
-            os.replace(written, snapshot)
-    formula = (load_formula(directory, os.path.basename(snapshot)) if snapshot else None) or {}
+    # The formula poured is the one the lookup selected, as its reading parsed
+    # it: its id, its title, its description, its means to prove and its
+    # steps, one version whatever is written to its file meanwhile. Nothing
+    # reads the file again, and nothing is written for it.
+    body = r.get("formula") if found else None
+    formula = (
+        {
+            "id": r["formulaRef"],
+            "desc": body["description"],
+            "steps": body["steps"],
+            "verifyUsing": body["verifyUsing"],
+        }
+        if body
+        else {}
+    )
     ident = request.get("ident") or ""
+    ref = formula.get("id")
+    shared = shared_step_id(formula.get("steps") or [])
+    if shared is not None:
+        return {
+            "status": "failed",
+            "summary": "Two steps of %s share the id %s, so nothing was poured." % (ref, shared),
+            "formulaRef": ref,
+            "reason": "duplicate-step",
+            "exitCode": 1,
+        }
     poured = invoke_tracker(
         "operation.pour-steps",
         {
             "root": root,
             "tracker": request.get("tracker"),
-            "formulaRef": r["formulaRef"] if found else ident,
-            "title": formula.get("id") or ident,
+            "formulaRef": ref or ident,
+            "title": ref or ident,
             "steps": formula.get("steps") or [],
             "description": formula.get("desc") or None,
             "verifyUsing": list(formula.get("verifyUsing") or []),
-            "path": snapshot,
-            "arguments": list(request.get("arguments") or []),
-            "terminal": True,
         },
     )
     code = poured.get("exitCode", 0 if poured["status"] == "completed" else 1)
     return {
         "status": poured["status"],
         "summary": poured["summary"],
-        "formulaRef": r["formulaRef"] if found else None,
+        "formulaRef": ref if found else None,
         "moleculeRef": poured.get("rootId") if found else None,
         "stepRefs": list(poured.get("stepIds") or []) if found else [],
         "verifyUsing": list(formula.get("verifyUsing") or []) if found and code == 0 else None,
-        "printed": bool(poured.get("printed")),
         "reason": poured.get("reason"),
         "tracker": poured.get("tracker"),
         "exitCode": code,
@@ -4014,12 +3958,12 @@ def StartNamedWork(request: StartNamedWorkRequest) -> StartNamedWorkResponse:
         "operation.name-the-work",
         {
             "root": root,
-            "arguments": request["arguments"],
             "title": request.get("title"),
             "description": request.get("description"),
             "tracker": request.get("tracker"),
             "priority": request.get("priority"),
             "parent": request.get("parent"),
+            "json": request.get("json"),
         },
     )
     if named["exitCode"] != 0:
@@ -4116,20 +4060,28 @@ def TurnMetricsOff(request: TurnMetricsOffRequest) -> TurnMetricsOffResponse:
 
 
 def UndoEarlierAdoption(request: UndoEarlierAdoptionRequest) -> UndoEarlierAdoptionResponse:
-    """step.undo-earlier-adoption: what an earlier version let bd do to a repository, put
-    right and said.
+    """step.undo-earlier-adoption: what an earlier version let bd do to a repository, said,
+    and put right when init asks.
 
     v0.1.0 let bd point core.hooksPath at its own directory, which is undone
-    here because it decides which hooks git runs. Every version before 0.4.0
+    because it decides which hooks git runs. Every version before 0.4.0
     kept bd's tracker in the tree -- v0.1.0 with a Dolt remote aimed at the
     git remote, 0.2.x committed, 0.3.0 excluded. That is the upgrade: a
-    tracker is made under the home with the old prefix, once, on the first
-    command, and the in-tree copy is left exactly as it is, unused, for the
-    worker to remove with the command named; a remote inside it reaches
-    nothing, since no bd runs there any more. Earlier tasks are not carried
-    over, and that is said. Silence when there was nothing to do.
+    tracker is made under the home with the old prefix, once, and the
+    in-tree copy is left exactly as it is, unused, for the worker to remove
+    with the command named; a remote inside it reaches nothing, since no bd
+    runs there any more. Earlier tasks are not carried over, and that is
+    said. A workspace adopted before there was a choice of tracker has the
+    one adapter holding a store there written as the choice.
+
+    Only init puts any of it right, with apply. Every other command asks
+    without it first: nothing is changed, and while anything is left the
+    answer is blocked, naming init in one line. Silence when there is
+    nothing to do.
     """
     root = request["root"]
+    apply = bool(request.get("apply"))
+    pending: list[str] = []
 
     def hooks_replaced() -> str:
         """bd's hook directory standing in for the repository's own, or ""."""
@@ -4146,7 +4098,9 @@ def UndoEarlierAdoption(request: UndoEarlierAdoptionRequest) -> UndoEarlierAdopt
 
     done = []
     got = hooks_replaced()
-    if got:
+    if got and not apply:
+        pending.append("%s points at %s, a snapshot of this repository's hooks" % (HOOKS_KEY, got))
+    elif got:
         git(["config", "--unset", HOOKS_KEY], root)
         if not hooks_replaced():
             done.append(
@@ -4163,25 +4117,32 @@ def UndoEarlierAdoption(request: UndoEarlierAdoptionRequest) -> UndoEarlierAdopt
     ws = workspace(root)
     in_tree = os.path.isdir(os.path.join(root, ".beads"))
     made = None
-    if in_tree and not checkout_adopted(root):
+    stopped = None
+    if in_tree and not checkout_adopted(root) and not apply:
+        pending.append("the tracker is in the tree, where a version before 0.4.0 kept it")
+    elif in_tree and not checkout_adopted(root):
         result = invoke(
             "operation.adopt-repository",
-            {
-                "root": root,
-                "arguments": ["init"],
-                "quiet": True,
-                "tracker": request.get("tracker") or "beads",
-            },
+            {"root": root, "quiet": True, "tracker": request.get("tracker") or "beads"},
         )
         if result["exitCode"] == 0:
             made = result["workspace"]
             ws = made
+        else:
+            stopped = (
+                "the tracker kept in the tree could not be adopted under the home: %s"
+                % (result["summary"])
+            )
 
     # The other upgrade: a workspace adopted before there was a choice of
     # tracker holds one adapter's store and no choice. The choice is written
     # once, as the tracker the work is in, and said once.
     pinned = None
-    if adopted(ws) and tracker_name(root) is None:
+    if adopted(ws) and tracker_name(root) is None and not apply:
+        found = tracker_with_store(root)
+        if found:
+            pending.append("no tracker is chosen for this checkout, whose work %s holds" % found)
+    elif adopted(ws) and tracker_name(root) is None:
         pinned = tracker_with_store(root)
         if pinned:
             git(["config", "--local", TRACKER_KEY, pinned], root)
@@ -4192,6 +4153,21 @@ def UndoEarlierAdoption(request: UndoEarlierAdoptionRequest) -> UndoEarlierAdopt
                     "version adopted this checkout under, where its work stays."
                     % (TRACKER_KEY, pinned)
                 )
+    # The tracker's store as an earlier version kept it: the adapter that
+    # keeps it says whether it needs bringing up to date, and brings it up to
+    # date when init asks. An adapter without the upgrade extra has nothing to.
+    if checkout_adopted(root) and stopped is None:
+        kept = invoke_extra(
+            "upgrade", {"root": root, "tracker": request.get("tracker"), "apply": apply}
+        )
+        if kept["status"] == "completed":
+            pending.extend(kept.get("pending") or [])
+            done.extend(kept.get("done") or [])
+        elif apply and kept.get("reason") != "unsupported":
+            stopped = (
+                "the store an earlier version kept could not be brought up to date: %s"
+                % (kept["summary"])
+            )
     command = None
     if in_tree and checkout_adopted(root):
         if git(["ls-files", "-z", "--", ".beads"], root):
@@ -4204,11 +4180,29 @@ def UndoEarlierAdoption(request: UndoEarlierAdoptionRequest) -> UndoEarlierAdopt
         else:
             command = "rm -rf .beads .beads.gate.lock"
 
+    if stopped is not None:
+        return {
+            "status": "failed",
+            "summary": "init stopped: %s." % stopped.rstrip("."),
+            "undone": done,
+            "pending": [],
+            "exitCode": 1,
+        }
+    if pending:
+        return {
+            "status": "blocked",
+            "summary": "This checkout was adopted by an earlier version of %s: %s. Run %s "
+            "init once to bring it up to date." % (PROG, "; ".join(pending), PROG),
+            "undone": [],
+            "pending": pending,
+            "exitCode": 1,
+        }
     n = len(done) + bool(made)
     return {
         "status": "completed",
         "summary": "%d thing%s put right." % (n, "" if n == 1 else "s"),
         "undone": done,
+        "pending": [],
         "workspace": ws,
         "adopted": made,
         "command": command,
@@ -4314,9 +4308,7 @@ def ReportWhatIsYoursToCommit(
     bd commits nothing. What init leaves behind is dotdiw's declaration of
     where work starts, written into the instruction files for the worker to
     commit so that every clone reads it. Say which files, and the command;
-    committing is not this tool's to do. Where an earlier version let bd
-    commit its own files, say the one command that keeps the tracker local
-    from here on, too.
+    committing is not this tool's to do.
     """
     root, rels = request["root"], list(request.get("paths") or [])
     yours = []
@@ -4338,9 +4330,8 @@ def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
     checkout's own .git/config: the key, and the adapter chosen -- the one
     named, else the one the workspace already has, else local. The store is
     under ~/.dotdiw/<key>/, made by that adapter when the tracker is opened,
-    and a second open changes nothing unless the adapter's own re-init
-    flags were typed. What was typed after init goes to the adapter with
-    the prefix taken out, and an adapter honours the prefix where it can.
+    and a second open changes nothing. The prefix given goes to the
+    adapter, which honours it where it can.
     """
     root = request["root"]
     if not git(["rev-parse", "--is-inside-work-tree"], root).strip():
@@ -4352,21 +4343,7 @@ def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
             "reason": "not-a-repository",
             "exitCode": 2,
         }
-    args = list(request.get("arguments") or [])
-    if args and args[0] == "init":
-        args = args[1:]
-    prefix, rest, i = None, [], 0
-    while i < len(args):
-        a = args[i]
-        if a in ("-p", "--prefix") and i + 1 < len(args):
-            prefix = args[i + 1]
-            i += 2
-            continue
-        if a.startswith("--prefix="):
-            prefix = a[len("--prefix=") :]
-        else:
-            rest.append(a)
-        i += 1
+    prefix = request.get("prefix")
     ws = workspace(root)
     if ws is None:
         git(["config", "--local", WORKSPACE_KEY, os.urandom(8).hex()], root)
@@ -4398,24 +4375,17 @@ def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
         return refused
     opened = invoke_tracker(
         "operation.open-tracker",
-        {
-            "root": root,
-            "tracker": name,
-            "prefix": prefix,
-            "arguments": rest,
-            "terminal": not request.get("quiet"),
-        },
+        {"root": root, "tracker": name, "prefix": prefix},
     )
     code = opened.get("exitCode", 0 if opened["status"] == "completed" else 1)
     if code != 0:
         return {
             "status": "failed",
-            "summary": "The tracker's init failed." if opened.get("printed") else opened["summary"],
+            "summary": opened["summary"],
             "workspace": ws,
             "created": False,
             "reason": opened.get("reason") or "init-failed",
             "tracker": name,
-            "printed": bool(opened.get("printed")),
             "exitCode": code,
         }
     if tracker_name(root) != name:  # written last: a store that did not open is not a choice
@@ -4433,10 +4403,9 @@ def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
             }
     created = bool(opened.get("created"))
     # Said once, before any work is written: the worst failure here is writing to
-    # a tracker as the wrong person. An adapter that ran its own command spoke for
-    # itself.
+    # a tracker as the wrong person.
     actor = None
-    if created and not opened.get("printed"):
+    if created:
         described = invoke_tracker("operation.describe-tracker", {"root": root, "tracker": name})
         actor = described.get("actor")
     return {
@@ -4445,7 +4414,6 @@ def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
         "workspace": ws,
         "created": created,
         "tracker": name,
-        "printed": bool(opened.get("printed")),
         "actor": actor,
         "exitCode": 0,
     }
@@ -4456,23 +4424,23 @@ def AdoptARepository(request: AdoptARepositoryRequest) -> AdoptARepositoryRespon
     in the tree."""
     root, tracker = request["root"], request.get("tracker")
     invoke("operation.turn-metrics-off", {"root": root, "tracker": tracker})
+    # What an earlier version left is put right first, so that a tracker kept
+    # in the tree is adopted under the home with its own prefix; when it cannot
+    # be, nothing else is adopted.
+    undone = invoke(
+        "operation.undo-earlier-adoption", {"root": root, "tracker": tracker, "apply": True}
+    )
+    if undone["status"] != "completed":
+        return {"status": "failed", "summary": undone["summary"], "exitCode": 1}
     made = invoke(
         "operation.adopt-repository",
-        {"root": root, "arguments": request["arguments"], "tracker": tracker},
+        {"root": root, "prefix": request.get("prefix"), "tracker": tracker},
     )
     if made["status"] != "completed":
         # Nothing was adopted, so there is nothing to declare work starts in.
         return {"status": made["status"], "summary": made["summary"], "exitCode": made["exitCode"]}
-    undone = invoke("operation.undo-earlier-adoption", {"root": root, "tracker": tracker})
     declared = invoke("operation.declare-conventions", {"root": root, "announce": "init"})
-    invoke(
-        "operation.report-what-is-yours-to-commit",
-        {
-            "root": root,
-            "paths": declared["changed"],
-            "command": undone["command"] if undone.get("adopted") else None,
-        },
-    )
+    invoke("operation.report-what-is-yours-to-commit", {"root": root, "paths": declared["changed"]})
     return {
         "status": made["status"],
         "summary": made["summary"],
@@ -4506,7 +4474,7 @@ DOOR: dict[str, DoorSpec] = {
     "operation.adopt-a-repository": {
         "body": "AdoptARepository",
         "request": (
-            "arguments", "conventionsRef", "correlationId", "repositoryRef",
+            "conventionsRef", "correlationId", "prefix", "repositoryRef",
             "root", "sourceRefs", "tracker",
         ),
         "requestRequired": (
@@ -4523,16 +4491,15 @@ DOOR: dict[str, DoorSpec] = {
     "operation.adopt-repository": {
         "body": "AdoptRepository",
         "request": (
-            "arguments", "correlationId", "quiet", "repositoryRef", "root",
+            "correlationId", "prefix", "quiet", "repositoryRef", "root",
             "sourceRefs", "tracker",
         ),
         "requestRequired": (
             "root",
         ),
         "response": (
-            "actor", "created", "exitCode", "openQuestionRefs", "printed",
-            "reason", "resultRefs", "status", "summary", "tracker",
-            "workspace",
+            "actor", "created", "exitCode", "openQuestionRefs", "reason",
+            "resultRefs", "status", "summary", "tracker", "workspace",
         ),
         "responseRequired": (
             "status", "summary",
@@ -4680,7 +4647,7 @@ DOOR: dict[str, DoorSpec] = {
             "ask", "root",
         ),
         "response": (
-            "exitCode", "formulaCount", "formulaRef", "formulas",
+            "exitCode", "formula", "formulaCount", "formulaRef", "formulas",
             "openQuestionRefs", "path", "resultRefs", "status", "summary",
             "text",
         ),
@@ -4837,15 +4804,15 @@ DOOR: dict[str, DoorSpec] = {
     "operation.name-the-work": {
         "body": "NameTheWork",
         "request": (
-            "arguments", "correlationId", "description", "parent", "priority",
+            "correlationId", "description", "json", "parent", "priority",
             "root", "sourceRefs", "title", "tracker", "workRef",
         ),
         "requestRequired": (
             "root", "title",
         ),
         "response": (
-            "exitCode", "item", "openQuestionRefs", "printed", "reason",
-            "resultRefs", "status", "summary", "tracker", "workRef",
+            "exitCode", "item", "openQuestionRefs", "reason", "resultRefs",
+            "status", "summary", "tracker", "workRef",
         ),
         "responseRequired": (
             "status", "summary",
@@ -4886,7 +4853,7 @@ DOOR: dict[str, DoorSpec] = {
     "operation.pour-procedure": {
         "body": "PourProcedure",
         "request": (
-            "arguments", "correlationId", "formulaRef", "ident", "moleculeRef",
+            "correlationId", "formulaRef", "ident", "json", "moleculeRef",
             "root", "sourceRefs", "tracker", "workRef",
         ),
         "requestRequired": (
@@ -4894,8 +4861,8 @@ DOOR: dict[str, DoorSpec] = {
         ),
         "response": (
             "exitCode", "formulaRef", "moleculeRef", "openQuestionRefs",
-            "printed", "reason", "resultRefs", "status", "stepRefs", "summary",
-            "tracker", "verifyUsing",
+            "reason", "resultRefs", "status", "stepRefs", "summary", "tracker",
+            "verifyUsing",
         ),
         "responseRequired": (
             "status", "summary",
@@ -4938,8 +4905,7 @@ DOOR: dict[str, DoorSpec] = {
     "operation.report-what-is-yours-to-commit": {
         "body": "ReportWhatIsYoursToCommit",
         "request": (
-            "command", "correlationId", "paths", "repositoryRef", "root",
-            "sourceRefs",
+            "correlationId", "paths", "repositoryRef", "root", "sourceRefs",
         ),
         "requestRequired": (
             "root",
@@ -4961,8 +4927,8 @@ DOOR: dict[str, DoorSpec] = {
             "ident", "root",
         ),
         "response": (
-            "exitCode", "formulaRef", "openQuestionRefs", "path", "reason",
-            "resultRefs", "status", "summary",
+            "exitCode", "formula", "formulaRef", "openQuestionRefs", "path",
+            "reason", "resultRefs", "status", "summary",
         ),
         "responseRequired": (
             "status", "summary",
@@ -5027,8 +4993,8 @@ DOOR: dict[str, DoorSpec] = {
             "ident", "name",
         ),
         "response": (
-            "exitCode", "formulaRef", "openQuestionRefs", "path", "reason",
-            "resultRefs", "status", "summary", "text",
+            "exitCode", "formula", "formulaRef", "openQuestionRefs", "reason",
+            "resultRefs", "status", "summary",
         ),
         "responseRequired": (
             "status", "summary",
@@ -5037,7 +5003,7 @@ DOOR: dict[str, DoorSpec] = {
     "operation.start-named-work": {
         "body": "StartNamedWork",
         "request": (
-            "arguments", "correlationId", "description", "formulaRef",
+            "correlationId", "description", "formulaRef", "json",
             "moleculeRef", "parent", "priority", "quiet", "root", "sourceRefs",
             "title", "tracker", "workRef",
         ),
@@ -5083,15 +5049,16 @@ DOOR: dict[str, DoorSpec] = {
     "operation.undo-earlier-adoption": {
         "body": "UndoEarlierAdoption",
         "request": (
-            "correlationId", "repositoryRef", "root", "sourceRefs", "tracker",
+            "apply", "correlationId", "repositoryRef", "root", "sourceRefs",
+            "tracker",
         ),
         "requestRequired": (
             "root",
         ),
         "response": (
             "adopted", "command", "exitCode", "hooksReplaced",
-            "openQuestionRefs", "resultRefs", "status", "summary", "tracker",
-            "undone", "workspace",
+            "openQuestionRefs", "pending", "resultRefs", "status", "summary",
+            "tracker", "undone", "workspace",
         ),
         "responseRequired": (
             "status", "summary",
@@ -5170,6 +5137,8 @@ DOOR: dict[str, DoorSpec] = {
 # fmt: on
 
 PRESENTER: Callable[[str, Request, Response], None] | None = None
+# How many operations the door is inside now: 0 between operations.
+DEPTH = 0
 
 
 class DoorError(TypeError):
@@ -5178,7 +5147,9 @@ class DoorError(TypeError):
 
 def invoke(operation: str, request: Request) -> Response:
     """Run one operation: the request held to its type, the body, the response
-    held to its type, the witness appended, the response shown and returned."""
+    held to its type, the witness appended, the response shown and returned.
+    An operation asked from outside the door reads the formulas afresh."""
+    global DEPTH
     spec = DOOR.get(operation)
     if spec is None:
         raise DoorError("%s is not an operation of %s" % (operation, PROG))
@@ -5188,7 +5159,14 @@ def invoke(operation: str, request: Request) -> Response:
     for key in spec["requestRequired"]:
         if request.get(key) is None:
             raise DoorError('%s: "%s" is required in its request and missing' % (operation, key))
-    response: Response = globals()[spec["body"]](request)
+    if DEPTH == 0:
+        INDEXES.clear()
+        UNPARSED.clear()
+    DEPTH += 1
+    try:
+        response: Response = globals()[spec["body"]](request)
+    finally:
+        DEPTH -= 1
     for key in response:
         if key not in spec["response"]:
             raise DoorError('%s: "%s" is not a field of its response' % (operation, key))
@@ -5328,7 +5306,7 @@ def witness_from(operation: str, request: Request, response: Response) -> None:
 # >>> tracker door generated from operation-idl.json by poa/complete-idl.py; do not edit
 # The interface a module says it was written for. It is raised, by decision in
 # implementation-bindings.json, when a module written earlier cannot answer this one.
-TRACKER_INTERFACE = 2
+TRACKER_INTERFACE = 3
 
 # operation id -> the fields of its request, the required ones among them,
 # and the same for its response. The registered adapter answers.
@@ -5369,16 +5347,16 @@ TRACKER_DOOR: dict[str, TrackerDoorSpec] = {
     },
     "operation.create-item": {
         "request": (
-            "arguments", "correlationId", "description", "id", "parent",
-            "priority", "root", "sourceRefs", "terminal", "title", "tracker",
-            "trackerRef", "verifyUsing", "workRef",
+            "correlationId", "description", "id", "parent", "priority", "root",
+            "sourceRefs", "title", "tracker", "trackerRef", "verifyUsing",
+            "workRef",
         ),
         "requestRequired": (
             "title",
         ),
         "response": (
-            "exitCode", "item", "openQuestionRefs", "printed", "reason",
-            "resultRefs", "status", "summary", "tracker",
+            "exitCode", "item", "openQuestionRefs", "reason", "resultRefs",
+            "status", "summary", "tracker",
         ),
         "responseRequired": (
             "status", "summary",
@@ -5417,13 +5395,13 @@ TRACKER_DOOR: dict[str, TrackerDoorSpec] = {
     },
     "operation.open-tracker": {
         "request": (
-            "arguments", "correlationId", "prefix", "root", "sourceRefs",
-            "terminal", "tracker", "trackerAdapterRef", "trackerRef",
+            "correlationId", "prefix", "root", "sourceRefs", "tracker",
+            "trackerAdapterRef", "trackerRef",
         ),
         "requestRequired": (),
         "response": (
-            "created", "exitCode", "openQuestionRefs", "path", "printed",
-            "reason", "resultRefs", "status", "summary", "tracker",
+            "created", "exitCode", "openQuestionRefs", "path", "reason",
+            "resultRefs", "status", "summary", "tracker",
         ),
         "responseRequired": (
             "status", "summary",
@@ -5432,16 +5410,16 @@ TRACKER_DOOR: dict[str, TrackerDoorSpec] = {
     },
     "operation.pour-steps": {
         "request": (
-            "arguments", "correlationId", "description", "formulaRef",
-            "moleculeRef", "path", "root", "sourceRefs", "steps", "terminal",
-            "title", "tracker", "trackerRef", "verifyUsing",
+            "correlationId", "description", "formulaRef", "moleculeRef",
+            "root", "sourceRefs", "steps", "title", "tracker", "trackerRef",
+            "verifyUsing",
         ),
         "requestRequired": (
             "formulaRef", "steps", "title",
         ),
         "response": (
-            "exitCode", "openQuestionRefs", "printed", "reason", "resultRefs",
-            "rootId", "status", "stepIds", "summary", "tracker",
+            "exitCode", "openQuestionRefs", "reason", "resultRefs", "rootId",
+            "status", "stepIds", "summary", "tracker",
         ),
         "responseRequired": (
             "status", "summary",
@@ -5606,10 +5584,10 @@ def pour_steps(request: Record) -> Record:
     its description and its verify-using, and one item of kind task per step
     exists under it with its needs as edges.
 
-    Takes: formulaRef*, root, title*, steps*, path, description, verifyUsing.
+    Takes: formulaRef*, root, title*, steps*, description, verifyUsing.
     Answers: status*, summary*, rootId, stepIds, reason, exitCode.
     Reasons: tracker-unknown, adapter-failed, no-workspace, no-steps,
-    step-not-found, not-installed, cycle.
+    step-not-found, not-installed, cycle, duplicate-step.
     """
     raise NotImplementedError("pour_steps")
 
@@ -5672,7 +5650,7 @@ TRACKER = {
     "info": {
         "name": "<NAME>",
         "version": "0.1.0",
-        "interface": 2,
+        "interface": 3,
         "nativeNeeds": True,
         "checkTarget": "scratch",
         "extras": [],
@@ -5720,6 +5698,9 @@ PROVIDER_MODULE = r"[a-z0-9][a-z0-9-]*"
 # reads as more than a name.
 PROVIDER_FORMULA_ID = r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}"
 PROVIDER_LOCK = os.path.join(DOTDIW_HOME, "formula-providers.lock")
+# The formula management provider interface a module says it was written for,
+# in its info: 2 from 3.0.0, when show came to answer a formula as data.
+PROVIDER_INTERFACE = 2
 # module name -> its PROVIDER table: the shipped ones, then each loaded.
 PROVIDER_MODULES: dict[str, dict[str, Any]] = {}
 # The directory provider's last listing of each store: each id and the file
@@ -5826,7 +5807,8 @@ def load_provider(module: str) -> tuple[dict[str, Any] | None, str]:
     """A provider module's PROVIDER table by the module's name, a shipped one
     first, then the first file of that name in provider_dirs; with why it is
     None: module-not-found, or not-a-provider for a file that raised on load,
-    holds no table, or whose table lacks describe, list or show."""
+    holds no table, whose table lacks describe, list or show, or whose info
+    names another provider interface than this one."""
     if module in PROVIDER_MODULES:
         return PROVIDER_MODULES[module], ""
     if not re.fullmatch(PROVIDER_MODULE, module or ""):
@@ -5859,7 +5841,7 @@ def load_provider(module: str) -> tuple[dict[str, Any] | None, str]:
     ):
         return None, "not-a-provider"
     info = table.setdefault("info", {})
-    if not isinstance(info, dict):
+    if not isinstance(info, dict) or info.get("interface") != PROVIDER_INTERFACE:
         return None, "not-a-provider"
     info["origin"], info["source"] = "loaded", path
     PROVIDER_MODULES[module] = table
@@ -5984,21 +5966,31 @@ def directory_list(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def directory_show(request: dict[str, Any]) -> dict[str, Any]:
-    """One formula's text by its id, as its file in the directory holds it:
-    the file the last listing found it in, or, when there was none, the first
-    that holds it."""
+    """One formula by its id, as data, from its file in the directory: the
+    file the last listing found it in, or, when there was none, the first that
+    holds it."""
     store = directory_store(request.get("location"))
     known = (DIRECTORY_FOUND.get(store) or {}).get(request.get("id") or "")
     for path in [known] if known and os.path.isfile(known) else formula_files(store):
         f = load_formula(os.path.dirname(path), os.path.basename(path))
         if f and f["id"] == request.get("id"):
-            with open(path, encoding="utf-8") as fh:
-                return {"text": fh.read(), "format": "json" if path.endswith(".json") else "toml"}
+            return {
+                "formula": {
+                    "description": f["desc"],
+                    "verifyUsing": list(f["verifyUsing"]),
+                    "steps": list(f["steps"]),
+                }
+            }
     return {}
 
 
 PROVIDER_MODULES["directory"] = {
-    "info": {"name": "directory", "version": VERSION, "origin": "shipped"},
+    "info": {
+        "name": "directory",
+        "version": VERSION,
+        "interface": PROVIDER_INTERFACE,
+        "origin": "shipped",
+    },
     "operations": {
         "describe": directory_describe,
         "list": directory_list,
@@ -6249,7 +6241,7 @@ def hold_tracker_response(operation: str, name: str, response: Response) -> None
     for key, value in response.items():
         hold_value(operation, key, value, kinds[key])
     settle_exit_code(operation, response)
-    if response["status"] == "completed" and not response.get("printed"):
+    if response["status"] == "completed":
         for key in TRACKER_ANSWERS.get(operation, ()):
             if response.get(key) is None:
                 raise DoorError('%s: a completed answer carries "%s"' % (operation, key))
@@ -6462,7 +6454,7 @@ def UseTracker(request: UseTrackerRequest) -> UseTrackerResponse:
     previous = tracker_name(root) or tracker_with_store(root)
     made = invoke(
         "operation.adopt-repository",
-        {"root": root, "arguments": [], "quiet": True, "tracker": name},
+        {"root": root, "quiet": True, "tracker": name},
     )
     if made["status"] != "completed":
         return {
@@ -7305,19 +7297,45 @@ BD_CONFIG = "~/.config/bd/config.yaml"
 # second name.
 BEADS_STORE = ".beads"
 INIT_FLAGS = ("--stealth", "--skip-hooks", "--skip-agents")
-REINIT_FLAGS = (
-    "--reinit-local",
-    "--force",
-    "--discard-remote",
-    "--init-if-missing",
-    "--destroy-token",
-)
 
 # The two answers every operation here can give before bd runs.
 BEADS_NOT_INSTALLED = ("not-installed", "beads is not installed. Run: brew install beads", 127)
 BEADS_NO_WORKSPACE = ("no-workspace", "This checkout has no tracker; init adopts it.", 1)
 BEADS_STATUSES = ("open", "in_progress", "blocked", "closed")
 BEADS_NOT_FOUND = ("no issue found", "no issues found", "not found")
+# bd's create and update flags that consume the next argument, so that the
+# pass-through never reads a value as an option of its own.
+BEADS_VALUE_FLAGS = {
+    "--title",
+    "-s",
+    "-d",
+    "--description",
+    "-p",
+    "--priority",
+    "-t",
+    "--type",
+    "-a",
+    "--assignee",
+    "-l",
+    "--label",
+    "--labels",
+    "--design",
+    "--acceptance",
+    "--notes",
+    "--parent",
+    "--estimate",
+    "--status",
+    "--due",
+    "--repo",
+    "--db",
+    "--actor",
+    "--external-id",
+}
+# The issue metadata the beads adapter keeps its own data under, and the file
+# in the workspace that says a workspace poured into before 3.0.0 has had the
+# means to prove its runs moved out of its descriptions and into that metadata.
+BEADS_KEY = "dotdiw"
+BEADS_MEANS_MOVED = "means-in-metadata"
 
 
 def beads_find() -> str | None:
@@ -7338,6 +7356,63 @@ def beads_env(root: str | None) -> str | None:
         os.environ["BEADS_DIR"] = store
         return store
     return None
+
+
+def beads_metadata(row: dict[str, Any]) -> dict[str, Any]:
+    """An issue's metadata as bd answers it, as a dict whatever its form."""
+    held = row.get("metadata")
+    if isinstance(held, str):
+        try:
+            held = json.loads(held)
+        except ValueError:
+            held = None
+    return dict(held) if isinstance(held, dict) else {}
+
+
+def beads_own(row: dict[str, Any]) -> dict[str, Any] | None:
+    """What the adapter keeps in an issue's metadata under its own key: {}
+    while the key is absent, or None where an earlier version left the key
+    holding a value of the issue's own, null included, which the adapter
+    leaves as it is and reads nothing from."""
+    held = beads_metadata(row)
+    if BEADS_KEY not in held:
+        return {}
+    own = held[BEADS_KEY]
+    return dict(own) if isinstance(own, dict) else None
+
+
+def beads_left_as_given(kept: list[str]) -> str:
+    """The upgrade's line for the issues whose metadata holds dotdiw as a
+    value of their own, which keep their descriptions as they were."""
+    if len(kept) == 1:
+        return (
+            "%s keeps the means in its description, since its metadata holds dotdiw as a "
+            "value of its own" % kept[0]
+        )
+    return (
+        "%s and %s keep the means in their descriptions, since their metadata holds dotdiw "
+        "as a value of their own" % (", ".join(kept[:-1]), kept[-1])
+    )
+
+
+def beads_means(row: dict[str, Any], means: list[str], moved: bool = False) -> str:
+    """The issue's metadata with the means to prove a run kept under the
+    adapter's own key, everything else in it as it was, as bd takes it; with
+    moved, the mark that the upgrade has moved them out of its description.
+    The upgrade hands it no issue whose key holds a value of its own."""
+    held = beads_metadata(row)
+    mine = dict(held.get(BEADS_KEY) or {})
+    if moved:
+        mine["meansMoved"] = True
+    if means:
+        mine["verifyUsing"] = list(means)
+    else:
+        mine.pop("verifyUsing", None)
+    if mine:
+        held[BEADS_KEY] = mine
+    else:
+        held.pop(BEADS_KEY, None)
+    return json.dumps(held, ensure_ascii=False)
 
 
 def beads_quiet(args: list[str], root: str | None = None) -> tuple[int, str, str]:
@@ -7445,11 +7520,11 @@ def beads_record(row: dict[str, Any]) -> TrackerItem:
         "createdAt": row.get("created_at"),
         "updatedAt": row.get("updated_at"),
     }
-    description, means = read_verify_using(row.get("description"))
-    if description is not None:
-        item["description"] = description
-    if means:
-        item["verifyUsing"] = means
+    if row.get("description") is not None:
+        item["description"] = row["description"]
+    means = (beads_own(row) or {}).get("verifyUsing")
+    if isinstance(means, list) and means:
+        item["verifyUsing"] = [str(m) for m in means]
     return item
 
 
@@ -7475,7 +7550,7 @@ def beads_failed(
 def beads_open(request: OpenTrackerRequest) -> OpenTrackerResponse:
     """operation.open-tracker: bd init in its stealth mode, under the key.
 
-    A second open changes nothing unless bd's own re-init flags were typed.
+    A second open changes nothing.
     Where an earlier version's tracker sits in the tree, its prefix is kept,
     so that the ids the project is used to read on; nothing else of it is
     read. bd makes its directory itself and requires the workspace above it
@@ -7487,8 +7562,7 @@ def beads_open(request: OpenTrackerRequest) -> OpenTrackerResponse:
     store = beads_store(root)
     if store is None:
         return failed_as(OpenTrackerResponse, *BEADS_NO_WORKSPACE)
-    args = list(request.get("arguments") or [])
-    if os.path.isdir(store) and not any(a in REINIT_FLAGS for a in args):
+    if os.path.isdir(store):
         return {
             "status": "completed",
             "summary": "Already open.",
@@ -7504,28 +7578,20 @@ def beads_open(request: OpenTrackerRequest) -> OpenTrackerResponse:
         except (OSError, ValueError):
             prefix = None
     os.environ["BEADS_DIR"] = store
-    code, _, _ = beads_run(
-        ["init"]
-        + [f for f in INIT_FLAGS if f not in args]
-        + args
-        + (["--prefix", prefix] if prefix else []),
-        root,
-        bool(request.get("terminal")),
-    )
+    code, _, _ = beads_quiet(["init", *INIT_FLAGS] + (["--prefix", prefix] if prefix else []), root)
     if code != 0:
         return {
             "status": "failed",
             "reason": "store-unwritable",
             "exitCode": code,
             "summary": "The tracker's init exited %d." % code,
-            "printed": bool(request.get("terminal")),
         }
+    beads_moved(store)
     return {
         "status": "completed",
         "summary": "Opened under %s." % store,
         "path": store,
         "created": True,
-        "printed": bool(request.get("terminal")),
         "exitCode": 0,
     }
 
@@ -7544,9 +7610,8 @@ def beads_actor(root: str | None) -> TrackerActor | None:
 def beads_typed(args: list[str], root: str | None) -> tuple[list[str], str | None]:
     """The arguments as typed, read option by option so that a value is never
     taken for an option: an assignee of me as the name bd records, where bd
-    itself would keep the word, and a description kept the one way every
-    description is. With them, why they are refused when they ask for the type
-    a root has, which only a pour makes."""
+    itself would keep the word. With them, why they are refused when they ask
+    for the type a root has, which only a pour makes."""
     out = list(args)
     i = 0
     while i < len(out):
@@ -7554,7 +7619,7 @@ def beads_typed(args: list[str], root: str | None) -> tuple[list[str], str | Non
         if a.startswith("-") and "=" in a:
             flag, value = a.split("=", 1)
             at = i
-        elif a in VALUE_FLAGS and i + 1 < len(out):
+        elif a in BEADS_VALUE_FLAGS and i + 1 < len(out):
             flag, value = a, out[i + 1]
             at = i + 1
         else:
@@ -7565,8 +7630,6 @@ def beads_typed(args: list[str], root: str | None) -> tuple[list[str], str | Non
         if flag in ("-a", "--assignee") and value == "me":
             actor = beads_actor(root)
             value = actor["name"] if actor else value
-        elif flag in ("-d", "--description"):
-            value = keep_verify_using(value, []) or ""
         out[at] = flag + "=" + value if at == i else value
         i = at + 1
     return out, None
@@ -7588,7 +7651,7 @@ def beads_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
             "origin": "shipped",
             "nativeNeeds": True,
             "checkTarget": "scratch",
-            "extras": ["forward", "metrics-off"],
+            "extras": ["forward", "metrics-off", "upgrade"],
         },
         "actor": beads_actor(request.get("root")),
         "path": store if store and os.path.isdir(store) else None,
@@ -7597,68 +7660,29 @@ def beads_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
 
 
 def beads_create(request: CreateItemRequest) -> CreateItemResponse:
-    """operation.create-item: bd create. With the terminal, the arguments as
-    typed and the id read from the stream; without, bd's JSON answer."""
+    """operation.create-item: bd create, from the fields given, and bd's JSON
+    answer read as the record."""
     if not beads_find():
         return failed_as(CreateItemResponse, *BEADS_NOT_INSTALLED)
     root = request.get("root")
     if beads_env(root) is None:
         return failed_as(CreateItemResponse, *BEADS_NO_WORKSPACE)
-    if request.get("terminal"):
-        args, refused = beads_typed(
-            list(request.get("arguments") or []) or [request["title"]], root
-        )
-        if refused:
-            return {"status": "failed", "exitCode": 1, "printed": False, "summary": refused}
-        code, out, _ = beads_run(["create"] + args, root, True)
-        if code != 0:
-            return {
-                "status": "failed",
-                "exitCode": code,
-                "printed": True,
-                "summary": "The tracker refused the create.",
-            }
-        # The id, from the line bd prints, or from its JSON when --json was
-        # typed; with -q it prints nothing, and the create still happened.
-        m = re.search(r"Created issue:\s+(\S+)", out)
-        rows = beads_json(out.strip()) if out.lstrip().startswith("{") else []
-        if rows:
-            item = beads_record(rows[0])
-        elif m:
-            item = {
-                "id": m.group(1),
-                "title": request["title"],
-                "status": "open",
-                "kind": "task",
-                "priority": request.get("priority"),
-                "parent": request.get("parent"),
-            }
-        else:
-            item = None
-        return {
-            "status": "completed",
-            "summary": "Created %s." % item["id"] if item else "Created, quietly.",
-            "item": item,
-            "printed": True,
-            "exitCode": 0,
-        }
     argv = [
         "create",
-        request["title"],
-        "-t",
-        "task",
-        "-p",
-        str(2 if request.get("priority") is None else request["priority"]),
+        "--title=" + request["title"],
+        "--type=task",
+        "--priority=%s" % (2 if request.get("priority") is None else request["priority"]),
         "--json",
     ]
     parent = request.get("parent")
-    description = keep_verify_using(
-        request.get("description"), list(request.get("verifyUsing") or [])
-    )
+    description = request.get("description")
+    means = list(request.get("verifyUsing") or [])
     if parent:
-        argv += ["--parent", parent]
+        argv += ["--parent=" + parent]
     if description:
-        argv += ["-d", description]
+        argv += ["--description=" + description]
+    if means:
+        argv += ["--metadata=" + beads_means({}, means)]
     code, out, err = beads_quiet(argv, root)
     if code != 0:
         return beads_failed(CreateItemResponse, out, err, [("parent-not-found", ("parent issue",))])
@@ -7672,7 +7696,6 @@ def beads_create(request: CreateItemRequest) -> CreateItemResponse:
         "status": "completed",
         "summary": "Created %s." % item["id"],
         "item": item,
-        "printed": False,
         "exitCode": 0,
     }
 
@@ -7697,119 +7720,18 @@ def beads_need(request: AddNeedRequest) -> AddNeedResponse:
     }
 
 
-@contextlib.contextmanager
-def beads_serial(root: str | None) -> Iterator[None]:
-    """beads_pour's: one cook and its pour at a time in a workspace, held by a
-    lock beside the workspace's store."""
-    ws = workspace(root) if root else None
-    if not ws:
-        yield
-        return
-    os.makedirs(ws, exist_ok=True)
-    with open(os.path.join(ws, "pour.lock"), "a", encoding="utf-8") as fh:
-        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
-
-
 def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
-    """operation.pour-steps: bd's own pour from the formula's file, when the
-    path is given, so that a poured molecule keeps bd's behaviour and bytes;
-    composed from the steps given otherwise, a root and one item per step
-    with its needs as edges.
-
-    bd pours only what it has cooked, and cooks only from its own directories;
-    cooking by path closes that gap, so a formula never has to be moved or
-    linked out of the place it belongs. Unconditionally, and with --force,
-    because the file is the formula: cooking only when bd had never heard of
-    the id meant that a formula edited in place poured the version bd
-    happened to hold.
-    """
+    """operation.pour-steps: a root and one issue per step, each made with bd
+    create in the order the needs allow and blocked by the steps it needs, as
+    the local adapter pours; the step ids in the formula's order. The root
+    keeps the formula's description, and the means to prove its run in its
+    metadata. A pour that fails after making its root names the root and the
+    steps it made."""
     if not beads_find():
         return failed_as(PourStepsResponse, *BEADS_NOT_INSTALLED)
     root = request.get("root")
     if beads_env(root) is None:
         return failed_as(PourStepsResponse, *BEADS_NO_WORKSPACE)
-    path, ref = request.get("path"), request["formulaRef"]
-    if path or request.get("terminal"):
-        # bd keeps one cooked copy per formula id: a second cook between a
-        # first and its pour would hand the first the second's steps.
-        with beads_serial(root) if path else contextlib.nullcontext():
-            if path:
-                code, out, err = beads_quiet(["cook", path, "--persist", "--force"], root)
-                if code != 0:
-                    # A pour of whatever proto bd held instead would pour a
-                    # version of the formula that nobody asked for.
-                    said = " ".join((err or out).split())[:240] or "it exited %d" % code
-                    return {
-                        "status": "failed",
-                        "exitCode": 1,
-                        "printed": False,
-                        "reason": "adapter-failed",
-                        "summary": "The tracker could not cook %s, so nothing was poured: %s"
-                        % (path, said),
-                    }
-            code, out, err = beads_run(
-                ["mol", "pour", ref] + list(request.get("arguments") or []),
-                root,
-                bool(request.get("terminal")),
-            )
-        if code != 0:
-            return {
-                "status": "failed",
-                "exitCode": code,
-                "printed": bool(request.get("terminal")),
-                "summary": "The tracker's pour exited %d." % code,
-            }
-        m = re.search(r"Root issue:\s+(\S+)", out + err)
-        root_id = m.group(1) if m else None
-        if root_id is None:
-            # With --json, bd names the root in its answer instead.
-            answer = beads_json(out)
-            if answer and answer[0].get("new_epic_id"):
-                root_id = str(answer[0]["new_epic_id"])
-        poured: list[str] = []
-        if root_id:
-            # The steps the pour made, so that the witness can record them
-            # with the molecule; this adapter cannot know whether the log is on.
-            code, listing, _ = beads_quiet(
-                ["list", "--all", "--json", "--brief", "-n", "300"], root
-            )
-            if code == 0:
-                poured = sorted(
-                    str(x.get("id")) for x in beads_json(listing) if x.get("parent") == root_id
-                )
-        # bd's own pour gives the root the formula's description; the means to
-        # prove the run are kept as its last section, and a description that
-        # would read as holding them is kept so that it reads back as given.
-        kept = keep_verify_using(request.get("description"), list(request.get("verifyUsing") or []))
-        if root_id and kept != request.get("description"):
-            code, _, err = beads_quiet(["update", root_id, "--description", kept or ""], root)
-            if code != 0:
-                return {
-                    "status": "failed",
-                    "exitCode": code,
-                    "printed": bool(request.get("terminal")),
-                    "rootId": root_id,
-                    "stepIds": poured,
-                    "summary": "Poured %d steps under %s, and writing the means to prove "
-                    "its run onto it failed: %s"
-                    % (
-                        len(poured),
-                        root_id,
-                        " ".join(err.split()) or "the tracker exited %d" % code,
-                    ),
-                }
-        return {
-            "status": "completed",
-            "summary": "Poured %d steps under %s." % (len(poured), root_id),
-            "rootId": root_id,
-            "stepIds": poured,
-            "printed": bool(request.get("terminal")),
-            "exitCode": 0,
-        }
     steps = list(request.get("steps") or [])
     if not steps:
         return {
@@ -7818,16 +7740,27 @@ def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
             "exitCode": 1,
             "summary": "No steps to pour.",
         }
+    shared = shared_step_id(steps)
+    if shared is not None:
+        return {
+            "status": "failed",
+            "reason": "duplicate-step",
+            "exitCode": 1,
+            "summary": "Two steps share the id %s, so nothing was poured." % shared,
+        }
     try:
         ordered = steps_in_order(steps)
     except LookupError as e:
         return {"status": "failed", "reason": "step-not-found", "exitCode": 1, "summary": str(e)}
     except ValueError as e:
         return {"status": "failed", "reason": "cycle", "exitCode": 1, "summary": str(e)}
-    argv = ["create", request["title"], "-t", "molecule", "-p", "2", "--json"]
-    kept = keep_verify_using(request.get("description"), list(request.get("verifyUsing") or []))
-    if kept:
-        argv += ["-d", kept]
+    argv = ["create", "--title=" + request["title"], "--type=molecule", "--priority=2", "--json"]
+    description = request.get("description")
+    means = list(request.get("verifyUsing") or [])
+    if description:
+        argv += ["--description=" + description]
+    if means:
+        argv += ["--metadata=" + beads_means({}, means)]
     code, out, err = beads_quiet(argv, root)
     rows = beads_json(out) if code == 0 else []
     if not rows:
@@ -7835,21 +7768,37 @@ def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
     root_id = str(rows[0].get("id"))
     ids: dict[str, str] = {}
     for s in ordered:
-        needs = [n for n in s.get("needs") or []]
-        argv = ["create", s["title"], "--parent", root_id, "-t", "task", "--json"]
+        argv = ["create", "--title=" + s["title"], "--parent=" + root_id, "--type=task", "--json"]
+        needs = list(s.get("needs") or [])
         if needs:
-            argv += ["--deps", ",".join("blocked-by:%s" % ids[n] for n in needs)]
+            argv += ["--deps=" + ",".join("blocked-by:%s" % ids[n] for n in needs)]
         code, out, err = beads_quiet(argv, root)
         rows = beads_json(out) if code == 0 else []
         if not rows:
-            return beads_failed(PourStepsResponse, out, err, [])
+            said = " ".join((err or out).split())[:240] or "the tracker exited %d" % code
+            return {
+                "status": "failed",
+                "reason": "adapter-failed",
+                "exitCode": 1,
+                "rootId": root_id,
+                "stepIds": [ids[x["id"]] for x in steps if x["id"] in ids],
+                "summary": "Poured %d of %d steps under %s%s, and the next failed: %s"
+                % (
+                    len(ids),
+                    len(steps),
+                    root_id,
+                    " (%s)" % ", ".join(ids[x["id"]] for x in steps if x["id"] in ids)
+                    if ids
+                    else "",
+                    said,
+                ),
+            }
         ids[s["id"]] = str(rows[0].get("id"))
     return {
         "status": "completed",
         "summary": "Poured %d steps under %s." % (len(ids), root_id),
         "rootId": root_id,
         "stepIds": [ids[s["id"]] for s in steps],
-        "printed": False,
         "exitCode": 0,
     }
 
@@ -8012,6 +7961,80 @@ def beads_ready(request: ReadyItemsRequest) -> ReadyItemsResponse:
     }
 
 
+def beads_moved(store: str) -> None:
+    """Say in the workspace that its issues keep the means to prove a run in
+    their metadata, as every store opened by 3.0.0 does."""
+    with open(os.path.join(os.path.dirname(store), BEADS_MEANS_MOVED), "w", encoding="utf-8") as fh:
+        fh.write("The means to prove each run are kept in the issue's metadata.\n")
+
+
+def beads_upgrade(request: Request) -> Response:
+    """The upgrade extra: a workspace poured into before 3.0.0 keeps the means
+    to prove a run as the last section of an issue's description. Asked
+    without apply, it says so; with apply, each such issue gets its
+    description back as it was given and the means in its metadata, marked
+    there as moved, and the workspace says that it has. A write bd refuses
+    fails the upgrade and leaves that unsaid; tried again, it moves only the
+    issues not yet marked, so a description it gave back is never read for
+    the means a second time. An issue whose metadata holds dotdiw as a value
+    of its own keeps its description as it was, since the means cannot be
+    kept beside that value, and the account names it."""
+    nothing: Response = {
+        "status": "completed",
+        "summary": "Nothing to bring up to date.",
+        "pending": [],
+        "done": [],
+        "exitCode": 0,
+    }
+    root = request.get("root")
+    store = beads_store(root)
+    if not store or not os.path.isdir(store):
+        return nothing
+    if os.path.exists(os.path.join(os.path.dirname(store), BEADS_MEANS_MOVED)):
+        return nothing
+    if not request.get("apply"):
+        return dict(
+            nothing,
+            summary="Issues keep the means to prove a run inside their descriptions.",
+            pending=["its issues keep the means to prove a run inside their descriptions"],
+        )
+    code, out, err = beads_quiet(["list", "--all", "--json", "-n", "0"], root)
+    if code != 0:
+        return beads_failed(dict, out, err, [])
+    moved, kept = 0, []
+    for row in beads_json(out):
+        own = beads_own(row)
+        if own is not None and own.get("meansMoved"):
+            continue
+        text = row.get("description")
+        description, means = read_verify_using(text)
+        if not text or (description == text and not means):
+            continue
+        if own is None:
+            kept.append(str(row.get("id")))
+            continue
+        argv = [
+            "update",
+            str(row.get("id")),
+            "--description=" + (description or ""),
+            "--metadata=" + beads_means(row, means, moved=True),
+        ]
+        code, out, err = beads_quiet(argv, root)
+        if code != 0:
+            return beads_failed(dict, out, err, [])
+        moved += 1
+    beads_moved(store)
+    return dict(
+        nothing,
+        summary="Moved the means of %d issue%s into metadata." % (moved, "" if moved == 1 else "s"),
+        done=[
+            "the means to prove a run are kept in each issue's metadata, out of %d description%s"
+            % (moved, "" if moved == 1 else "s")
+        ]
+        + ([beads_left_as_given(kept)] if kept else []),
+    )
+
+
 def beads_forward(request: Request) -> Response:
     """The pass-through, an extra: the command as typed, with the worker's
     terminal and bd's name rewritten on the way back. The rewrite is the
@@ -8029,15 +8052,7 @@ def beads_forward(request: Request) -> Response:
                 "printed": False,
                 "summary": refused,
             }
-    # A cook forwarded as typed holds the lock a pour holds from its cook to
-    # its pour, so that it never lands between the two -- whatever flags come
-    # before it, so any command with cook or mol among its words holds it.
-    with (
-        beads_serial(request.get("root"))
-        if {"cook", "mol"} & set(args)
-        else contextlib.nullcontext()
-    ):
-        code, out, _ = beads_run(args, request.get("root"), True)
+    code, out, _ = beads_run(args, request.get("root"), True)
     return {
         "status": "completed" if code == 0 else "failed",
         "exitCode": code,
@@ -8096,7 +8111,7 @@ BEADS = {
         "origin": "shipped",
         "nativeNeeds": True,
         "checkTarget": "scratch",
-        "extras": ["forward", "metrics-off"],
+        "extras": ["forward", "metrics-off", "upgrade"],
     },
     "operations": {
         "operation.open-tracker": beads_open,
@@ -8110,7 +8125,11 @@ BEADS = {
         "operation.update-item": beads_update,
         "operation.ready-items": beads_ready,
     },
-    "extras": {"forward": beads_forward, "metrics-off": beads_metrics_off},
+    "extras": {
+        "forward": beads_forward,
+        "metrics-off": beads_metrics_off,
+        "upgrade": beads_upgrade,
+    },
     "store": beads_store,
 }
 register_tracker("beads", BEADS)
@@ -8136,6 +8155,7 @@ CREATE TABLE IF NOT EXISTS items (
     priority INTEGER NOT NULL,
     parent TEXT REFERENCES items(id),
     description TEXT,
+    verify_using TEXT,
     assignee TEXT,
     reason TEXT,
     created_at TEXT NOT NULL,
@@ -8236,11 +8256,11 @@ def local_record(conn: sqlite3.Connection, row: sqlite3.Row) -> TrackerItem:
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
-    description, means = read_verify_using(row["description"])
-    if description is not None:
-        item["description"] = description
-    if means:
-        item["verifyUsing"] = means
+    if row["description"] is not None:
+        item["description"] = row["description"]
+    kept = row["verify_using"] if "verify_using" in row.keys() else None
+    if kept:
+        item["verifyUsing"] = [str(m) for m in json.loads(kept)]
     return item
 
 
@@ -8321,7 +8341,10 @@ def local_open(request: OpenTrackerRequest) -> OpenTrackerResponse:
         try:
             with conn:
                 conn.executescript(LOCAL_SCHEMA)
-                conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('schema', '1')")
+                conn.execute(
+                    "INSERT OR IGNORE INTO meta (key, value) VALUES ('schema', ?)",
+                    ("2" if created else "1",),
+                )
                 prefix = request.get("prefix")
                 if not prefix and created:
                     prefix = re.sub(r"[^a-z0-9]+", "-", os.path.basename(root or "").lower()).strip(
@@ -8345,9 +8368,67 @@ def local_open(request: OpenTrackerRequest) -> OpenTrackerResponse:
         "summary": "Opened %s." % store,
         "path": store,
         "created": created,
-        "printed": False,
         "exitCode": 0,
     }
+
+
+def local_columns(conn: sqlite3.Connection) -> set[str]:
+    return {r["name"] for r in conn.execute("PRAGMA table_info(items)")}
+
+
+def local_upgrade(request: Request) -> Response:
+    """The upgrade extra: a store made before 3.0.0, at schema 1, keeps the
+    means to prove a run as the last section of a description. Asked without
+    apply, it says so; with apply, the column they belong in is added and
+    every such section moves into it, in one transaction, at schema 2."""
+    nothing: Response = {
+        "status": "completed",
+        "summary": "Nothing to bring up to date.",
+        "pending": [],
+        "done": [],
+        "exitCode": 0,
+    }
+    store = local_store(request.get("root"))
+    if not store or not os.path.isfile(store):
+        return nothing
+    conn = sqlite3.connect(store, timeout=LOCAL_WAIT_SECONDS)
+    conn.row_factory = sqlite3.Row
+    moved = 0
+    try:
+        if "verify_using" in local_columns(conn):
+            return nothing
+        if not request.get("apply"):
+            return dict(
+                nothing,
+                summary="The store keeps the means to prove a run inside descriptions.",
+                pending=["its store keeps the means to prove a run inside descriptions"],
+            )
+        with local_write(conn):
+            if "verify_using" in local_columns(conn):
+                return nothing
+            conn.execute("ALTER TABLE items ADD COLUMN verify_using TEXT")
+            for row in conn.execute("SELECT id, description FROM items").fetchall():
+                description, means = read_verify_using(row["description"])
+                if description != row["description"] or means:
+                    conn.execute(
+                        "UPDATE items SET description = ?, verify_using = ? WHERE id = ?",
+                        (description, json.dumps(means) if means else None, row["id"]),
+                    )
+                    moved += 1
+            conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', '2')")
+    except sqlite3.OperationalError as e:
+        return local_refused(dict, e)
+    finally:
+        conn.close()
+    return dict(
+        nothing,
+        summary="Moved the means of %d item%s into their column."
+        % (moved, "" if moved == 1 else "s"),
+        done=[
+            "the means to prove a run are kept in a column of their own, out of %d description%s"
+            % (moved, "" if moved == 1 else "s")
+        ],
+    )
 
 
 def local_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
@@ -8361,7 +8442,7 @@ def local_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
             "version": VERSION,
             "origin": "shipped",
             "nativeNeeds": True,
-            "extras": [],
+            "extras": ["upgrade"],
             "checkTarget": "scratch",
         },
         "path": store if store and os.path.isfile(store) else None,
@@ -8388,18 +8469,18 @@ def local_create(request: CreateItemRequest) -> CreateItemResponse:
             priority = request.get("priority")
             if request.get("id") and local_fetch(conn, ident):
                 ident = local_new_id(conn)  # the id asked for is taken: a fresh one, mapped
+            means = list(request.get("verifyUsing") or [])
             conn.execute(
                 "INSERT INTO items (id, title, kind, status, priority, parent, description, "
-                "created_at, updated_at) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?)",
+                "verify_using, created_at, updated_at) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)",
                 (
                     ident,
                     request["title"],
                     "task",
                     2 if priority is None else int(priority),
                     parent,
-                    keep_verify_using(
-                        request.get("description"), list(request.get("verifyUsing") or [])
-                    ),
+                    request.get("description"),
+                    json.dumps(means) if means else None,
                     now,
                     now,
                 ),
@@ -8414,7 +8495,6 @@ def local_create(request: CreateItemRequest) -> CreateItemResponse:
         "status": "completed",
         "summary": "Created %s." % ident,
         "item": item,
-        "printed": False,
         "exitCode": 0,
     }
 
@@ -8468,6 +8548,14 @@ def local_pour(request: PourStepsRequest) -> PourStepsResponse:
             "exitCode": 1,
             "summary": "No steps to pour.",
         }
+    shared = shared_step_id(steps)
+    if shared is not None:
+        return {
+            "status": "failed",
+            "reason": "duplicate-step",
+            "exitCode": 1,
+            "summary": "Two steps share the id %s, so nothing was poured." % shared,
+        }
     try:
         ordered = steps_in_order(steps)
     except LookupError as e:
@@ -8481,15 +8569,16 @@ def local_pour(request: PourStepsRequest) -> PourStepsResponse:
         with local_write(conn):
             now = local_now()
             root_id = local_new_id(conn)
+            means = list(request.get("verifyUsing") or [])
             conn.execute(
                 "INSERT INTO items (id, title, kind, status, priority, description, "
-                "created_at, updated_at) VALUES (?, ?, 'root', 'open', 2, ?, ?, ?)",
+                "verify_using, created_at, updated_at) "
+                "VALUES (?, ?, 'root', 'open', 2, ?, ?, ?, ?)",
                 (
                     root_id,
                     request["title"],
-                    keep_verify_using(
-                        request.get("description"), list(request.get("verifyUsing") or [])
-                    ),
+                    request.get("description"),
+                    json.dumps(means) if means else None,
                     now,
                     now,
                 ),
@@ -8516,7 +8605,6 @@ def local_pour(request: PourStepsRequest) -> PourStepsResponse:
         "summary": "Poured %d steps under %s." % (len(ids), root_id),
         "rootId": root_id,
         "stepIds": [ids[s["id"]] for s in steps],
-        "printed": False,
         "exitCode": 0,
     }
 
@@ -8726,7 +8814,7 @@ LOCAL = {
         "origin": "shipped",
         "nativeNeeds": True,
         "checkTarget": "scratch",
-        "extras": [],
+        "extras": ["upgrade"],
     },
     "operations": {
         "operation.open-tracker": local_open,
@@ -8740,7 +8828,7 @@ LOCAL = {
         "operation.update-item": local_update,
         "operation.ready-items": local_ready,
     },
-    "extras": {},
+    "extras": {"upgrade": local_upgrade},
     "store": local_store,
 }
 register_tracker("local", LOCAL)
@@ -8832,9 +8920,7 @@ def show_list(request: Request, response: Response) -> None:
         print("No formulas in this repo yet. %s learn says how to write one." % PROG)
     else:
         w = max(len(f["formulaRef"]) for f in forms)
-        # The header 1.1 printed holds while every formula is in this repo.
-        here = "" if any(f.get("provider") for f in forms) else " in this repo"
-        print("%d formula%s%s:" % (len(forms), "" if len(forms) == 1 else "s", here))
+        print("%d formula%s:" % (len(forms), "" if len(forms) == 1 else "s"))
         for f in sorted(forms, key=lambda g: g["name"]):
             d = " ".join(f["description"].split())
             if len(d) > 70 - w:
@@ -8869,8 +8955,7 @@ def show_match(request: Request, response: Response) -> None:
         print("  %-*s  %s" % (w, "", where), file=sys.stderr)
     # One command. It used to print `cook --persist && mol wisp create`,
     # whose wisp is ephemeral and never synced via git -- which is
-    # management and sharing both given up. `formula pour` is the durable one,
-    # and it cooks from the formula's own path first.
+    # management and sharing both given up. `formula pour` is the durable one.
     print(
         "  Run it: %s formula pour %s"
         % (PROG, shlex.quote(response.get("pourRef") or top[0]["formulaRef"])),
@@ -9000,6 +9085,9 @@ def show_metrics(request: Request, response: Response) -> None:
 
 
 def show_undo(request: Request, response: Response) -> None:
+    if response["status"] in ("blocked", "failed"):
+        sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
+        return
     done, made = response["undone"], response.get("adopted")
     if not (done or made):
         return
@@ -9058,12 +9146,6 @@ def show_report(request: Request, response: Response) -> None:
         for rel in yours:
             print("    %s" % rel)
         print('\n    git add %s && git commit -m "Declare where work starts"' % " ".join(yours))
-    if request.get("command"):
-        print(
-            "\n\u26a0 The .beads in the tree is from an adoption before 0.4.0 and is"
-            " unused now.\n  Remove it when convenient:\n"
-        )
-        print("    %s" % request["command"])
 
 
 def show_actor(response: Response) -> None:
@@ -9087,15 +9169,12 @@ def show_adopt(request: Request, response: Response) -> None:
     elif reason == "workspace-not-made":
         sys.stderr.write("%s: %s\n" % (response["workspace"], response["summary"]))
     elif response["status"] != "completed":
-        if not response.get("printed"):
-            sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
+        sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
     elif not response["created"]:
         sys.stderr.write(
             "%s: this repository is adopted; its tracker is %s\n" % (PROG, response["workspace"])
         )
-    elif not response.get("printed"):
-        # An adapter that ran its own command said what it did; one that
-        # answered in records has this said for it.
+    else:
         print(
             "\u2713 Adopted. The tracker is %s, under %s"
             % (response["tracker"], response["workspace"])
@@ -9108,11 +9187,11 @@ def show_name(request: Request, response: Response) -> None:
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
     elif response.get("reason") in ("tracker-unknown", "adapter-failed", "no-workspace"):
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
-    elif response["status"] != "completed" and not response.get("printed"):
+    elif response["status"] != "completed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
-    elif response.get("workRef") and not response.get("printed"):
+    elif response.get("workRef"):
         item = response.get("item") or {}
-        if "--json" in (request.get("arguments") or []):
+        if request.get("json"):
             print(json.dumps(item, indent=2, ensure_ascii=False))
             return
         print(
@@ -9124,27 +9203,25 @@ def show_name(request: Request, response: Response) -> None:
 
 
 def show_pour(request: Request, response: Response) -> None:
+    if request.get("json") and response.get("moleculeRef"):
+        # The record, whole or as far as the pour went: a pour that stopped
+        # part of the way still names the root and the steps it made.
+        answer = {"rootId": response["moleculeRef"], "stepIds": response.get("stepRefs") or []}
+        if response.get("verifyUsing"):
+            answer["verifyUsing"] = response["verifyUsing"]
+        print(json.dumps(answer, indent=2, ensure_ascii=False))
+        if response["status"] != "completed":
+            sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
+        return
     if response.get("reason") == "not-installed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
-    elif response["status"] != "completed" and (
-        not response.get("printed") or response.get("moleculeRef")
-    ):
+    elif response["status"] != "completed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
-    elif response.get("moleculeRef") and not response.get("printed"):
-        if "--json" in (request.get("arguments") or []):
-            answer = {"rootId": response["moleculeRef"], "stepIds": response.get("stepRefs") or []}
-            if response.get("verifyUsing"):
-                answer["verifyUsing"] = response["verifyUsing"]
-            print(json.dumps(answer, indent=2, ensure_ascii=False))
-            return
+    elif response.get("moleculeRef"):
         print("\u2713 Poured mol: created %d issues" % (len(response.get("stepRefs") or []) + 1))
         print("  Root issue: %s" % response["moleculeRef"])
     means = response.get("verifyUsing") or []
-    if (
-        means
-        and response["status"] == "completed"
-        and "--json" not in (request.get("arguments") or [])
-    ):
+    if means and response["status"] == "completed" and not request.get("json"):
         print("Verify using:")
         for value in means:
             print("  %s" % value)
@@ -9424,71 +9501,87 @@ def present(operation: str, request: Request, response: Response) -> None:
         shown(request, response)
 
 
-def extract_query(argv: list[str]) -> tuple[str, str, dict[str, Any]]:
-    """Title, -d description and the fields the interface names -- priority
-    and parent -- from a `create ...` argument list. The tracker
-    underneath reads the arguments as typed where it has a pass-through;
-    an adapter that answers in records reads these."""
-    title, desc, skip = "", "", False
+# The flags of dotdiw's own commands: what each takes a value for, by the
+# field of the request it fills, and what each takes alone.
+CREATE_VALUES = {
+    "-p": "priority",
+    "--priority": "priority",
+    "--parent": "parent",
+    "-d": "description",
+    "--description": "description",
+}
+CREATE_SWITCHES = {"--json": "json", "-q": "quiet", "--quiet": "quiet", "--silent": "quiet"}
+CREATE_USAGE = "%s create <title> [-p <0-4>] [--parent <id>] [-d <description>] [--json] [-q]"
+POUR_USAGE = "%s formula pour <formula> [--json]"
+INIT_USAGE = "%s init [--tracker <name>] [--prefix <prefix>]"
+
+
+def own_flags(
+    args: list[str], values: dict[str, str], switches: dict[str, str], positionals: int
+) -> tuple[dict[str, Any], list[str], str | None]:
+    """The fields a command's own flags fill, its positional words, and what
+    it refused, said as a clause, if anything: a flag outside its own, a flag
+    with no value after it -- another flag where its value belongs counts as
+    none, and --name=value gives a value that starts with a dash -- or a word
+    beyond the positionals it takes."""
     fields: dict[str, Any] = {}
-    named = {
-        "-d": "description",
-        "--description": "description",
-        "-p": "priority",
-        "--priority": "priority",
-        "--parent": "parent",
-    }
-    for i, a in enumerate(argv):
-        if skip:
-            skip = False
-            continue
-        if a == "create":
-            continue
-        if a.startswith("--") and "=" in a:
-            k, v = a.split("=", 1)
-            if k in named:
-                fields[named[k]] = v
-            continue
-        if a.startswith("-"):
-            if a in VALUE_FLAGS:
-                skip = True
-                if a in named and i + 1 < len(argv):
-                    fields[named[a]] = argv[i + 1]
-            continue
-        if not title:
-            title = a
-    desc = fields.pop("description", "")
-    number = re.fullmatch(r"[Pp]?([0-4])", str(fields.get("priority", "")))
-    if number:
-        fields["priority"] = int(number.group(1))
-    else:
-        fields.pop("priority", None)
-    return title, desc, fields
+    words: list[str] = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        flag, eq, value = a.partition("=") if a.startswith("--") else (a, "", "")
+        if flag in values:
+            if not eq:
+                if i + 1 >= len(args) or args[i + 1].startswith("-") and args[i + 1] != "-":
+                    return fields, words, "%s needs a value" % a
+                i += 1
+                value = args[i]
+            fields[values[flag]] = value
+        elif a in switches:
+            fields[switches[a]] = True
+        elif a.startswith("-") and a != "-":
+            return fields, words, "%s is not one of its flags" % a
+        elif len(words) >= positionals:
+            return fields, words, "%s is one word too many; quote words that go together" % a
+        else:
+            words.append(a)
+        i += 1
+    return fields, words, None
 
 
-def extract_tracker(argv: list[str]) -> tuple[str | None, list[str]]:
+def extract_tracker(argv: list[str]) -> tuple[str | None, list[str], bool]:
     """The adapter the worker named: --tracker <name> or --tracker=<name>
     anywhere, taken out of the arguments, else DOTDIW_TRACKER, else None --
-    the workspace's choice and the default are the door's to apply."""
-    name, rest, i = None, [], 0
+    the workspace's choice and the default are the door's to apply; and
+    whether --tracker was given with no name, which nothing may run on."""
+    name, rest, i, missing = None, [], 0, False
     while i < len(argv):
         a = argv[i]
-        if a == "--tracker" and i + 1 < len(argv):
-            name = argv[i + 1]
+        if a == "--tracker":
+            given = argv[i + 1] if i + 1 < len(argv) else ""
+            if not given or given.startswith("-"):
+                missing = True
+                i += 1
+                continue
+            name = given
             i += 2
             continue
         if a.startswith("--tracker="):
             name = a[len("--tracker=") :]
+            missing = missing or not name
         else:
             rest.append(a)
         i += 1
-    return name or os.environ.get("DOTDIW_TRACKER") or None, rest
+    return name or os.environ.get("DOTDIW_TRACKER") or None, rest, missing
 
 
 def main() -> int:
     global PRESENTER
     PRESENTER = present
-    tracker, argv = extract_tracker(sys.argv[1:])
+    tracker, argv, missing = extract_tracker(sys.argv[1:])
+    if missing:
+        sys.stderr.write("%s: --tracker needs a value, as --tracker <name>.\n" % PROG)
+        return 2
     root = repo_root()
 
     # Before any tracker command, --version included: while the tracker's
@@ -9504,10 +9597,13 @@ def main() -> int:
         if described["status"] == "completed" and info.get("version"):
             print("  tracker %s %s" % (info.get("name"), info["version"]))
         return 0
-    # Before anything else: what an earlier version left -- a hook override,
-    # a remote, a tracker in the tree -- is put right, so that the command
-    # typed next runs against a tracker under the home.
-    invoke("operation.undo-earlier-adoption", {"root": root, "tracker": tracker})
+    # What an earlier version left -- a hook override, a tracker in the tree,
+    # a workspace with no tracker chosen -- is init's to put right. Every
+    # other command asks first and is refused, in one line, while it is left.
+    if argv[0] != "init":
+        left = invoke("operation.undo-earlier-adoption", {"root": root, "tracker": tracker})
+        if left["exitCode"] != 0:
+            return int(left["exitCode"])
 
     # The workspace this checkout is keyed to, when a tracker was opened in it.
     ws = workspace(root) if checkout_adopted(root) else None
@@ -9520,10 +9616,14 @@ def main() -> int:
         )
 
     if argv[0] == "init":
+        fields, _, refused = own_flags(argv[1:], {"-p": "prefix", "--prefix": "prefix"}, {}, 0)
+        if refused is not None:
+            sys.stderr.write("%s: init: %s. %s\n" % (PROG, refused, INIT_USAGE % PROG))
+            return 2
         return int(
             invoke(
                 "operation.adopt-a-repository",
-                {"root": root, "arguments": argv, "tracker": tracker},
+                {"root": root, "prefix": fields.get("prefix"), "tracker": tracker},
             )["exitCode"]
         )
 
@@ -9662,10 +9762,19 @@ def main() -> int:
         return 2
 
     if len(argv) > 2 and argv[1] == "pour" and argv[0] in ("formula", "mol"):
+        fields, _, refused = own_flags(argv[3:], {}, {"--json": "json"}, 0)
+        if refused is not None:
+            sys.stderr.write("%s: formula pour: %s. %s\n" % (PROG, refused, POUR_USAGE % PROG))
+            return 2
         return int(
             invoke(
                 "operation.pour-procedure",
-                {"root": root, "ident": argv[2], "arguments": argv[3:], "tracker": tracker},
+                {
+                    "root": root,
+                    "ident": argv[2],
+                    "json": bool(fields.get("json")),
+                    "tracker": tracker,
+                },
             )["exitCode"]
         )
 
@@ -9677,20 +9786,26 @@ def main() -> int:
             )["exitCode"]
         )
 
-    title, desc, fields = extract_query(argv)
-    quiet = bool(os.environ.get("DOTDIW_NO_HINTS")) or any(
-        a in ("--json", "-q", "--quiet", "--silent") for a in argv
-    )
+    fields, words, refused = own_flags(argv[1:], CREATE_VALUES, CREATE_SWITCHES, 1)
+    number = re.fullmatch(r"[Pp]?([0-4])", str(fields.get("priority", "2")))
+    if refused is not None or not words or not number:
+        said = refused or (
+            "a title is needed" if not words else "the priority is 0 to 4, as 2 or P2"
+        )
+        sys.stderr.write("%s: create: %s. %s\n" % (PROG, said, CREATE_USAGE % PROG))
+        return 2
+    if "priority" in fields:
+        fields["priority"] = int(number.group(1))
+    json_out, quiet = bool(fields.pop("json", False)), bool(fields.pop("quiet", False))
     return int(
         invoke(
             "operation.start-named-work",
             dict(
                 fields,
                 root=root,
-                arguments=argv,
-                title=title,
-                description=desc,
-                quiet=quiet,
+                title=words[0],
+                json=json_out,
+                quiet=quiet or json_out or bool(os.environ.get("DOTDIW_NO_HINTS")),
                 tracker=tracker,
             ),
         )["exitCode"]

@@ -8,7 +8,7 @@ modelPurpose: >
   than a hope. The thin promise is ../product.yaml; this file is POA's
   internal source and mirrors the operation material that ../praxis.yaml owns.
 createdAt: "2026-11-01T00:00:00+08:00"
-updatedAt: "2026-11-08T12:24:00+08:00"
+updatedAt: "2026-11-10T05:30:00+08:00"
 
 product:
   productId: product.dotdiw
@@ -1537,17 +1537,6 @@ journeys:
           summary: >-
             The repository the interface resolved; bodies never ask git for it
             themselves.
-        - name: arguments
-          valueType:
-            kind: list
-            itemType:
-              kind: scalar
-              scalar: string
-          required: false
-          summary: >-
-            The command-line arguments as typed, forwarded to the tracker
-            unchanged.
-          cardinality: many
         - name: title
           valueType:
             kind: scalar
@@ -1566,8 +1555,8 @@ journeys:
             scalar: boolean
           required: false
           summary: >-
-            Print only the tracker's own output; --json, -q, --quiet, --silent
-            and DOTDIW_NO_HINTS set it.
+            Print the work created and nothing that rides along with it;
+            --json, -q, --quiet, --silent and DOTDIW_NO_HINTS set it.
         - name: tracker
           valueType:
             kind: scalar
@@ -1592,6 +1581,14 @@ journeys:
             scalar: string
           required: false
           summary: "The parent item's id, from --parent."
+        - name: json
+          valueType:
+            kind: scalar
+            scalar: boolean
+          required: false
+          summary: >-
+            Print the record of the work created as JSON, and nothing else; from
+            --json.
       responseFields:
         - name: workRef
           valueType:
@@ -1808,7 +1805,7 @@ journeys:
       tracker's state lives under the user's home, keyed to the checkout by
       one line in its own .git/config; the repository holds only the
       declaration, which the worker is told to commit; and a repository an
-      earlier version adopted is put right by its first command.
+      earlier version adopted is put right by dotdiw init.
     purpose: Day 1 in a project is one command, the repository holds only what the project shares on purpose, and what the tool does on somebody's behalf is said.
     trigger: Someone runs dotdiw init, or runs any dotdiw command in a repository an earlier version adopted.
     preconditions:
@@ -1817,7 +1814,7 @@ journeys:
       - A key and the tracker's name are written into the checkout's .git/config and the tracker is initialised under the home at that key, in stealth mode with hooks and agent files declined where it has them; nothing of it is in the repository.
       - The conventions are declared in the instruction files, which are created when absent, and the tracker is renamed in any an earlier version's tracker wrote.
       - The declaration files are listed as the worker's to commit, with the one command.
-      - A hook override left by v0.1.0 is unset; a tracker left in the tree by any earlier version is replaced by one under the home with the same prefix, on the first command, and the command that removes the in-tree copy is named.
+      - A hook override left by v0.1.0 is unset; a tracker left in the tree by any earlier version is replaced by one under the home with the same prefix, under init, and the command that removes the in-tree copy is named.
       - The tracker's usage metrics, where it has any, are turned off before any command of its own, and announced once.
     completionCriteria:
       - The tracker made no commit and nothing of its own is in the tree.
@@ -1828,10 +1825,11 @@ journeys:
     variants:
       - A repository already adopted by this version: init says so and changes nothing.
       - A clone of an adopted repository: it has no key, so create says to run init once; init commits nothing and makes the clone's own tracker.
-      - A repository adopted by an earlier version: its first command adopts it under the home, keeping the prefix; earlier tasks are not carried over, and that is said once.
+      - A repository adopted by an earlier version: init adopts it under the home, keeping the prefix; earlier tasks are not carried over, and that is said once. Until then any other command is refused in one line naming init.
     failureBoundaries:
       - A core.hooksPath the project chose for itself is left alone.
       - Outside a git repository, init refuses and creates nothing.
+      - What an earlier version left that cannot be put right -- a tracker in the tree that cannot be adopted under the home, or a store its adapter cannot bring up to date -- stops init in one line naming it, and nothing is adopted.
       - The tracker's own command typed in the repository finds no tracker; everything goes through dotdiw, which is the promise.
     nonGoals:
       - Committing the edited files.
@@ -1875,15 +1873,16 @@ journeys:
             Compose operation.turn-metrics-off as a governed journey step.
           required: true
           failurePropagation: propagate
-        - operationId: operation.adopt-repository
-          callPurpose: >-
-            Compose operation.adopt-repository as a governed journey step.
-          required: true
-          failurePropagation: propagate
         - operationId: operation.undo-earlier-adoption
           callPurpose: >-
             Compose operation.undo-earlier-adoption as a governed journey
-            step.
+            step, with apply, before the checkout is adopted: what an earlier
+            version left is put right by init alone.
+          required: true
+          failurePropagation: propagate
+        - operationId: operation.adopt-repository
+          callPurpose: >-
+            Compose operation.adopt-repository as a governed journey step.
           required: true
           failurePropagation: propagate
         - operationId: operation.declare-conventions
@@ -1906,17 +1905,6 @@ journeys:
           summary: >-
             The repository the interface resolved; bodies never ask git for it
             themselves.
-        - name: arguments
-          valueType:
-            kind: list
-            itemType:
-              kind: scalar
-              scalar: string
-          required: false
-          summary: >-
-            The command-line arguments as typed, forwarded to the tracker
-            unchanged.
-          cardinality: many
         - name: tracker
           valueType:
             kind: scalar
@@ -1928,6 +1916,14 @@ journeys:
             default. The command line fills it from --tracker or
             DOTDIW_TRACKER and nothing else does; a journey hands it to its
             steps.
+        - name: prefix
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The prefix the tracker's ids begin with, where the adapter honours one;
+            from --prefix or -p.
       responseFields:
         - name: workspace
           valueType:
@@ -2078,8 +2074,8 @@ journeys:
     primaryFlow:
       - The formulas in the checkout are found on the file system, each registered provider's are listed and shown under their suffixed ids, and all are parsed and indexed with the project's own text as background.
       - formula list answers with every formula, its description, and its path or the provider that serves it.
-      - formula show prints one formula as it is written, from where it is written.
-      - A formula id, file name or path given to pour or cook resolves to the formula's file.
+      - formula show prints one formula as it is written, from where it is written, and a provider's in the form a .formula.json file takes.
+      - A formula id, file name or path given to pour or cook resolves to the formula's file, and a suffixed id to the provider's formula, as data.
     completionCriteria:
       - Every formula in local storage appears with its path, and every provider formula under its suffixed id with its provider.
       - An id resolves to exactly the file it names.
@@ -2197,6 +2193,12 @@ journeys:
             scalar: string
           required: false
           summary: "show: the file, as written."
+        - name: formula
+          valueType:
+            kind: type-ref
+            typeId: type.formula-body
+          required: false
+          summary: "resolve: the formula resolved, as data."
         - name: formulas
           valueType:
             kind: list
@@ -2912,6 +2914,8 @@ steps:
     thenAssertions:
       - The work item exists in the tracker with the title given.
       - No branch, file or other command preceded it for this work.
+      - create takes its own flags -- one title, -p or --priority, --parent, -d or --description, --json, and -q, --quiet or --silent, which print the work created and nothing that rides along with it -- and refuses any other in one line, naming it, as it refuses one of its own given no value -- nothing after it, or another flag where its value belongs; --description=<text> gives a value that starts with a dash. Nothing typed goes to the tracker.
+      - --tracker given no name is refused in one line before anything runs, and is never taken for the default.
     relatedObjectIds:
       - object.work
     relatedInteractionIds:
@@ -2929,9 +2933,8 @@ steps:
       calls:
         - operationId: operation.create-item
           callPurpose: >-
-            Create the work item through the tracker door, with the terminal
-            and the arguments as typed, so that under beads the create is bd's
-            own.
+            Create the work item through the tracker door, from the fields
+            dotdiw's own flags filled.
           required: true
           failurePropagation: propagate
       externalCalls:
@@ -2956,17 +2959,6 @@ steps:
           summary: >-
             The repository the interface resolved; bodies never ask git for it
             themselves.
-        - name: arguments
-          valueType:
-            kind: list
-            itemType:
-              kind: scalar
-              scalar: string
-          required: false
-          summary: >-
-            The command-line arguments as typed, forwarded to the tracker
-            unchanged.
-          cardinality: many
         - name: title
           valueType:
             kind: scalar
@@ -3004,6 +2996,14 @@ steps:
           summary: >-
             What the worker said of the work beyond its title, saved on the
             item.
+        - name: json
+          valueType:
+            kind: scalar
+            scalar: boolean
+          required: false
+          summary: >-
+            Print the record of the work created as JSON, and nothing else; from
+            --json.
       responseFields:
         - name: workRef
           valueType:
@@ -3031,15 +3031,6 @@ steps:
             Why the create was refused, when the adapter said: the tracker
             underneath is not installed, the checkout has no store, or no
             adapter of that name is here.
-        - name: printed
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The adapter ran a product's own command with the worker's
-            terminal, so what it printed is on the terminal already; false
-            when it answered in records, which the presenter then shows.
         - name: item
           valueType:
             kind: type-ref
@@ -3184,9 +3175,11 @@ steps:
       - dotdiw mol pour, the older spelling, does the same and prints the same.
       - A step cannot be closed before the steps it needs.
       - The root names the formula it was poured from.
-      - The formula is read once, into a snapshot under the workspace named for a digest of its bytes, and the tracker is handed that snapshot, so that the steps, the description and the means to prove are one version.
+      - The formula is read once, by the lookup that selects it, and the tracker is handed what that reading parsed -- its title, its description, its means to prove and its steps -- so that the formula asked for is the one poured, whatever is written to its file meanwhile, and the next pour reads it again; no file goes to the tracker, none is read again, and nothing is written under the workspace for it.
       - An id refused as ambiguous, as a provider's formula the provider does not serve, or for a provider that failed, never reaches the tracker.
       - The formula's verify-using goes to the tracker with the root and is shown after the pour.
+      - A formula whose steps share an id is refused before the tracker is asked.
+      - With --json, a pour that made its root and then failed prints the record of what it made -- the root and the steps -- as JSON, says why in one line on stderr, and exits 1.
     relatedObjectIds:
       - object.work
       - object.formula
@@ -3215,9 +3208,8 @@ steps:
           failurePropagation: propagate
         - operationId: operation.pour-steps
           callPurpose: >-
-            Pour through the tracker door: the steps read from the file, and
-            its path and the arguments typed for an adapter that pours from
-            the file itself.
+            Pour through the tracker door: the steps, the description and the
+            means to prove read from the file.
           required: true
           failurePropagation: propagate
       externalCalls:
@@ -3242,17 +3234,6 @@ steps:
           summary: >-
             The repository the interface resolved; bodies never ask git for it
             themselves.
-        - name: arguments
-          valueType:
-            kind: list
-            itemType:
-              kind: scalar
-              scalar: string
-          required: false
-          summary: >-
-            The command-line arguments as typed, forwarded to the tracker
-            unchanged.
-          cardinality: many
         - name: ident
           valueType:
             kind: scalar
@@ -3275,6 +3256,14 @@ steps:
             default. The command line fills it from --tracker or
             DOTDIW_TRACKER and nothing else does; a journey hands it to its
             steps.
+        - name: json
+          valueType:
+            kind: scalar
+            scalar: boolean
+          required: false
+          summary: >-
+            Print the root and the step ids as JSON, a pour cut short after
+            its root was made included, and nothing else; from --json.
       responseFields:
         - name: moleculeRef
           valueType:
@@ -3320,17 +3309,9 @@ steps:
               - ambiguous
               - provider-formula-unserved
               - provider-failed
+              - duplicate-step
           required: false
           summary: "Why the pour failed, when the adapter said."
-        - name: printed
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The adapter ran a product's own command with the worker's
-            terminal, so what it printed is on the terminal already; false
-            when it answered in records, which the presenter then shows.
         - name: tracker
           valueType:
             kind: scalar
@@ -3888,8 +3869,7 @@ steps:
       - The tracker made no commit; git log is as it was; nothing of the tracker's is in the tree.
       - The key is in .git/config and the state is under the home at that key, with no sync remote.
       - core.hooksPath is not set.
-      - Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing, unless the tracker's own re-init flags were given.
-      - The tracker's own output is shown, under dotdiw's name.
+      - Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing.
       - A tracker that does not open stops the adoption. What it said is shown, no choice is written and nothing is declared.
       - Where the tracker checked who it acts as, init names them once; a name anyone could give is not shown.
     relatedObjectIds:
@@ -3910,8 +3890,7 @@ steps:
         - operationId: operation.open-tracker
           callPurpose: >-
             Open the tracker under the key through the tracker door, with the
-            terminal unless quiet, the prefix taken out of what was typed and
-            the rest handed on.
+            prefix init was given.
           required: true
           failurePropagation: propagate
         - operationId: operation.describe-tracker
@@ -3973,17 +3952,6 @@ steps:
           summary: >-
             The repository the interface resolved; bodies never ask git for it
             themselves.
-        - name: arguments
-          valueType:
-            kind: list
-            itemType:
-              kind: scalar
-              scalar: string
-          required: false
-          summary: >-
-            The command-line arguments as typed, forwarded to the tracker
-            unchanged.
-          cardinality: many
         - name: quiet
           valueType:
             kind: scalar
@@ -4004,6 +3972,14 @@ steps:
             default. The command line fills it from --tracker or
             DOTDIW_TRACKER and nothing else does; a journey hands it to its
             steps.
+        - name: prefix
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The prefix the tracker's ids begin with, where the adapter honours one;
+            from --prefix or -p.
       responseFields:
         - name: exitCode
           valueType:
@@ -4039,15 +4015,6 @@ steps:
               - adapter-failed
           required: false
           summary: "Why the repository was not adopted, when it was not."
-        - name: printed
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The adapter ran a product's own command with the worker's
-            terminal, so what it printed is on the terminal already; false
-            when it answered in records, which the presenter then shows.
         - name: tracker
           valueType:
             kind: scalar
@@ -4155,7 +4122,7 @@ steps:
     title: Report what is yours to commit
     given: init wrote or changed the declaration files; the tracker committed nothing.
     when: init finishes.
-    then: The declaration files are listed as the worker's to commit, with the one command that commits them, so that every clone reads the declaration; where an earlier version's tracker was just left behind in the tree, the one command that removes it is named too.
+    then: The declaration files are listed as the worker's to commit, with the one command that commits them, so that every clone reads the declaration. The one command that removes a tracker an earlier version left in the tree is named by the account of what init put right.
     thenAssertions:
       - dotdiw made no commit and changed no index.
       - Every file dotdiw wrote or changed is in the list, and nothing else is.
@@ -4167,7 +4134,7 @@ steps:
     relatedInvariantIds:
       - invariant.one-door
       - invariant.tool-never-commits
-    expectedUserVisibleOutcome: A list of files and one git command; a second command where the tracker's files are tracked.
+    expectedUserVisibleOutcome: A list of files and one git command.
     status: active
     operation:
       kind: query
@@ -4204,14 +4171,6 @@ steps:
           required: false
           summary: "The declaration files dotdiw wrote or changed."
           cardinality: many
-        - name: command
-          valueType:
-            kind: scalar
-            scalar: string
-          required: false
-          summary: >-
-            The command that removes an in-tree copy an earlier version left,
-            when this run adopted the repository under the home.
       responseFields:
         - name: yours
           valueType:
@@ -4235,9 +4194,12 @@ steps:
     sequence: 4
     title: Undo an earlier adoption
     given: A repository adopted by any version before 0.4.0, with the tracker in its tree -- committed by 0.2.x, excluded by 0.3.0, and under v0.1.0 also carrying a core.hooksPath into .beads and a Dolt remote at its git remote.
-    when: Any dotdiw command runs there, including the first one after the upgrade.
-    then: The hook override is unset, because it decides which hooks git runs. A tracker is made under the home with the prefix read from the in-tree copy's metadata, the key is written, and the command typed runs against it; the in-tree copy is left exactly as it was and the one command that removes it is named, once here and on check while it remains. Earlier tasks are not carried over, and that is said.
+    when: dotdiw init runs there, and puts right what is left; any other command asks first, without putting anything right.
+    then: Under init, the hook override is unset, because it decides which hooks git runs. A tracker is made under the home with the prefix read from the in-tree copy's metadata and the key is written, before init adopts the checkout; the in-tree copy is left exactly as it was and the one command that removes it is named, once here and on check while it remains. Earlier tasks are not carried over, and that is said. A workspace with one adapter's store and no tracker chosen has that adapter written as the choice. Under any other command, nothing is changed, and while anything is left the command is refused in one line that names what is left and init.
     thenAssertions:
+      - Only init puts anything right. Every other command but learn and --version asks first and writes nothing, and while anything is left it exits 1 with one line naming dotdiw init.
+      - What cannot be put right -- a tracker in the tree that is not adopted under the home, or a store the adapter's upgrade extra could not bring up to date -- stops init in one line naming it, with exit 1, and init adopts nothing.
+      - The tracker's store as an earlier version kept it is the adapter's to say and to bring up to date, through its upgrade extra; the local store and beads keep the means to prove a run as data from 3.0.0, and a store kept before then has each description's section of means moved into the store's own place for them, once, under init; an upgrade cut short is taken up by the next init where it stopped, and what it moved is left as it is; an issue whose beads metadata holds dotdiw as a value of its own, null included, keeps that value and its description as they were, since the means cannot sit beside it, and init names it.
       - A core.hooksPath pointing anywhere but .beads is left alone.
       - Nothing in the in-tree copy is read but its metadata, and nothing in it is moved, edited or deleted; a remote inside it reaches nothing, since no tracker runs there any more.
       - The new tracker has the old prefix and no tasks.
@@ -4250,7 +4212,7 @@ steps:
     relatedInvariantIds:
       - invariant.one-door
       - invariant.nothing-outside-the-repository
-    expectedUserVisibleOutcome: A short account of what was put right, once, with the one command for the in-tree copy.
+    expectedUserVisibleOutcome: From init, a short account of what was put right, once, with the one command for the in-tree copy; from any other command, one line naming init while anything is left.
     status: active
     stateTransitions:
       - objectId: object.repository
@@ -4263,6 +4225,30 @@ steps:
           callPurpose: >-
             Whether the tracker's hook directory stands in for the
             repository's own.
+          failurePropagation: propagate
+        - dependencyId: dependency.git
+          operationRef: "product.git::rev-parse --show-toplevel"
+          callPurpose: >-
+            The checkout, when the request carries no root, for the tracker
+            door to read the workspace's adapter from, so that the upgrade
+            extra of the adapter keeping the store is asked.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
+          operationRef: "product.beads::list --all --json"
+          callPurpose: >-
+            Through the beads adapter's upgrade extra, when init asks: every
+            issue read, so that the means to prove a run an earlier version
+            kept in a description move into the issue's metadata; an issue
+            marked as moved is left as it is, and so is one whose metadata
+            holds dotdiw as a value of its own, null included.
+          failurePropagation: propagate
+        - dependencyId: dependency.beads
+          operationRef: "product.beads::update --description --metadata"
+          callPurpose: >-
+            Through the beads adapter's upgrade extra, when init asks: each
+            such issue's description given back as it was given, and the
+            means in its metadata, marked as moved, so that no later init
+            moves them again.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --unset core.hooksPath"
@@ -4297,8 +4283,9 @@ steps:
         - operationId: operation.adopt-repository
           callPurpose: >-
             Where an earlier version left the tracker in the tree and no key
-            exists, the repository is adopted under the home with the old
-            prefix, quietly, before the command typed runs.
+            exists, and init asks for it put right, the repository is adopted
+            under the home with the old prefix, quietly, before init adopts
+            the checkout.
           required: true
           failurePropagation: propagate
       requestFields:
@@ -4321,7 +4308,27 @@ steps:
             default. The command line fills it from --tracker or
             DOTDIW_TRACKER and nothing else does; a journey hands it to its
             steps.
+        - name: apply
+          valueType:
+            kind: scalar
+            scalar: boolean
+          required: false
+          summary: >-
+            Put right what an earlier version left; init alone asks for it.
+            Unsaid, nothing is changed, and what is left is answered as
+            pending.
       responseFields:
+        - name: pending
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Without apply, one line for each thing an earlier version left
+            that init would put right; empty when there is nothing.
+          cardinality: many
         - name: undone
           valueType:
             kind: list
@@ -4470,7 +4477,7 @@ steps:
     journeyId: journey.run-a-tracker-command
     sequence: 1
     title: Forward to the tracker
-    given: A command dotdiw does not own, or one of its own that is the tracker's underneath -- create, init, formula pour, mol pour, cook.
+    given: A command dotdiw does not own, or cook, which is the tracker's underneath.
     when: dotdiw runs it.
     then: Under beads the command runs with the worker's terminal, through a pty when it is interactive, every occurrence of the tracker's name in the stream is rewritten to dotdiw on the way out, and the exit code is the tracker's; under an adapter with no pass-through, list, ready, show, close, update and dep add are answered from its records, --help, -h and help with the conventions text as bare dotdiw gives it, and any other command is refused as unsupported.
     thenAssertions:
@@ -4478,7 +4485,7 @@ steps:
       - A word split across two reads is still rewritten.
       - Without the tracker on the machine, the worker is told in one line how to install the tracker this checkout chose, and the exit code is 127.
       - The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts.
-      - Under beads, a forwarded command with cook or mol among its words holds the workspace's pour lock, whatever flags come before them, so that no cook lands between a pour's cook and its pour.
+      - A description typed through the pass-through reaches the tracker exactly as typed.
     relatedObjectIds:
       - object.tracker-command
     relatedInteractionIds:
@@ -4678,6 +4685,7 @@ steps:
       - An uncommitted formula file is indexed too; git plays no part in finding a formula.
       - A provider that fails, or answers outside its shape, is left out of the run with one line naming it.
       - Each provider is asked for its list once per process.
+      - Every operation asked of the door from outside it reads the formula files afresh, and every step of it shares that one reading; the next operation reads them again.
       - A provider's formula is indexed from its list alone; its text is asked for when it is shown or poured.
       - A formula file that does not parse is answered by its path, for check to name.
       - The background is capped so that a create stays faster than the tracker call it follows.
@@ -4790,7 +4798,7 @@ steps:
       - The answer is about the project, not about the tracker's own two directories.
       - A project with no formulas is told how to write one.
       - With --json, each formula carries its verify-using, and a provider formula its provider.
-      - The header says in this repo while every formula listed is in it.
+      - The header counts the formulas listed, wherever they are kept; each formula's own lines say where.
     relatedObjectIds:
       - object.formula
     relatedInteractionIds:
@@ -4941,12 +4949,13 @@ steps:
     title: Resolve a formula
     given: An id, a file name or a path that may name a formula, or a suffixed id that may name a provider's.
     when: formula pour, mol pour, cook or formula show is given it.
-    then: It resolves to that formula's file in the tree, or to the file a provider's formula is written to under the workspace's home when it is resolved, or to nothing, in which case the command is handed to the tracker as it was typed -- unless the ident carries the suffix of a provider registered or removed, which is refused.
+    then: It resolves to that formula, answered as data from the reading that resolved it -- a file in the tree as the index read it, a provider's formula from its show -- or to nothing, in which case the command is handed to the tracker as it was typed -- unless the ident carries the suffix of a provider registered or removed, which is refused.
     thenAssertions:
       - The id, the file's base name and the repository-relative path all resolve.
       - An ident with the suffix of a registered or removed provider resolves to that provider's formula alone, never to a local formula by its id or by an alias; any other ident resolves by its id, then by a path exactly as given, then by a file's name. Two formulas at one tier are refused as ambiguous.
       - An ident with the suffix of a registered or removed provider that names none of its formulas is refused, and never handed to the tracker.
-      - A provider's formula is written to a file only when it is resolved.
+      - A provider's formula is asked of its provider only when it is resolved, and nothing is written for it.
+      - The formula answered for a file in the tree is the one the index read when it resolved the id, so that a pour pours what was selected; nothing reads the file again for it.
       - Nothing outside the repository and the registered providers is searched.
     relatedObjectIds:
       - object.formula
@@ -4955,16 +4964,15 @@ steps:
     relatedInvariantIds:
       - invariant.one-door
       - invariant.only-committed-formulas-are-held
-    expectedUserVisibleOutcome: Nothing; the resolved file is what pour, cook and show act on.
+    expectedUserVisibleOutcome: Nothing; the formula resolved, as data, is what a pour pours, and its file is what show prints and cook reads.
     status: active
     operation:
       kind: query
       idempotency:
         idempotencyClass: query-only
         explanation: >-
-          Observes and prints; changes nothing in the project or the tracker.
-          A provider's formula, when one is resolved, is written to the
-          workspace's home.
+          Observes and prints; changes nothing in the project or the tracker,
+          and writes nothing for a provider's formula.
       derivedFrom:
         - sourceKind: manual-decision
           sourceRef: step.resolve-formula
@@ -5029,6 +5037,15 @@ steps:
           summary: >-
             What the command line exits with for this response: 0 unless the
             tracker or the operation failed.
+        - name: formula
+          valueType:
+            kind: type-ref
+            typeId: type.formula-body
+          required: false
+          summary: >-
+            The formula resolved, as data, from the reading that resolved it: a
+            formula in local storage as the index read its file, a provider's
+            from its show.
   - stepId: step.teach-the-conventions
     journeyId: journey.learn-the-conventions
     sequence: 1
@@ -5136,29 +5153,6 @@ steps:
           required: false
           summary: >-
             The id prefix for the workspace, where the adapter honours one.
-        - name: arguments
-          valueType:
-            kind: list
-            itemType:
-              kind: scalar
-              scalar: string
-          required: false
-          summary: >-
-            What the worker typed after the command's own name, for an adapter
-            whose answer is a product's own command; an adapter that answers
-            in records reads the fields instead.
-          cardinality: many
-        - name: terminal
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The worker's terminal is attached to this request. An adapter
-            whose answer is a product's own command may run it with the
-            terminal, stream and all, as the pass-through does, and read the
-            record from the stream; one that answers in records ignores it.
-            Unsaid, the adapter answers quietly.
       responseFields:
         - name: reason
           valueType:
@@ -5192,15 +5186,6 @@ steps:
           summary: >-
             Whether this call made the store, as opposed to finding it already
             there.
-        - name: printed
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The adapter ran a product's own command with the worker's
-            terminal, so what it printed is on the terminal already; false
-            when it answered in records, which the presenter then shows.
         - name: tracker
           valueType:
             kind: scalar
@@ -5325,7 +5310,8 @@ steps:
       - The item's kind is task; only a pour makes a root.
       - A create that asks the tracker for the type a root has is refused in one line.
       - The description and the means come back from show exactly as given, a description that reads like the means included.
-      - What the worker typed reaches the tracker as typed, read option by option, so that a value is never taken for an option.
+      - The tracker is handed the item's fields alone, and no words typed and no terminal.
+      - A create the tracker made and could not read back fails, naming the item it made.
     relatedObjectIds:
       - object.tracker
       - object.work
@@ -5342,19 +5328,15 @@ steps:
         - dependencyId: dependency.beads
           operationRef: "product.beads::create"
           callPurpose: >-
-            Under the beads adapter: the item is bd's issue, created with the
-            terminal and the arguments as typed, or quietly with --json.
+            Under the beads adapter: the item is bd's issue, created from the
+            item's fields, each handed to bd as a value, and bd's JSON answer
+            read as the record.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
           callPurpose: >-
             The key this checkout's store sits under, read once per process by
             the adapter that answers.
-          failurePropagation: propagate
-        - dependencyId: dependency.git
-          operationRef: "product.git::config user.name"
-          callPurpose: >-
-            Under the beads adapter: the name an assignee of me stands for.
           failurePropagation: propagate
       requestFields:
         - name: tracker
@@ -5409,29 +5391,6 @@ steps:
             move hands over with an item; the adapter keeps them as it keeps a
             root's and returns them exactly as given.
           cardinality: many
-        - name: arguments
-          valueType:
-            kind: list
-            itemType:
-              kind: scalar
-              scalar: string
-          required: false
-          summary: >-
-            What the worker typed after the command's own name, for an adapter
-            whose answer is a product's own command; an adapter that answers
-            in records reads the fields instead.
-          cardinality: many
-        - name: terminal
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The worker's terminal is attached to this request. An adapter
-            whose answer is a product's own command may run it with the
-            terminal, stream and all, as the pass-through does, and read the
-            record from the stream; one that answers in records ignores it.
-            Unsaid, the adapter answers quietly.
         - name: id
           valueType:
             kind: scalar
@@ -5464,15 +5423,6 @@ steps:
             kind: scalar
             scalar: integer
           required: false
-        - name: printed
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The adapter ran a product's own command with the worker's
-            terminal, so what it printed is on the terminal already; false
-            when it answered in records, which the presenter then shows.
         - name: tracker
           valueType:
             kind: scalar
@@ -5587,9 +5537,10 @@ steps:
       - The step ids come back in the formula's order.
       - The root's description and verify-using come back from show exactly as given, however the adapter stores them, a description that reads like the means included.
       - A pour that made a root and could not keep the means on it fails, naming the root in its answer and in the line said.
-      - An adapter that reads the formula's file through path ignores any key it does not know.
-      - Under beads, a pour given a formula's file cooks that file or fails, and never pours a copy the tracker held before.
-      - Under beads, one cook and its pour run at a time in a workspace, since bd keeps one cooked copy per formula id.
+      - The tracker is handed the formula's data alone -- its title, its description, its means to prove and its steps -- and no file, no words typed and no terminal.
+      - Under beads, the root and each step are made with bd create, in the order the needs allow, each title and description handed to bd as a value and never read as a flag, and the step ids come back in the formula's order.
+      - A pour that fails after making its root names the root and the steps it made, a step the tracker made and could not read back included.
+      - Steps that share an id are refused before anything is made, and nothing is poured.
     relatedObjectIds:
       - object.tracker
       - object.molecule
@@ -5605,42 +5556,18 @@ steps:
       visibility: internal-only
       externalCalls:
         - dependencyId: dependency.beads
-          operationRef: "product.beads::cook --persist --force"
-          callPurpose: >-
-            Under the beads adapter, from the formula's path: cook it first,
-            every time, so the version poured is the file as it is; when it
-            does not cook, nothing is poured.
-          failurePropagation: propagate
-        - dependencyId: dependency.beads
-          operationRef: "product.beads::mol pour"
-          callPurpose: >-
-            Under the beads adapter, from the formula's path: bd's own pour,
-            so a poured molecule keeps its behaviour and bytes.
-          failurePropagation: propagate
-        - dependencyId: dependency.beads
-          operationRef: "product.beads::list --json --brief"
-          callPurpose: >-
-            Under the beads adapter: read back the steps the pour created, for
-            the witness log.
-          failurePropagation: propagate
-        - dependencyId: dependency.beads
           operationRef: "product.beads::create"
           callPurpose: >-
-            Under the beads adapter, from the steps given and no path: a root
-            and one issue per step, each blocked by the steps it needs.
+            Under the beads adapter: the root, with the formula's description
+            and the means to prove its run in its metadata, then one issue per
+            step in the order the needs allow, each blocked by the steps it
+            needs.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
           callPurpose: >-
             The key this checkout's store sits under, read once per process by
             the adapter that answers.
-          failurePropagation: propagate
-        - dependencyId: dependency.beads
-          operationRef: "product.beads::update --description"
-          callPurpose: >-
-            Under the beads adapter, after bd's own pour from the formula's
-            path: the means to prove the run kept as the last section of the
-            root's description.
           failurePropagation: propagate
       requestFields:
         - name: tracker
@@ -5681,37 +5608,6 @@ steps:
           summary: >-
             The steps in the formula's order, each with the step ids it needs.
           cardinality: many
-        - name: arguments
-          valueType:
-            kind: list
-            itemType:
-              kind: scalar
-              scalar: string
-          required: false
-          summary: >-
-            What the worker typed after the command's own name, for an adapter
-            whose answer is a product's own command; an adapter that answers
-            in records reads the fields instead.
-          cardinality: many
-        - name: terminal
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The worker's terminal is attached to this request. An adapter
-            whose answer is a product's own command may run it with the
-            terminal, stream and all, as the pass-through does, and read the
-            record from the stream; one that answers in records ignores it.
-            Unsaid, the adapter answers quietly.
-        - name: path
-          valueType:
-            kind: scalar
-            scalar: string
-          required: false
-          summary: >-
-            Where the formula file is, for an adapter that pours from the file
-            itself; absent, the steps given are poured.
         - name: description
           valueType:
             kind: scalar
@@ -5757,6 +5653,7 @@ steps:
               - step-not-found
               - not-installed
               - cycle
+              - duplicate-step
           required: false
           summary: "Why the operation failed, when it did."
         - name: exitCode
@@ -5764,15 +5661,6 @@ steps:
             kind: scalar
             scalar: integer
           required: false
-        - name: printed
-          valueType:
-            kind: scalar
-            scalar: boolean
-          required: false
-          summary: >-
-            The adapter ran a product's own command with the worker's
-            terminal, so what it printed is on the terminal already; false
-            when it answered in records, which the presenter then shows.
         - name: tracker
           valueType:
             kind: scalar
@@ -6916,7 +6804,7 @@ steps:
       - A name already registered, in any case, is refused, so that a suffix names one provider wherever case does not count.
       - The location recorded is the one describe answers, a directory by its absolute path, so that it names one store from every directory dotdiw runs in.
       - The registry is read, changed and written under its lock, so that two registrations never lose one another.
-      - Every index this run built is forgotten, so that the next question reaches the provider.
+      - Every provider list this run read is forgotten, so that a name registered again is listed from where it points now; the next operation reads the formulas afresh, so the next question reaches the provider.
       - A local formula whose id reads like one of the provider's suffixed ids migrates.
       - For now, the registered provider serves every checkout.
     relatedObjectIds:
@@ -7151,11 +7039,11 @@ steps:
     title: Show a provider's formula
     given: A registered provider that answers show, and one of its suffixed ids.
     when: A body of dotdiw asks for that formula, to show it or to pour it.
-    then: The formula comes back as the provider keeps it.
+    then: The formula comes back as data -- its description, its means to prove and its steps -- held to their shape.
     thenAssertions:
       - A pour of it carries nothing about the provider.
-      - Its parsed formula key is set to the suffixed id, however the provider spelled it, and every other value is written out as the provider gave it; the text is taken only when it reads back as exactly that.
-      - It is written under the workspace's home to a file named for a digest of the provider's name, the id and the text, never for the name or the id, written once and never changed, so that a pour reads the very copy the tracker cooks.
+      - Its answer is held to its shape before anything is taken from it -- a description that is text, steps that are a list, each with an id and a title once and needs that are step ids, and means to prove each one line in a form check reads -- and a formula outside it is refused in one line naming the provider. Only the means to prove and a step's needs may be left out, and nothing given is replaced by a default.
+      - Nothing is written for it; a pour hands the tracker the steps it answered, and formula show prints it in the form a .formula.json file takes.
       - It is asked when a formula is shown or poured, and never while the project is indexed.
     relatedObjectIds:
       - object.formula-management-provider
@@ -7172,13 +7060,6 @@ steps:
       idempotency:
         idempotencyClass: query-only
         explanation: "Queries do not change product state."
-      externalCalls:
-        - dependencyId: dependency.git
-          operationRef: "product.git::config --local --get dotdiw.workspace"
-          callPurpose: >-
-            The checkout's workspace under the home, which the formula's file
-            is written beneath.
-          failurePropagation: propagate
       requestFields:
         - name: root
           valueType:
@@ -7186,7 +7067,7 @@ steps:
             scalar: string
           required: false
           summary: >-
-            The checkout whose workspace the formula's file is written under.
+            The checkout the formula is shown for; nothing is written for it.
         - name: name
           valueType:
             kind: scalar
@@ -7207,20 +7088,13 @@ steps:
             scalar: string
           required: false
           summary: "The formula's suffixed id."
-        - name: text
+        - name: formula
           valueType:
-            kind: scalar
-            scalar: string
-          required: false
-          summary: "The formula as the provider keeps it, its id suffixed."
-        - name: path
-          valueType:
-            kind: scalar
-            scalar: string
+            kind: type-ref
+            typeId: type.formula-body
           required: false
           summary: >-
-            The file under the workspace's home the formula is written to, for
-            a pour.
+            The formula, as data, held to its shape.
         - name: reason
           valueType:
             kind: enum-inline
@@ -7266,7 +7140,7 @@ steps:
       its package stays installed, so the provider is eligible again.
     thenAssertions:
       - Nothing but the registry changes -- under its lock the registration goes, and the name is kept as removed, so that an id with its suffix is refused rather than handed to the tracker.
-      - Every index this run built is forgotten, so that the provider's formulas are gone from the next answer.
+      - The next operation reads the formulas afresh, so the provider's formulas are gone from the next answer.
     relatedObjectIds:
       - object.formula-management-provider
     relatedInteractionIds:
@@ -8390,6 +8264,65 @@ operationTypes:
         required: false
         summary: "Step ids this one needs, by the formula."
         cardinality: many
+  - typeId: type.formula-step
+    name: FormulaStep
+    kind: record
+    description: >-
+      One step of a formula as data: its id within the formula, its title and
+      the step ids it needs.
+    fields:
+      - name: id
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The step's id in the formula."
+      - name: title
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The step's title."
+      - name: needs
+        valueType:
+          kind: list
+          itemType:
+            kind: scalar
+            scalar: string
+        required: false
+        summary: "Step ids this one needs."
+        cardinality: many
+  - typeId: type.formula-body
+    name: FormulaBody
+    kind: record
+    description: >-
+      A formula as data, the way a formula management provider answers show:
+      its description, its means to prove, and its steps.
+    fields:
+      - name: description
+        valueType:
+          kind: scalar
+          scalar: string
+        required: true
+        summary: "The formula's description."
+      - name: verifyUsing
+        valueType:
+          kind: list
+          itemType:
+            kind: scalar
+            scalar: string
+        required: false
+        summary: "The means to prove a run of it, one line each."
+        cardinality: many
+      - name: steps
+        valueType:
+          kind: list
+          itemType:
+            kind: type-ref
+            typeId: type.formula-step
+        required: true
+        summary: "Its steps, in the formula's order."
+        cardinality: many
   - typeId: type.tracker-info
     name: TrackerInfo
     kind: record
@@ -8458,8 +8391,9 @@ operationTypes:
             scalar: string
         required: false
         summary: >-
-          What the adapter offers beyond the interface, by name; forward, for
-          the beads adapter's pass-through.
+          What the adapter offers beyond the interface, by name: forward,
+          for the beads adapter's pass-through; metrics-off; and upgrade, for
+          an adapter whose store an earlier version kept another way.
         cardinality: many
   - typeId: type.tracker-actor
     name: TrackerActor
@@ -9566,6 +9500,554 @@ updates:
         provider's business, and the door reaches every provider the same way.
       compatibility: breaking
       createdAt: "2026-11-08T12:24:00+08:00"
+      approvalStatus: draft
+  - changeId: change.one-header-for-every-formula-list
+    changeType: model-update
+    targetRefs:
+      - step.list-formulas
+    summary: >
+      From 3.0.0, formula list prints one header for every list: the number
+      of formulas listed. Each formula's own lines already say where it is
+      kept, by its path or by the provider that serves it.
+    reason: >
+      The header said "in this repo" while every formula listed was in the
+      repository and dropped it otherwise, only so that a list of local
+      formulas printed what 1.1 printed. The comparison with earlier versions
+      now names the change instead.
+    compatibility: corrective
+    impactAssessment:
+      affectedDuties:
+        - duty.keep-procedures-findable
+      affectedJourneys:
+        - journey.find-a-held-procedure
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: low
+      riskExplanation: >
+        A script that reads the header of formula list sees "formulas:" where
+        it saw "formulas in this repo:". formula list --json is unchanged.
+    migrationPlan: null
+    approvalStatus: draft
+    createdAt: "2026-11-10T01:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+      summary: >-
+        list-formulas promises one header for every list, the number of
+        formulas listed, where it promised "in this repo" while every formula
+        listed was in the repository. No type moves. Migration plan: none.
+      reason: >-
+        The header kept 1.1's bytes for a list of local formulas only so that
+        an old comparison held.
+      compatibility: corrective
+      createdAt: "2026-11-10T01:00:00+08:00"
+      approvalStatus: draft
+  - changeId: change.an-earlier-adoption-is-put-right-by-init
+    changeType: model-update
+    targetRefs:
+      - step.undo-earlier-adoption
+      - journey.adopt-a-repository
+    summary: >
+      From 3.0.0, what an earlier version left in a checkout -- bd's hook
+      directory standing in for the repository's own, a tracker in the tree,
+      a workspace with one adapter's store and no tracker chosen -- is put
+      right by dotdiw init alone, before it adopts the checkout. Every other
+      command but learn and --version asks first, changes nothing, and while
+      anything is left exits 1 with one line that names it and init. What
+      cannot be put right stops init in one line, and nothing is adopted.
+    reason: >
+      Every command put an earlier adoption right before running whatever was
+      typed, writing to the repository's git config on any command at all. A
+      repair belongs to the one command that adopts, and the others say so.
+    compatibility: breaking
+    impactAssessment:
+      affectedDuties:
+        - duty.adopt-without-reaching-outside
+      affectedJourneys:
+        - journey.adopt-a-repository
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: low
+      riskExplanation: >
+        A checkout an earlier version adopted refuses every command but init,
+        learn and --version until init has run once there; the line it prints
+        says so.
+    migrationPlan: >
+      Run dotdiw init once in a checkout an earlier version adopted.
+    approvalStatus: draft
+    createdAt: "2026-11-10T01:30:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+      summary: >-
+        undo-earlier-adoption takes apply, and answers pending, one line for
+        each thing an earlier version left, when it is not applied. Without
+        apply it changes nothing and answers blocked while anything is left;
+        adopt-a-repository calls it with apply before adopt-repository.
+        Migration plan: run dotdiw init once in a checkout an earlier version
+        adopted.
+      reason: >-
+        Every command wrote to the repository's git config to put an earlier
+        adoption right; init alone does now.
+      compatibility: breaking
+      createdAt: "2026-11-10T01:30:00+08:00"
+      approvalStatus: draft
+  - changeId: change.the-means-kept-as-data
+    changeType: model-update
+    targetRefs:
+      - step.pour-steps
+      - step.create-item
+      - step.show-item
+      - step.forward-to-the-tracker
+      - step.undo-earlier-adoption
+    summary: >
+      From 3.0.0, the trackers dotdiw ships keep the means to prove a run as
+      data: the local store in a column of its own, at schema 2, and beads in
+      the issue's metadata. Descriptions are kept and returned exactly as
+      given, and a description typed through the pass-through reaches bd as
+      typed. A store an earlier version kept, with the means as the last
+      section of a description, is brought up to date by its adapter's
+      upgrade extra, which init applies once, taking up an upgrade cut short
+      where it stopped; every other command says so until then. An issue an
+      earlier version left with dotdiw in its metadata as a value of its own,
+      null included, keeps it, and its description as it was.
+    reason: >
+      The local store is dotdiw's own and the beads issue has metadata, yet
+      both kept the means inside the description text, which meant an empty
+      section appended to any description that looked like it held one, and
+      every description typed through the pass-through rewritten the same way.
+    compatibility: breaking
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+      affectedJourneys:
+        - journey.answer-through-the-tracker
+        - journey.run-a-tracker-command
+        - journey.adopt-a-repository
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.one-tracker-door
+      riskLevel: medium
+      riskExplanation: >
+        A checkout whose local store or beads workspace an earlier version
+        kept refuses every command but init, learn and --version until init
+        has brought it up to date once.
+    migrationPlan: >
+      Run dotdiw init once in each checkout an earlier version used: the local
+      store moves each description's section of means into its column, and
+      beads moves them into each issue's metadata.
+    approvalStatus: draft
+    createdAt: "2026-11-10T02:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.tracker-door
+      summary: >-
+        pour-steps under beads reads the root with show --json and keeps the
+        means with update --metadata, where it wrote a section with update
+        --description. undo-earlier-adoption reaches the adapter's upgrade
+        extra, which under beads runs list --all --json and update
+        --description --metadata, once, under init. type.tracker-info's
+        extras name upgrade. No field of the interface moves. Migration plan:
+        run dotdiw init once in each checkout an earlier version used.
+      reason: >-
+        Both shipped trackers have a place for the means of their own, and
+        kept them in the description text instead.
+      compatibility: breaking
+      createdAt: "2026-11-10T02:00:00+08:00"
+      approvalStatus: draft
+  - changeId: change.every-read-of-the-tracker-reads-it-whole
+    changeType: model-update
+    targetRefs:
+      - step.notice-handmade-procedures
+      - step.write-formula
+      - step.pour-steps
+    summary: >
+      From 3.0.0, every read dotdiw makes of the tracker reads every item it
+      asks for. The notice of procedures built by hand, the past titles a
+      formula's name is drawn against, and the steps formula new --from reads
+      take every item, where each stopped at the first 300 without saying so;
+      under beads, a pour reads its own root's children back, all of them,
+      where it read 300 issues of the whole workspace.
+    reason: >
+      A procedure built after the 300th item was never noticed, an id past it
+      gave formula new --from nothing, and a pour into a busy workspace could
+      come back short of its steps. Nothing said any of it.
+    compatibility: corrective
+    impactAssessment:
+      affectedDuties:
+        - duty.keep-procedures-findable
+      affectedJourneys:
+        - journey.write-a-procedure-down
+        - journey.start-named-work
+        - journey.answer-through-the-tracker
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: low
+      riskExplanation: >
+        A tracker holding many items is read whole where it was read in part;
+        the hosted adapter already read every page before cutting the list.
+    migrationPlan: null
+    approvalStatus: draft
+    createdAt: "2026-11-10T02:30:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+      summary: >-
+        notice-handmade-procedures and write-formula ask list-items for every
+        item, with no limit; pour-steps under beads lists the root's children
+        with --parent and no count. No type moves. Migration plan: none.
+      reason: >-
+        Three reads stopped at 300 items without saying so.
+      compatibility: corrective
+      createdAt: "2026-11-10T02:30:00+08:00"
+      approvalStatus: draft
+  - changeId: change.beads-pours-the-steps-it-is-given
+    changeType: model-update
+    targetRefs:
+      - step.pour-steps
+      - step.pour-procedure
+      - step.forward-to-the-tracker
+    summary: >
+      From 3.0.0, the beads adapter pours as the local adapter does: it makes
+      the root with bd create, keeping the formula's description and the
+      means to prove its run in its metadata, then one issue per step in the
+      order the needs allow, each blocked by the steps it needs, and answers
+      the step ids in the formula's order. bd's cook and mol pour are no
+      longer a pour's. A pour that fails after making its root names the root
+      and the steps it made, in JSON too under --json; steps that share an id
+      are refused before anything is made; and every title and description
+      reaches bd as a value, never read as a flag.
+    reason: >
+      Through bd's own cook and pour, the adapter could not tell which issue
+      was which step, so it answered the new issues sorted by id where the
+      interface promises the formula's order, and found them by reading the
+      workspace back.
+    compatibility: breaking
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+      affectedJourneys:
+        - journey.start-named-work
+        - journey.answer-through-the-tracker
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.one-tracker-door
+      riskLevel: medium
+      riskExplanation: >
+        A formula that leans on bd's own formula features -- its variables,
+        its conditions -- pours its steps as written, and a root a pour makes
+        carries none of bd's proto labels. formula pour --json answers
+        dotdiw's record, the root id and the step ids, where it answered bd's.
+    migrationPlan: >
+      Nothing moves. A run poured before 3.0.0 stays as bd poured it.
+    approvalStatus: draft
+    createdAt: "2026-11-10T03:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.tracker-door
+      summary: >-
+        pour-steps under beads runs create alone, for the root and for each
+        step; cook --persist --force, mol pour, list, show and update leave
+        its external calls. The reason of pour-steps and of pour-procedure
+        gains duplicate-step, for steps that share an id. Migration plan:
+        none.
+      reason: >-
+        bd's own pour hid which issue was which step.
+      compatibility: breaking
+      createdAt: "2026-11-10T03:00:00+08:00"
+      approvalStatus: draft
+  - changeId: change.no-pour-lock-under-beads
+    changeType: model-update
+    targetRefs:
+      - step.forward-to-the-tracker
+    summary: >
+      From 3.0.0, the beads adapter holds no lock: a pour cooks nothing, so a
+      command forwarded to bd runs as typed, whatever words it holds.
+    reason: >
+      The lock kept a cook forwarded through dotdiw from landing between a
+      pour's cook and its pour, and found such a cook by scanning the
+      forwarded words for cook and mol. A pour makes its issues itself now.
+    compatibility: corrective
+    impactAssessment:
+      affectedDuties: []
+      affectedJourneys:
+        - journey.run-a-tracker-command
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: low
+      riskExplanation: >
+        Nothing a pour does can be interleaved with a forwarded command, since
+        a pour no longer cooks.
+    migrationPlan: >
+      A pour.lock left in a workspace by 2.0.0 is read by nothing and may be
+      removed.
+    approvalStatus: draft
+    createdAt: "2026-11-10T03:30:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+      summary: >-
+        forward-to-the-tracker no longer promises a lock held while a
+        forwarded command names cook or mol. No type moves. Migration plan:
+        none.
+      reason: >-
+        A pour no longer cooks, so there is nothing for a forwarded cook to
+        land between.
+      compatibility: corrective
+      createdAt: "2026-11-10T03:30:00+08:00"
+      approvalStatus: draft
+  - changeId: change.a-pour-hands-over-the-formula-it-read
+    changeType: model-update
+    targetRefs:
+      - step.pour-procedure
+    summary: >
+      From 3.0.0, a pour reads its formula once and hands the tracker what it
+      read: the title, the description, the means to prove and the steps. No
+      path goes to the tracker, and nothing is written under the workspace;
+      the formula poured is the one its lookup selected, as the index read
+      it for that pour, whatever is written to its file meanwhile; the next
+      pour reads it again, and steps that share an id are refused before the
+      tracker is asked.
+    reason: >
+      Every pour copied its formula into a snapshot under the workspace, named
+      for a digest of its bytes, only so that beads could cook a file that
+      read as the pour had. Beads pours the steps it is given now.
+    compatibility: corrective
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+      affectedJourneys:
+        - journey.start-named-work
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: low
+      riskExplanation: >
+        An adapter that poured from the file at path is handed none; every
+        shipped adapter pours the steps it is given.
+    migrationPlan: >
+      The pours directory a workspace holds from 2.0.0 is read by nothing and
+      may be removed.
+    approvalStatus: draft
+    createdAt: "2026-11-10T04:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+      summary: >-
+        pour-procedure hands pour-steps no path, and promises one reading of
+        the formula with nothing written for it. No type moves. Migration
+        plan: none.
+      reason: >-
+        The snapshot existed for beads to cook, and beads no longer cooks.
+      compatibility: corrective
+      createdAt: "2026-11-10T04:00:00+08:00"
+      approvalStatus: draft
+  - changeId: change.dotdiw-parses-its-own-flags
+    changeType: model-update
+    targetRefs:
+      - step.name-the-work
+      - journey.start-named-work
+      - step.pour-procedure
+      - step.adopt-repository
+      - journey.adopt-a-repository
+      - step.forward-to-the-tracker
+    summary: >
+      From 3.0.0, dotdiw's own commands read their own flags, and nothing
+      typed goes to the tracker. create takes one title, -p or --priority,
+      --parent, -d or --description, --json, and -q, --quiet or --silent;
+      formula pour takes --json; init takes --prefix and --tracker. Any other
+      flag is refused in one line naming it, and so is a flag of its own
+      given no value, or --tracker given no name; --description=<text> gives
+      a value that starts with a dash. bd's table of flags is the beads
+      adapter's, read only by its pass-through.
+    reason: >
+      dotdiw read create's title around a table of bd's own flags, so every
+      tracker's create was parsed as bd's, and everything typed after create,
+      formula pour and init went to the tracker as it was typed.
+    compatibility: breaking
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+        - duty.adopt-without-reaching-outside
+      affectedJourneys:
+        - journey.start-named-work
+        - journey.adopt-a-repository
+        - journey.run-a-tracker-command
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: medium
+      riskExplanation: >
+        A create under beads that relied on one of bd's own flags -- a label, a
+        type, an assignee -- is refused; the flag is set afterwards through
+        the pass-through, as dotdiw update. Under beads, create, formula pour
+        and init print dotdiw's own lines, as under every tracker.
+    migrationPlan: >
+      Set what bd's own create flags set with dotdiw update after the create.
+    approvalStatus: draft
+    createdAt: "2026-11-10T04:30:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+      summary: >-
+        start-named-work and name-the-work take json and no arguments; pour-procedure takes json and no arguments;
+        adopt-a-repository and adopt-repository take prefix and no arguments.
+        Migration plan: set what bd's own create flags set with dotdiw update.
+      reason: >-
+        What was typed went to the tracker as typed, parsed around bd's own
+        flags.
+      compatibility: breaking
+      createdAt: "2026-11-10T04:30:00+08:00"
+      approvalStatus: draft
+  - changeId: change.tracker-interface-3-carries-data-alone
+    changeType: model-update
+    targetRefs:
+      - step.pour-steps
+      - step.create-item
+      - step.open-tracker
+      - step.name-the-work
+      - step.pour-procedure
+      - step.adopt-repository
+      - invariant.one-tracker-door
+    summary: >
+      From 3.0.0, the tracker interface is number 3 and carries data alone:
+      path, arguments and terminal leave the requests of pour-steps,
+      create-item and open-tracker, and printed leaves their answers and the
+      answers of name-the-work, pour-procedure and adopt-repository. Every
+      adapter answers in records, and dotdiw prints every create, pour and
+      init from them. A module written for interface 2 is refused in one
+      line naming it.
+    reason: >
+      The interface carried a formula's file, the words a worker typed, the
+      worker's terminal and whether the adapter had printed for itself, only
+      so that beads could run bd's own commands with the terminal and the
+      flags as typed.
+    compatibility: breaking
+    impactAssessment:
+      affectedDuties:
+        - duty.surface-procedures-when-work-starts
+        - duty.adopt-without-reaching-outside
+      affectedJourneys:
+        - journey.answer-through-the-tracker
+        - journey.start-named-work
+        - journey.adopt-a-repository
+        - journey.ship-a-tracker
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.one-tracker-door
+      riskLevel: high
+      riskExplanation: >
+        Every adapter written for interface 2, the Jira adapter among them, is
+        refused until its author ships one written for 3; the adapters dotdiw
+        ships move with it, and the Jira adapter in trackers/ moves in the
+        same change.
+    migrationPlan: >
+      An adapter's author declares interface 3, reads no path, arguments or
+      terminal, and answers every create, pour and open in records, with no
+      printed.
+    approvalStatus: draft
+    createdAt: "2026-11-10T05:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.tracker-door
+        - invariant.one-tracker-door
+      summary: >-
+        pour-steps loses path, arguments and terminal; create-item and
+        open-tracker lose arguments and terminal; their answers lose printed,
+        and so do name-the-work's, pour-procedure's and adopt-repository's.
+        The tracker interface is number 3, with its digest recorded, and a
+        module written for 2 is refused in one line that names it. Migration
+        plan: an adapter declares interface 3 and answers in records.
+      reason: >-
+        The interface carried a file, typed words and a terminal for one
+        adapter's own commands.
+      compatibility: breaking
+      createdAt: "2026-11-10T05:00:00+08:00"
+      approvalStatus: draft
+  - changeId: change.a-provider-answers-a-formula-as-data
+    changeType: model-update
+    targetRefs:
+      - step.show-provider-formula
+      - step.resolve-formula
+      - step.show-formula
+      - step.pour-procedure
+      - step.describe-provider
+      - term.formula-management-provider
+    summary: >
+      From 3.0.0, a formula management provider's show answers the formula as
+      data: its description, its means to prove, and its steps, each with an
+      id, a title and the step ids it needs. dotdiw holds the answer to that
+      shape and keeps it in memory; no text format is read, no file is
+      written for it, and formula show prints it in the form a .formula.json
+      file takes. A provider module says in its info that it was written for
+      formula provider interface 2, and one that does not is refused in one
+      line.
+    reason: >
+      show answered a file's text in TOML or JSON, which dotdiw parsed,
+      rewrote with a TOML writer of its own to set the suffixed id, and cached
+      as a file under the workspace, so that a provider's formula could be
+      read and cooked as a local file was. An interface carries data.
+    compatibility: breaking
+    impactAssessment:
+      affectedDuties:
+        - duty.keep-procedures-findable
+        - duty.surface-procedures-when-work-starts
+      affectedJourneys:
+        - journey.answer-through-a-formula-provider
+        - journey.find-a-held-procedure
+        - journey.start-named-work
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants:
+        - invariant.every-provider-formula-carries-its-suffix
+        - invariant.formula-storage-apart-from-task-storage
+      riskLevel: medium
+      riskExplanation: >
+        A provider module written for 2.0.0 answers show with text and names
+        no interface, so it is refused until its author moves it; the
+        directory provider that ships with dotdiw moves with this change.
+    migrationPlan: >
+      A provider's author answers show with the formula as data and declares
+      interface 2 in the module's info. The formula-providers directory a
+      workspace holds from 2.0.0 is read by nothing.
+    approvalStatus: draft
+    createdAt: "2026-11-10T05:30:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.door
+      summary: >-
+        type.formula-body and type.formula-step join the IDL. show-provider-
+        formula answers formula, a type.formula-body, where it answered text
+        and path; resolve-formula answers formula for every formula it
+        resolves, a local one as the index read it, and so does
+        find-a-held-procedure; a pour pours it.
+        Migration plan: a provider answers show with the formula as data and
+        declares interface 2.
+      reason: >-
+        The provider interface carried a file's text in one of two formats.
+      compatibility: breaking
+      createdAt: "2026-11-10T05:30:00+08:00"
       approvalStatus: draft
 openQuestions:
   - questionId: question.hundreds-of-formulas

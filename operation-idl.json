@@ -380,14 +380,14 @@
           "failurePropagation": "propagate"
         },
         {
-          "operationId": "operation.adopt-repository",
-          "callPurpose": "Compose operation.adopt-repository as a governed journey step.",
+          "operationId": "operation.undo-earlier-adoption",
+          "callPurpose": "Compose operation.undo-earlier-adoption as a governed journey step, with apply, before the checkout is adopted: what an earlier version left is put right by init alone.",
           "required": true,
           "failurePropagation": "propagate"
         },
         {
-          "operationId": "operation.undo-earlier-adoption",
-          "callPurpose": "Compose operation.undo-earlier-adoption as a governed journey step.",
+          "operationId": "operation.adopt-repository",
+          "callPurpose": "Compose operation.adopt-repository as a governed journey step.",
           "required": true,
           "failurePropagation": "propagate"
         },
@@ -1260,12 +1260,14 @@
       ],
       "postconditions": [
         "The work item exists in the tracker with the title given.",
-        "No branch, file or other command preceded it for this work."
+        "No branch, file or other command preceded it for this work.",
+        "create takes its own flags -- one title, -p or --priority, --parent, -d or --description, --json, and -q, --quiet or --silent, which print the work created and nothing that rides along with it -- and refuses any other in one line, naming it, as it refuses one of its own given no value -- nothing after it, or another flag where its value belongs; --description=<text> gives a value that starts with a dash. Nothing typed goes to the tracker.",
+        "--tracker given no name is refused in one line before anything runs, and is never taken for the default."
       ],
       "calls": [
         {
           "operationId": "operation.create-item",
-          "callPurpose": "Create the work item through the tracker door, with the terminal and the arguments as typed, so that under beads the create is bd's own.",
+          "callPurpose": "Create the work item through the tracker door, from the fields dotdiw's own flags filled.",
           "required": true,
           "failurePropagation": "propagate"
         }
@@ -1454,9 +1456,11 @@
         "dotdiw mol pour, the older spelling, does the same and prints the same.",
         "A step cannot be closed before the steps it needs.",
         "The root names the formula it was poured from.",
-        "The formula is read once, into a snapshot under the workspace named for a digest of its bytes, and the tracker is handed that snapshot, so that the steps, the description and the means to prove are one version.",
+        "The formula is read once, by the lookup that selects it, and the tracker is handed what that reading parsed -- its title, its description, its means to prove and its steps -- so that the formula asked for is the one poured, whatever is written to its file meanwhile, and the next pour reads it again; no file goes to the tracker, none is read again, and nothing is written under the workspace for it.",
         "An id refused as ambiguous, as a provider's formula the provider does not serve, or for a provider that failed, never reaches the tracker.",
-        "The formula's verify-using goes to the tracker with the root and is shown after the pour."
+        "The formula's verify-using goes to the tracker with the root and is shown after the pour.",
+        "A formula whose steps share an id is refused before the tracker is asked.",
+        "With --json, a pour that made its root and then failed prints the record of what it made -- the root and the steps -- as JSON, says why in one line on stderr, and exits 1."
       ],
       "calls": [
         {
@@ -1467,7 +1471,7 @@
         },
         {
           "operationId": "operation.pour-steps",
-          "callPurpose": "Pour through the tracker door: the steps read from the file, and its path and the arguments typed for an adapter that pours from the file itself.",
+          "callPurpose": "Pour through the tracker door: the steps, the description and the means to prove read from the file.",
           "required": true,
           "failurePropagation": "propagate"
         }
@@ -2047,15 +2051,14 @@
         "The tracker made no commit; git log is as it was; nothing of the tracker's is in the tree.",
         "The key is in .git/config and the state is under the home at that key, with no sync remote.",
         "core.hooksPath is not set.",
-        "Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing, unless the tracker's own re-init flags were given.",
-        "The tracker's own output is shown, under dotdiw's name.",
+        "Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing.",
         "A tracker that does not open stops the adoption. What it said is shown, no choice is written and nothing is declared.",
         "Where the tracker checked who it acts as, init names them once; a name anyone could give is not shown."
       ],
       "calls": [
         {
           "operationId": "operation.open-tracker",
-          "callPurpose": "Open the tracker under the key through the tracker door, with the terminal unless quiet, the prefix taken out of what was typed and the rest handed on.",
+          "callPurpose": "Open the tracker under the key through the tracker door, with the prefix init was given.",
           "required": true,
           "failurePropagation": "propagate"
         },
@@ -2199,7 +2202,7 @@
     {
       "operationId": "operation.report-what-is-yours-to-commit",
       "name": "ReportWhatIsYoursToCommit",
-      "summary": "Report what is yours to commit: The declaration files are listed as the worker's to commit, with the one command that commits them, so that every clone reads the declaration; where an earlier version's tracker was just left behind in the tree, the one command that removes it is named too.",
+      "summary": "Report what is yours to commit: The declaration files are listed as the worker's to commit, with the one command that commits them, so that every clone reads the declaration. The one command that removes a tracker an earlier version left in the tree is named by the account of what init put right.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -2279,7 +2282,7 @@
     {
       "operationId": "operation.undo-earlier-adoption",
       "name": "UndoEarlierAdoption",
-      "summary": "Undo an earlier adoption: The hook override is unset, because it decides which hooks git runs. A tracker is made under the home with the prefix read from the in-tree copy's metadata, the key is written, and the command typed runs against it; the in-tree copy is left exactly as it was and the one command that removes it is named, once here and on check while it remains. Earlier tasks are not carried over, and that is said.",
+      "summary": "Undo an earlier adoption: Under init, the hook override is unset, because it decides which hooks git runs. A tracker is made under the home with the prefix read from the in-tree copy's metadata and the key is written, before init adopts the checkout; the in-tree copy is left exactly as it was and the one command that removes it is named, once here and on check while it remains. Earlier tasks are not carried over, and that is said. A workspace with one adapter's store and no tracker chosen has that adapter written as the choice. Under any other command, nothing is changed, and while anything is left the command is refused in one line that names what is left and init.",
       "kind": "command",
       "status": "active",
       "visibility": "supporting",
@@ -2340,6 +2343,9 @@
         "A repository adopted by any version before 0.4.0, with the tracker in its tree -- committed by 0.2.x, excluded by 0.3.0, and under v0.1.0 also carrying a core.hooksPath into .beads and a Dolt remote at its git remote."
       ],
       "postconditions": [
+        "Only init puts anything right. Every other command but learn and --version asks first and writes nothing, and while anything is left it exits 1 with one line naming dotdiw init.",
+        "What cannot be put right -- a tracker in the tree that is not adopted under the home, or a store the adapter's upgrade extra could not bring up to date -- stops init in one line naming it, with exit 1, and init adopts nothing.",
+        "The tracker's store as an earlier version kept it is the adapter's to say and to bring up to date, through its upgrade extra; the local store and beads keep the means to prove a run as data from 3.0.0, and a store kept before then has each description's section of means moved into the store's own place for them, once, under init; an upgrade cut short is taken up by the next init where it stopped, and what it moved is left as it is; an issue whose beads metadata holds dotdiw as a value of its own, null included, keeps that value and its description as they were, since the means cannot sit beside it, and init names it.",
         "A core.hooksPath pointing anywhere but .beads is left alone.",
         "Nothing in the in-tree copy is read but its metadata, and nothing in it is moved, edited or deleted; a remote inside it reaches nothing, since no tracker runs there any more.",
         "The new tracker has the old prefix and no tasks.",
@@ -2349,7 +2355,7 @@
       "calls": [
         {
           "operationId": "operation.adopt-repository",
-          "callPurpose": "Where an earlier version left the tracker in the tree and no key exists, the repository is adopted under the home with the old prefix, quietly, before the command typed runs.",
+          "callPurpose": "Where an earlier version left the tracker in the tree and no key exists, and init asks for it put right, the repository is adopted under the home with the old prefix, quietly, before init adopts the checkout.",
           "required": true,
           "failurePropagation": "propagate"
         }
@@ -2366,6 +2372,24 @@
           "dependencyId": "dependency.git",
           "operationRef": "product.git::config --get core.hooksPath",
           "callPurpose": "Whether the tracker's hook directory stands in for the repository's own.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.git",
+          "operationRef": "product.git::rev-parse --show-toplevel",
+          "callPurpose": "The checkout, when the request carries no root, for the tracker door to read the workspace's adapter from, so that the upgrade extra of the adapter keeping the store is asked.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::list --all --json",
+          "callPurpose": "Through the beads adapter's upgrade extra, when init asks: every issue read, so that the means to prove a run an earlier version kept in a description move into the issue's metadata; an issue marked as moved is left as it is, and so is one whose metadata holds dotdiw as a value of its own, null included.",
+          "failurePropagation": "propagate"
+        },
+        {
+          "dependencyId": "dependency.beads",
+          "operationRef": "product.beads::update --description --metadata",
+          "callPurpose": "Through the beads adapter's upgrade extra, when init asks: each such issue's description given back as it was given, and the means in its metadata, marked as moved, so that no later init moves them again.",
           "failurePropagation": "propagate"
         },
         {
@@ -2537,14 +2561,14 @@
         "explanation": "Given the same source artifacts, the product-visible result is deterministic."
       },
       "preconditions": [
-        "A command dotdiw does not own, or one of its own that is the tracker's underneath -- create, init, formula pour, mol pour, cook."
+        "A command dotdiw does not own, or cook, which is the tracker's underneath."
       ],
       "postconditions": [
         "Interactive prompts still work.",
         "A word split across two reads is still rewritten.",
         "Without the tracker on the machine, the worker is told in one line how to install the tracker this checkout chose, and the exit code is 127.",
         "The step is bound to the worker's terminal, the tracker's stream being the one thing dotdiw shows that no response carries; a transport without a terminal gets the tracker's output in the response and no prompts.",
-        "Under beads, a forwarded command with cook or mol among its words holds the workspace's pour lock, whatever flags come before them, so that no cook lands between a pour's cook and its pour."
+        "A description typed through the pass-through reaches the tracker exactly as typed."
       ],
       "calls": [
         {
@@ -2681,6 +2705,7 @@
         "An uncommitted formula file is indexed too; git plays no part in finding a formula.",
         "A provider that fails, or answers outside its shape, is left out of the run with one line naming it.",
         "Each provider is asked for its list once per process.",
+        "Every operation asked of the door from outside it reads the formula files afresh, and every step of it shares that one reading; the next operation reads them again.",
         "A provider's formula is indexed from its list alone; its text is asked for when it is shown or poured.",
         "A formula file that does not parse is answered by its path, for check to name.",
         "The background is capped so that a create stays faster than the tracker call it follows.",
@@ -2773,7 +2798,7 @@
         "The answer is about the project, not about the tracker's own two directories.",
         "A project with no formulas is told how to write one.",
         "With --json, each formula carries its verify-using, and a provider formula its provider.",
-        "The header says in this repo while every formula listed is in it."
+        "The header counts the formulas listed, wherever they are kept; each formula's own lines say where."
       ],
       "calls": [
         {
@@ -2877,7 +2902,7 @@
     {
       "operationId": "operation.resolve-formula",
       "name": "ResolveFormula",
-      "summary": "Resolve a formula: It resolves to that formula's file in the tree, or to the file a provider's formula is written to under the workspace's home when it is resolved, or to nothing, in which case the command is handed to the tracker as it was typed -- unless the ident carries the suffix of a provider registered or removed, which is refused.",
+      "summary": "Resolve a formula: It resolves to that formula, answered as data from the reading that resolved it -- a file in the tree as the index read it, a provider's formula from its show -- or to nothing, in which case the command is handed to the tracker as it was typed -- unless the ident carries the suffix of a provider registered or removed, which is refused.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -2922,7 +2947,7 @@
       "stateTransitions": [],
       "idempotency": {
         "idempotencyClass": "query-only",
-        "explanation": "Observes and prints; changes nothing in the project or the tracker. A provider's formula, when one is resolved, is written to the workspace's home."
+        "explanation": "Observes and prints; changes nothing in the project or the tracker, and writes nothing for a provider's formula."
       },
       "preconditions": [
         "An id, a file name or a path that may name a formula, or a suffixed id that may name a provider's."
@@ -2931,7 +2956,8 @@
         "The id, the file's base name and the repository-relative path all resolve.",
         "An ident with the suffix of a registered or removed provider resolves to that provider's formula alone, never to a local formula by its id or by an alias; any other ident resolves by its id, then by a path exactly as given, then by a file's name. Two formulas at one tier are refused as ambiguous.",
         "An ident with the suffix of a registered or removed provider that names none of its formulas is refused, and never handed to the tracker.",
-        "A provider's formula is written to a file only when it is resolved.",
+        "A provider's formula is asked of its provider only when it is resolved, and nothing is written for it.",
+        "The formula answered for a file in the tree is the one the index read when it resolved the id, so that a pour pours what was selected; nothing reads the file again for it.",
         "Nothing outside the repository and the registered providers is searched."
       ],
       "calls": [
@@ -3265,7 +3291,8 @@
         "The item's kind is task; only a pour makes a root.",
         "A create that asks the tracker for the type a root has is refused in one line.",
         "The description and the means come back from show exactly as given, a description that reads like the means included.",
-        "What the worker typed reaches the tracker as typed, read option by option, so that a value is never taken for an option."
+        "The tracker is handed the item's fields alone, and no words typed and no terminal.",
+        "A create the tracker made and could not read back fails, naming the item it made."
       ],
       "calls": [],
       "derivedFrom": [
@@ -3279,19 +3306,13 @@
         {
           "dependencyId": "dependency.beads",
           "operationRef": "product.beads::create",
-          "callPurpose": "Under the beads adapter: the item is bd's issue, created with the terminal and the arguments as typed, or quietly with --json.",
+          "callPurpose": "Under the beads adapter: the item is bd's issue, created from the item's fields, each handed to bd as a value, and bd's JSON answer read as the record.",
           "failurePropagation": "propagate"
         },
         {
           "dependencyId": "dependency.git",
           "operationRef": "product.git::config --local --get dotdiw.workspace",
           "callPurpose": "The key this checkout's store sits under, read once per process by the adapter that answers.",
-          "failurePropagation": "propagate"
-        },
-        {
-          "dependencyId": "dependency.git",
-          "operationRef": "product.git::config user.name",
-          "callPurpose": "Under the beads adapter: the name an assignee of me stands for.",
           "failurePropagation": "propagate"
         }
       ]
@@ -3435,9 +3456,10 @@
         "The step ids come back in the formula's order.",
         "The root's description and verify-using come back from show exactly as given, however the adapter stores them, a description that reads like the means included.",
         "A pour that made a root and could not keep the means on it fails, naming the root in its answer and in the line said.",
-        "An adapter that reads the formula's file through path ignores any key it does not know.",
-        "Under beads, a pour given a formula's file cooks that file or fails, and never pours a copy the tracker held before.",
-        "Under beads, one cook and its pour run at a time in a workspace, since bd keeps one cooked copy per formula id."
+        "The tracker is handed the formula's data alone -- its title, its description, its means to prove and its steps -- and no file, no words typed and no terminal.",
+        "Under beads, the root and each step are made with bd create, in the order the needs allow, each title and description handed to bd as a value and never read as a flag, and the step ids come back in the formula's order.",
+        "A pour that fails after making its root names the root and the steps it made, a step the tracker made and could not read back included.",
+        "Steps that share an id are refused before anything is made, and nothing is poured."
       ],
       "calls": [],
       "derivedFrom": [
@@ -3450,38 +3472,14 @@
       "externalCalls": [
         {
           "dependencyId": "dependency.beads",
-          "operationRef": "product.beads::cook --persist --force",
-          "callPurpose": "Under the beads adapter, from the formula's path: cook it first, every time, so the version poured is the file as it is; when it does not cook, nothing is poured.",
-          "failurePropagation": "propagate"
-        },
-        {
-          "dependencyId": "dependency.beads",
-          "operationRef": "product.beads::mol pour",
-          "callPurpose": "Under the beads adapter, from the formula's path: bd's own pour, so a poured molecule keeps its behaviour and bytes.",
-          "failurePropagation": "propagate"
-        },
-        {
-          "dependencyId": "dependency.beads",
-          "operationRef": "product.beads::list --json --brief",
-          "callPurpose": "Under the beads adapter: read back the steps the pour created, for the witness log.",
-          "failurePropagation": "propagate"
-        },
-        {
-          "dependencyId": "dependency.beads",
           "operationRef": "product.beads::create",
-          "callPurpose": "Under the beads adapter, from the steps given and no path: a root and one issue per step, each blocked by the steps it needs.",
+          "callPurpose": "Under the beads adapter: the root, with the formula's description and the means to prove its run in its metadata, then one issue per step in the order the needs allow, each blocked by the steps it needs.",
           "failurePropagation": "propagate"
         },
         {
           "dependencyId": "dependency.git",
           "operationRef": "product.git::config --local --get dotdiw.workspace",
           "callPurpose": "The key this checkout's store sits under, read once per process by the adapter that answers.",
-          "failurePropagation": "propagate"
-        },
-        {
-          "dependencyId": "dependency.beads",
-          "operationRef": "product.beads::update --description",
-          "callPurpose": "Under the beads adapter, after bd's own pour from the formula's path: the means to prove the run kept as the last section of the root's description.",
           "failurePropagation": "propagate"
         }
       ]
@@ -4536,7 +4534,7 @@
         "A name already registered, in any case, is refused, so that a suffix names one provider wherever case does not count.",
         "The location recorded is the one describe answers, a directory by its absolute path, so that it names one store from every directory dotdiw runs in.",
         "The registry is read, changed and written under its lock, so that two registrations never lose one another.",
-        "Every index this run built is forgotten, so that the next question reaches the provider.",
+        "Every provider list this run read is forgotten, so that a name registered again is listed from where it points now; the next operation reads the formulas afresh, so the next question reaches the provider.",
         "A local formula whose id reads like one of the provider's suffixed ids migrates.",
         "For now, the registered provider serves every checkout."
       ],
@@ -4695,7 +4693,7 @@
     {
       "operationId": "operation.show-provider-formula",
       "name": "ShowProviderFormula",
-      "summary": "Show a provider's formula: The formula comes back as the provider keeps it.",
+      "summary": "Show a provider's formula: The formula comes back as data -- its description, its means to prove and its steps -- held to their shape.",
       "kind": "query",
       "status": "active",
       "visibility": "supporting",
@@ -4745,8 +4743,8 @@
       ],
       "postconditions": [
         "A pour of it carries nothing about the provider.",
-        "Its parsed formula key is set to the suffixed id, however the provider spelled it, and every other value is written out as the provider gave it; the text is taken only when it reads back as exactly that.",
-        "It is written under the workspace's home to a file named for a digest of the provider's name, the id and the text, never for the name or the id, written once and never changed, so that a pour reads the very copy the tracker cooks.",
+        "Its answer is held to its shape before anything is taken from it -- a description that is text, steps that are a list, each with an id and a title once and needs that are step ids, and means to prove each one line in a form check reads -- and a formula outside it is refused in one line naming the provider. Only the means to prove and a step's needs may be left out, and nothing given is replaced by a default.",
+        "Nothing is written for it; a pour hands the tracker the steps it answered, and formula show prints it in the form a .formula.json file takes.",
         "It is asked when a formula is shown or poured, and never while the project is indexed."
       ],
       "calls": [],
@@ -4755,14 +4753,6 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.show-provider-formula",
           "reason": "Derived from a product-visible GWT step."
-        }
-      ],
-      "externalCalls": [
-        {
-          "dependencyId": "dependency.git",
-          "operationRef": "product.git::config --local --get dotdiw.workspace",
-          "callPurpose": "The checkout's workspace under the home, which the formula's file is written beneath.",
-          "failurePropagation": "propagate"
         }
       ]
     },
@@ -4828,7 +4818,7 @@
       ],
       "postconditions": [
         "Nothing but the registry changes -- under its lock the registration goes, and the name is kept as removed, so that an id with its suffix is refused rather than handed to the tracker.",
-        "Every index this run built is forgotten, so that the provider's formulas are gone from the next answer."
+        "The next operation reads the formulas afresh, so the provider's formulas are gone from the next answer."
       ],
       "calls": [],
       "derivedFrom": [
@@ -4891,19 +4881,6 @@
           "summary": "The repository the interface resolved; bodies never ask git for it themselves."
         },
         {
-          "name": "arguments",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
-          "cardinality": "many"
-        },
-        {
           "name": "title",
           "valueType": {
             "kind": "scalar",
@@ -4946,6 +4923,15 @@
           },
           "required": false,
           "summary": "What the worker said of the work beyond its title, saved on the item."
+        },
+        {
+          "name": "json",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Print the record of the work created as JSON, and nothing else; from --json."
         }
       ]
     },
@@ -5035,15 +5021,6 @@
           },
           "required": false,
           "summary": "Why the create was refused, when the adapter said: the tracker underneath is not installed, the checkout has no store, or no adapter of that name is here."
-        },
-        {
-          "name": "printed",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The adapter ran a product's own command with the worker's terminal, so what it printed is on the terminal already; false when it answered in records, which the presenter then shows."
         },
         {
           "name": "item",
@@ -5316,19 +5293,6 @@
           "summary": "The repository the interface resolved; bodies never ask git for it themselves."
         },
         {
-          "name": "arguments",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
-          "cardinality": "many"
-        },
-        {
           "name": "ident",
           "valueType": {
             "kind": "scalar",
@@ -5345,6 +5309,15 @@
           },
           "required": false,
           "summary": "The adapter to answer, by its registered name; unsaid, the workspace's dotdiw.tracker answers, and unsaid there, the shipped default. The command line fills it from --tracker or DOTDIW_TRACKER and nothing else does; a journey hands it to its steps."
+        },
+        {
+          "name": "json",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Print the root and the step ids as JSON, a pour cut short after its root was made included, and nothing else; from --json."
         }
       ]
     },
@@ -5456,20 +5429,12 @@
               "cycle",
               "ambiguous",
               "provider-formula-unserved",
-              "provider-failed"
+              "provider-failed",
+              "duplicate-step"
             ]
           },
           "required": false,
           "summary": "Why the pour failed, when the adapter said."
-        },
-        {
-          "name": "printed",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The adapter ran a product's own command with the worker's terminal, so what it printed is on the terminal already; false when it answered in records, which the presenter then shows."
         },
         {
           "name": "tracker",
@@ -6343,19 +6308,6 @@
           "summary": "The repository the interface resolved; bodies never ask git for it themselves."
         },
         {
-          "name": "arguments",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
-          "cardinality": "many"
-        },
-        {
           "name": "quiet",
           "valueType": {
             "kind": "scalar",
@@ -6372,6 +6324,15 @@
           },
           "required": false,
           "summary": "The adapter to answer, by its registered name; unsaid, the workspace's dotdiw.tracker answers, and unsaid there, the shipped default. The command line fills it from --tracker or DOTDIW_TRACKER and nothing else does; a journey hands it to its steps."
+        },
+        {
+          "name": "prefix",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The prefix the tracker's ids begin with, where the adapter honours one; from --prefix or -p."
         }
       ]
     },
@@ -6474,15 +6435,6 @@
           },
           "required": false,
           "summary": "Why the repository was not adopted, when it was not."
-        },
-        {
-          "name": "printed",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The adapter ran a product's own command with the worker's terminal, so what it printed is on the terminal already; false when it answered in records, which the presenter then shows."
         },
         {
           "name": "tracker",
@@ -6733,15 +6685,6 @@
           "required": false,
           "summary": "The declaration files dotdiw wrote or changed.",
           "cardinality": "many"
-        },
-        {
-          "name": "command",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": false,
-          "summary": "The command that removes an in-tree copy an earlier version left, when this run adopted the repository under the home."
         }
       ]
     },
@@ -6881,6 +6824,15 @@
           },
           "required": false,
           "summary": "The adapter to answer, by its registered name; unsaid, the workspace's dotdiw.tracker answers, and unsaid there, the shipped default. The command line fills it from --tracker or DOTDIW_TRACKER and nothing else does; a journey hands it to its steps."
+        },
+        {
+          "name": "apply",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Put right what an earlier version left; init alone asks for it. Unsaid, nothing is changed, and what is left is answered as pending."
         }
       ]
     },
@@ -6937,6 +6889,19 @@
           },
           "required": false,
           "summary": "Open questions that block or qualify the result.",
+          "cardinality": "many"
+        },
+        {
+          "name": "pending",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Without apply, one line for each thing an earlier version left that init would put right; empty when there is nothing.",
           "cardinality": "many"
         },
         {
@@ -7999,6 +7964,15 @@
           },
           "required": false,
           "summary": "What the command line exits with for this response: 0 unless the tracker or the operation failed."
+        },
+        {
+          "name": "formula",
+          "valueType": {
+            "kind": "type-ref",
+            "typeId": "type.formula-body"
+          },
+          "required": false,
+          "summary": "The formula resolved, as data, from the reading that resolved it: a formula in local storage as the index read its file, a provider's from its show."
         }
       ]
     },
@@ -8185,28 +8159,6 @@
           },
           "required": false,
           "summary": "The id prefix for the workspace, where the adapter honours one."
-        },
-        {
-          "name": "arguments",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "summary": "What the worker typed after the command's own name, for an adapter whose answer is a product's own command; an adapter that answers in records reads the fields instead.",
-          "cardinality": "many"
-        },
-        {
-          "name": "terminal",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The worker's terminal is attached to this request. An adapter whose answer is a product's own command may run it with the terminal, stream and all, as the pass-through does, and read the record from the stream; one that answers in records ignores it. Unsaid, the adapter answers quietly."
         }
       ]
     },
@@ -8305,15 +8257,6 @@
           },
           "required": false,
           "summary": "Whether this call made the store, as opposed to finding it already there."
-        },
-        {
-          "name": "printed",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The adapter ran a product's own command with the worker's terminal, so what it printed is on the terminal already; false when it answered in records, which the presenter then shows."
         },
         {
           "name": "tracker",
@@ -8621,28 +8564,6 @@
           "cardinality": "many"
         },
         {
-          "name": "arguments",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "summary": "What the worker typed after the command's own name, for an adapter whose answer is a product's own command; an adapter that answers in records reads the fields instead.",
-          "cardinality": "many"
-        },
-        {
-          "name": "terminal",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The worker's terminal is attached to this request. An adapter whose answer is a product's own command may run it with the terminal, stream and all, as the pass-through does, and read the record from the stream; one that answers in records ignores it. Unsaid, the adapter answers quietly."
-        },
-        {
           "name": "id",
           "valueType": {
             "kind": "scalar",
@@ -8739,15 +8660,6 @@
             "scalar": "integer"
           },
           "required": false
-        },
-        {
-          "name": "printed",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The adapter ran a product's own command with the worker's terminal, so what it printed is on the terminal already; false when it answered in records, which the presenter then shows."
         },
         {
           "name": "tracker",
@@ -9051,37 +8963,6 @@
           "cardinality": "many"
         },
         {
-          "name": "arguments",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "summary": "What the worker typed after the command's own name, for an adapter whose answer is a product's own command; an adapter that answers in records reads the fields instead.",
-          "cardinality": "many"
-        },
-        {
-          "name": "terminal",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The worker's terminal is attached to this request. An adapter whose answer is a product's own command may run it with the terminal, stream and all, as the pass-through does, and read the record from the stream; one that answers in records ignores it. Unsaid, the adapter answers quietly."
-        },
-        {
-          "name": "path",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": false,
-          "summary": "Where the formula file is, for an adapter that pours from the file itself; absent, the steps given are poured."
-        },
-        {
           "name": "description",
           "valueType": {
             "kind": "scalar",
@@ -9193,7 +9074,8 @@
               "no-steps",
               "step-not-found",
               "not-installed",
-              "cycle"
+              "cycle",
+              "duplicate-step"
             ]
           },
           "required": false,
@@ -9206,15 +9088,6 @@
             "scalar": "integer"
           },
           "required": false
-        },
-        {
-          "name": "printed",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": false,
-          "summary": "The adapter ran a product's own command with the worker's terminal, so what it printed is on the terminal already; false when it answered in records, which the presenter then shows."
         },
         {
           "name": "tracker",
@@ -11712,7 +11585,7 @@
             "scalar": "string"
           },
           "required": false,
-          "summary": "The checkout whose workspace the formula's file is written under."
+          "summary": "The checkout the formula is shown for; nothing is written for it."
         },
         {
           "name": "name",
@@ -11799,22 +11672,13 @@
           "summary": "The formula's suffixed id."
         },
         {
-          "name": "text",
+          "name": "formula",
           "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
+            "kind": "type-ref",
+            "typeId": "type.formula-body"
           },
           "required": false,
-          "summary": "The formula as the provider keeps it, its id suffixed."
-        },
-        {
-          "name": "path",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": false,
-          "summary": "The file under the workspace's home the formula is written to, for a pour."
+          "summary": "The formula, as data, held to its shape."
         },
         {
           "name": "reason",
@@ -12051,19 +11915,6 @@
           "summary": "The repository the interface resolved; bodies never ask git for it themselves."
         },
         {
-          "name": "arguments",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
-          "cardinality": "many"
-        },
-        {
           "name": "title",
           "valueType": {
             "kind": "scalar",
@@ -12088,7 +11939,7 @@
             "scalar": "boolean"
           },
           "required": false,
-          "summary": "Print only the tracker's own output; --json, -q, --quiet, --silent and DOTDIW_NO_HINTS set it."
+          "summary": "Print the work created and nothing that rides along with it; --json, -q, --quiet, --silent and DOTDIW_NO_HINTS set it."
         },
         {
           "name": "tracker",
@@ -12116,6 +11967,15 @@
           },
           "required": false,
           "summary": "The parent item's id, from --parent."
+        },
+        {
+          "name": "json",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": false,
+          "summary": "Print the record of the work created as JSON, and nothing else; from --json."
         }
       ]
     },
@@ -12470,19 +12330,6 @@
           "summary": "The repository the interface resolved; bodies never ask git for it themselves."
         },
         {
-          "name": "arguments",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "summary": "The command-line arguments as typed, forwarded to the tracker unchanged.",
-          "cardinality": "many"
-        },
-        {
           "name": "tracker",
           "valueType": {
             "kind": "scalar",
@@ -12490,6 +12337,15 @@
           },
           "required": false,
           "summary": "The adapter to answer, by its registered name; unsaid, the workspace's dotdiw.tracker answers, and unsaid there, the shipped default. The command line fills it from --tracker or DOTDIW_TRACKER and nothing else does; a journey hands it to its steps."
+        },
+        {
+          "name": "prefix",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": false,
+          "summary": "The prefix the tracker's ids begin with, where the adapter honours one; from --prefix or -p."
         }
       ]
     },
@@ -12866,6 +12722,15 @@
           },
           "required": false,
           "summary": "show: the file, as written."
+        },
+        {
+          "name": "formula",
+          "valueType": {
+            "kind": "type-ref",
+            "typeId": "type.formula-body"
+          },
+          "required": false,
+          "summary": "resolve: the formula resolved, as data."
         },
         {
           "name": "formulas",
@@ -14847,6 +14712,88 @@
       ]
     },
     {
+      "typeId": "type.formula-step",
+      "name": "FormulaStep",
+      "kind": "record",
+      "description": "One step of a formula as data: its id within the formula, its title and the step ids it needs.",
+      "fields": [
+        {
+          "name": "id",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The step's id in the formula."
+        },
+        {
+          "name": "title",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The step's title."
+        },
+        {
+          "name": "needs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "Step ids this one needs.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    {
+      "typeId": "type.formula-body",
+      "name": "FormulaBody",
+      "kind": "record",
+      "description": "A formula as data, the way a formula management provider answers show: its description, its means to prove, and its steps.",
+      "fields": [
+        {
+          "name": "description",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true,
+          "summary": "The formula's description."
+        },
+        {
+          "name": "verifyUsing",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "summary": "The means to prove a run of it, one line each.",
+          "cardinality": "many"
+        },
+        {
+          "name": "steps",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "type-ref",
+              "typeId": "type.formula-step"
+            }
+          },
+          "required": true,
+          "summary": "Its steps, in the formula's order.",
+          "cardinality": "many"
+        }
+      ]
+    },
+    {
       "typeId": "type.tracker-info",
       "name": "TrackerInfo",
       "kind": "record",
@@ -14928,7 +14875,7 @@
             }
           },
           "required": false,
-          "summary": "What the adapter offers beyond the interface, by name; forward, for the beads adapter's pass-through.",
+          "summary": "What the adapter offers beyond the interface, by name: forward, for the beads adapter's pass-through; metrics-off; and upgrade, for an adapter whose store an earlier version kept another way.",
           "cardinality": "many"
         }
       ]
@@ -15088,15 +15035,15 @@
     },
     {
       "fromOperationId": "operation.adopt-a-repository",
-      "toOperationId": "operation.adopt-repository",
+      "toOperationId": "operation.undo-earlier-adoption",
       "callKind": "asynchronous",
-      "reason": "Compose operation.adopt-repository as a governed journey step."
+      "reason": "Compose operation.undo-earlier-adoption as a governed journey step, with apply, before the checkout is adopted: what an earlier version left is put right by init alone."
     },
     {
       "fromOperationId": "operation.adopt-a-repository",
-      "toOperationId": "operation.undo-earlier-adoption",
+      "toOperationId": "operation.adopt-repository",
       "callKind": "asynchronous",
-      "reason": "Compose operation.undo-earlier-adoption as a governed journey step."
+      "reason": "Compose operation.adopt-repository as a governed journey step."
     },
     {
       "fromOperationId": "operation.adopt-a-repository",
@@ -15276,7 +15223,7 @@
       "fromOperationId": "operation.name-the-work",
       "toOperationId": "operation.create-item",
       "callKind": "synchronous",
-      "reason": "Create the work item through the tracker door, with the terminal and the arguments as typed, so that under beads the create is bd's own."
+      "reason": "Create the work item through the tracker door, from the fields dotdiw's own flags filled."
     },
     {
       "fromOperationId": "operation.match-formulas",
@@ -15294,7 +15241,7 @@
       "fromOperationId": "operation.pour-procedure",
       "toOperationId": "operation.pour-steps",
       "callKind": "synchronous",
-      "reason": "Pour through the tracker door: the steps read from the file, and its path and the arguments typed for an adapter that pours from the file itself."
+      "reason": "Pour through the tracker door: the steps, the description and the means to prove read from the file."
     },
     {
       "fromOperationId": "operation.notice-handmade-procedures",
@@ -15342,7 +15289,7 @@
       "fromOperationId": "operation.adopt-repository",
       "toOperationId": "operation.open-tracker",
       "callKind": "asynchronous",
-      "reason": "Open the tracker under the key through the tracker door, with the terminal unless quiet, the prefix taken out of what was typed and the rest handed on."
+      "reason": "Open the tracker under the key through the tracker door, with the prefix init was given."
     },
     {
       "fromOperationId": "operation.adopt-repository",
@@ -15354,7 +15301,7 @@
       "fromOperationId": "operation.undo-earlier-adoption",
       "toOperationId": "operation.adopt-repository",
       "callKind": "synchronous",
-      "reason": "Where an earlier version left the tracker in the tree and no key exists, the repository is adopted under the home with the old prefix, quietly, before the command typed runs."
+      "reason": "Where an earlier version left the tracker in the tree and no key exists, and init asks for it put right, the repository is adopted under the home with the old prefix, quietly, before init adopts the checkout."
     },
     {
       "fromOperationId": "operation.forward-to-the-tracker",
@@ -15752,17 +15699,32 @@
       "affordance": {
         "label": "dotdiw create",
         "shape": "Name the work and read what applies, in one invocation.",
-        "command": "dotdiw create \"<title>\" [-d <description>] [bd create flags]",
+        "command": "dotdiw create \"<title>\" [-p <0-4>] [--parent <id>] [-d <description>] [--json] [-q]",
         "inputMapping": [
           {
             "from": "<title>",
             "to": "title",
-            "notes": "The first argument that is not a flag or a flag's value."
+            "notes": "The one argument that is not a flag or a flag's value."
           },
           {
             "from": "-d, --description",
             "to": "description",
-            "notes": "Matched together with the title."
+            "notes": "Matched together with the title. A value that starts with a dash is given as --description=<text>."
+          },
+          {
+            "from": "-p, --priority",
+            "to": "priority",
+            "notes": "0 to 4, as 2 or P2."
+          },
+          {
+            "from": "--parent",
+            "to": "parent",
+            "notes": "The item the work goes under."
+          },
+          {
+            "from": "--json",
+            "to": "json",
+            "notes": "The record of the work created, as JSON, and nothing else."
           },
           {
             "from": "--json, -q, --quiet, --silent, DOTDIW_NO_HINTS=1",
@@ -15770,9 +15732,9 @@
             "notes": "Suppresses what rides along with the create: the match, the re-declaration, the check. The create itself still happens."
           },
           {
-            "from": "every argument",
-            "to": "arguments",
-            "notes": "Forwarded to the tracker's create unchanged."
+            "from": "any other flag",
+            "to": "",
+            "notes": "Refused in one line naming it, as is one of create's own flags given no value; nothing is created."
           }
         ]
       },
@@ -15799,7 +15761,7 @@
       "affordance": {
         "label": "dotdiw formula pour",
         "shape": "Pour a formula from where it lives, by its id. dotdiw mol pour is the older spelling and does the same.",
-        "command": "dotdiw formula pour <formula-id|file|path> [bd mol pour flags]"
+        "command": "dotdiw formula pour <formula-id|file|path> [--json]"
       },
       "coverage": {
         "coverageKind": "fulfills",
@@ -16128,8 +16090,8 @@
       "operationId": "operation.adopt-a-repository",
       "affordance": {
         "label": "dotdiw init",
-        "shape": "Adopt the repository: the tracker under your home, keyed to this checkout by one line in .git/config; nothing of it in the repository; the conventions declared and named as yours to commit.",
-        "command": "dotdiw init [--tracker <name>] [--prefix <p>] [the adapter's own init flags]",
+        "shape": "Adopt the repository: what an earlier version left put right first; the tracker under your home, keyed to this checkout by one line in .git/config; nothing of it in the repository; the conventions declared and named as yours to commit.",
+        "command": "dotdiw init [--tracker <name>] [--prefix <p>]",
         "inputMapping": [
           {
             "from": "--tracker <name>",
@@ -16138,13 +16100,13 @@
           },
           {
             "from": "--prefix <p>",
-            "to": "arguments",
-            "notes": "The id prefix, taken out of the arguments and handed to the adapter as such."
+            "to": "prefix",
+            "notes": "The id prefix, handed to the adapter, which honours it where it can."
           },
           {
-            "from": "every other argument",
-            "to": "arguments",
-            "notes": "Handed to the adapter: under beads, --stealth, --skip-hooks and --skip-agents are inserted when absent and the rest goes to its init unchanged; under local, nothing is read."
+            "from": "any other argument",
+            "to": "",
+            "notes": "Refused in one line naming it; nothing is adopted."
           }
         ]
       },
@@ -16230,7 +16192,7 @@
           {
             "from": "--tracker <name>",
             "to": "tracker",
-            "notes": "Taken out of the arguments; also DOTDIW_TRACKER."
+            "notes": "Taken out of the arguments; also DOTDIW_TRACKER. Given no name, the command is refused in one line before anything runs."
           }
         ]
       },
@@ -16302,8 +16264,8 @@
       "interfaceName": "dotdiw",
       "operationId": "operation.undo-earlier-adoption",
       "affordance": {
-        "label": "every dotdiw command",
-        "shape": "Before whatever was typed, a hook override left by v0.1.0 is unset, and a repository an earlier version adopted in its tree is adopted under the home with the same prefix, once, with the command for the in-tree copy named.",
+        "label": "every dotdiw command but init, learn and --version",
+        "shape": "Before whatever was typed, asks whether an earlier version left a hook override, a tracker in the tree or a workspace with no tracker chosen, changing nothing; while one is left, the command is refused in one line naming dotdiw init, which puts it right.",
         "command": "dotdiw <anything>"
       },
       "coverage": {
@@ -16317,7 +16279,7 @@
         "stepIds": [
           "step.undo-earlier-adoption"
         ],
-        "explanation": "Not a command of its own: a repository is unprotected for as long as the override stands, so it does not wait to be asked."
+        "explanation": "Not a command of its own: a repository is unprotected for as long as the override stands, so every command says so until init puts it right."
       }
     },
     {
@@ -16528,8 +16490,8 @@
       "privateHelpersUsed": false,
       "calledOperationIds": [
         "operation.turn-metrics-off",
-        "operation.adopt-repository",
         "operation.undo-earlier-adoption",
+        "operation.adopt-repository",
         "operation.declare-conventions",
         "operation.report-what-is-yours-to-commit"
       ],
@@ -17405,6 +17367,131 @@
       "reason": "A formula was a file that one repository's git tracked. Behind a formula management abstraction, where a formula is kept is the provider's business, and the door reaches every provider the same way.",
       "compatibility": "breaking",
       "createdAt": "2026-11-08T12:24:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.one-header-for-every-formula-list",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw"
+      ],
+      "summary": "list-formulas promises one header for every list, the number of formulas listed, where it promised \"in this repo\" while every formula listed was in the repository. No type moves. Migration plan: none.",
+      "reason": "The header kept 1.1's bytes for a list of local formulas only so that an old comparison held.",
+      "compatibility": "corrective",
+      "createdAt": "2026-11-10T01:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.an-earlier-adoption-is-put-right-by-init",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw"
+      ],
+      "summary": "undo-earlier-adoption takes apply, and answers pending, one line for each thing an earlier version left, when it is not applied. Without apply it changes nothing and answers blocked while anything is left; adopt-a-repository calls it with apply before adopt-repository. Migration plan: run dotdiw init once in a checkout an earlier version adopted.",
+      "reason": "Every command wrote to the repository's git config to put an earlier adoption right; init alone does now.",
+      "compatibility": "breaking",
+      "createdAt": "2026-11-10T01:30:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.the-means-kept-as-data",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.tracker-door"
+      ],
+      "summary": "pour-steps under beads reads the root with show --json and keeps the means with update --metadata, where it wrote a section with update --description. undo-earlier-adoption reaches the adapter's upgrade extra, which under beads runs list --all --json and update --description --metadata, once, under init. type.tracker-info's extras name upgrade. No field of the interface moves. Migration plan: run dotdiw init once in each checkout an earlier version used.",
+      "reason": "Both shipped trackers have a place for the means of their own, and kept them in the description text instead.",
+      "compatibility": "breaking",
+      "createdAt": "2026-11-10T02:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.every-read-of-the-tracker-reads-it-whole",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw"
+      ],
+      "summary": "notice-handmade-procedures and write-formula ask list-items for every item, with no limit; pour-steps under beads lists the root's children with --parent and no count. No type moves. Migration plan: none.",
+      "reason": "Three reads stopped at 300 items without saying so.",
+      "compatibility": "corrective",
+      "createdAt": "2026-11-10T02:30:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.beads-pours-the-steps-it-is-given",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.tracker-door"
+      ],
+      "summary": "pour-steps under beads runs create alone, for the root and for each step; cook --persist --force, mol pour, list, show and update leave its external calls. The reason of pour-steps and of pour-procedure gains duplicate-step, for steps that share an id. Migration plan: none.",
+      "reason": "bd's own pour hid which issue was which step.",
+      "compatibility": "breaking",
+      "createdAt": "2026-11-10T03:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.no-pour-lock-under-beads",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw"
+      ],
+      "summary": "forward-to-the-tracker no longer promises a lock held while a forwarded command names cook or mol. No type moves. Migration plan: none.",
+      "reason": "A pour no longer cooks, so there is nothing for a forwarded cook to land between.",
+      "compatibility": "corrective",
+      "createdAt": "2026-11-10T03:30:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.a-pour-hands-over-the-formula-it-read",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw"
+      ],
+      "summary": "pour-procedure hands pour-steps no path, and promises one reading of the formula with nothing written for it. No type moves. Migration plan: none.",
+      "reason": "The snapshot existed for beads to cook, and beads no longer cooks.",
+      "compatibility": "corrective",
+      "createdAt": "2026-11-10T04:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.dotdiw-parses-its-own-flags",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw"
+      ],
+      "summary": "start-named-work and name-the-work take json and no arguments; pour-procedure takes json and no arguments; adopt-a-repository and adopt-repository take prefix and no arguments. Migration plan: set what bd's own create flags set with dotdiw update.",
+      "reason": "What was typed went to the tracker as typed, parsed around bd's own flags.",
+      "compatibility": "breaking",
+      "createdAt": "2026-11-10T04:30:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.tracker-interface-3-carries-data-alone",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.tracker-door",
+        "invariant.one-tracker-door"
+      ],
+      "summary": "pour-steps loses path, arguments and terminal; create-item and open-tracker lose arguments and terminal; their answers lose printed, and so do name-the-work's, pour-procedure's and adopt-repository's. The tracker interface is number 3, with its digest recorded, and a module written for 2 is refused in one line that names it. Migration plan: an adapter declares interface 3 and answers in records.",
+      "reason": "The interface carried a file, typed words and a terminal for one adapter's own commands.",
+      "compatibility": "breaking",
+      "createdAt": "2026-11-10T05:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.a-provider-answers-a-formula-as-data",
+      "changeType": "project-python-protocol",
+      "targetRefs": [
+        "idl.dotdiw",
+        "projection.door"
+      ],
+      "summary": "type.formula-body and type.formula-step join the IDL. show-provider- formula answers formula, a type.formula-body, where it answered text and path; resolve-formula answers formula for every formula it resolves, a local one as the index read it, and so does find-a-held-procedure; a pour pours it. Migration plan: a provider answers show with the formula as data and declares interface 2.",
+      "reason": "The provider interface carried a file's text in one of two formats.",
+      "compatibility": "breaking",
+      "createdAt": "2026-11-10T05:30:00+08:00",
       "approvalStatus": "draft"
     }
   ],

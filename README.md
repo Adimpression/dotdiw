@@ -307,8 +307,8 @@ folder. A formula you did not commit is found in your checkout alone, and
 **Formulas kept elsewhere come through a provider**, registered once under a
 name that every one of its formulas then carries as a suffix. Each provider's
 list is read once per run, and its formulas are matched and listed from it as
-the ones in the tree are; a formula's text is fetched from the provider, and
-written under your home, only when it is shown or poured.
+the ones in the tree are; a formula itself is fetched from the provider, as
+data, only when it is shown or poured, and nothing is written for it.
 
 **Retrieval is SQLite's FTS5**, which the interpreter already ships: bm25 ranking
 and a porter stemmer, so a word is worth what it is distinctive and "failing"
@@ -459,13 +459,16 @@ key survives a move and worktrees share it. A fresh clone has none, so every
 clone runs `dotdiw init` once, and `create` says so until it has. Outside a
 git repository `init` refuses.
 
-A repository adopted by an earlier version is upgraded by its first dotdiw
-command: the key is written, a tracker is made under the home with the same
-prefix, and the command runs. Earlier tasks are not carried over; dotdiw says
-so once, and names the one command that removes the unused `.beads/` from the
-tree. It never runs that command and never edits the old copy. A checkout
-adopted by 0.4.0 or 0.5.0 keeps the tracker its work is in: the first 0.6.0
-command there writes `dotdiw.tracker` for it and says so once.
+A repository an earlier version adopted is brought up to date by `dotdiw
+init`, and every other command but `learn` and `--version` says so in one line
+until it has. init unsets bd's hooks path, makes a tracker under the home with
+the same prefix for one kept in the tree, writes `dotdiw.tracker` for a
+checkout adopted before there was a choice, and has the tracker bring a store
+an earlier version kept up to date. Earlier tasks in the tree are not carried
+over; dotdiw says so once, and names the one command that removes the unused
+`.beads/` from the tree. It never runs that command and never edits the old
+copy. When any of it cannot be done, init stops in one line and adopts
+nothing.
 
 The one file dotdiw writes that is opt-in is the witness log,
 `~/.dotdiw/<key>/witness.jsonl`. With `DOTDIW_WITNESS=1` set, or once that

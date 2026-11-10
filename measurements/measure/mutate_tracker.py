@@ -62,7 +62,10 @@ MUTATIONS = [
         "dotdiw",
         '            git(["config", "--local", TRACKER_KEY, pinned], root)\n            forget_workspace(root)\n            if tracker_name(root) == pinned:\n',
         "            forget_workspace(root)\n            if True:\n",
-        ["test_dotdiw.py", "TheUpgradePin.test_the_choice_is_written_once_and_said_once"],
+        [
+            "test_dotdiw.py",
+            "WhatAModuleGetsWrong.test_a_choice_that_could_not_be_pinned_is_not_said_to_be",
+        ],
     ),
     (
         "the stream rewrite is dropped",
@@ -74,8 +77,8 @@ MUTATIONS = [
     (
         "a body runs the binary itself",
         "dotdiw",
-        '    root = request["root"]\n    args = list(request.get("arguments") or [])\n    if args and args[0] == "create":\n        args = args[1:]\n',
-        '    root = request["root"]\n    beads_quiet(["list"], root)\n    args = list(request.get("arguments") or [])\n    if args and args[0] == "create":\n        args = args[1:]\n',
+        '    root = request["root"]\n    made = invoke_tracker(\n        "operation.create-item",\n',
+        '    root = request["root"]\n    beads_quiet(["list"], root)\n    made = invoke_tracker(\n        "operation.create-item",\n',
         ["test_promise.py", "TheSort.test_only_the_adapter_names_the_binary"],
     ),
     (
@@ -91,16 +94,6 @@ MUTATIONS = [
         '        for need in item.get("needs") or []:\n            if need in ids and [item["id"], need] not in linked:\n',
         '        for need in []:\n            if need in ids and [item["id"], need] not in linked:\n',
         ["test_tracker.py", "MovingBetweenAdapters.test_every_pair_and_back"],
-    ),
-    (
-        "the presenter prints the created issue under beads too",
-        "dotdiw",
-        '    elif response.get("workRef") and not response.get("printed"):\n',
-        '    elif response.get("workRef"):\n',
-        [
-            "test_dotdiw.py",
-            "TheBytesUnderBeads.test_the_seventeen_commands_print_what_0_5_0_printed",
-        ],
     ),
     (
         "the witness forgets which adapter answered",
@@ -190,8 +183,8 @@ MUTATIONS = [
     (
         "a switch that fails still changes the choice",
         "dotdiw",
-        '    opened = invoke_tracker(\n        "operation.open-tracker",\n        {\n            "root": root,\n            "tracker": name,\n            "prefix": prefix,\n',
-        '    git(["config", "--local", TRACKER_KEY, name], root)\n    opened = invoke_tracker(\n        "operation.open-tracker",\n        {\n            "root": root,\n            "tracker": name,\n            "prefix": prefix,\n',
+        '    opened = invoke_tracker(\n        "operation.open-tracker",\n        {"root": root, "tracker": name, "prefix": prefix},\n    )\n',
+        '    git(["config", "--local", TRACKER_KEY, name], root)\n    opened = invoke_tracker(\n        "operation.open-tracker",\n        {"root": root, "tracker": name, "prefix": prefix},\n    )\n',
         ["test_dotdiw.py", "TheLocalCommandLine.test_a_switch_that_fails_keeps_the_choice"],
     ),
     (
@@ -211,7 +204,7 @@ MUTATIONS = [
     (
         "create --json prints prose",
         "dotdiw",
-        '        if "--json" in (request.get("arguments") or []):\n            print(json.dumps(item, indent=2, ensure_ascii=False))\n            return\n',
+        '        if request.get("json"):\n            print(json.dumps(item, indent=2, ensure_ascii=False))\n            return\n',
         "",
         ["test_dotdiw.py", "TheLocalCommandLine.test_json_is_json"],
     ),
@@ -528,7 +521,7 @@ MUTATIONS = [
     (
         "init says nothing when a store does not open",
         "dotdiw",
-        '    elif response["status"] != "completed":\n        if not response.get("printed"):\n            sys.stderr.write("%s: %s\\n" % (PROG, response["summary"]))\n    elif not response["created"]:\n',
+        '    elif response["status"] != "completed":\n        sys.stderr.write("%s: %s\\n" % (PROG, response["summary"]))\n    elif not response["created"]:\n',
         '    elif response["status"] != "completed":\n        pass\n    elif not response["created"]:\n',
         [
             "test_dotdiw.py",
@@ -538,8 +531,8 @@ MUTATIONS = [
     (
         "a stock line replaces what the tracker said",
         "dotdiw",
-        '"summary": "The tracker\'s init failed." if opened.get("printed") else opened["summary"],',
-        '"summary": opened["summary"] if opened.get("reason") else "The tracker\'s init failed.",',
+        '            "summary": opened["summary"],\n            "workspace": ws,\n',
+        '            "summary": "The tracker\'s init failed.",\n            "workspace": ws,\n',
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_init_says_why_the_store_did_not_open_and_stops",
@@ -619,8 +612,8 @@ MUTATIONS = [
     (
         "a failed create says nothing",
         "dotdiw",
-        '    elif response["status"] != "completed" and not response.get("printed"):\n        sys.stderr.write("%s: %s\\n" % (PROG, response["summary"]))\n    elif response.get("workRef") and not response.get("printed"):\n',
-        '    elif response.get("workRef") and not response.get("printed"):\n',
+        '    elif response["status"] != "completed":\n        sys.stderr.write("%s: %s\\n" % (PROG, response["summary"]))\n    elif response.get("workRef"):\n',
+        '    elif response.get("workRef"):\n',
         ["test_dotdiw.py", "WhatAModuleGetsWrong.test_a_failed_create_says_why"],
     ),
     (
@@ -762,8 +755,8 @@ MUTATIONS = [
     (
         "an old tree moves a checkout off its module",
         "dotdiw",
-        "    if in_tree and not checkout_adopted(root):\n",
-        "    if in_tree and not adopted(ws):\n",
+        "    if in_tree and not checkout_adopted(root) and not apply:\n",
+        "    if in_tree and not adopted(ws) and not apply:\n",
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_an_old_tree_does_not_move_a_checkout_off_its_module",
@@ -802,8 +795,8 @@ MUTATIONS = [
     (
         "create drops what the adapter said",
         "dotdiw",
-        '        else "The tracker refused the create."\n        if made.get("printed")\n        else made["summary"],\n',
-        '        else made["summary"]\n        if made.get("reason")\n        else "The tracker refused the create.",\n',
+        '        "summary": "Named %s." % (work or "the work") if code == 0 else made["summary"],\n',
+        '        "summary": "Named %s." % (work or "the work") if code == 0 else "The tracker refused the create.",\n',
         ["test_dotdiw.py", "WhatAModuleGetsWrong.test_a_failed_create_says_what_the_adapter_said"],
     ),
     (
@@ -929,11 +922,11 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheWordFormulaPour.test_both_spellings_print_the_same"],
     ),
     (
-        "formula pour drops what is typed after the formula",
+        "formula pour drops --json",
         "dotdiw",
-        '"ident": argv[2], "arguments": argv[3:],',
-        '"ident": argv[2], "arguments": [],',
-        ["test_dotdiw.py", "TheWordFormulaPour.test_what_is_typed_after_the_formula_goes_along"],
+        '                    "json": bool(fields.get("json")),\n',
+        '                    "json": False,\n',
+        ["test_dotdiw.py", "TheWordFormulaPour.test_json_after_the_formula_prints_the_record"],
     ),
     (
         "formula pour with no formula is not told how it is used",
@@ -977,10 +970,7 @@ MUTATIONS = [
         '    if len(argv) > 2 and argv[1] == "pour" and argv[0] in ("formula", "mol"):\n'
         '        if argv[0] == "mol":\n'
         '            sys.stderr.write("mol pour is now formula pour\\n")\n',
-        [
-            "test_dotdiw.py",
-            "TheBytesUnderBeads.test_the_seventeen_commands_print_what_0_6_0_printed",
-        ],
+        ["test_dotdiw.py", "TheWordFormulaPour.test_both_spellings_print_the_same"],
     ),
     (
         "learn claims you never type anything else",
@@ -1172,8 +1162,8 @@ MUTATIONS = [
     (
         "beads makes its root an epic",
         "dotdiw",
-        '    argv = ["create", request["title"], "-t", "molecule", "-p", "2", "--json"]\n',
-        '    argv = ["create", request["title"], "-t", "epic", "-p", "2", "--json"]\n',
+        '    argv = ["create", "--title=" + request["title"], "--type=molecule", "--priority=2", "--json"]\n',
+        '    argv = ["create", "--title=" + request["title"], "--type=epic", "--priority=2", "--json"]\n',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
@@ -1193,8 +1183,8 @@ MUTATIONS = [
     (
         "a kind is passed to create-item",
         "dotdiw",
-        '            "parent": request.get("parent"),\n            "arguments": args,\n            "terminal": True,\n',
-        '            "parent": request.get("parent"),\n            "kind": "task",\n            "arguments": args,\n            "terminal": True,\n',
+        '            "parent": request.get("parent"),\n        },\n    )\n    code = made.get("exitCode", 0 if made["status"] == "completed" else 1)\n',
+        '            "parent": request.get("parent"),\n            "kind": "task",\n        },\n    )\n    code = made.get("exitCode", 0 if made["status"] == "completed" else 1)\n',
         ["test_promise.py", "TheTrackerDoor.test_create_item_takes_no_kind"],
     ),
     (
@@ -1283,13 +1273,6 @@ MUTATIONS = [
         ],
     ),
     (
-        "the means follow a pour's JSON",
-        "dotdiw",
-        '        and response["status"] == "completed"\n        and "--json" not in (request.get("arguments") or [])\n',
-        '        and response["status"] == "completed"\n',
-        ["test_dotdiw.py", "TheMeansToProveARun.test_under_beads_the_means_follow_its_own_output"],
-    ),
-    (
         "the formula's description is not handed to pour-steps",
         "dotdiw",
         '            "description": formula.get("desc") or None,\n',
@@ -1302,8 +1285,8 @@ MUTATIONS = [
     (
         "the means are not handed to pour-steps",
         "dotdiw",
-        '            "verifyUsing": list(formula.get("verifyUsing") or []),\n            "path": snapshot,\n',
-        '            "verifyUsing": [],\n            "path": snapshot,\n',
+        '            "verifyUsing": list(formula.get("verifyUsing") or []),\n        },\n',
+        '            "verifyUsing": [],\n        },\n',
         [
             "test_dotdiw.py",
             "TheMeansToProveARun.test_a_pour_shows_the_means_and_the_root_keeps_them",
@@ -1312,36 +1295,29 @@ MUTATIONS = [
     (
         "local keeps no means on its root",
         "dotdiw",
-        '                    request["title"],\n                    keep_verify_using(\n                        request.get("description"), list(request.get("verifyUsing") or [])\n                    ),\n',
-        '                    request["title"],\n                    request.get("description"),\n',
+        '                    request["title"],\n                    request.get("description"),\n                    json.dumps(means) if means else None,\n',
+        '                    request["title"],\n                    request.get("description"),\n                    None,\n',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
         "local reads no means back",
         "dotdiw",
-        '    description, means = read_verify_using(row["description"])\n',
-        '    description, means = row["description"], []\n',
+        '        item["verifyUsing"] = [str(m) for m in json.loads(kept)]\n',
+        "        pass\n",
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
         "beads keeps no means on a root it makes",
         "dotdiw",
-        '    if kept:\n        argv += ["-d", kept]\n',
-        '    if False:\n        argv += ["-d", kept]\n',
+        '    if means:\n        argv += ["--metadata=" + beads_means({}, means)]\n    code, out, err = beads_quiet(argv, root)\n    rows = beads_json(out) if code == 0 else []\n',
+        '    if False:\n        argv += ["--metadata=" + beads_means({}, means)]\n    code, out, err = beads_quiet(argv, root)\n    rows = beads_json(out) if code == 0 else []\n',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
-    ),
-    (
-        "beads keeps no means after its own pour",
-        "dotdiw",
-        '        if root_id and kept != request.get("description"):\n',
-        "        if False:\n",
-        ["test_dotdiw.py", "TheMeansToProveARun.test_under_beads_the_means_follow_its_own_output"],
     ),
     (
         "beads reads no means back",
         "dotdiw",
-        '    description, means = read_verify_using(row.get("description"))\n',
-        '    description, means = row.get("description"), []\n',
+        '    means = (beads_own(row) or {}).get("verifyUsing")\n',
+        "    means = None\n",
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
@@ -1451,43 +1427,6 @@ MUTATIONS = [
         ["test_promise.py", "TheTrackerDoor.test_every_copy_of_the_helper_reads_back_what_it_kept"],
     ),
     (
-        "a pour answered in JSON leaves its root without the means",
-        "dotdiw",
-        '            if answer and answer[0].get("new_epic_id"):\n',
-        "            if False:\n",
-        ["test_dotdiw.py", "TheMeansToProveARun.test_under_beads_the_means_follow_its_own_output"],
-    ),
-    (
-        "a failed write of the means drops the root from the answer",
-        "dotdiw",
-        '                    "rootId": root_id,\n                    "stepIds": poured,\n',
-        "",
-        [
-            "test_dotdiw.py",
-            "TheMeansToProveARun.test_under_beads_means_not_kept_fail_the_pour_naming_its_root",
-        ],
-    ),
-    (
-        "a failed write of the means passes for a pour",
-        "dotdiw",
-        '            code, _, err = beads_quiet(["update", root_id, "--description", kept or ""], root)\n            if code != 0:\n',
-        '            code, _, err = beads_quiet(["update", root_id, "--description", kept or ""], root)\n            if False:\n',
-        [
-            "test_dotdiw.py",
-            "TheMeansToProveARun.test_under_beads_means_not_kept_fail_the_pour_naming_its_root",
-        ],
-    ),
-    (
-        "a failed pour that made a root says nothing of it",
-        "dotdiw",
-        '        not response.get("printed") or response.get("moleculeRef")\n',
-        '        not response.get("printed")\n',
-        [
-            "test_dotdiw.py",
-            "TheMeansToProveARun.test_under_beads_means_not_kept_fail_the_pour_naming_its_root",
-        ],
-    ),
-    (
         "a move drops the description",
         "dotdiw",
         '                "description": whole.get("description"),\n',
@@ -1509,18 +1448,18 @@ MUTATIONS = [
         ["test_tracker.py", "MovingBetweenAdapters.test_every_pair_and_back"],
     ),
     (
-        "local writes a created item's description raw",
+        "local keeps no means on an item it creates",
         "dotdiw",
-        '                    parent,\n                    keep_verify_using(\n                        request.get("description"), list(request.get("verifyUsing") or [])\n                    ),\n',
-        '                    parent,\n                    request.get("description"),\n',
-        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+        '                    parent,\n                    request.get("description"),\n                    json.dumps(means) if means else None,\n',
+        '                    parent,\n                    request.get("description"),\n                    None,\n',
+        ["test_dotdiw.py", "TheLocalAdapter.test_the_means_are_kept_in_a_column_of_their_own"],
     ),
     (
-        "beads writes a created item's description raw",
+        "beads keeps no means on an item it creates",
         "dotdiw",
-        '    description = keep_verify_using(\n        request.get("description"), list(request.get("verifyUsing") or [])\n    )\n    if parent:\n',
-        '    description = request.get("description")\n    if parent:\n',
-        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+        '    if means:\n        argv += ["--metadata=" + beads_means({}, means)]\n    code, out, err = beads_quiet(argv, root)\n    if code != 0:\n',
+        '    if False:\n        argv += ["--metadata=" + beads_means({}, means)]\n    code, out, err = beads_quiet(argv, root)\n    if code != 0:\n',
+        ["test_dotdiw.py", "TheBeadsMetadata.test_the_means_are_kept_in_the_issues_metadata"],
     ),
     (
         "jira writes an issue's description raw",
@@ -1586,10 +1525,10 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheArgumentsBeadsIsGiven.test_only_a_pour_makes_a_root"],
     ),
     (
-        "a typed description is written raw under beads",
+        "the pass-through rewrites a typed description",
         "dotdiw",
-        '        elif flag in ("-d", "--description"):\n',
-        "        elif False:\n",
+        '            value = actor["name"] if actor else value\n        out[at] = flag + "=" + value if at == i else value\n',
+        '            value = actor["name"] if actor else value\n        elif flag in ("-d", "--description"):\n            value = keep_verify_using(value, []) or ""\n        out[at] = flag + "=" + value if at == i else value\n',
         ["test_dotdiw.py", "TheArgumentsBeadsIsGiven.test_a_typed_description_reads_back_as_typed"],
     ),
     (
@@ -1633,24 +1572,11 @@ MUTATIONS = [
         ],
     ),
     (
-        "a provider's formula is shown under the provider's own id",
+        "a list of local formulas says in this repo",
         "dotdiw",
-        '    suffixed = "%s-%s" % (ident, name)\n',
-        "    suffixed = ident\n",
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from",
-        ],
-    ),
-    (
-        "the list header claims the repo for a provider's formula",
-        "dotdiw",
-        '        here = "" if any(f.get("provider") for f in forms) else " in this repo"\n',
-        '        here = " in this repo"\n',
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from",
-        ],
+        '        print("%d formula%s:" % (len(forms), "" if len(forms) == 1 else "s"))\n',
+        '        print("%d formula%s in this repo:" % (len(forms), "" if len(forms) == 1 else "s"))\n',
+        ["test_dotdiw.py", "TheFormulaProviders.test_a_list_of_local_formulas_has_the_one_header"],
     ),
     (
         "a module without show loads as a provider",
@@ -1792,13 +1718,6 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheLocalCommandLine.test_the_nudge_quotes_the_text_it_prints"],
     ),
     (
-        "a provider's formula is written to a file named for its id",
-        "dotdiw",
-        "    path = os.path.join(directory, key + ext)\n",
-        "    path = os.path.join(directory, suffixed + ext)\n",
-        ["test_dotdiw.py", "TheFormulaProviders.test_ids_that_differ_in_case_keep_their_own_files"],
-    ),
-    (
         "a file name resolves before an exact id",
         "dotdiw",
         '    tiers: list[Callable[[dict[str, Any]], bool]] = [\n        lambda f: f["id"] == ident and (not owner or f.get("provider") == owner)\n    ]\n',
@@ -1870,20 +1789,10 @@ MUTATIONS = [
         ],
     ),
     (
-        "a registration leaves the run's index as it was",
+        "a registration keeps the run's provider lists",
         "dotdiw",
-        "        write_registry(registry)\n    INDEXES.clear()\n    LISTED.clear()\n    return {\n",
+        "        write_registry(registry)\n    LISTED.clear()\n    return {\n",
         "        write_registry(registry)\n    return {\n",
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_one_run_forgets_its_index_when_the_registry_changes",
-        ],
-    ),
-    (
-        "a removal leaves the run's index as it was",
-        "dotdiw",
-        "        write_registry(registry)\n    INDEXES.clear()\n    LISTED.clear()\n    provider: FormulaProvider = {\n",
-        "        write_registry(registry)\n    provider: FormulaProvider = {\n",
         [
             "test_dotdiw.py",
             "TheFormulaProviders.test_one_run_forgets_its_index_when_the_registry_changes",
@@ -1969,40 +1878,6 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheFormulaProviders.test_local_storage_reads_regular_files_alone"],
     ),
     (
-        "the provider's own id wins over the suffixed one",
-        "dotdiw",
-        '            data = {"formula": suffixed, **{k: v for k, v in parsed.items() if k != "formula"}}\n',
-        '            data = {"formula": suffixed, **parsed}\n',
-        ["test_dotdiw.py", "TheFormulaProviders.test_a_quoted_formula_key_is_rewritten_in_place"],
-    ),
-    (
-        "a provider's text is taken without reading it back",
-        "dotdiw",
-        "            if tomllib.loads(text) != data:\n",
-        "            if False:\n",
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_a_provider_formula_that_does_not_read_back_is_refused",
-        ],
-    ),
-    (
-        "a provider's formula file is rewritten in place",
-        "dotdiw",
-        '    key = hashlib.sha256(("%s\\0%s\\0%s" % (name, ident, text)).encode("utf-8")).hexdigest()[:24]\n',
-        '    key = hashlib.sha256(("%s\\0%s" % (name, ident)).encode("utf-8")).hexdigest()[:24]\n',
-        ["test_dotdiw.py", "TheFormulaProviders.test_each_text_a_provider_shows_is_its_own_file"],
-    ),
-    (
-        "beads pours the proto it held when the file will not cook",
-        "dotdiw",
-        "                if code != 0:\n                    # A pour of whatever proto bd held instead would pour a\n",
-        "                if False:\n                    # A pour of whatever proto bd held instead would pour a\n",
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_under_beads_a_formula_that_will_not_cook_pours_nothing",
-        ],
-    ),
-    (
         "a provider's suffix falls back to a file name",
         "dotdiw",
         "    if not owner:\n        tiers += [\n",
@@ -2048,23 +1923,6 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheFormulaProviders.test_check_names_a_formula_that_does_not_parse"],
     ),
     (
-        "a second cook lands between a cook and its pour",
-        "dotdiw",
-        "        with beads_serial(root) if path else contextlib.nullcontext():\n",
-        "        with contextlib.nullcontext():\n",
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_under_beads_one_cook_and_its_pour_run_at_a_time",
-        ],
-    ),
-    (
-        "a pour hands the tracker the file it did not read",
-        "dotdiw",
-        '            "path": snapshot,\n            "arguments": list(request.get("arguments") or []),\n',
-        '            "path": os.path.join(root, r["path"]) if found else None,\n            "arguments": list(request.get("arguments") or []),\n',
-        ["test_dotdiw.py", "TheFormulaProviders.test_under_beads_a_pour_cooks_the_copy_it_read"],
-    ),
-    (
         "a local formula takes a provider's reserved id",
         "dotdiw",
         '        lambda f: f["id"] == ident and (not owner or f.get("provider") == owner)\n',
@@ -2083,30 +1941,6 @@ MUTATIONS = [
             "test_dotdiw.py",
             "TheFormulaProviders.test_a_local_formula_never_takes_a_providers_suffix",
         ],
-    ),
-    (
-        "a provider's other values are dropped from what it shows",
-        "dotdiw",
-        '            data = {"formula": suffixed, **{k: v for k, v in parsed.items() if k != "formula"}}\n',
-        '            data = {"formula": suffixed}\n',
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_a_provider_formula_keeps_every_value_it_was_given",
-        ],
-    ),
-    (
-        "a string's quotes are written unescaped",
-        "dotdiw",
-        "            if ch in '\"\\\\':\n",
-        '            if ch == "\\\\":\n',
-        ["test_dotdiw.py", "TheFormulaProviders.test_toml_text_writes_back_every_value"],
-    ),
-    (
-        "an array of tables is written as one table",
-        "dotdiw",
-        '                    table(path + [k], item, "[[%s]]" % ".".join(key(p) for p in path + [k]))\n',
-        '                    table(path + [k], item, "[%s]" % ".".join(key(p) for p in path + [k]))\n',
-        ["test_dotdiw.py", "TheFormulaProviders.test_toml_text_writes_back_every_value"],
     ),
     (
         "the pour hint names an id another formula answers to",
@@ -2130,26 +1964,6 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheFormulaProviders.test_the_pour_hint_pours_the_formula_it_shows"],
     ),
     (
-        "a forwarded cook lands between a pour's cook and its pour",
-        "dotdiw",
-        '        beads_serial(request.get("root"))\n        if {"cook", "mol"} & set(args)\n        else contextlib.nullcontext()\n',
-        "        contextlib.nullcontext()\n",
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_under_beads_a_forwarded_cook_waits_for_a_pour",
-        ],
-    ),
-    (
-        "a cook behind a flag skips the pour lock",
-        "dotdiw",
-        '        if {"cook", "mol"} & set(args)\n',
-        '        if args[:1] in (["cook"], ["mol"])\n',
-        [
-            "test_dotdiw.py",
-            "TheFormulaProviders.test_under_beads_a_cook_behind_a_flag_waits_for_a_pour",
-        ],
-    ),
-    (
         "a path hint is read as an option",
         "dotdiw",
         '            if pour_ref.startswith("-"):\n                pour_ref = "./" + pour_ref\n',
@@ -2162,6 +1976,586 @@ MUTATIONS = [
         '            or first["id"].startswith("-")\n',
         "            or False\n",
         ["test_dotdiw.py", "TheFormulaProviders.test_the_pour_hint_is_never_read_as_an_option"],
+    ),
+    (
+        "a command other than init puts an earlier adoption right",
+        "dotdiw",
+        '        left = invoke("operation.undo-earlier-adoption", {"root": root, "tracker": tracker})\n',
+        '        left = invoke("operation.undo-earlier-adoption", {"root": root, "tracker": tracker, "apply": True})\n',
+        ["test_dotdiw.py", "Repair.test_only_init_puts_an_earlier_adoption_right"],
+    ),
+    (
+        "a command runs while an earlier adoption is left",
+        "dotdiw",
+        '        if left["exitCode"] != 0:\n            return int(left["exitCode"])\n',
+        '        if False:\n            return int(left["exitCode"])\n',
+        ["test_dotdiw.py", "Repair.test_only_init_puts_an_earlier_adoption_right"],
+    ),
+    (
+        "init leaves an earlier adoption as it was",
+        "dotdiw",
+        '    undone = invoke(\n        "operation.undo-earlier-adoption", {"root": root, "tracker": tracker, "apply": True}\n    )\n',
+        '    undone = invoke(\n        "operation.undo-earlier-adoption", {"root": root, "tracker": tracker}\n    )\n',
+        ["test_dotdiw.py", "Repair.test_repair_hands_the_hooks_back"],
+    ),
+    (
+        "init adopts an in-tree tracker before it is put right",
+        "dotdiw",
+        '    undone = invoke(\n        "operation.undo-earlier-adoption", {"root": root, "tracker": tracker, "apply": True}\n    )\n    if undone["status"] != "completed":\n        return {"status": "failed", "summary": undone["summary"], "exitCode": 1}\n    made = invoke(\n        "operation.adopt-repository",\n        {"root": root, "prefix": request.get("prefix"), "tracker": tracker},\n    )\n',
+        '    made = invoke(\n        "operation.adopt-repository",\n        {"root": root, "prefix": request.get("prefix"), "tracker": tracker},\n    )\n    undone = invoke(\n        "operation.undo-earlier-adoption", {"root": root, "tracker": tracker, "apply": True}\n    )\n    if undone["status"] != "completed":\n        return {"status": "failed", "summary": undone["summary"], "exitCode": 1}\n',
+        ["test_dotdiw.py", "Repair.test_init_upgrades_an_in_tree_adoption"],
+    ),
+    (
+        "a tree tracker not adopted stops nothing",
+        "dotdiw",
+        '            stopped = (\n                "the tracker kept in the tree could not be adopted under the home: %s"\n',
+        '            stopped = None and (\n                "the tracker kept in the tree could not be adopted under the home: %s"\n',
+        ["test_dotdiw.py", "Repair.test_init_stops_where_the_tree_tracker_cannot_be_adopted"],
+    ),
+    (
+        "init adopts on after what was left stopped it",
+        "dotdiw",
+        '    if undone["status"] != "completed":\n',
+        "    if False:\n",
+        ["test_dotdiw.py", "Repair.test_init_stops_where_the_tree_tracker_cannot_be_adopted"],
+    ),
+    (
+        "init says nothing when it stops",
+        "dotdiw",
+        '    if response["status"] in ("blocked", "failed"):\n        sys.stderr.write("%s: %s\\n" % (PROG, response["summary"]))\n        return\n    done, made = response["undone"], response.get("adopted")\n',
+        '    if response["status"] == "blocked":\n        sys.stderr.write("%s: %s\\n" % (PROG, response["summary"]))\n        return\n    done, made = response["undone"], response.get("adopted")\n',
+        ["test_dotdiw.py", "Repair.test_init_stops_where_the_tree_tracker_cannot_be_adopted"],
+    ),
+    (
+        "the local upgrade changes a store unasked",
+        "dotdiw",
+        '        if not request.get("apply"):\n            return dict(\n                nothing,\n                summary="The store keeps the means to prove a run inside descriptions.",\n',
+        '        if False:\n            return dict(\n                nothing,\n                summary="The store keeps the means to prove a run inside descriptions.",\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_store_made_before_3_0_is_brought_up_to_date_when_init_asks",
+        ],
+    ),
+    (
+        "the local upgrade leaves a section in its description",
+        "dotdiw",
+        '                if description != row["description"] or means:\n',
+        "                if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_store_made_before_3_0_is_brought_up_to_date_when_init_asks",
+        ],
+    ),
+    (
+        "the beads upgrade moves nothing",
+        "dotdiw",
+        "        if not text or (description == text and not means):\n            continue\n",
+        "        if True:\n            continue\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_a_workspace_poured_into_before_3_0_is_brought_up_to_date_when_init_asks",
+        ],
+    ),
+    (
+        "a store bd opens starts with its means unmoved",
+        "dotdiw",
+        "    beads_moved(store)\n    return {\n",
+        "    return {\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_a_workspace_poured_into_before_3_0_is_brought_up_to_date_when_init_asks",
+        ],
+    ),
+    (
+        "undo-earlier-adoption never asks the adapter keeping the store",
+        "dotdiw",
+        "    if checkout_adopted(root) and stopped is None:\n        kept = invoke_extra(\n",
+        "    if False:\n        kept = invoke_extra(\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalCommandLine.test_init_brings_a_store_an_earlier_version_kept_up_to_date",
+        ],
+    ),
+    (
+        "the beads upgrade moves an issue it marked again",
+        "dotdiw",
+        '        if own is not None and own.get("meansMoved"):\n',
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_an_upgrade_cut_short_is_taken_up_where_it_stopped",
+        ],
+    ),
+    (
+        "the beads upgrade marks no issue it moved",
+        "dotdiw",
+        '            "--metadata=" + beads_means(row, means, moved=True),\n',
+        '            "--metadata=" + beads_means(row, means),\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_an_upgrade_cut_short_is_taken_up_where_it_stopped",
+        ],
+    ),
+    (
+        "an upgrade that fails stops nothing",
+        "dotdiw",
+        '        elif apply and kept.get("reason") != "unsupported":\n',
+        "        elif False:\n",
+        [
+            "test_dotdiw.py",
+            "TheMeansToProveARun.test_init_stops_where_the_beads_store_cannot_be_brought_up_to_date",
+        ],
+    ),
+    (
+        "a beads record reads a dotdiw value of the issue's own as its own",
+        "dotdiw",
+        '    means = (beads_own(row) or {}).get("verifyUsing")\n',
+        '    means = (beads_metadata(row).get(BEADS_KEY) or {}).get("verifyUsing")\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is",
+        ],
+    ),
+    (
+        "the beads upgrade reads a dotdiw value of the issue's own as a mark",
+        "dotdiw",
+        '        if own is not None and own.get("meansMoved"):\n',
+        '        if (beads_metadata(row).get(BEADS_KEY) or {}).get("meansMoved"):\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is",
+        ],
+    ),
+    (
+        "the beads upgrade moves the means beside a value of the issue's own",
+        "dotdiw",
+        '        if own is None:\n            kept.append(str(row.get("id")))\n            continue\n',
+        "",
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is",
+        ],
+    ),
+    (
+        "the beads upgrade says nothing of an issue it left as given",
+        "dotdiw",
+        "        + ([beads_left_as_given(kept)] if kept else []),\n",
+        "        + [],\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is",
+        ],
+    ),
+    (
+        "the beads adapter takes a dotdiw null of the issue's own for its own",
+        "dotdiw",
+        "    if BEADS_KEY not in held:\n",
+        "    if held.get(BEADS_KEY) is None:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsMetadata.test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is",
+        ],
+    ),
+    (
+        "the notice reads the first 300 items alone",
+        "dotdiw",
+        '        "operation.list-items", {"root": root, "tracker": request.get("tracker"), "scope": "all"}\n',
+        '        "operation.list-items", {"root": root, "tracker": request.get("tracker"), "scope": "all", "limit": 300}\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_the_notice_the_past_titles_and_from_read_every_item",
+        ],
+    ),
+    (
+        "the past titles stop at 300 items",
+        "dotdiw",
+        '        "operation.list-items", {"root": root, "tracker": tracker, "scope": "all"}\n    )\n    if listed["status"] != "completed":\n        return []\n',
+        '        "operation.list-items", {"root": root, "tracker": tracker, "scope": "all", "limit": 300}\n    )\n    if listed["status"] != "completed":\n        return []\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_the_notice_the_past_titles_and_from_read_every_item",
+        ],
+    ),
+    (
+        "formula new --from reads the first 300 items alone",
+        "dotdiw",
+        '        "operation.list-items", {"root": root, "tracker": tracker, "scope": "all"}\n    )\n    if listed["status"] != "completed":\n        return None\n',
+        '        "operation.list-items", {"root": root, "tracker": tracker, "scope": "all", "limit": 300}\n    )\n    if listed["status"] != "completed":\n        return None\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_the_notice_the_past_titles_and_from_read_every_item",
+        ],
+    ),
+    (
+        "a pour under beads answers its step ids sorted",
+        "dotdiw",
+        '        ids[s["id"]] = str(rows[0].get("id"))\n    return {\n        "status": "completed",\n        "summary": "Poured %d steps under %s." % (len(ids), root_id),\n        "rootId": root_id,\n        "stepIds": [ids[s["id"]] for s in steps],\n',
+        '        ids[s["id"]] = str(rows[0].get("id"))\n    return {\n        "status": "completed",\n        "summary": "Poured %d steps under %s." % (len(ids), root_id),\n        "rootId": root_id,\n        "stepIds": sorted(ids.values()),\n',
+        [
+            "test_dotdiw.py",
+            "TheMeansToProveARun.test_under_beads_a_pour_answers_its_steps_in_the_formulas_order",
+        ],
+    ),
+    (
+        "a pour under beads that fails after its root names nothing it made",
+        "dotdiw",
+        '                "summary": "Poured %d of %d steps under %s%s, and the next failed: %s"\n                % (\n                    len(ids),\n                    len(steps),\n                    root_id,\n                    " (%s)" % ", ".join(ids[x["id"]] for x in steps if x["id"] in ids)\n                    if ids\n                    else "",\n                    said,\n                ),\n',
+        '                "summary": said,\n',
+        [
+            "test_dotdiw.py",
+            "TheMeansToProveARun.test_under_beads_a_pour_that_fails_after_its_root_names_it",
+        ],
+    ),
+    (
+        "beads create reads a title as a flag",
+        "dotdiw",
+        '        "create",\n        "--title=" + request["title"],\n        "--type=task",\n',
+        '        "create",\n        request["title"],\n        "--type=task",\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_title_that_reads_like_a_flag_is_kept_as_given"],
+    ),
+    (
+        "beads create reads a description as a flag",
+        "dotdiw",
+        '        argv += ["--parent=" + parent]\n    if description:\n        argv += ["--description=" + description]\n',
+        '        argv += ["--parent=" + parent]\n    if description:\n        argv += [description]\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_title_that_reads_like_a_flag_is_kept_as_given"],
+    ),
+    (
+        "beads pour reads the root's title as a flag",
+        "dotdiw",
+        '    argv = ["create", "--title=" + request["title"], "--type=molecule", "--priority=2", "--json"]\n',
+        '    argv = ["create", request["title"], "--type=molecule", "--priority=2", "--json"]\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_title_that_reads_like_a_flag_is_kept_as_given"],
+    ),
+    (
+        "beads pour reads a step's title as a flag",
+        "dotdiw",
+        '        argv = ["create", "--title=" + s["title"], "--parent=" + root_id, "--type=task", "--json"]\n',
+        '        argv = ["create", s["title"], "--parent=" + root_id, "--type=task", "--json"]\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_title_that_reads_like_a_flag_is_kept_as_given"],
+    ),
+    (
+        "beads pour reads the root's description as a flag",
+        "dotdiw",
+        '    means = list(request.get("verifyUsing") or [])\n    if description:\n        argv += ["--description=" + description]\n',
+        '    means = list(request.get("verifyUsing") or [])\n    if description:\n        argv += [description]\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_title_that_reads_like_a_flag_is_kept_as_given"],
+    ),
+    (
+        "local pours steps that share an id",
+        "dotdiw",
+        '    it, each needing the steps it names; all or nothing."""\n    steps = list(request.get("steps") or [])\n    if not steps:\n        return {\n            "status": "failed",\n            "reason": "no-steps",\n            "exitCode": 1,\n            "summary": "No steps to pour.",\n        }\n    shared = shared_step_id(steps)\n',
+        '    it, each needing the steps it names; all or nothing."""\n    steps = list(request.get("steps") or [])\n    if not steps:\n        return {\n            "status": "failed",\n            "reason": "no-steps",\n            "exitCode": 1,\n            "summary": "No steps to pour.",\n        }\n    shared = None\n',
+        ["test_dotdiw.py", "TheLocalAdapter.test_steps_that_share_an_id_pour_nothing"],
+    ),
+    (
+        "beads pours steps that share an id",
+        "dotdiw",
+        '        return failed_as(PourStepsResponse, *BEADS_NO_WORKSPACE)\n    steps = list(request.get("steps") or [])\n    if not steps:\n        return {\n            "status": "failed",\n            "reason": "no-steps",\n            "exitCode": 1,\n            "summary": "No steps to pour.",\n        }\n    shared = shared_step_id(steps)\n',
+        '        return failed_as(PourStepsResponse, *BEADS_NO_WORKSPACE)\n    steps = list(request.get("steps") or [])\n    if not steps:\n        return {\n            "status": "failed",\n            "reason": "no-steps",\n            "exitCode": 1,\n            "summary": "No steps to pour.",\n        }\n    shared = None\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_steps_that_share_an_id_pour_nothing"],
+    ),
+    (
+        "a cut-short beads pour leaves out the steps it made",
+        "dotdiw",
+        '                    " (%s)" % ", ".join(ids[x["id"]] for x in steps if x["id"] in ids)\n                    if ids\n                    else "",\n',
+        '                    "",\n',
+        [
+            "test_dotdiw.py",
+            "TheMeansToProveARun.test_under_beads_a_pour_that_fails_after_its_root_names_it",
+        ],
+    ),
+    (
+        "formula pour --json drops a pour cut short",
+        "dotdiw",
+        '    if request.get("json") and response.get("moleculeRef"):\n',
+        '    if request.get("json") and response.get("moleculeRef") and response["status"] == "completed":\n',
+        [
+            "test_dotdiw.py",
+            "TheMeansToProveARun.test_under_beads_a_pour_that_fails_after_its_root_names_it",
+        ],
+    ),
+    (
+        "formula pour --json says nothing of a pour cut short",
+        "dotdiw",
+        '        print(json.dumps(answer, indent=2, ensure_ascii=False))\n        if response["status"] != "completed":\n',
+        "        print(json.dumps(answer, indent=2, ensure_ascii=False))\n        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheMeansToProveARun.test_under_beads_a_pour_that_fails_after_its_root_names_it",
+        ],
+    ),
+    (
+        "jira pours steps that share an id",
+        "trackers/jira.py",
+        '        if s["id"] in seen:\n',
+        "        if False:\n",
+        ["test_jira.py", "TheTable.test_steps_that_share_an_id_pour_nothing"],
+    ),
+    (
+        "a cut-short jira pour names no root",
+        "trackers/jira.py",
+        "            return cut_short(step)\n",
+        "            return step\n",
+        ["test_jira.py", "TheHostedAdapter.test_a_pour_jira_refuses_partway_is_one_line"],
+    ),
+    (
+        "a Jira issue made and not read back keeps no key",
+        "trackers/jira.py",
+        "        return out, key\n",
+        "        return out, None\n",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_pour_names_what_jira_made_and_could_not_read_back",
+        ],
+    ),
+    (
+        "a Jira pour whose root was not read back names no root",
+        "trackers/jira.py",
+        "        if root_id is None:\n            return made\n",
+        "        if True:\n            return made\n",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_pour_names_what_jira_made_and_could_not_read_back",
+        ],
+    ),
+    (
+        "a cut-short Jira pour leaves out a step it made",
+        "trackers/jira.py",
+        '        if key is not None:\n            ids[s["id"]] = key\n        if step["status"] != "completed":\n            return cut_short(step)\n',
+        '        if step["status"] != "completed":\n            return cut_short(step)\n        if key is not None:\n            ids[s["id"]] = key\n',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_pour_names_what_jira_made_and_could_not_read_back",
+        ],
+    ),
+    (
+        "a Jira create made and not read back hides its key",
+        "trackers/jira.py",
+        '        out["summary"] = "Jira made %s and could not read it back: %s" % (key, out["summary"])\n',
+        '        out["summary"] = out["summary"]\n',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_create_names_what_jira_made_and_could_not_read_back",
+        ],
+    ),
+    (
+        "a pour hands the tracker a file",
+        "dotdiw",
+        '            "verifyUsing": list(formula.get("verifyUsing") or []),\n        },\n',
+        '            "verifyUsing": list(formula.get("verifyUsing") or []),\n            "path": os.path.join(root, r["path"]) if found else None,\n        },\n',
+        [
+            "test_dotdiw.py",
+            "WhatAModuleGetsWrong.test_a_pour_hands_the_tracker_the_formula_and_no_file",
+        ],
+    ),
+    (
+        "a pour hands the tracker steps that share an id",
+        "dotdiw",
+        '    shared = shared_step_id(formula.get("steps") or [])\n',
+        "    shared = None\n",
+        [
+            "test_promise.py",
+            "TheTrackerDoor.test_a_formula_whose_steps_share_an_id_never_reaches_the_tracker",
+        ],
+    ),
+    (
+        "a pour reads its formula's file again",
+        "dotdiw",
+        "        if body\n        else {}\n    )\n",
+        '        if body and not r.get("path")\n        else (load_formula(root, r["path"]) if found else None) or {}\n    )\n',
+        ["test_promise.py", "TheTrackerDoor.test_a_pour_pours_the_formula_its_lookup_selected"],
+    ),
+    (
+        "every operation shares the last one's reading of the formulas",
+        "dotdiw",
+        "    if DEPTH == 0:\n        INDEXES.clear()\n",
+        "    if False:\n        INDEXES.clear()\n",
+        ["test_promise.py", "TheTrackerDoor.test_every_pour_reads_the_formula_afresh"],
+    ),
+    (
+        "create takes a flag of bd's own",
+        "dotdiw",
+        '        elif a.startswith("-") and a != "-":\n            return fields, words, "%s is not one of its flags" % a\n',
+        '        elif a.startswith("-") and a != "-":\n            words.append(a)\n',
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "a flag with no value after it takes nothing",
+        "dotdiw",
+        '                if i + 1 >= len(args) or args[i + 1].startswith("-") and args[i + 1] != "-":\n                    return fields, words, "%s needs a value" % a\n',
+        '                if i + 1 >= len(args) or args[i + 1].startswith("-") and args[i + 1] != "-":\n                    break\n',
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "create takes a second title",
+        "dotdiw",
+        "        elif len(words) >= positionals:\n",
+        "        elif False:\n",
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "create -q surfaces what rides along with the create",
+        "dotdiw",
+        '                quiet=quiet or json_out or bool(os.environ.get("DOTDIW_NO_HINTS")),\n',
+        '                quiet=json_out or bool(os.environ.get("DOTDIW_NO_HINTS")),\n',
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "a flag of create's takes the next flag for its value",
+        "dotdiw",
+        '                if i + 1 >= len(args) or args[i + 1].startswith("-") and args[i + 1] != "-":\n',
+        "                if i + 1 >= len(args):\n",
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "--tracker takes the next flag for its name",
+        "dotdiw",
+        '            if not given or given.startswith("-"):\n',
+        "            if not given:\n",
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "--tracker last runs on under a name of its own",
+        "dotdiw",
+        '            given = argv[i + 1] if i + 1 < len(argv) else ""\n',
+        '            given = argv[i + 1] if i + 1 < len(argv) else "local"\n',
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "--tracker= with no name falls to the default",
+        "dotdiw",
+        "            missing = missing or not name\n",
+        "            missing = missing\n",
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "a --tracker given no name runs on",
+        "dotdiw",
+        '    if missing:\n        sys.stderr.write("%s: --tracker needs a value, as --tracker <name>.\\n" % PROG)\n',
+        '    if False:\n        sys.stderr.write("%s: --tracker needs a value, as --tracker <name>.\\n" % PROG)\n',
+        ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
+    ),
+    (
+        "a module written for interface 2 loads",
+        "dotdiw",
+        "    if declared != TRACKER_INTERFACE or isinstance(declared, bool):\n",
+        "    if declared not in (2, TRACKER_INTERFACE) or isinstance(declared, bool):\n",
+        ["test_promise.py", "TheTrackerDoor.test_a_module_says_which_interface_it_was_written_for"],
+    ),
+    (
+        "a completed create carries no record",
+        "dotdiw",
+        '    if response["status"] == "completed":\n        for key in TRACKER_ANSWERS.get(operation, ()):\n',
+        "    if False:\n        for key in TRACKER_ANSWERS.get(operation, ()):\n",
+        [
+            "test_promise.py",
+            "TheTrackerDoor.test_a_create_or_a_pour_without_its_record_is_the_adapters_mistake",
+        ],
+    ),
+    (
+        "a provider's formula outside its shape is taken",
+        "dotdiw",
+        '        if not isinstance(ident, str) or not ident or not isinstance(title, str) or not title:\n            raise ValueError("a step has no id or no title")\n',
+        '        if False:\n            raise ValueError("a step has no id or no title")\n',
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_a_provider_formula_outside_its_shape_is_refused",
+        ],
+    ),
+    (
+        "a provider module written for another interface loads",
+        "dotdiw",
+        '    if not isinstance(info, dict) or info.get("interface") != PROVIDER_INTERFACE:\n',
+        "    if not isinstance(info, dict):\n",
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_a_provider_written_for_another_interface_is_refused",
+        ],
+    ),
+    (
+        "a pour drops the formula its lookup answered",
+        "dotdiw",
+        '    body = r.get("formula") if found else None\n    formula = (\n',
+        "    body = None\n    formula = (\n",
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_a_provider_formula_is_data_and_nothing_is_written_for_it",
+        ],
+    ),
+    (
+        "formula show leaves a provider's means out",
+        "dotdiw",
+        '            "verify-using": body["verifyUsing"],\n',
+        "",
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_a_provider_formula_is_data_and_nothing_is_written_for_it",
+        ],
+    ),
+    (
+        "the lookup's answer has no room for a provider's formula",
+        "dotdiw",
+        '        "body": "FindAHeldProcedure",\n        "request": (\n            "ask", "correlationId", "formulaRef", "ident", "json", "root",\n            "sourceRefs",\n        ),\n        "requestRequired": (\n            "ask", "root",\n        ),\n        "response": (\n            "exitCode", "formula", "formulaCount", "formulaRef", "formulas",\n',
+        '        "body": "FindAHeldProcedure",\n        "request": (\n            "ask", "correlationId", "formulaRef", "ident", "json", "root",\n            "sourceRefs",\n        ),\n        "requestRequired": (\n            "ask", "root",\n        ),\n        "response": (\n            "exitCode", "formulaCount", "formulaRef", "formulas",\n',
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_the_lookup_answers_a_providers_formula_as_resolve_does",
+        ],
+    ),
+    (
+        "a provider's description is defaulted",
+        "dotdiw",
+        '    description = body.get("description")\n',
+        '    description = body.get("description") or ""\n',
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_nothing_a_provider_gives_is_replaced_by_a_default",
+        ],
+    ),
+    (
+        "a provider's verifyUsing is defaulted",
+        "dotdiw",
+        "    means = [] if means is None else means\n",
+        "    means = means or []\n",
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_nothing_a_provider_gives_is_replaced_by_a_default",
+        ],
+    ),
+    (
+        "a provider's steps are defaulted",
+        "dotdiw",
+        '    steps = body.get("steps")\n',
+        '    steps = body.get("steps") or []\n',
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_nothing_a_provider_gives_is_replaced_by_a_default",
+        ],
+    ),
+    (
+        "a provider step's needs are defaulted",
+        "dotdiw",
+        "        needs = [] if needs is None else needs\n",
+        "        needs = needs or []\n",
+        [
+            "test_dotdiw.py",
+            "TheFormulaProviders.test_nothing_a_provider_gives_is_replaced_by_a_default",
+        ],
+    ),
+    (
+        "the lookup answers a local formula as its file reads now",
+        "dotdiw",
+        '        "formula": {\n            "description": found["desc"],\n            "verifyUsing": list(found["verifyUsing"]),\n            "steps": list(found["steps"]),\n        },\n',
+        '        "formula": {\n            "description": (load_formula(root, found["rel"]) or found)["desc"],\n            "verifyUsing": list((load_formula(root, found["rel"]) or found)["verifyUsing"]),\n            "steps": list((load_formula(root, found["rel"]) or found)["steps"]),\n        },\n',
+        ["test_promise.py", "TheTrackerDoor.test_a_pour_pours_the_formula_its_lookup_selected"],
+    ),
+    (
+        "formula show prints a file in the tree as data",
+        "dotdiw",
+        '    body = r.get("formula")\n    if body and not r.get("path"):\n',
+        '    body = r.get("formula")\n    if body:\n',
+        ["test_dotdiw.py", "TheFormulaProviders.test_an_exact_path_comes_before_a_file_name"],
     ),
 ]
 

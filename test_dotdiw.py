@@ -525,7 +525,14 @@ class Repair(unittest.TestCase):
             "a hook added after adoption should be skipped, or there is nothing here to repair",
         )
 
+        hooks = old.config(HOOKS_KEY)
         code, out = old.dotdiw("check")
+        self.assertEqual(code, 1, out)
+        self.assertIn(HOOKS_KEY, out)
+        self.assertIn("Run dotdiw init once to bring it up to date.", out)
+        self.assertEqual(old.config(HOOKS_KEY), hooks, "nothing is put right before init")
+        code, out = old.dotdiw("init")
+        self.assertEqual(code, 0, out)
         self.assertIn(HOOKS_KEY, out)
         self.assertEqual(old.config(HOOKS_KEY), "")
 
@@ -543,7 +550,8 @@ class Repair(unittest.TestCase):
         old = self.old()
         self.assertEqual(old.dolt_remotes(), ["origin"])
 
-        code, out = old.dotdiw("check")
+        code, out = old.dotdiw("init")
+        self.assertEqual(code, 0, out)
         self.assertEqual(old.dolt_remotes(), ["origin"], "the in-tree copy is not edited")
         self.assertIn("\nsync:", old.beads_config())
         self.assertIn("not carried over", out)
@@ -561,8 +569,9 @@ class Repair(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertNotIn("put right", out)
 
-    def test_upgrade_from_an_in_tree_adoption_is_seamless(self):
-        """0.2.x let bd commit its files. The first command adopts under the home.
+    def test_init_upgrades_an_in_tree_adoption(self):
+        """0.2.x let bd commit its files. init adopts under the home; every
+        other command says so first and writes nothing.
 
         The prefix is kept, the in-tree copy is not touched, tasks are not
         carried over and that is said once, with the one command that removes
@@ -580,9 +589,13 @@ class Repair(unittest.TestCase):
                 with open(os.path.join(d, f), "rb") as fh:
                     before[os.path.join(d, f)] = fh.read()
 
-        code, out = old.dotdiw("create", "After the upgrade")
+        code, out = old.dotdiw("create", "Before the upgrade")
+        self.assertEqual(code, 1, out)
+        self.assertIn("the tracker is in the tree", out)
+        self.assertIn("Run dotdiw init once to bring it up to date.", out)
+        self.assertFalse(old.key(), "nothing is adopted before init")
+        code, out = old.dotdiw("init")
         self.assertEqual(code, 0, out)
-        self.assertIn("Created issue: old-", out, "the prefix is kept")
         self.assertIn("not carried over", out)
         self.assertIn("git rm -r -q .beads", out)
         command = [line.strip() for line in out.split("\n") if line.strip().startswith("git rm -r")]
@@ -594,8 +607,9 @@ class Repair(unittest.TestCase):
             with open(path, "rb") as fh:
                 self.assertEqual(fh.read(), data, "%s was touched" % path)
 
-        code, out = old.dotdiw("create", "Second create")
+        code, out = old.dotdiw("create", "After the upgrade")
         self.assertEqual(code, 0, out)
+        self.assertIn("Created issue: old-", out, "the prefix is kept")
         self.assertNotIn("not carried over", out, "said once")
         code, out = old.dotdiw("check")
         self.assertIn("left by an adoption before 0.4.0", out)
@@ -611,7 +625,31 @@ class Repair(unittest.TestCase):
         code, out = old.dotdiw("create", "Still works")
         self.assertEqual(code, 0, out)
 
-    def test_upgrade_from_a_stealth_adoption_is_seamless(self):
+    def test_init_stops_where_the_tree_tracker_cannot_be_adopted(self):
+        """With no bd on the machine, the tracker an earlier version kept in the
+        tree cannot be adopted under the home: init stops in one line, chooses
+        no other tracker and adopts nothing; once bd is back, init adopts."""
+        old = Repo()
+        self.addCleanup(old.close)
+        old.commit("first")
+        old.adopt_the_old_way(prefix="old")
+        code, out = old.dotdiw("init", env=dict(old.env, PATH="/usr/bin:/bin"))
+        self.assertEqual(code, 1, out)
+        self.assertIn(
+            "init stopped: the tracker kept in the tree could not be adopted under the home", out
+        )
+        self.assertEqual(len(out.strip().splitlines()), 1, out)
+        self.assertEqual(old.config("dotdiw.tracker"), "", "no tracker is chosen")
+        code, out = old.dotdiw("create", "Too soon", env=dict(old.env, PATH="/usr/bin:/bin"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("Run dotdiw init once to bring it up to date.", out)
+        code, out = old.dotdiw("init")
+        self.assertEqual(code, 0, out)
+        code, out = old.dotdiw("create", "After the upgrade")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Created issue: old-", out)
+
+    def test_init_upgrades_a_stealth_adoption(self):
         """0.3.0 kept .beads in the tree, excluded. Same upgrade, rm as the command."""
         st = Repo()
         self.addCleanup(st.close)
@@ -620,10 +658,14 @@ class Repair(unittest.TestCase):
         st.adopt_the_old_way(prefix="st", stealth=True)
         self.assertEqual(st.porcelain(), [])
 
+        code, out = st.dotdiw("create", "Before the upgrade")
+        self.assertEqual(code, 1, out)
+        code, out = st.dotdiw("init")
+        self.assertEqual(code, 0, out)
+        self.assertIn("rm -rf .beads .beads.gate.lock", out)
         code, out = st.dotdiw("create", "After the upgrade")
         self.assertEqual(code, 0, out)
         self.assertIn("Created issue: st-", out)
-        self.assertIn("rm -rf .beads .beads.gate.lock", out)
         self.assertEqual([line for line in st.porcelain() if ".beads" in line], [])
         subprocess.run("rm -rf .beads .beads.gate.lock", shell=True, cwd=st.path)
         code, out = st.dotdiw("create", "Still works")
@@ -632,7 +674,7 @@ class Repair(unittest.TestCase):
     def test_the_notice_says_who_did_it(self):
         """What 0.1.0 left is 'an earlier version'; a fresh init never says that."""
         old = self.old()
-        code, out = old.dotdiw("check")
+        code, out = old.dotdiw("init")
         self.assertIn("put right what an earlier version of it left here", out)
 
         fresh = Repo()
@@ -642,6 +684,27 @@ class Repair(unittest.TestCase):
         code, out = fresh.dotdiw("init", "--prefix", "t")
         self.assertEqual(code, 0, out)
         self.assertNotIn("earlier version", out)
+
+    def test_only_init_puts_an_earlier_adoption_right(self):
+        """learn and --version run as they are; every other command is refused
+        in one line, exits 1 and writes nothing, until init has run."""
+        old = self.old()
+        hooks = old.config(HOOKS_KEY)
+        for args in (("learn",), ("--version",)):
+            code, out = old.dotdiw(*args)
+            self.assertEqual(code, 0, out)
+            self.assertNotIn("earlier version", out)
+        for command in (["check"], ["formula", "list"], ["list"], ["create", "Something"]):
+            code, out = old.dotdiw(*command)
+            self.assertEqual(code, 1, (command, out))
+            self.assertEqual(out.count("\n"), 1, (command, out))
+            self.assertIn("Run dotdiw init once to bring it up to date.", out)
+        self.assertEqual(old.config(HOOKS_KEY), hooks)
+        self.assertFalse(old.key())
+        code, out = old.dotdiw("init")
+        self.assertEqual(code, 0, out)
+        code, out = old.dotdiw("list")
+        self.assertEqual(code, 0, out)
 
     def test_repair_leaves_a_hooks_path_the_user_chose(self):
         """Someone else's hooksPath is not ours to unset.
@@ -884,6 +947,42 @@ class InterfaceRecords(_TestBase):
         rows = {i["id"]: i for i in self.ask("list-items")["items"]}
         self.assertEqual(rows[made["id"]]["assignee"], "someone")
 
+    def test_steps_that_share_an_id_pour_nothing(self):
+        """A pour answers one id per step, so two steps with one id are refused
+        before anything is made."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        out = self.ask(
+            "pour-steps",
+            formulaRef="m",
+            title="m",
+            steps=[
+                {"id": "a", "title": "A"},
+                {"id": "b", "title": "B"},
+                {"id": "a", "title": "A again"},
+            ],
+        )
+        self.assertEqual((out["status"], out["reason"]), ("failed", "duplicate-step"), out)
+        self.assertIn("share the id a, so nothing was poured", out["summary"])
+        self.assertEqual(self.ask("list-items")["items"], [])
+
+    def test_a_title_that_reads_like_a_flag_is_kept_as_given(self):
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        made = self.ask("create-item", title="--title=Wrong title", description="--type=epic")
+        poured = self.ask(
+            "pour-steps",
+            formulaRef="m",
+            title="--priority=0",
+            steps=[{"id": "a", "title": "--parent=x"}],
+            description="-d",
+        )
+        for ident, title, description in (
+            (made["item"]["id"], "--title=Wrong title", "--type=epic"),
+            (poured["rootId"], "--priority=0", "-d"),
+            (poured["stepIds"][0], "--parent=x", ""),
+        ):
+            item = self.ask("show-item", id=ident)["item"]
+            self.assertEqual((item["title"], item.get("description") or ""), (title, description))
+
     def test_the_interface_in_records(self):
         out = self.ask("describe-tracker")
         self.assertEqual(out["status"], "completed", out)
@@ -1034,7 +1133,7 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
 
     def test_what_it_says_of_itself(self):
         info = self.ask("describe-tracker")["info"]
-        self.assertEqual(info["extras"], ["forward", "metrics-off"])
+        self.assertEqual(info["extras"], ["forward", "metrics-off", "upgrade"])
         self.assertTrue(self.ask("open-tracker", prefix="t")["path"].endswith(".beads"))
 
     def test_the_extras(self):
@@ -1109,6 +1208,235 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
         self.assertEqual((out["status"], out["turnedOff"]), ("completed", False))
 
 
+OLD_LOCAL_SCHEMA = """
+CREATE TABLE items (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL,
+    priority INTEGER NOT NULL, parent TEXT REFERENCES items(id), description TEXT,
+    assignee TEXT, reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    closed_at TEXT
+);
+CREATE TABLE edges (id TEXT NOT NULL, needs TEXT NOT NULL, PRIMARY KEY (id, needs));
+CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+INSERT INTO meta (key, value) VALUES ('schema', '1'), ('prefix', 't');
+"""
+
+
+def a_store_as_2_0_kept_it(path, rows):
+    """A local store made before 3.0.0: schema 1, the means kept as the last
+    section of each description, under the path given."""
+    conn = sqlite3.connect(path)
+    with conn:
+        conn.executescript(OLD_LOCAL_SCHEMA)
+        for ident, kind, description in rows:
+            conn.execute(
+                "INSERT INTO items (id, title, kind, status, priority, description, created_at, "
+                "updated_at) VALUES (?, ?, ?, 'open', 2, ?, '2026-11-09T00:00:00Z', "
+                "'2026-11-09T00:00:00Z')",
+                (ident, ident, kind, description),
+            )
+    conn.close()
+
+
+class TheBeadsMetadata(InterfaceRecords, unittest.TestCase):
+    """Under beads, the means to prove a run are the issue's metadata, and a
+    workspace an earlier version poured into is brought up to date by the
+    upgrade extra, once."""
+
+    ADAPTER = "beads"
+
+    def setUp(self):
+        if not have_bd():
+            self.skipTest("bd is not installed")
+        super().setUp()
+
+    def bd_show(self, ident):
+        p = subprocess.run(
+            ["bd", "show", ident, "--json"],
+            capture_output=True,
+            text=True,
+            env=dict(os.environ, BEADS_DIR=os.path.join(self.repo.workspace(), ".beads")),
+        )
+        rows = json.loads(p.stdout)
+        return rows[0] if isinstance(rows, list) else rows
+
+    def test_the_means_are_kept_in_the_issues_metadata(self):
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        given = "Ship it.\n\nVerify using:\n- not a means"
+        means = ["run:make check", "https://example.invalid/runs/1"]
+        poured = self.ask(
+            "pour-steps",
+            formulaRef="mol-x",
+            title="mol-x",
+            steps=[{"id": "a", "title": "A"}],
+            description=given,
+            verifyUsing=means,
+        )
+        made = self.ask("create-item", title="Moved", description=given, verifyUsing=means)
+        for ident in (poured["rootId"], made["item"]["id"]):
+            item = self.ask("show-item", id=ident)["item"]
+            self.assertEqual((item["description"], item["verifyUsing"]), (given, means))
+            raw = self.bd_show(ident)
+            self.assertEqual(raw["description"], given)
+            self.assertEqual(raw["metadata"]["dotdiw"]["verifyUsing"], means)
+
+    def test_a_workspace_poured_into_before_3_0_is_brought_up_to_date_when_init_asks(self):
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        marker = os.path.join(self.repo.workspace(), "means-in-metadata")
+        self.assertTrue(os.path.exists(marker), "a store opened by 3.0.0 starts up to date")
+        old = self.ask("create-item", title="Poured by 2.0", description="Ship it.")["item"]["id"]
+        p = subprocess.run(
+            ["bd", "update", old, "--description", "Ship it.\n\nVerify using:\n- run:make check"],
+            capture_output=True,
+            text=True,
+            env=dict(os.environ, BEADS_DIR=os.path.join(self.repo.workspace(), ".beads")),
+        )
+        self.assertEqual(p.returncode, 0, p.stderr)
+        os.unlink(marker)
+        asked = self.m.invoke_extra("upgrade", {"root": self.repo.path, "tracker": "beads"})
+        self.assertEqual(len(asked["pending"]), 1)
+        self.assertIn("Verify using:", self.bd_show(old)["description"], "nothing moves unasked")
+        done = self.m.invoke_extra(
+            "upgrade", {"root": self.repo.path, "tracker": "beads", "apply": True}
+        )
+        self.assertEqual(done["status"], "completed", done)
+        self.assertIn("out of 1 description", done["done"][0])
+        self.assertTrue(os.path.exists(marker))
+        item = self.ask("show-item", id=old)["item"]
+        self.assertEqual(
+            (item["description"], item["verifyUsing"]), ("Ship it.", ["run:make check"])
+        )
+        self.assertEqual(self.bd_show(old)["metadata"]["dotdiw"]["verifyUsing"], ["run:make check"])
+
+    def test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is(self):
+        """Issues an earlier version left with dotdiw in their metadata as a
+        value of their own, null included, read back, and the upgrade passes
+        them: each keeps that value and its description as given, those whose
+        means stay in their descriptions are named, and every other issue is
+        brought up to date."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        marker = os.path.join(self.repo.workspace(), "means-in-metadata")
+        env = dict(os.environ, BEADS_DIR=os.path.join(self.repo.workspace(), ".beads"))
+        theirs = '{"dotdiw": "customer value"}'
+        given = "Ship that.\n\nVerify using:\n- run:make check"
+        plain = self.ask("create-item", title="Kept by 2.0", description="Ship it.")["item"]["id"]
+        owned = self.ask("create-item", title="Theirs", description="x")["item"]["id"]
+        moved = self.ask("create-item", title="Poured by 2.0", description="x")["item"]["id"]
+        nulled = self.ask("create-item", title="Nulled", description="x")["item"]["id"]
+        for args in (
+            [plain, "--metadata", theirs],
+            [owned, "--description", given, "--metadata", theirs],
+            [nulled, "--description", given, "--metadata", '{"dotdiw": null}'],
+            [moved, "--description", "Ship them.\n\nVerify using:\n- run:make test"],
+        ):
+            p = subprocess.run(["bd", "update", *args], capture_output=True, text=True, env=env)
+            self.assertEqual(p.returncode, 0, p.stderr)
+        os.unlink(marker)
+        done = self.m.invoke_extra(
+            "upgrade", {"root": self.repo.path, "tracker": "beads", "apply": True}
+        )
+        self.assertEqual(done["status"], "completed", done)
+        self.assertIn("out of 1 description", done["done"][0])
+        self.assertIn(
+            done["done"][1],
+            [
+                "%s and %s keep the means in their descriptions, since their metadata holds "
+                "dotdiw as a value of their own" % pair
+                for pair in ((owned, nulled), (nulled, owned))
+            ],
+        )
+        self.assertTrue(os.path.exists(marker))
+        for ident in (plain, owned):
+            self.assertEqual(self.bd_show(ident)["metadata"]["dotdiw"], "customer value")
+        self.assertEqual(self.bd_show(nulled)["metadata"], {"dotdiw": None})
+        for ident in (owned, nulled):
+            self.assertEqual(self.bd_show(ident)["description"], given)
+        shown = {}
+        for ident in (plain, owned, moved, nulled):
+            item = self.ask("show-item", id=ident)["item"]
+            shown[ident] = (item["description"], item.get("verifyUsing") or [])
+        self.assertEqual(
+            shown,
+            {
+                plain: ("Ship it.", []),
+                owned: (given, []),
+                moved: ("Ship them.", ["run:make test"]),
+                nulled: (given, []),
+            },
+        )
+        listed = self.ask("list-items")
+        self.assertEqual(listed["status"], "completed", listed)
+        self.assertEqual(len(listed["items"]), 4)
+
+    def test_an_upgrade_cut_short_is_taken_up_where_it_stopped(self):
+        """bd refuses the second update: the upgrade fails and the workspace is
+        left unmarked. The next moves only the issue still to move; the one
+        moved keeps its description, which still reads like the means, and its
+        means."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        marker = os.path.join(self.repo.workspace(), "means-in-metadata")
+        env = dict(os.environ, BEADS_DIR=os.path.join(self.repo.workspace(), ".beads"))
+        made = {}
+        for description, means in (
+            ("Ship it.\n\nVerify using:\n- run:make lint", ["run:make check"]),
+            ("Ship that.\n\nVerify using:\n- run:make test", ["run:make smoke"]),
+        ):
+            ident = self.ask("create-item", title="Poured by 2.0", description="x")["item"]["id"]
+            kept = description + "\n\nVerify using:\n" + "\n".join("- " + m for m in means)
+            p = subprocess.run(
+                ["bd", "update", ident, "--description", kept],
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertEqual(p.returncode, 0, p.stderr)
+            made[ident] = (description, means)
+        os.unlink(marker)
+        shim = tempfile.mkdtemp(prefix="dotdiw-bd-shim-")
+        self.addCleanup(shutil.rmtree, shim, True)
+        with open(os.path.join(shim, "bd"), "w", encoding="utf-8") as fh:
+            fh.write(
+                "#!/bin/sh\n"
+                'if [ "$1" = update ]; then\n'
+                "  echo x >> %s\n"
+                "  n=$(wc -l < %s)\n"
+                '  if [ $n -gt %d ]; then echo "refused by the test" >&2; exit 1; fi\n'
+                "fi\n"
+                'exec %s "$@"\n'
+                % (
+                    shlex.quote(os.path.join(shim, "updates")),
+                    shlex.quote(os.path.join(shim, "updates")),
+                    1,
+                    shlex.quote(shutil.which("bd") or "bd"),
+                )
+            )
+        os.chmod(os.path.join(shim, "bd"), 0o755)
+        path = os.environ["PATH"]
+        os.environ["PATH"] = shim + os.pathsep + path
+        try:
+            cut = self.m.invoke_extra(
+                "upgrade", {"root": self.repo.path, "tracker": "beads", "apply": True}
+            )
+        finally:
+            os.environ["PATH"] = path
+        self.assertEqual(cut["status"], "failed", cut)
+        self.assertIn("refused by the test", cut["summary"])
+        self.assertFalse(os.path.exists(marker))
+
+        def held(ident):
+            item = self.ask("show-item", id=ident)["item"]
+            return item["description"], item.get("verifyUsing") or []
+
+        self.assertEqual(len([i for i in made if held(i) == made[i]]), 1, "one moved")
+        done = self.m.invoke_extra(
+            "upgrade", {"root": self.repo.path, "tracker": "beads", "apply": True}
+        )
+        self.assertEqual(done["status"], "completed", done)
+        self.assertIn("out of 1 description", done["done"][0])
+        self.assertTrue(os.path.exists(marker))
+        for ident, want in made.items():
+            self.assertEqual(held(ident), want)
+
+
 class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
     """The local adapter answers the interface in records from one sqlite
     file under the home, runs nothing, and closes a poured root itself when
@@ -1121,7 +1449,7 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
 
     def test_what_it_says_of_itself(self):
         info = self.ask("describe-tracker")["info"]
-        self.assertEqual(info["extras"], [])
+        self.assertEqual(info["extras"], ["upgrade"])
         opened = self.ask("open-tracker", prefix="t")
         self.assertTrue(opened["path"].endswith("dotdiw.sqlite"))
         self.assertEqual(sorted(os.listdir(self.repo.workspace())), ["dotdiw.sqlite"])
@@ -1147,6 +1475,99 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
             self.ask("close-item", id=step, closeReason="done")["closedIds"],
             [step, root],
             "a root kept as molecule still closes with its last step",
+        )
+
+    def test_the_means_are_kept_in_a_column_of_their_own(self):
+        """A description that reads like the means is a description, kept and
+        returned as given, and the means are a column's, not a section's."""
+        self.ask("open-tracker", prefix="t")
+        given = "Ship it.\n\nVerify using:\n- not a means"
+        means = ["run:make check", "https://example.invalid/runs/1"]
+        poured = self.ask(
+            "pour-steps",
+            formulaRef="mol-x",
+            title="mol-x",
+            steps=[{"id": "a", "title": "A"}],
+            description=given,
+            verifyUsing=means,
+        )
+        made = self.ask("create-item", title="Moved", description=given, verifyUsing=means)
+        for ident in (poured["rootId"], made["item"]["id"]):
+            item = self.ask("show-item", id=ident)["item"]
+            self.assertEqual((item["description"], item["verifyUsing"]), (given, means))
+            conn = sqlite3.connect(os.path.join(self.repo.workspace(), "dotdiw.sqlite"))
+            row = conn.execute(
+                "SELECT description, verify_using FROM items WHERE id = ?", (ident,)
+            ).fetchone()
+            conn.close()
+            self.assertEqual(row, (given, json.dumps(means)))
+
+    def test_a_store_made_before_3_0_is_brought_up_to_date_when_init_asks(self):
+        a_store_as_2_0_kept_it(
+            os.path.join(self.repo.workspace(), "dotdiw.sqlite"),
+            [
+                ("t-a", "root", "Ship it.\n\nVerify using:\n- run:make check"),
+                ("t-b", "root", "Verify using:\n- run:make check"),
+                ("t-c", "task", "Looks like one.\n\nVerify using:\n- x\n\nVerify using:"),
+                ("t-d", "task", "Plain."),
+                ("t-e", "task", None),
+            ],
+        )
+        asked = self.m.invoke_extra("upgrade", {"root": self.repo.path, "tracker": "local"})
+        self.assertEqual(asked["status"], "completed")
+        self.assertEqual(len(asked["pending"]), 1)
+        self.assertEqual(asked["done"], [])
+        conn = sqlite3.connect(os.path.join(self.repo.workspace(), "dotdiw.sqlite"))
+        columns = [r[1] for r in conn.execute("PRAGMA table_info(items)")]
+        conn.close()
+        self.assertNotIn("verify_using", columns, "nothing is changed without apply")
+        done = self.m.invoke_extra(
+            "upgrade", {"root": self.repo.path, "tracker": "local", "apply": True}
+        )
+        self.assertEqual(done["status"], "completed")
+        self.assertEqual(done["pending"], [])
+        self.assertIn("out of 3 descriptions", done["done"][0])
+        expect = {
+            "t-a": ("Ship it.", ["run:make check"]),
+            "t-b": (None, ["run:make check"]),
+            "t-c": ("Looks like one.\n\nVerify using:\n- x", None),
+            "t-d": ("Plain.", None),
+            "t-e": (None, None),
+        }
+        for ident, (description, means) in expect.items():
+            item = self.ask("show-item", id=ident)["item"]
+            self.assertEqual(
+                (item.get("description"), item.get("verifyUsing")), (description, means)
+            )
+        again = self.m.invoke_extra(
+            "upgrade", {"root": self.repo.path, "tracker": "local", "apply": True}
+        )
+        self.assertEqual((again["pending"], again["done"]), ([], []), "once")
+
+    def test_the_notice_the_past_titles_and_from_read_every_item(self):
+        """Past the 300th item, a procedure built by hand is noticed, its steps
+        are read for --from, and its title counts among the past ones. It is
+        done, and the store lists open items first, so 305 open ones put it
+        past the 300th whatever their ids."""
+        self.ask("open-tracker", prefix="t")
+        parent = self.ask("create-item", title="Rotate the signing keys by hand")["item"]["id"]
+        kids = [
+            self.ask("create-item", title="Step %d" % n, parent=parent)["item"]["id"]
+            for n in range(3)
+        ]
+        self.ask("add-need", id=kids[1], needs=kids[0])
+        self.ask("add-need", id=kids[2], needs=kids[1])
+        for ident in kids + [parent]:
+            self.assertEqual(self.ask("close-item", id=ident)["status"], "completed")
+        for n in range(305):
+            self.ask("create-item", title="Item %d" % n)
+        found = self.m.invoke(
+            "operation.notice-handmade-procedures", {"root": self.repo.path, "tracker": "local"}
+        )
+        self.assertIn(parent, [u["workRef"] for u in found["undeclared"]])
+        self.assertIsNotNone(self.m.steps_from(self.repo.path, "local", parent))
+        self.assertIn(
+            "Rotate the signing keys by hand", self.m.past_titles(self.repo.path, "local")
         )
 
     def test_a_poured_root_closes_with_its_last_step(self):
@@ -1303,6 +1724,68 @@ class TheLocalCommandLine(unittest.TestCase):
 
     def dotdiw(self, *args):
         return self.repo.dotdiw(*args, env=self.env)
+
+    def test_init_brings_a_store_an_earlier_version_kept_up_to_date(self):
+        """A local store kept before 3.0.0 refuses every command but init, and
+        init moves its means into their column, once."""
+        self.adopted()
+        store = os.path.join(self.repo.workspace(), "dotdiw.sqlite")
+        os.unlink(store)
+        a_store_as_2_0_kept_it(store, [("t-a", "root", "Ship it.\n\nVerify using:\n- run:x")])
+        code, out = self.dotdiw("list")
+        self.assertEqual(code, 1, out)
+        self.assertIn("its store keeps the means to prove a run inside descriptions", out)
+        self.assertIn("Run dotdiw init once to bring it up to date.", out)
+        code, out = self.dotdiw("init")
+        self.assertEqual(code, 0, out)
+        self.assertIn("put right what an earlier version of it left here", out)
+        self.assertIn("kept in a column of their own, out of 1 description", out)
+        code, out = self.dotdiw("list")
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("init")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("earlier version", out)
+
+    def test_create_pour_and_init_read_their_own_flags(self):
+        """create, formula pour and init take dotdiw's own flags, and refuse
+        any other in one line, naming it, before anything is done, as they
+        refuse a flag of their own given no value; --description=<text> gives
+        a value that starts with a dash."""
+        self.adopted()
+        for args, said in (
+            (("create", "Named", "--label", "x"), "--label is not one of its flags"),
+            (("create", "Named", "-d"), "-d needs a value"),
+            (("create", "Named", "-d", "--not-a-flag"), "-d needs a value"),
+            (("create", "Named", "--description", "--json"), "--description needs a value"),
+            (("init", "--prefix", "--json"), "--prefix needs a value"),
+            (("create", "Named", "--tracker="), "--tracker needs a value"),
+            (("create", "Named", "--tracker"), "--tracker needs a value"),
+            (("create", "Named", "--tracker", "--json"), "--tracker needs a value"),
+            (("create", "Two", "words"), "words is one word too many"),
+            (("create",), "a title is needed"),
+            (("create", "Named", "-p", "high"), "the priority is 0 to 4"),
+            (("formula", "pour", "mol-release-through-tap", "--var", "a=b"), "--var is not one"),
+            (("init", "--force"), "--force is not one of its flags"),
+        ):
+            with self.subTest(args=args):
+                code, out = self.dotdiw(*args)
+                self.assertEqual(code, 2, out)
+                self.assertIn(said, out)
+                self.assertEqual(len(out.strip().splitlines()), 1, out)
+        code, out = self.dotdiw("list", "--json")
+        self.assertNotIn("Named", out)
+        code, out = self.dotdiw(
+            "create", "Named", "-p", "P1", "--description=--not-a-flag", "--json"
+        )
+        self.assertEqual(code, 0, out)
+        made = json.loads(out)
+        self.assertEqual((made["priority"], made["description"]), (1, "--not-a-flag"))
+        code, out = self.dotdiw("create", "Release v0.3.0 through the tap")
+        self.assertIn("Formulas that may apply", out)
+        code, out = self.dotdiw("create", "Release v0.4.0 through the tap", "-q")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Created issue:", out)
+        self.assertNotIn("Formulas that may apply", out)
 
     def test_show_says_who_an_item_is_assigned_to(self):
         self.adopted()
@@ -1730,7 +2213,7 @@ def none(request):
     return _ok(items=[])
 def ok(request):
     return _ok()
-TRACKER = {"info": {"name": "boom", "version": "0", "interface": 2, "checkTarget": "scratch"},
+TRACKER = {"info": {"name": "boom", "version": "0", "interface": 3, "checkTarget": "scratch"},
            "operations": {"operation.open-tracker": open_tracker, "operation.describe-tracker": describe,
                           "operation.create-item": create, "operation.add-need": ok,
                           "operation.pour-steps": ok, "operation.close-item": ok, "operation.show-item": ok,
@@ -1916,7 +2399,7 @@ def impl_pour_steps(request):
 ACME = (
     ACME_BODIES
     + """TRACKER = {
-    "info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": []},
+    "info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": []},
     "operations": {
         "operation.%s" % name.replace("_", "-"): globals()["impl_" + name]
         for name in ("open_tracker", "describe_tracker", "create_item", "add_need", "pour_steps",
@@ -1970,7 +2453,7 @@ class TheWordFormulaPour(unittest.TestCase):
         self.assertEqual(code, 0, older)
         self.assertEqual(re.sub(self.IDS, "<id>", new), re.sub(self.IDS, "<id>", older))
 
-    def test_what_is_typed_after_the_formula_goes_along(self):
+    def test_json_after_the_formula_prints_the_record(self):
         self.adopted()
         code, out = self.dotdiw("formula", "pour", "mol-release-through-tap", "--json")
         self.assertEqual(code, 0, out)
@@ -2091,6 +2574,43 @@ title = "Build the package"
 id = "publish"
 title = "Publish it"
 needs = ["build"]
+"""
+
+
+SIX_STEPS = """formula = "mol-six-steps"
+description = "Six steps one after another, declared last first, poured to see that their ids come back in the order the formula gives them and not the order they were made. Use when checking a pour."
+examples = ["Pour six steps", "Six steps in order", "Check the order of a pour"]
+version = 1
+type = "workflow"
+
+[[steps]]
+id = "six"
+title = "Step six"
+needs = ["five"]
+
+[[steps]]
+id = "five"
+title = "Step five"
+needs = ["four"]
+
+[[steps]]
+id = "four"
+title = "Step four"
+needs = ["three"]
+
+[[steps]]
+id = "three"
+title = "Step three"
+needs = ["two"]
+
+[[steps]]
+id = "two"
+title = "Step two"
+needs = ["one"]
+
+[[steps]]
+id = "one"
+title = "Step one"
 """
 
 
@@ -2225,34 +2745,47 @@ class TheMeansToProveARun(unittest.TestCase):
         self.assertEqual(code, 0, out)
         shown = json.loads(out)
         shown = shown[0] if isinstance(shown, list) else shown
-        self.assertTrue(
-            shown["description"].endswith(
-                "\n\nVerify using:\n" + "\n".join("- %s" % m for m in self.MEANS)
-            ),
-            shown["description"],
-        )
+        self.assertNotIn("Verify using:", shown.get("description") or "")
+        self.assertEqual(shown["metadata"]["dotdiw"]["verifyUsing"], self.MEANS)
         # Under --json the answer is bd's own, and the means stay out of it;
         # the root it names keeps them all the same.
         code, out = repo.dotdiw("formula", "pour", "mol-ship-the-package", "--json")
         self.assertEqual(code, 0, out)
         self.assertNotIn("Verify using:", out)
-        root = json.loads(out)["new_epic_id"]
+        root = json.loads(out)["rootId"]
         code, out = repo.dotdiw("show", root, "--json")
         self.assertEqual(code, 0, out)
         shown = json.loads(out)
         shown = shown[0] if isinstance(shown, list) else shown
-        self.assertTrue(
-            shown["description"].endswith(
-                "\n\nVerify using:\n" + "\n".join("- %s" % m for m in self.MEANS)
-            ),
-            shown["description"],
-        )
+        self.assertEqual(shown["metadata"]["dotdiw"]["verifyUsing"], self.MEANS)
+        self.assertNotIn("Verify using:", shown.get("description") or "")
 
     @unittest.skipUnless(have_bd(), "needs the tracker")
-    def test_under_beads_means_not_kept_fail_the_pour_naming_its_root(self):
-        """The pour made a root; the write of the means onto it failed. The pour
-        is a failure, and both the line said and the answer the interface gives
-        name the root it made."""
+    def test_under_beads_a_pour_answers_its_steps_in_the_formulas_order(self):
+        repo = Repo(tracker=None)
+        self.addCleanup(repo.close)
+        repo.write("six.formula.toml", SIX_STEPS)
+        repo.git("add", "-A")
+        repo.git("commit", "-qm", "the project as it stands")
+        code, out = repo.dotdiw("init", "--tracker", "beads", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+        code, out = repo.dotdiw("formula", "pour", "mol-six-steps", "--json")
+        self.assertEqual(code, 0, out)
+        steps = json.loads(out)["stepIds"]
+        titles = []
+        for ident in steps:
+            code, shown = repo.dotdiw("show", ident, "--json")
+            self.assertEqual(code, 0, shown)
+            rows = json.loads(shown)
+            titles.append((rows[0] if isinstance(rows, list) else rows)["title"])
+        self.assertEqual(
+            titles, ["Step six", "Step five", "Step four", "Step three", "Step two", "Step one"]
+        )
+
+    def test_under_beads_a_pour_that_fails_after_its_root_names_it(self):
+        """The pour made its root and a step, and bd refused the next: the pour
+        is a failure, and the line said names the root and what it made; with
+        --json, the record of what it made is printed, and the line said."""
         repo = Repo(tracker=None)
         self.addCleanup(repo.close)
         repo.write("ship-the-package.formula.toml", PROVED)
@@ -2265,8 +2798,8 @@ class TheMeansToProveARun(unittest.TestCase):
         with open(os.path.join(shim, "bd"), "w", encoding="utf-8") as fh:
             fh.write(
                 "#!/bin/sh\n"
-                'if [ "$1" = update ]; then for a in "$@"; do\n'
-                '  [ "$a" = --description ] && { echo "refused by the test" >&2; exit 1; }\n'
+                'if [ "$1" = create ]; then for a in "$@"; do\n'
+                '  case "$a" in --deps=*) echo "refused by the test" >&2; exit 1;; esac\n'
                 "done; fi\n"
                 'exec %s "$@"\n' % shlex.quote(shutil.which("bd") or "bd")
             )
@@ -2274,46 +2807,119 @@ class TheMeansToProveARun(unittest.TestCase):
         env = dict(repo.env, PATH=shim + os.pathsep + repo.env["PATH"])
         code, out = repo.dotdiw("formula", "pour", "mol-ship-the-package", env=env)
         self.assertEqual(code, 1, out)
-        root = group1(r"Root issue: (\S+)", out)
+        self.assertRegex(
+            out,
+            r"Poured 1 of 2 steps under w-[a-z0-9]+ \(w-[a-z0-9.]+\), "
+            r"and the next failed: refused by the test",
+        )
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, "formula", "pour", "mol-ship-the-package", "--json"],
+            cwd=repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        record = json.loads(p.stdout)
+        self.assertEqual(len(record["stepIds"]), 1, record)
+        self.assertEqual(
+            p.stderr,
+            "dotdiw: Poured 1 of 2 steps under %s (%s), and the next failed: refused by the test\n"
+            % (record["rootId"], record["stepIds"][0]),
+        )
+
+    def test_a_pour_prints_the_same_under_beads_as_under_local(self):
+        said = []
+        for tracker in ("beads", "local"):
+            repo = Repo(tracker=None)
+            self.addCleanup(repo.close)
+            repo.write("release-through-tap.formula.toml", FORMULA_A)
+            repo.git("add", "-A")
+            repo.git("commit", "-qm", "the project as it stands")
+            code, out = repo.dotdiw("init", "--tracker", tracker, "--prefix", "w")
+            self.assertEqual(code, 0, out)
+            code, out = repo.dotdiw("formula", "pour", "mol-release-through-tap")
+            self.assertEqual(code, 0, out)
+            said.append(re.sub(r"w-[a-z0-9.]+", "<id>", out))
+        self.assertEqual(said[0], said[1])
+
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_init_stops_where_the_beads_store_cannot_be_brought_up_to_date(self):
+        """bd refuses the upgrade's update: init stops in one line naming it,
+        every other command is still refused, and the next init finishes."""
+        repo = Repo(tracker=None)
+        self.addCleanup(repo.close)
+        code, out = repo.dotdiw("init", "--tracker", "beads", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+        code, out = repo.dotdiw("create", "Poured by 2.0", "--json")
+        self.assertEqual(code, 0, out)
+        made = json.loads(out)
+        ident = (made[0] if isinstance(made, list) else made)["id"]
+        code, out = repo.bd(
+            "update", ident, "--description", "Ship it.\n\nVerify using:\n- run:make check"
+        )
+        self.assertEqual(code, 0, out)
+        os.unlink(os.path.join(repo.workspace(), "means-in-metadata"))
+        shim = tempfile.mkdtemp(prefix="dotdiw-bd-shim-")
+        self.addCleanup(shutil.rmtree, shim, True)
+        with open(os.path.join(shim, "bd"), "w", encoding="utf-8") as fh:
+            fh.write(
+                "#!/bin/sh\n"
+                'if [ "$1" = update ]; then\n'
+                "  echo x >> %s\n"
+                "  n=$(wc -l < %s)\n"
+                '  if [ $n -gt %d ]; then echo "refused by the test" >&2; exit 1; fi\n'
+                "fi\n"
+                'exec %s "$@"\n'
+                % (
+                    shlex.quote(os.path.join(shim, "updates")),
+                    shlex.quote(os.path.join(shim, "updates")),
+                    0,
+                    shlex.quote(shutil.which("bd") or "bd"),
+                )
+            )
+        os.chmod(os.path.join(shim, "bd"), 0o755)
+        env = dict(repo.env, PATH=shim + os.pathsep + repo.env["PATH"])
+        code, out = repo.dotdiw("init", env=env)
+        self.assertEqual(code, 1, out)
         self.assertIn(
-            "Poured 2 steps under %s, and writing the means to prove its run onto it failed: "
-            "refused by the test" % root,
+            "init stopped: the store an earlier version kept could not be brought up to date: ",
             out,
         )
-        m = load_module("dotdiw_means_not_kept")
-        saved = {k: os.environ.get(k) for k in ("HOME", "PATH", "DOTDIW_TRACKER", "BEADS_DIR")}
+        self.assertIn("refused by the test", out)
+        self.assertEqual(len(out.strip().splitlines()), 1, out)
+        code, out = repo.dotdiw("list")
+        self.assertEqual(code, 1, out)
+        self.assertIn("Run dotdiw init once to bring it up to date.", out)
+        code, out = repo.dotdiw("init")
+        self.assertEqual(code, 0, out)
+        self.assertIn("out of 1 description", out)
+        code, out = repo.dotdiw("list")
+        self.assertEqual(code, 0, out)
 
-        def restore():
-            for k, v in saved.items():
-                if v is None:
-                    os.environ.pop(k, None)
-                else:
-                    os.environ[k] = v
-
-        self.addCleanup(restore)
-        os.environ.update(HOME=repo.home, PATH=env["PATH"])
-        for k in ("DOTDIW_TRACKER", "BEADS_DIR"):
-            os.environ.pop(k, None)
-        answer = m.invoke_tracker(
-            "operation.pour-steps",
-            {
-                "root": repo.path,
-                "tracker": "beads",
-                "formulaRef": "mol-ship-the-package",
-                "title": "mol-ship-the-package",
-                "steps": [
-                    {"id": "build", "title": "Build the package"},
-                    {"id": "publish", "title": "Publish it", "needs": ["build"]},
-                ],
-                "path": os.path.join(repo.path, "ship-the-package.formula.toml"),
-                "description": "Ship the package.",
-                "verifyUsing": self.MEANS,
-            },
-        )
-        self.assertEqual(answer["status"], "failed", answer)
-        self.assertRegex(answer.get("rootId") or "", r"^w-mol-")
-        self.assertIn(answer["rootId"], answer["summary"])
-        self.assertEqual(len(answer.get("stepIds") or []), 2)
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_init_passes_an_issue_whose_metadata_holds_dotdiw_of_its_own(self):
+        """An issue an earlier version made with dotdiw in its metadata as a
+        value of its own: init brings the store up to date, and every command
+        runs again."""
+        repo = Repo(tracker=None)
+        self.addCleanup(repo.close)
+        code, out = repo.dotdiw("init", "--tracker", "beads", "--prefix", "w")
+        self.assertEqual(code, 0, out)
+        code, out = repo.dotdiw("create", "Theirs", "--json")
+        self.assertEqual(code, 0, out)
+        made = json.loads(out)
+        ident = (made[0] if isinstance(made, list) else made)["id"]
+        code, out = repo.bd("update", ident, "--metadata", '{"dotdiw": "customer value"}')
+        self.assertEqual(code, 0, out)
+        os.unlink(os.path.join(repo.workspace(), "means-in-metadata"))
+        code, out = repo.dotdiw("list")
+        self.assertEqual(code, 1, out)
+        code, out = repo.dotdiw("init")
+        self.assertEqual(code, 0, out)
+        code, out = repo.dotdiw("list")
+        self.assertEqual(code, 0, out)
+        self.assertIn(ident, out)
 
     def test_learn_teaches_it(self):
         code, out = self.dotdiw("learn")
@@ -2323,9 +2929,9 @@ class TheMeansToProveARun(unittest.TestCase):
 
 
 class TheArgumentsBeadsIsGiven(unittest.TestCase):
-    """Under beads, what a worker types reaches bd as typed, read option by
-    option: a value is never taken for an option, and a type that makes a
-    root is refused, since only a pour makes one."""
+    """Under beads, create reads dotdiw's own flags, a value never taken for an
+    option, and what is typed through the pass-through reaches bd read option
+    by option, a type that makes a root refused, since only a pour makes one."""
 
     def setUp(self):
         if not have_bd():
@@ -2336,21 +2942,31 @@ class TheArgumentsBeadsIsGiven(unittest.TestCase):
         self.assertEqual(code, 0, out)
 
     def test_a_value_is_never_read_as_an_option(self):
-        code, out = self.repo.dotdiw("create", "Quoted", "-d", "--assignee=me", "--json")
+        code, out = self.repo.dotdiw("create", "Quoted", "--description=--assignee=me", "--json")
         self.assertEqual(code, 0, out)
         made = json.loads(out)
         made = made[0] if isinstance(made, list) else made
         self.assertEqual(made.get("description"), "--assignee=me")
         self.assertFalse(made.get("assignee"))
+        # And through the pass-through, which reads bd's own flags.
+        code, out = self.repo.dotdiw("update", made["id"], "-d", "--assignee=me")
+        self.assertEqual(code, 0, out)
+        code, out = self.repo.dotdiw("show", made["id"], "--json")
+        shown = json.loads(out)
+        shown = shown[0] if isinstance(shown, list) else shown
+        self.assertEqual(shown.get("description"), "--assignee=me")
+        self.assertFalse(shown.get("assignee"))
 
     def test_a_typed_description_reads_back_as_typed(self):
         """A description typed with -d that reads like the means is kept so
         that the interface gives it back as typed, with no means."""
         typed = "Verify using:\n- a line of this description, not a means"
-        code, out = self.repo.dotdiw("create", "Described", "-d", typed, "--json")
+        code, out = self.repo.dotdiw("create", "Described", "--json")
         self.assertEqual(code, 0, out)
         made = json.loads(out)
         ident = (made[0] if isinstance(made, list) else made)["id"]
+        code, out = self.repo.dotdiw("update", ident, "-d", typed)
+        self.assertEqual(code, 0, out)
         m = load_module("dotdiw_typed_description")
         saved = {k: os.environ.get(k) for k in ("HOME", "DOTDIW_TRACKER", "BEADS_DIR")}
 
@@ -2375,8 +2991,8 @@ class TheArgumentsBeadsIsGiven(unittest.TestCase):
         for typed in (["-t", "molecule"], ["--type", "molecule"], ["--type=molecule"]):
             with self.subTest(typed=typed):
                 code, out = self.repo.dotdiw("create", "A root by hand", *typed)
-                self.assertEqual(code, 1, out)
-                self.assertIn(refused, out)
+                self.assertEqual(code, 2, out)
+                self.assertIn("is not one of its flags", out)
                 self.assertEqual(len(out.strip().splitlines()), 1, out)
         code, out = self.repo.dotdiw("list", "--json")
         self.assertNotIn("A root by hand", out)
@@ -2428,8 +3044,12 @@ class TheTrackerCommands(unittest.TestCase):
         self.assertEqual(repo.dotdiw("update", ident, "-a", "me", env=env)[0], 0)
         self.assertEqual(assignee(), "Set By Hand")
         code, out = repo.dotdiw("create", "Mine too", "-a", "me")
+        self.assertEqual(code, 2, out)
+        self.assertIn("-a is not one of its flags", out)
+        code, out = repo.dotdiw("create", "Mine too")
         self.assertEqual(code, 0, out)
         ident = group1("Created issue: (\\S+)", out)
+        self.assertEqual(repo.dotdiw("update", ident, "-a", "me")[0], 0)
         self.assertEqual(assignee(), "Test")
         self.assertEqual(repo.dotdiw("update", ident, "-a", "someone")[0], 0)
         self.assertEqual(assignee(), "someone")
@@ -2982,7 +3602,7 @@ class ThePlacesAModuleIsFound(PrefixCase):
         )
         code, out = self.run_tool("tracker", "use", "acme")
         self.assertEqual(code, 1, out)
-        self.assertIn("written for tracker interface 99; this dotdiw supports interface 2", out)
+        self.assertIn("written for tracker interface 99; this dotdiw supports interface 3", out)
         self.assertNotIn("Traceback", out)
         self.assertEqual(len([s for s in out.splitlines() if s.strip()]), 1, out)
         code, out = self.run_tool("tracker", "list")
@@ -3085,7 +3705,7 @@ class ThePlacesAModuleIsFound(PrefixCase):
         raising += (
             "def _raises(request):\n"
             '    raise NotImplementedError("not yet")\n'
-            'TRACKER = {"info": {"name": "acme", "version": "0", "interface": 2, "checkTarget": "scratch"},\n'
+            'TRACKER = {"info": {"name": "acme", "version": "0", "interface": 3, "checkTarget": "scratch"},\n'
             '           "operations": {op: _raises for op in OPERATIONS}}\n'
         )
         self.module(self.repo, "acme", raising)
@@ -3279,7 +3899,7 @@ class TheFileATrackerStartsFrom(PrefixCase):
         self.assertEqual(os.listdir(self.repo).count("acme.py"), 1)
         text = self.written("acme.py")
         self.assertIn('"name": "acme"', text)
-        self.assertIn('"interface": 2', text)
+        self.assertIn('"interface": 3', text)
         self.assertNotIn("<NAME>", text)
         for internal in ("correlationId", "trackerRef", "terminal", "printed", "resultRefs"):
             self.assertNotIn(internal, text)
@@ -3762,8 +4382,8 @@ class WhatAModuleGetsWrong(PrefixCase):
         its mistakes stay its own, and the list prints where it really is."""
         path = self.acme(
             (
-                '"info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": []},',
-                '"info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": [],'
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": []},',
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": [],'
                 ' "origin": "shipped", "source": "/nowhere"},',
             ),
             (
@@ -3851,15 +4471,15 @@ class WhatAModuleGetsWrong(PrefixCase):
     def test_a_number_that_is_not_a_number_says_so(self):
         path = self.acme(
             (
-                '"info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": []},',
-                '"info": {"name": "acme", "version": "1.0.0", "interface": 2, "checkTarget": "scratch", "extras": [],'
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": []},',
+                '"info": {"name": "acme", "version": "1.0.0", "interface": 3, "checkTarget": "scratch", "extras": [],'
                 ' "interface": "1"},',
             ),
             directory=self.top,
         )
         code, out = self.run_tool("tracker", "check", path)
         self.assertEqual(code, 1, out)
-        self.assertIn("written for tracker interface '1'; this dotdiw supports interface 2", out)
+        self.assertIn("written for tracker interface '1'; this dotdiw supports interface 3", out)
         self.assertNotIn("DoorError", out)
 
     @unittest.skipUnless(have_bd(), "needs the tracker")
@@ -3981,19 +4601,45 @@ class WhatAModuleGetsWrong(PrefixCase):
         self.assertEqual(code, 0, out)
         self.assertIn("Created issue: aaa-", out)
 
+    def test_a_pour_hands_the_tracker_the_formula_and_no_file(self):
+        """The tracker is handed the steps, the description and the means to
+        prove that the pour read, and no path; nothing is written under the
+        workspace for it."""
+        self.acme(
+            (
+                "def impl_pour_steps(request):\n",
+                "def impl_pour_steps(request):\n"
+                "    with open(os.path.join(request['root'], '.asked.json'), 'w') as fh:\n"
+                "        json.dump(sorted(k for k, v in request.items() if v is not None), fh)\n",
+            )
+        )
+        self.assertEqual(self.run_tool("init", "--tracker", "acme")[0], 0)
+        with open(os.path.join(self.repo, "ship.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(PROVED)
+        code, out = self.run_tool("formula", "pour", "mol-ship-the-package")
+        self.assertEqual(code, 0, out)
+        with open(os.path.join(self.repo, ".asked.json"), encoding="utf-8") as fh:
+            asked = json.load(fh)
+        self.assertIn("steps", asked)
+        self.assertIn("verifyUsing", asked)
+        self.assertNotIn("path", asked)
+        ws = os.path.join(self.home, ".dotdiw", self.key())
+        self.assertFalse(os.path.exists(os.path.join(ws, "pours")))
+
     def test_a_choice_that_could_not_be_pinned_is_not_said_to_be(self):
         self.assertEqual(self.run_tool("init", "--tracker", "local")[0], 0)
         subprocess.run(["git", "config", "--unset", "dotdiw.tracker"], cwd=self.repo)
         lock = os.path.join(self.repo, ".git", "config.lock")
         with open(lock, "w", encoding="utf-8"):
             pass
-        code, out = self.run_tool("list")
+        code, out = self.run_tool("init")
         os.unlink(lock)
-        self.assertEqual(code, 0, out)
         self.assertNotIn("is written in .git/config", out)
-        code, out = self.run_tool("list")
+        code, out = self.run_tool("init")
         self.assertEqual(code, 0, out)
         self.assertIn("is written in .git/config", out)
+        code, out = self.run_tool("list")
+        self.assertEqual(code, 0, out)
 
     def test_formula_new_with_a_flag_and_nothing_after_it_is_refused(self):
         self.assertEqual(self.run_tool("init")[0], 0)
@@ -4110,8 +4756,8 @@ class WhatAModuleGetsWrong(PrefixCase):
 
 class TheUpgradePin(unittest.TestCase):
     """A workspace adopted before there was a choice of tracker holds one
-    adapter's store and no choice: the first command answers through that
-    adapter, writes the choice once, and says so once."""
+    adapter's store and no choice: every command but init says so, and init
+    writes the choice once and says so once."""
 
     def test_the_choice_is_written_once_and_said_once(self):
         repo = Repo(tracker=None)
@@ -4122,13 +4768,20 @@ class TheUpgradePin(unittest.TestCase):
         repo.git("config", "--local", "--unset", "dotdiw.tracker")
         self.assertEqual(repo.config("dotdiw.tracker"), "")
         code, out = repo.dotdiw("create", "Work from before")
+        self.assertEqual(code, 1, out)
+        self.assertIn("no tracker is chosen for this checkout", out)
+        self.assertEqual(repo.config("dotdiw.tracker"), "")
+        code, out = repo.dotdiw("init")
         self.assertEqual(code, 0, out)
         self.assertIn("dotdiw.tracker = beads is written in .git/config", out)
+        code, out = repo.dotdiw("create", "Work from before")
+        self.assertEqual(code, 0, out)
         self.assertRegex(out, r"Created issue: w-[a-z0-9]{3,}")
         # A quiet create, as the tracker underneath allows, still names the
         # work in the record where it can and exits 0 where it cannot.
         code, out = repo.dotdiw("create", "Quietly", "-q")
-        self.assertEqual((code, out), (0, ""))
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"^\u2713 Created issue: w-[a-z0-9]{3,} \u2014 Quietly\n")
         code, out = repo.dotdiw("create", "As JSON", "--json")
         self.assertEqual(code, 0, out)
         self.assertEqual(json.loads(out)["title"], "As JSON")
@@ -4280,6 +4933,9 @@ class Twin:
         text = text.replace(self.learn_tracker, "")
         text = text.replace(self.learn_verify, "")
         text = text.replace(self.learn_providers, "")
+        # Since 3.0.0 the header of formula list counts the formulas without
+        # saying where they are kept; each formula's own lines say that.
+        text = re.sub(r"(?m)^(\d+ formulas?) in this repo:$", r"\1:", text)
         # And the three hints for running a formula say formula pour, where they
         # said mol pour; those three are read as the same.
         text = re.sub(
@@ -4301,7 +4957,7 @@ class Twin:
 # and two more beyond them. Where an output lists items by their random ids,
 # its lines are compared as a set.
 SEVENTEEN = [
-    ("init --prefix w",),
+    ("init --prefix w", "own"),
     ("init",),
     ("--version",),
     ("learn",),
@@ -4310,14 +4966,14 @@ SEVENTEEN = [
     ("formula show mol-release-through-tap",),
     ("create", "Release v0.3.0 through the tap"),
     ("create", "Fix the login redirect", "-d", "The redirect after login loops."),
-    ("mol pour mol-release-through-tap",),
-    ("list --all", "unordered"),
-    ("show {root}", "unordered"),
-    ("ready", "unordered"),
-    ("close {step1}",),
+    ("mol pour mol-release-through-tap", "own"),
+    ("list --all", "unordered", "own"),
+    ("show {root}", "unordered", "own"),
+    ("ready", "unordered", "own"),
+    ("close {step1}", "own"),
     ("doctor",),
     ("remember", "Every release: first bump the formula, then install cleanly, then announce"),
-    ("dep tree {root}", "unordered"),
+    ("dep tree {root}", "unordered", "own"),
 ]
 BEYOND = [
     ("frobnicate --now",),
@@ -4330,7 +4986,10 @@ BEYOND = [
 class TheBytesUnderBeads(unittest.TestCase):
     """Under the beads adapter, the seventeen commands print what an earlier
     version printed, byte for byte once the random parts are named: the promise
-    that nothing a worker sees changes with the tracker behind its door."""
+    that nothing a worker sees changes with the tracker behind its door. Since
+    3.0.0 the adoption and a pour under beads are dotdiw's own, as under every
+    tracker, so init, the pour and the commands that read the run it made,
+    marked own, are run on both and not compared."""
 
     def test_the_seventeen_commands_print_what_0_5_0_printed(self):
         self.prints_what("v0.5.0")
@@ -4360,7 +5019,7 @@ class TheBytesUnderBeads(unittest.TestCase):
         differences = []
         for entry in SEVENTEEN + BEYOND:
             words, flags = entry[0].split(), [e for e in entry[1:]]
-            args = words + [f for f in flags if f not in ("unordered", "clone")]
+            args = words + [f for f in flags if f not in ("unordered", "clone", "own")]
             if entry[0] in ("create", "remember", "formula new"):
                 args = words + list(entry[1:])
             got = []
@@ -4374,6 +5033,8 @@ class TheBytesUnderBeads(unittest.TestCase):
                         "\n".join(sorted(err.split("\n"))),
                     )
                 got.append((code, out, err))
+            if "own" in flags:
+                continue
             if got[0] != got[1]:
                 differences.append(
                     "%s:\n--- %s ---\n%s%s\n--- now ---\n%s%s"
@@ -4399,7 +5060,7 @@ needs = ["tag"]
 """
 
 HALF_A_PROVIDER = """PROVIDER = {
-    "info": {"name": "half", "version": "0.1"},
+    "info": {"name": "half", "version": "0.1", "interface": 2},
     "operations": {"describe": lambda r: {"answers": ["list"]}, "list": lambda r: {"formulas": []}},
 }
 """
@@ -4409,7 +5070,7 @@ SHY_PROVIDER = """def show(request):
 
 
 PROVIDER = {
-    "info": {"name": "shy", "version": "0.1"},
+    "info": {"name": "shy", "version": "0.1", "interface": 2},
     "operations": {
         "describe": lambda r: {"answers": ["list"]},
         "list": lambda r: {"formulas": []},
@@ -4421,20 +5082,6 @@ PROVIDER = {
 COUNTING_PROVIDER = """import os
 
 CALLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calls.log")
-TEXT = "\\n".join(
-    [
-        'formula = "mol-ship"',
-        'description = "Ship a release of the service: tag it, build it, publish it."',
-        'examples = ["Ship the 4.0 release"]',
-        "version = 1",
-        'type = "workflow"',
-        "",
-        "[[steps]]",
-        'id = "tag"',
-        'title = "Tag it"',
-        "",
-    ]
-)
 
 
 def note(what):
@@ -4449,11 +5096,16 @@ def listing(request):
 
 def show(request):
     note("show")
-    return {"text": TEXT, "format": "toml"}
+    return {
+        "formula": {
+            "description": "Ship a release of the service: tag it, build it, publish it.",
+            "steps": [{"id": "tag", "title": "Tag it"}],
+        }
+    }
 
 
 PROVIDER = {
-    "info": {"name": "counting", "version": "0.1"},
+    "info": {"name": "counting", "version": "0.1", "interface": 2},
     "operations": {
         "describe": lambda r: {"answers": ["list", "show"]},
         "list": listing,
@@ -4481,11 +5133,11 @@ def listing(request):
 
 
 def show(request):
-    return {"text": 'formula = "x"\\ndescription = "Written by a provider."\\n', "format": "toml"}
+    return {"formula": {"description": "Written by a provider.", "steps": []}}
 
 
 PROVIDER = {
-    "info": {"name": "hostile", "version": "0.1"},
+    "info": {"name": "hostile", "version": "0.1", "interface": 2},
     "operations": {
         "describe": lambda r: {"answers": ["list", "show"]},
         "list": listing,
@@ -4495,7 +5147,7 @@ PROVIDER = {
 """
 
 MALFORMED_PROVIDER = """PROVIDER = {
-    "info": {"name": "malformed", "version": "0.1"},
+    "info": {"name": "malformed", "version": "0.1", "interface": 2},
     "operations": {
         "describe": lambda r: {"answers": ["list", "show"]},
         "list": lambda r: {
@@ -4529,7 +5181,7 @@ def describe(request):
 
 
 PROVIDER = {
-    "info": {"name": "slow", "version": "0.1"},
+    "info": {"name": "slow", "version": "0.1", "interface": 2},
     "operations": {"describe": describe, "list": lambda r: {"formulas": []}, "show": lambda r: {}},
 }
 """
@@ -4545,24 +5197,17 @@ id = "revoke"
 title = "Revoke the old pair"
 """
 
-CASED_PROVIDER = """def text(ident):
-    return "\\n".join(
-        [
-            'formula = "%s"' % ident,
-            'description = "The formula listed as %s."' % ident,
-            "version = 1",
-            'type = "workflow"',
-            "",
-            "[[steps]]",
-            'id = "one"',
-            'title = "One"',
-            "",
-        ]
-    )
+CASED_PROVIDER = """def show(request):
+    return {
+        "formula": {
+            "description": "The formula listed as %s." % request["id"],
+            "steps": [{"id": "one", "title": "One"}],
+        }
+    }
 
 
 PROVIDER = {
-    "info": {"name": "cased", "version": "0.1"},
+    "info": {"name": "cased", "version": "0.1", "interface": 2},
     "operations": {
         "describe": lambda r: {"answers": ["list", "show"]},
         "list": lambda r: {
@@ -4571,19 +5216,19 @@ PROVIDER = {
                 {"id": "Mol-Ship", "description": "Upper.", "examples": []},
             ]
         },
-        "show": lambda r: {"text": text(r["id"]), "format": "toml"},
+        "show": show,
     },
 }
 """
 
 GARBLED_PROVIDER = """PROVIDER = {
-    "info": {"name": "garbled", "version": "0.1"},
+    "info": {"name": "garbled", "version": "0.1", "interface": 2},
     "operations": {
         "describe": lambda r: {"answers": ["list", "show"]},
         "list": lambda r: {
             "formulas": [{"id": "mol-ship", "description": "Ship it.", "examples": []}]
         },
-        "show": lambda r: {"text": 'formula = "mol-ship"\\ndescription =\\n', "format": "toml"},
+        "show": lambda r: {"formula": {"description": "Ship it.", "steps": [{"id": "tag"}]}},
     },
 }
 """
@@ -4593,7 +5238,7 @@ FAILING_PROVIDER = """def fail(request):
 
 
 PROVIDER = {
-    "info": {"name": "failing", "version": "0.1"},
+    "info": {"name": "failing", "version": "0.1", "interface": 2},
     "operations": {
         "describe": lambda r: {"answers": ["list", "show"]},
         "list": fail,
@@ -4668,6 +5313,13 @@ class TheFormulaProviders(unittest.TestCase):
         self.assertNotIn("mol-hidden", out)
         self.assertNotIn("mol-ship-a-release", out)
 
+    def test_a_list_of_local_formulas_has_the_one_header(self):
+        self.adopted()
+        code, out = self.dotdiw("formula", "list")
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"(?m)^1 formula:$")
+        self.assertNotIn("in this repo", out)
+
     def test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from(self):
         self.adopted()
         self.registered()
@@ -4679,7 +5331,7 @@ class TheFormulaProviders(unittest.TestCase):
         self.assertRegex(out, r"(?m)^2 formulas:$")
         code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
         self.assertEqual(code, 0, out)
-        self.assertIn('formula = "mol-ship-a-release-acme"', out)
+        self.assertEqual(json.loads(out)["formula"], "mol-ship-a-release-acme")
         code, out = self.dotdiw("formula", "list", "--json")
         self.assertEqual(code, 0, out)
         held = {f["formula"]: f for f in json.loads(out)}
@@ -4852,7 +5504,7 @@ class TheFormulaProviders(unittest.TestCase):
         self.registered()
         code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
         self.assertEqual(code, 0, out)
-        self.assertIn('formula = "mol-ship-a-release-acme"', out)
+        self.assertEqual(json.loads(out)["formula"], "mol-ship-a-release-acme")
         self.assertIn("Publish it", out)
         code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
         self.assertEqual(code, 0, out)
@@ -4923,7 +5575,8 @@ class TheFormulaProviders(unittest.TestCase):
 
     def test_one_run_forgets_its_index_when_the_registry_changes(self):
         """Through the operations in one process: what a registration or a
-        removal changes is in the very next answer."""
+        removal changes is in the very next answer, and a name registered again
+        is listed from where it points now."""
         self.adopted()
         module, root = self.in_process("dotdiw_one_run")
 
@@ -4942,6 +5595,18 @@ class TheFormulaProviders(unittest.TestCase):
             module.invoke("operation.remove-provider", {"name": "acme"})["status"], "completed"
         )
         self.assertNotIn("mol-ship-a-release-acme", listed())
+        elsewhere = tempfile.mkdtemp(prefix="dotdiw-provider-")
+        self.addCleanup(shutil.rmtree, elsewhere, True)
+        with open(os.path.join(elsewhere, "calibrate.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(PROVIDED.replace('"mol-ship-a-release"', '"mol-calibrate"'))
+        done = module.invoke(
+            "operation.register-provider",
+            {"root": root, "name": "acme", "module": "directory", "location": elsewhere},
+        )
+        self.assertEqual(done["status"], "completed", done)
+        now = listed()
+        self.assertIn("mol-calibrate-acme", now)
+        self.assertNotIn("mol-ship-a-release-acme", now)
 
     def test_a_malformed_list_leaves_the_provider_out_and_create_succeeds(self):
         self.adopted()
@@ -5140,44 +5805,95 @@ class TheFormulaProviders(unittest.TestCase):
         with open(calls, encoding="utf-8") as fh:
             self.assertEqual(sorted(fh.read().split()), ["list", "show"])
 
-    def test_ids_that_differ_in_case_keep_their_own_files(self):
+    def test_a_provider_formula_is_data_and_nothing_is_written_for_it(self):
+        """show answers the formula as data; formula show prints it as a
+        .formula.json file would hold it, a pour pours its steps, and nothing
+        is written under the workspace for it."""
+        self.adopted()
+        self.registered()
+        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(
+            json.loads(out),
+            {
+                "formula": "mol-ship-a-release-acme",
+                "description": "Ship a release of the service: tag it, build it, publish it to "
+                "the registry.",
+                "verify-using": [],
+                "steps": [
+                    {"id": "tag", "title": "Tag the release", "needs": []},
+                    {"id": "publish", "title": "Publish it", "needs": ["tag"]},
+                ],
+            },
+        )
+        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Poured mol: created 3 issues", out)
+        self.assertFalse(os.path.exists(os.path.join(self.repo.workspace(), "formula-providers")))
+
+    def test_ids_that_differ_in_case_are_their_own_formulas(self):
         self.adopted()
         self.module("cased", CASED_PROVIDER)
         code, out = self.dotdiw("formula", "provider", "register", "cs", "cased")
         self.assertEqual(code, 0, out)
         module, root = self.in_process("dotdiw_cased")
-        paths = {}
-        for ident in ("mol-ship-cs", "Mol-Ship-cs"):
+        for ident, listed in (("mol-ship-cs", "mol-ship"), ("Mol-Ship-cs", "Mol-Ship")):
             found = module.invoke("operation.resolve-formula", {"root": root, "ident": ident})
             self.assertEqual(found["status"], "completed", found)
-            paths[ident] = found["path"]
-        self.assertFalse(os.path.samefile(paths["mol-ship-cs"], paths["Mol-Ship-cs"]))
-        for ident, path in paths.items():
-            with open(path, encoding="utf-8") as fh:
-                self.assertIn('formula = "%s"' % ident, fh.read())
+            self.assertEqual(found["formula"]["description"], "The formula listed as %s." % listed)
 
-    def test_a_quoted_formula_key_is_rewritten_in_place(self):
-        """The id is the formula key wherever it is spelled: a quoted key is
-        rewritten, never kept beside a second one."""
+    def test_a_provider_written_for_another_interface_is_refused(self):
         self.adopted()
-        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
-            fh.write(
-                PROVIDED.replace(
-                    'formula = "mol-ship-a-release"', '"formula" = "mol-ship-a-release"'
-                )
-            )
-        self.registered()
-        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
-        self.assertEqual(code, 0, out)
-        self.assertEqual(
-            re.findall(r"(?m)^\s*[\"']?formula[\"']?\s*=.*$", out),
-            ['formula = "mol-ship-a-release-acme"'],
-        )
-        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
-        self.assertEqual(code, 0, out)
-        self.assertIn("Poured mol: created 3 issues", out)
+        self.module("older", SHY_PROVIDER.replace(', "interface": 2}', "}"))
+        code, out = self.dotdiw("formula", "provider", "register", "old", "older")
+        self.assertEqual(code, 1, out)
+        self.assertIn("is not a formula management provider of interface 2", out)
+        code, out = self.dotdiw("formula", "provider", "list")
+        self.assertNotIn("old", out.split())
 
-    def test_a_provider_formula_that_does_not_parse_is_refused(self):
+    def test_the_lookup_answers_a_providers_formula_as_resolve_does(self):
+        """find-a-held-procedure, asked to resolve a provider's formula, answers
+        it as data, as resolve-formula answered it."""
+        self.adopted()
+        self.registered()
+        module, root = self.in_process("dotdiw_lookup")
+        found = module.invoke(
+            "operation.find-a-held-procedure",
+            {"root": root, "ask": "resolve", "ident": "mol-ship-a-release-acme"},
+        )
+        self.assertEqual(found["status"], "completed", found)
+        self.assertEqual(found["formulaRef"], "mol-ship-a-release-acme")
+        self.assertEqual([s["id"] for s in found["formula"]["steps"]], ["tag", "publish"])
+
+    def test_nothing_a_provider_gives_is_replaced_by_a_default(self):
+        """A field given outside its shape is refused, however falsy; only the
+        means to prove and a step's needs may be left out."""
+        module, _ = self.in_process("dotdiw_shape")
+        step = {"id": "tag", "title": "Tag it"}
+        for body, said in (
+            ({"steps": [step]}, "its description is not text"),
+            ({"description": 0, "steps": [step]}, "its description is not text"),
+            ({"description": "Ship it."}, "its steps are not a list"),
+            ({"description": "Ship it.", "steps": {}}, "its steps are not a list"),
+            (
+                {"description": "Ship it.", "steps": [step], "verifyUsing": False},
+                "its verifyUsing is not a list",
+            ),
+            (
+                {"description": "Ship it.", "steps": [dict(step, needs=0)]},
+                "the needs of tag are not a list of step ids",
+            ),
+        ):
+            with self.subTest(body=body):
+                with self.assertRaises(ValueError) as refused:
+                    module.formula_body({"formula": body})
+                self.assertEqual(str(refused.exception), said)
+        self.assertEqual(
+            module.formula_body({"formula": {"description": "", "steps": [step]}}),
+            {"description": "", "verifyUsing": [], "steps": [dict(step, needs=[])]},
+        )
+
+    def test_a_provider_formula_outside_its_shape_is_refused(self):
         self.adopted()
         self.module("garbled", GARBLED_PROVIDER)
         code, out = self.dotdiw("formula", "provider", "register", "gb", "garbled")
@@ -5191,54 +5907,6 @@ class TheFormulaProviders(unittest.TestCase):
         self.assertEqual(json.loads(listed), [])
 
     @unittest.skipUnless(have_bd(), "bd is not installed")
-    def test_under_beads_a_formula_that_will_not_cook_pours_nothing(self):
-        """The file is the formula: when bd will not cook it, nothing is
-        poured, and the version bd cooked before is never poured instead."""
-        repo = Repo()
-        self.addCleanup(repo.close)
-        env = dict(repo.env, PATH=os.environ.get("PATH", "/usr/bin:/bin"))
-        repo.write("release-through-tap.formula.toml", FORMULA_A)
-        repo.git("add", "-A")
-        repo.git("commit", "-qm", "the project as it stands")
-        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
-        code, out = repo.dotdiw("formula", "pour", "mol-release-through-tap", env=env)
-        self.assertEqual(code, 0, out)
-        repo.write(
-            "release-through-tap.formula.toml",
-            FORMULA_A.replace('type = "workflow"', 'type = "nonsense"').replace(
-                "Announce the release", "Announce it again"
-            ),
-        )
-        code, listed = repo.dotdiw("list", "--all", "--json", env=env)
-        before = len(json.loads(listed))
-        code, out = repo.dotdiw("formula", "pour", "mol-release-through-tap", env=env)
-        self.assertEqual(code, 1, out)
-        self.assertIn("could not cook", out)
-        code, listed = repo.dotdiw("list", "--all", "--json", env=env)
-        self.assertEqual(len(json.loads(listed)), before)
-
-    def test_each_text_a_provider_shows_is_its_own_file(self):
-        """A file once written for a provider's formula never changes: a pour
-        reads its steps and its means to prove from the copy the tracker
-        cooks, whatever a show writes meanwhile."""
-        self.adopted()
-        self.registered()
-        cache = os.path.join(self.repo.workspace(), "formula-providers")
-        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
-        self.assertEqual(code, 0, out)
-        first = sorted(os.listdir(cache))
-        self.assertEqual(len(first), 1, first)
-        with open(os.path.join(cache, first[0]), encoding="utf-8") as fh:
-            was = fh.read()
-        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
-            fh.write(PROVIDED.replace('title = "Publish it"', 'title = "Publish it again"'))
-        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
-        self.assertEqual(code, 0, out)
-        self.assertIn("Publish it again", out)
-        self.assertEqual(len(os.listdir(cache)), 2)
-        with open(os.path.join(cache, first[0]), encoding="utf-8") as fh:
-            self.assertEqual(fh.read(), was)
-
     def test_a_providers_suffix_never_falls_back_to_a_file_name(self):
         """A local file named like a provider's suffixed id, declaring an id
         of its own, never answers to that suffixed id."""
@@ -5297,111 +5965,6 @@ class TheFormulaProviders(unittest.TestCase):
         self.assertNotIn("broken.formula.toml  not committed", out)
         self.assertRegex(out, r"broken\.formula\.toml\s+does not parse, so nothing can find it")
 
-    def bd_that_pauses(self):
-        """A bd in front of the real one that, when a run asks it to, waits at
-        a cook -- before it or after it -- until the test lets it go on."""
-        real = shutil.which("bd")
-        here = tempfile.mkdtemp(prefix="dotdiw-bd-pause-")
-        self.addCleanup(shutil.rmtree, here, True)
-        with open(os.path.join(here, "bd"), "w", encoding="utf-8") as fh:
-            fh.write(
-                "#!/bin/sh\n"
-                'wait_here() { touch "$DOTDIW_TEST_PAUSE.reached"; '
-                'while [ ! -e "$DOTDIW_TEST_PAUSE.go" ]; do sleep 0.05; done; }\n'
-                'if [ "$1" = cook ] && [ -n "$DOTDIW_TEST_PAUSE" ] && [ "$DOTDIW_TEST_PAUSE_AT" = before ]; then wait_here; fi\n'
-                '"%s" "$@"\n'
-                "code=$?\n"
-                'if [ "$1" = cook ] && [ -n "$DOTDIW_TEST_PAUSE" ] && [ "$DOTDIW_TEST_PAUSE_AT" = after ]; then wait_here; fi\n'
-                "exit $code\n" % real
-            )
-        os.chmod(os.path.join(here, "bd"), 0o755)
-        return here
-
-    def beads_pour(self, repo, env, ident, pause=None, at=None):
-        extra = {"DOTDIW_TEST_PAUSE": pause, "DOTDIW_TEST_PAUSE_AT": at} if pause else {}
-        p = subprocess.Popen(
-            [sys.executable, "-I", DOTDIW, "formula", "pour", ident],
-            cwd=repo.path,
-            env=dict(env, **extra),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        self.addCleanup(p.kill)
-        return p
-
-    def until(self, path):
-        for _ in range(1200):
-            if os.path.exists(path):
-                return
-            time.sleep(0.05)
-        self.fail("%s never appeared" % path)
-
-    def steps_of(self, repo, env, root):
-        code, listed = repo.dotdiw("list", "--all", "--json", env=env)
-        return sorted(r["title"] for r in json.loads(listed) if r.get("parent") == root)
-
-    @unittest.skipUnless(have_bd(), "bd is not installed")
-    def test_under_beads_one_cook_and_its_pour_run_at_a_time(self):
-        """bd keeps one cooked copy per formula id: a second pour waits until
-        the first has poured what it cooked."""
-        wrap = self.bd_that_pauses()
-        repo = Repo()
-        self.addCleanup(repo.close)
-        env = dict(repo.env, PATH=wrap + os.pathsep + os.environ.get("PATH", "/usr/bin:/bin"))
-        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
-        code, out = repo.dotdiw(
-            "formula", "provider", "register", "acme", "directory", "--at", self.kept, env=env
-        )
-        self.assertEqual(code, 0, out)
-        pause = os.path.join(wrap, "first")
-        first = self.beads_pour(repo, env, "mol-ship-a-release-acme", pause, "after")
-        self.until(pause + ".reached")
-        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
-            fh.write(PROVIDED.replace('title = "Publish it"', 'title = "Publish it again"'))
-        second = self.beads_pour(repo, env, "mol-ship-a-release-acme")
-        time.sleep(2)
-        self.assertIsNone(second.poll())
-        open(pause + ".go", "w").close()
-        said = [p.communicate(timeout=120)[0] for p in (first, second)]
-        self.assertEqual([first.returncode, second.returncode], [0, 0], said)
-        roots = [group1(r"Root issue: (\S+)", out) for out in said]
-        self.assertEqual(self.steps_of(repo, env, roots[0]), ["Publish it", "Tag the release"])
-        self.assertEqual(
-            self.steps_of(repo, env, roots[1]), ["Publish it again", "Tag the release"]
-        )
-
-    @unittest.skipUnless(have_bd(), "bd is not installed")
-    def test_under_beads_a_pour_cooks_the_copy_it_read(self):
-        """The file a pour hands the tracker is the copy it read its means to
-        prove from, whatever is written to the formula meanwhile."""
-        wrap = self.bd_that_pauses()
-        repo = Repo()
-        self.addCleanup(repo.close)
-        env = dict(repo.env, PATH=wrap + os.pathsep + os.environ.get("PATH", "/usr/bin:/bin"))
-        repo.write("release-through-tap.formula.toml", FORMULA_A)
-        repo.git("add", "-A")
-        repo.git("commit", "-qm", "the project as it stands")
-        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
-        pause = os.path.join(wrap, "first")
-        first = self.beads_pour(repo, env, "mol-release-through-tap", pause, "before")
-        self.until(pause + ".reached")
-        repo.write(
-            "release-through-tap.formula.toml",
-            FORMULA_A.replace("Announce the release", "Announce it twice"),
-        )
-        open(pause + ".go", "w").close()
-        out = first.communicate(timeout=120)[0]
-        self.assertEqual(first.returncode, 0, out)
-        self.assertEqual(
-            self.steps_of(repo, env, group1(r"Root issue: (\S+)", out)),
-            [
-                "Announce the release",
-                "Bump the formula to the new version",
-                "Install cleanly from the tap",
-            ],
-        )
-
     def test_a_local_formula_never_takes_a_providers_suffix(self):
         """A provider's suffix is reserved: a local formula that declares an id
         with it is never reached by that id, and check says to rename it."""
@@ -5422,53 +5985,6 @@ class TheFormulaProviders(unittest.TestCase):
         code, out = self.dotdiw("formula", "show", "zed.formula.toml")
         self.assertEqual(code, 0, out)
         self.assertIn('formula = "mol-zed-acme"', out)
-
-    def test_a_provider_formula_keeps_every_value_it_was_given(self):
-        """The parsed formula key is set, however it was spelled, and every
-        other value reads back exactly -- a line inside a string included."""
-        self.adopted()
-        text = PROVIDED.replace(
-            'formula = "mol-ship-a-release"', '"formul\\u0061" = "mol-ship-a-release"'
-        ).replace(
-            'description = "Ship a release of the service: tag it, build it, publish it to the registry."',
-            'description = """\nShip a release of the service: tag it, build it, publish it to the registry.\nformula = "a line in a string"\n"""',
-        )
-        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
-            fh.write(text)
-        self.registered()
-        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
-        self.assertEqual(code, 0, out)
-        expected = dict(tomllib.loads(text), formula="mol-ship-a-release-acme")
-        self.assertEqual(tomllib.loads(out), expected)
-        code, out = self.dotdiw("formula", "pour", "mol-ship-a-release-acme")
-        self.assertEqual(code, 0, out)
-        self.assertIn("Poured mol: created 3 issues", out)
-
-    def test_a_provider_formula_that_does_not_read_back_is_refused(self):
-        self.adopted()
-        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
-            fh.write(PROVIDED.replace("version = 1\n", "version = 1\nlimit = nan\n"))
-        self.registered()
-        code, out = self.dotdiw("formula", "show", "mol-ship-a-release-acme")
-        self.assertEqual(code, 1, out)
-        self.assertIn("does not read back as the provider gave it", out)
-
-    def test_toml_text_writes_back_every_value(self):
-        module = load_module("dotdiw_toml_text")
-        doc = (
-            '"formul\\u0061" = "mol-x"\n'
-            'description = """\nShip it.\nformula = "not a key"\ndone"""\n'
-            "\"odd key\" = 'lit\\eral'\n"
-            "n = 42\nf = 1.5e-7\nb = true\n"
-            "when = 2026-11-09T12:00:00+08:00\nday = 2026-11-09\n"
-            'mixed = [1, "two", {three = 3}]\nnested = [[1, 2], [3]]\n'
-            '[vars]\na.b = "dotted"\n'
-            '[[steps]]\nid = "one"\ntitle = "Say \\"hi\\"\\ttab"\n'
-            '[steps.inner]\nk = "v"\n'
-            '[[steps]]\nid = "two"\nneeds = ["one"]\n'
-        )
-        data = tomllib.loads(doc)
-        self.assertEqual(tomllib.loads(module.toml_text(data)), data)
 
     def test_the_pour_hint_pours_the_formula_it_shows(self):
         """The command create prints to pour the first formula resolves to
@@ -5504,52 +6020,6 @@ class TheFormulaProviders(unittest.TestCase):
         self.assertEqual(shlex.split(line.split("Run it:", 1)[1])[-1], "zed.formula.toml")
 
     @unittest.skipUnless(have_bd(), "bd is not installed")
-    def test_under_beads_a_forwarded_cook_waits_for_a_pour(self):
-        """A cook typed through dotdiw holds the lock a pour holds from its
-        cook to its pour, so the pour still pours what it cooked."""
-        wrap = self.bd_that_pauses()
-        repo = Repo()
-        self.addCleanup(repo.close)
-        env = dict(repo.env, PATH=wrap + os.pathsep + os.environ.get("PATH", "/usr/bin:/bin"))
-        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
-        code, out = repo.dotdiw(
-            "formula", "provider", "register", "acme", "directory", "--at", self.kept, env=env
-        )
-        self.assertEqual(code, 0, out)
-        pause = os.path.join(wrap, "first")
-        first = self.beads_pour(repo, env, "mol-ship-a-release-acme", pause, "after")
-        self.until(pause + ".reached")
-        with open(os.path.join(self.kept, "ship.formula.toml"), "w", encoding="utf-8") as fh:
-            fh.write(PROVIDED.replace('title = "Publish it"', 'title = "Publish it again"'))
-        cook = subprocess.Popen(
-            [
-                sys.executable,
-                "-I",
-                DOTDIW,
-                "cook",
-                "mol-ship-a-release-acme",
-                "--persist",
-                "--force",
-            ],
-            cwd=repo.path,
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        self.addCleanup(cook.kill)
-        time.sleep(2)
-        self.assertIsNone(cook.poll())
-        open(pause + ".go", "w").close()
-        out = first.communicate(timeout=120)[0]
-        self.assertEqual(first.returncode, 0, out)
-        cooked = cook.communicate(timeout=120)[0]
-        self.assertEqual(cook.returncode, 0, cooked)
-        self.assertEqual(
-            self.steps_of(repo, env, group1(r"Root issue: (\S+)", out)),
-            ["Publish it", "Tag the release"],
-        )
-
     def test_the_pour_hint_is_never_read_as_an_option(self):
         """A reference that starts with a hyphen would be read as an option:
         an id like that gives way to the path, and a path like that is
@@ -5580,56 +6050,6 @@ class TheFormulaProviders(unittest.TestCase):
                 self.assertIn("Poured mol: created 2 issues", out)
 
     @unittest.skipUnless(have_bd(), "bd is not installed")
-    def test_under_beads_a_cook_behind_a_flag_waits_for_a_pour(self):
-        """A forwarded cook holds the pour lock whatever flags come first."""
-        wrap = self.bd_that_pauses()
-        repo = Repo()
-        self.addCleanup(repo.close)
-        env = dict(repo.env, PATH=wrap + os.pathsep + os.environ.get("PATH", "/usr/bin:/bin"))
-        self.assertEqual(repo.dotdiw("init", "--prefix", "w", env=env)[0], 0)
-        code, out = repo.dotdiw(
-            "formula", "provider", "register", "acme", "directory", "--at", self.kept, env=env
-        )
-        self.assertEqual(code, 0, out)
-        repo.write(
-            "v2.formula.toml",
-            PROVIDED.replace(
-                'formula = "mol-ship-a-release"', 'formula = "mol-ship-a-release-acme"'
-            ).replace('title = "Publish it"', 'title = "Publish it again"'),
-        )
-        pause = os.path.join(wrap, "first")
-        first = self.beads_pour(repo, env, "mol-ship-a-release-acme", pause, "after")
-        self.until(pause + ".reached")
-        cook = subprocess.Popen(
-            [
-                sys.executable,
-                "-I",
-                DOTDIW,
-                "--json",
-                "cook",
-                os.path.join(repo.path, "v2.formula.toml"),
-                "--persist",
-                "--force",
-            ],
-            cwd=repo.path,
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        self.addCleanup(cook.kill)
-        time.sleep(2)
-        self.assertIsNone(cook.poll())
-        open(pause + ".go", "w").close()
-        out = first.communicate(timeout=120)[0]
-        self.assertEqual(first.returncode, 0, out)
-        cooked = cook.communicate(timeout=120)[0]
-        self.assertEqual(cook.returncode, 0, cooked)
-        self.assertEqual(
-            self.steps_of(repo, env, group1(r"Root issue: (\S+)", out)),
-            ["Publish it", "Tag the release"],
-        )
-
     def test_the_providers_list_and_remove(self):
         self.adopted()
         self.registered()

@@ -1,277 +1,543 @@
-One run of measure/mutate_tracker.py on 2026-11-09, on a copy of the tracked
-files of the 2.0.0 tree, each mutation breaking one rule promised by the tracker
-abstraction, the convention for shipping a tracker, formula pour, saying which
-account a tracker writes under, an item's kind, the means to prove a run, or
-the formula management abstraction, and the test named for it run on the
-broken copy.
+One run of the mutations of measure/mutate_tracker.py on 2026-11-10, seven at a
+time on seven copies of the tracked files of the tree after a provider came to
+answer a formula as data, each mutation breaking one rule promised by the
+tracker abstraction, the convention for shipping a tracker, formula pour, saying
+which account a tracker writes under, an item's kind, the means to prove a run,
+the formula management abstraction, or the cleanup of 3.0.0, and the test named
+for it run on the broken copy.
 bd 1.3.4 on PATH, the stub Jira of test_jira.py for the hosted adapter.
 
-bites  local closes a blocked item                                test_tracker.py test_the_scenario_passes_on_every_adapter (27 s)
-bites  local pours steps without their edges                      test_tracker.py test_the_scenario_passes_on_every_adapter (31 s)
+Note: switching to 'a5aa71e56052675de9d6a4bf20c934b0fc557670'.
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+  git switch -c <new-branch-name>
+Or undo this operation with:
+  git switch -
+Turn off this advice by setting config variable advice.detachedHead to false
+Note: switching to 'a5aa71e56052675de9d6a4bf20c934b0fc557670'.
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+  git switch -c <new-branch-name>
+Or undo this operation with:
+  git switch -
+Turn off this advice by setting config variable advice.detachedHead to false
+Note: switching to 'a5aa71e56052675de9d6a4bf20c934b0fc557670'.
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+  git switch -c <new-branch-name>
+Or undo this operation with:
+  git switch -
+Turn off this advice by setting config variable advice.detachedHead to false
+Note: switching to 'a5aa71e56052675de9d6a4bf20c934b0fc557670'.
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+  git switch -c <new-branch-name>
+Or undo this operation with:
+  git switch -
+Turn off this advice by setting config variable advice.detachedHead to false
+Note: switching to 'a5aa71e56052675de9d6a4bf20c934b0fc557670'.
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+  git switch -c <new-branch-name>
+Or undo this operation with:
+  git switch -
+Turn off this advice by setting config variable advice.detachedHead to false
+Note: switching to 'a5aa71e56052675de9d6a4bf20c934b0fc557670'.
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+  git switch -c <new-branch-name>
+Or undo this operation with:
+  git switch -
+Turn off this advice by setting config variable advice.detachedHead to false
+Note: switching to 'a5aa71e56052675de9d6a4bf20c934b0fc557670'.
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+  git switch -c <new-branch-name>
+Or undo this operation with:
+  git switch -
+Turn off this advice by setting config variable advice.detachedHead to false
+bites  local closes a blocked item                                test_tracker.py test_the_scenario_passes_on_every_adapter (64 s)
+bites  local pours steps without their edges                      test_tracker.py test_the_scenario_passes_on_every_adapter (65 s)
 bites  the tracker door lets a response step outside its type     test_promise.py test_the_tracker_door_raises_naming_the_operation_and_the_key (0 s)
 bites  a workspace with one store and no choice falls to the default test_promise.py test_a_workspace_with_one_store_and_no_choice_is_answered_by_that_adapter (0 s)
-bites  the upgrade writes no choice                               test_dotdiw.py test_the_choice_is_written_once_and_said_once (6 s)
-bites  the stream rewrite is dropped                              test_dotdiw.py test_the_extras (4 s)
+bites  the upgrade writes no choice                               test_dotdiw.py test_a_choice_that_could_not_be_pinned_is_not_said_to_be (2 s)
+bites  the stream rewrite is dropped                              test_dotdiw.py test_the_extras (11 s)
 bites  a body runs the binary itself                              test_promise.py test_only_the_adapter_names_the_binary (0 s)
 bites  the tracker door's table is edited by hand                 test_promise.py test_the_table_is_a_fresh_generation_from_the_idl (0 s)
-bites  the move leaves the needs behind                           test_tracker.py test_every_pair_and_back (54 s)
-bites  the presenter prints the created issue under beads too     test_dotdiw.py test_the_seventeen_commands_print_what_0_5_0_printed (51 s)
-bites  the witness forgets which adapter answered                 test_promise.py test_a_real_run_is_a_story_the_contract_calls_valid (2 s)
+bites  the move leaves the needs behind                           test_tracker.py test_every_pair_and_back (128 s)
+bites  the witness forgets which adapter answered                 test_promise.py test_a_real_run_is_a_story_the_contract_calls_valid (6 s)
 bites  an adapter answers the interface from outside its sort     test_promise.py test_every_definition_is_sorted (0 s)
-bites  help under a store is refused                              test_dotdiw.py test_help_is_the_conventions_text (1 s)
+bites  help under a store is refused                              test_dotdiw.py test_help_is_the_conventions_text (3 s)
 bites  a loaded adapter's failure is a traceback                  test_promise.py test_a_loaded_adapter_that_fails_is_refused_in_one_line (0 s)
-bites  a run does not finish what an earlier one left             test_tracker.py test_a_refused_item_leaves_the_earlier_ones_to_be_finished (0 s)
-bites  a refused need passes for a completed move                 test_tracker.py test_a_refused_need_is_reported_and_written_by_the_next_run (0 s)
-bites  metrics stay on for an adapter the checkout did not choose test_dotdiw.py test_off_before_the_tracker_runs_whichever_adapter_is_chosen (4 s)
-bites  Jira is searched through the endpoint being removed        test_jira.py test_a_search_uses_the_endpoint_jira_keeps_and_its_tokens (2 s)
-bites  a check reads before it holds the lock                     test_dotdiw.py test_two_needs_cannot_close_a_cycle_between_them (0 s)
-bites  Jira reports a close it did not make                       test_jira.py test_a_close_with_no_way_to_done_is_refused (2 s)
-bites  a switch that fails still changes the choice               test_dotdiw.py test_a_switch_that_fails_keeps_the_choice (1 s)
-bites  a need on a step declared later is refused                 test_dotdiw.py test_a_need_on_a_step_declared_later_pours (1 s)
-bites  the description stops short of the item                    test_dotdiw.py test_a_description_is_saved_on_the_item (1 s)
-bites  create --json prints prose                                 test_dotdiw.py test_json_is_json (1 s)
-bites  grandchildren are not drawn                                test_dotdiw.py test_a_chain_is_listed_to_its_end (1 s)
-bites  a value outside its type passes the door                   test_promise.py test_a_value_outside_its_type_is_one_line_from_a_loaded_adapter (0 s)
-bites  Jira turns priority zero into two                          test_jira.py test_priority_zero_is_kept (1 s)
-bites  a Jira assignee goes by name                               test_jira.py test_an_assignee_is_an_account_id (1 s)
-bites  a package's directory is not searched                      test_dotdiw.py test_a_module_beside_bin_is_found_and_answers (0 s)
-bites  a package comes before the home directory                  test_dotdiw.py test_the_home_directory_comes_first (0 s)
-bites  a keg does not look above Cellar                           test_dotdiw.py test_a_keg_reads_the_directory_above_cellar (1 s)
-bites  a tool outside a bin directory reads beside itself         test_dotdiw.py test_a_tool_outside_a_bin_directory_reads_only_the_home_directory (0 s)
-bites  a package's bytecode lands where packages share a directory test_dotdiw.py test_a_package_leaves_nothing_in_the_directory_packages_share (0 s)
-bites  a module's store that raises is a traceback                test_dotdiw.py test_a_store_that_raises_is_no_traceback (0 s)
+bites  a run does not finish what an earlier one left             test_tracker.py test_a_refused_item_leaves_the_earlier_ones_to_be_finished (1 s)
+bites  a refused need passes for a completed move                 test_tracker.py test_a_refused_need_is_reported_and_written_by_the_next_run (1 s)
+bites  metrics stay on for an adapter the checkout did not choose test_dotdiw.py test_off_before_the_tracker_runs_whichever_adapter_is_chosen (11 s)
+bites  Jira is searched through the endpoint being removed        test_jira.py test_a_search_uses_the_endpoint_jira_keeps_and_its_tokens (7 s)
+bites  a check reads before it holds the lock                     test_dotdiw.py test_two_needs_cannot_close_a_cycle_between_them (1 s)
+bites  Jira reports a close it did not make                       test_jira.py test_a_close_with_no_way_to_done_is_refused (4 s)
+bites  a switch that fails still changes the choice               test_dotdiw.py test_a_switch_that_fails_keeps_the_choice (4 s)
+bites  a need on a step declared later is refused                 test_dotdiw.py test_a_need_on_a_step_declared_later_pours (3 s)
+bites  the description stops short of the item                    test_dotdiw.py test_a_description_is_saved_on_the_item (3 s)
+bites  create --json prints prose                                 test_dotdiw.py test_json_is_json (3 s)
+bites  grandchildren are not drawn                                test_dotdiw.py test_a_chain_is_listed_to_its_end (5 s)
+bites  a value outside its type passes the door                   test_promise.py test_a_value_outside_its_type_is_one_line_from_a_loaded_adapter (1 s)
+bites  Jira turns priority zero into two                          test_jira.py test_priority_zero_is_kept (3 s)
+bites  a Jira assignee goes by name                               test_jira.py test_an_assignee_is_an_account_id (4 s)
+bites  a package's directory is not searched                      test_dotdiw.py test_a_module_beside_bin_is_found_and_answers (1 s)
+bites  a package comes before the home directory                  test_dotdiw.py test_the_home_directory_comes_first (1 s)
+bites  a keg does not look above Cellar                           test_dotdiw.py test_a_keg_reads_the_directory_above_cellar (3 s)
+bites  a tool outside a bin directory reads beside itself         test_dotdiw.py test_a_tool_outside_a_bin_directory_reads_only_the_home_directory (1 s)
+bites  a package's bytecode lands where packages share a directory test_dotdiw.py test_a_package_leaves_nothing_in_the_directory_packages_share (1 s)
+bites  a module's store that raises is a traceback                test_dotdiw.py test_a_store_that_raises_is_no_traceback (1 s)
 bites  another interface is accepted                              test_promise.py test_a_module_says_which_interface_it_was_written_for (0 s)
-bites  a module that does not say its interface reads as 0        test_promise.py test_a_module_says_which_interface_it_was_written_for (0 s)
-bites  the interface's digest is not held                         test_promise.py test_the_interface_number_moves_by_decision (0 s)
-bites  a check by path leaves bytecode beside the file            test_dotdiw.py test_what_a_checked_file_imports_leaves_no_bytecode_beside_it (0 s)
-bites  a check by path reads the bytecode beside the file         test_dotdiw.py test_a_check_by_path_reads_the_file_and_not_its_bytecode (1 s)
-bites  a check by path leaves the file registered                 test_dotdiw.py test_the_adapter_that_was_answering_answers_again (0 s)
-bites  a check by path leaves the file's module                   test_dotdiw.py test_the_adapter_that_was_answering_answers_again (0 s)
-bites  a check by path forgets a failure already recorded         test_dotdiw.py test_a_failure_already_recorded_is_still_said (0 s)
-bites  a file that did not load counts against the installed one  test_dotdiw.py test_a_file_that_did_not_load_counts_against_nothing (0 s)
-bites  a check by path leaves writing bytecode off                test_dotdiw.py test_the_adapter_that_was_answering_answers_again (0 s)
-bites  the check command printed splits at a space                test_dotdiw.py test_the_check_after_tracker_new_runs_as_printed (1 s)
-bites  the git add printed splits at a space                      test_dotdiw.py test_the_git_add_after_formula_new_runs_as_printed (1 s)
-bites  the commit's command splits at a space                     test_promise.py test_the_commit_is_refused (0 s)
-bites  the plan formula leaves a later phase's items ready        test_dotdiw.py test_the_formula_writes_the_edge_and_verifies_it (0 s)
-bites  the plan formula takes the text out of the plan            test_dotdiw.py test_the_plan_file_keeps_each_items_text (0 s)
-bites  a local phase closes over its open items                   test_dotdiw.py test_the_layout_keeps_the_order_under_local (2 s)
-bites  a check by path reads the installed file instead           test_dotdiw.py test_a_path_is_what_is_checked_when_the_name_is_also_installed (0 s)
-bites  tracker new writes over a file                             test_dotdiw.py test_what_it_refuses_is_one_line_and_writes_nothing (1 s)
+bites  a module that does not say its interface reads as 0        test_promise.py test_a_module_says_which_interface_it_was_written_for (1 s)
+bites  the interface's digest is not held                         test_promise.py test_the_interface_number_moves_by_decision (1 s)
+bites  a check by path leaves bytecode beside the file            test_dotdiw.py test_what_a_checked_file_imports_leaves_no_bytecode_beside_it (2 s)
+bites  a check by path reads the bytecode beside the file         test_dotdiw.py test_a_check_by_path_reads_the_file_and_not_its_bytecode (2 s)
+bites  a check by path leaves the file registered                 test_dotdiw.py test_the_adapter_that_was_answering_answers_again (2 s)
+bites  a check by path leaves the file's module                   test_dotdiw.py test_the_adapter_that_was_answering_answers_again (2 s)
+bites  a check by path forgets a failure already recorded         test_dotdiw.py test_a_failure_already_recorded_is_still_said (2 s)
+bites  a file that did not load counts against the installed one  test_dotdiw.py test_a_file_that_did_not_load_counts_against_nothing (1 s)
+bites  a check by path leaves writing bytecode off                test_dotdiw.py test_the_adapter_that_was_answering_answers_again (2 s)
+bites  the check command printed splits at a space                test_dotdiw.py test_the_check_after_tracker_new_runs_as_printed (2 s)
+bites  the git add printed splits at a space                      test_dotdiw.py test_the_git_add_after_formula_new_runs_as_printed (2 s)
+bites  the commit's command splits at a space                     test_promise.py test_the_commit_is_refused (1 s)
+bites  the plan formula leaves a later phase's items ready        test_dotdiw.py test_the_formula_writes_the_edge_and_verifies_it (1 s)
+bites  the plan formula takes the text out of the plan            test_dotdiw.py test_the_plan_file_keeps_each_items_text (1 s)
+bites  a local phase closes over its open items                   test_dotdiw.py test_the_layout_keeps_the_order_under_local (9 s)
+bites  a check by path reads the installed file instead           test_dotdiw.py test_a_path_is_what_is_checked_when_the_name_is_also_installed (1 s)
+bites  tracker new writes over a file                             test_dotdiw.py test_what_it_refuses_is_one_line_and_writes_nothing (5 s)
 bites  the starting file is edited by hand                        test_promise.py test_the_table_is_a_fresh_generation_from_the_idl (0 s)
-bites  a checkout on beads is told to install dotdiw again        test_dotdiw.py test_choosing_beads_with_no_binary_writes_nothing (1 s)
-bites  choosing beads with no binary goes on writing              test_dotdiw.py test_choosing_beads_with_no_binary_writes_nothing (1 s)
-bites  an operation that could not be tried says KeyError         test_dotdiw.py test_a_later_operation_says_an_earlier_one_did_not_pass (1 s)
-bites  the check runs on the checkout a hook is in                test_dotdiw.py test_the_check_leaves_the_checkout_alone_when_git_dir_is_set (1 s)
-bites  sys.exit on load ends the command                          test_dotdiw.py test_a_module_that_exits_on_load_is_refused (0 s)
-bites  sys.exit in an operation ends the command                  test_dotdiw.py test_an_operation_that_exits_fails_the_check (1 s)
-bites  sys.exit in an extra ends the command                      test_dotdiw.py test_a_metrics_extra_that_exits_does_not_stop_the_work (1 s)
-bites  init goes on after a tracker that did not open             test_dotdiw.py test_init_stops_at_a_name_nothing_answers_to (0 s)
-bites  init says nothing when a store does not open               test_dotdiw.py test_init_says_why_the_store_did_not_open_and_stops (1 s)
-bites  a stock line replaces what the tracker said                test_dotdiw.py test_init_says_why_the_store_did_not_open_and_stops (1 s)
-bites  an exit code left out stays out                            test_dotdiw.py test_an_exit_code_left_out_is_read_from_the_status (2 s)
-bites  an exit code against the status is believed                test_dotdiw.py test_an_exit_code_against_the_status_is_refused (1 s)
-bites  an extra's exit code is not held                           test_dotdiw.py test_a_forward_extra_is_held_to_the_same_rule (2 s)
-bites  a module with nothing under the workspace is not adopted   test_dotdiw.py test_a_module_that_keeps_nothing_under_the_workspace_is_adopted (1 s)
-bites  a shipped tracker whose store is gone counts as adopted    test_dotdiw.py test_a_shipped_tracker_with_no_store_is_still_not_adopted (1 s)
-bites  a choice that was not written is reported as written       test_dotdiw.py test_use_says_when_the_choice_could_not_be_written (1 s)
-bites  a store that answers no path gives a traceback             test_dotdiw.py test_a_store_that_answers_no_path_is_no_traceback (0 s)
-bites  a module says where it came from                           test_dotdiw.py test_a_module_cannot_say_it_shipped (1 s)
-bites  a failed create says nothing                               test_dotdiw.py test_a_failed_create_says_why (1 s)
-bites  a dataclass in a module fails to load                      test_dotdiw.py test_a_module_may_use_the_whole_standard_library (0 s)
-bites  the check with nowhere to run gives a traceback            test_dotdiw.py test_the_check_with_nowhere_to_work_is_one_line (1 s)
-bites  python -O passes a check                                   test_dotdiw.py test_the_check_is_not_fooled_under_optimisation (1 s)
-bites  a file that gives no adapter runs again                    test_dotdiw.py test_a_file_that_is_no_adapter_runs_once_in_a_command (1 s)
-bites  glob characters in the home hide a module                  test_dotdiw.py test_glob_characters_in_the_home_hide_nothing (0 s)
-bites  an interface that is not a number reads as the same one    test_dotdiw.py test_a_number_that_is_not_a_number_says_so (0 s)
-bites  the scenario takes a need refused when it is already there test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (3 s)
-bites  the scenario does not read scope                           test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (3 s)
-bites  the scenario does not read limit                           test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (3 s)
-bites  the scenario takes any status                              test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (3 s)
-bites  the scenario takes a poured root of any kind               test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (4 s)
-bites  the scenario takes a created item of kind root             test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (3 s)
-bites  --at with nothing after it writes here                     test_dotdiw.py test_at_with_nothing_after_it_is_refused (1 s)
-bites  steps from a tracker that is gone become placeholders      test_dotdiw.py test_steps_from_work_on_a_tracker_that_is_gone_says_so (6 s)
-bites  a second open re-points a Jira checkout                    test_jira.py test_a_second_open_changes_nothing (1 s)
+bites  a checkout on beads is told to install dotdiw again        test_dotdiw.py test_choosing_beads_with_no_binary_writes_nothing (3 s)
+bites  choosing beads with no binary goes on writing              test_dotdiw.py test_choosing_beads_with_no_binary_writes_nothing (3 s)
+bites  an operation that could not be tried says KeyError         test_dotdiw.py test_a_later_operation_says_an_earlier_one_did_not_pass (3 s)
+bites  the check runs on the checkout a hook is in                test_dotdiw.py test_the_check_leaves_the_checkout_alone_when_git_dir_is_set (5 s)
+bites  sys.exit on load ends the command                          test_dotdiw.py test_a_module_that_exits_on_load_is_refused (1 s)
+bites  sys.exit in an operation ends the command                  test_dotdiw.py test_an_operation_that_exits_fails_the_check (3 s)
+bites  sys.exit in an extra ends the command                      test_dotdiw.py test_a_metrics_extra_that_exits_does_not_stop_the_work (2 s)
+bites  init goes on after a tracker that did not open             test_dotdiw.py test_init_stops_at_a_name_nothing_answers_to (2 s)
+bites  init says nothing when a store does not open               test_dotdiw.py test_init_says_why_the_store_did_not_open_and_stops (2 s)
+bites  a stock line replaces what the tracker said                test_dotdiw.py test_init_says_why_the_store_did_not_open_and_stops (2 s)
+bites  an exit code left out stays out                            test_dotdiw.py test_an_exit_code_left_out_is_read_from_the_status (6 s)
+bites  an exit code against the status is believed                test_dotdiw.py test_an_exit_code_against_the_status_is_refused (2 s)
+bites  an extra's exit code is not held                           test_dotdiw.py test_a_forward_extra_is_held_to_the_same_rule (6 s)
+bites  a module with nothing under the workspace is not adopted   test_dotdiw.py test_a_module_that_keeps_nothing_under_the_workspace_is_adopted (2 s)
+bites  a shipped tracker whose store is gone counts as adopted    test_dotdiw.py test_a_shipped_tracker_with_no_store_is_still_not_adopted (2 s)
+bites  a choice that was not written is reported as written       test_dotdiw.py test_use_says_when_the_choice_could_not_be_written (3 s)
+bites  a store that answers no path gives a traceback             test_dotdiw.py test_a_store_that_answers_no_path_is_no_traceback (1 s)
+bites  a module says where it came from                           test_dotdiw.py test_a_module_cannot_say_it_shipped (2 s)
+bites  a failed create says nothing                               test_dotdiw.py test_a_failed_create_says_why (3 s)
+bites  a dataclass in a module fails to load                      test_dotdiw.py test_a_module_may_use_the_whole_standard_library (1 s)
+bites  the check with nowhere to run gives a traceback            test_dotdiw.py test_the_check_with_nowhere_to_work_is_one_line (2 s)
+bites  python -O passes a check                                   test_dotdiw.py test_the_check_is_not_fooled_under_optimisation (2 s)
+bites  a file that gives no adapter runs again                    test_dotdiw.py test_a_file_that_is_no_adapter_runs_once_in_a_command (4 s)
+bites  glob characters in the home hide a module                  test_dotdiw.py test_glob_characters_in_the_home_hide_nothing (1 s)
+bites  an interface that is not a number reads as the same one    test_dotdiw.py test_a_number_that_is_not_a_number_says_so (1 s)
+bites  the scenario takes a need refused when it is already there test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (10 s)
+bites  the scenario does not read scope                           test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (10 s)
+bites  the scenario does not read limit                           test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (10 s)
+bites  the scenario takes any status                              test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (10 s)
+bites  the scenario takes a poured root of any kind               test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (10 s)
+bites  the scenario takes a created item of kind root             test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (10 s)
+bites  --at with nothing after it writes here                     test_dotdiw.py test_at_with_nothing_after_it_is_refused (2 s)
+bites  steps from a tracker that is gone become placeholders      test_dotdiw.py test_steps_from_work_on_a_tracker_that_is_gone_says_so (13 s)
+bites  a second open re-points a Jira checkout                    test_jira.py test_a_second_open_changes_nothing (3 s)
 bites  the guide's table drifts from the starting file            test_promise.py test_the_guide_fills_the_table_of_the_starting_file (0 s)
-bites  an old tree moves a checkout off its module                test_dotdiw.py test_an_old_tree_does_not_move_a_checkout_off_its_module (6 s)
-bites  the conventions are not checked under a module that keeps nothing test_dotdiw.py test_the_conventions_are_checked_under_a_module_that_keeps_nothing (1 s)
-bites  the check of beads runs in the worker's directory          test_dotdiw.py test_the_check_of_beads_leaves_the_checkout_as_it_was (0 s)
-bites  a name only asked for adopts a checkout                    test_dotdiw.py test_a_name_only_asked_for_does_not_adopt_a_checkout (1 s)
-bites  create drops what the adapter said                         test_dotdiw.py test_a_failed_create_says_what_the_adapter_said (1 s)
-bites  a forward extra's failure says nothing                     test_dotdiw.py test_a_forward_extra_that_prints_nothing_is_shown (1 s)
-bites  a forward extra's output is not shown                      test_dotdiw.py test_a_forward_extra_that_prints_nothing_is_shown (1 s)
-bites  a failure of use is said twice                             test_dotdiw.py test_a_failure_of_use_is_said_once (1 s)
-bites  a tracker that cannot answer gives placeholder steps       test_dotdiw.py test_steps_from_work_are_refused_when_the_tracker_cannot_answer (1 s)
-bites  an exit code of 256 passes as a failure                    test_dotdiw.py test_an_exit_code_git_would_read_as_zero_is_refused (1 s)
-bites  a second init changes the prefix under local               test_dotdiw.py test_a_second_init_keeps_the_prefix_under_local (1 s)
-bites  a pin that was not written is said to be                   test_dotdiw.py test_a_choice_that_could_not_be_pinned_is_not_said_to_be (1 s)
-bites  formula new takes a flag with nothing after it             test_dotdiw.py test_formula_new_with_a_flag_and_nothing_after_it_is_refused (1 s)
-bites  a priority that is no number gives a traceback             test_dotdiw.py test_a_priority_that_is_no_number_is_one_line (1 s)
-bites  the scenario reads a parent only with scope all            test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (3 s)
-bites  a broken close reads as a broken list                      test_dotdiw.py test_a_failed_close_does_not_read_as_a_failed_list (1 s)
-bites  any refusal under a parent is called a missing parent      test_jira.py test_a_pour_jira_refuses_partway_is_one_line (2 s)
-bites  formula pour stops answering                               test_dotdiw.py test_it_pours_the_formula (1 s)
-bites  mol pour stops working once there is formula pour          test_dotdiw.py test_both_spellings_print_the_same (1 s)
-bites  formula pour drops what is typed after the formula         test_dotdiw.py test_what_is_typed_after_the_formula_goes_along (1 s)
-bites  formula pour with no formula is not told how it is used    test_dotdiw.py test_with_no_formula_it_says_how_it_is_used (2 s)
-bites  create teaches mol pour where it should say formula pour   test_dotdiw.py test_what_dotdiw_prints_teaches_it (1 s)
-bites  formula list teaches mol pour where it should say formula pour test_dotdiw.py test_what_dotdiw_prints_teaches_it (1 s)
-bites  learn teaches mol pour where it should say formula pour    test_dotdiw.py test_what_dotdiw_prints_teaches_it (1 s)
-bites  the declaration says formula pour and rewrites every adopted checkout test_dotdiw.py test_the_declaration_stays_as_0_7_0_wrote_it (0 s)
-bites  mol pour prints a notice beside formula pour               test_dotdiw.py test_the_seventeen_commands_print_what_0_6_0_printed (56 s)
+bites  an old tree moves a checkout off its module                test_dotdiw.py test_an_old_tree_does_not_move_a_checkout_off_its_module (2 s)
+bites  the conventions are not checked under a module that keeps nothing test_dotdiw.py test_the_conventions_are_checked_under_a_module_that_keeps_nothing (2 s)
+bites  the check of beads runs in the worker's directory          test_dotdiw.py test_the_check_of_beads_leaves_the_checkout_as_it_was (1 s)
+bites  a name only asked for adopts a checkout                    test_dotdiw.py test_a_name_only_asked_for_does_not_adopt_a_checkout (2 s)
+bites  create drops what the adapter said                         test_dotdiw.py test_a_failed_create_says_what_the_adapter_said (2 s)
+bites  a forward extra's failure says nothing                     test_dotdiw.py test_a_forward_extra_that_prints_nothing_is_shown (4 s)
+bites  a forward extra's output is not shown                      test_dotdiw.py test_a_forward_extra_that_prints_nothing_is_shown (4 s)
+bites  a failure of use is said twice                             test_dotdiw.py test_a_failure_of_use_is_said_once (2 s)
+bites  a tracker that cannot answer gives placeholder steps       test_dotdiw.py test_steps_from_work_are_refused_when_the_tracker_cannot_answer (2 s)
+bites  an exit code of 256 passes as a failure                    test_dotdiw.py test_an_exit_code_git_would_read_as_zero_is_refused (2 s)
+bites  a second init changes the prefix under local               test_dotdiw.py test_a_second_init_keeps_the_prefix_under_local (3 s)
+bites  a pin that was not written is said to be                   test_dotdiw.py test_a_choice_that_could_not_be_pinned_is_not_said_to_be (3 s)
+bites  formula new takes a flag with nothing after it             test_dotdiw.py test_formula_new_with_a_flag_and_nothing_after_it_is_refused (5 s)
+bites  a priority that is no number gives a traceback             test_dotdiw.py test_a_priority_that_is_no_number_is_one_line (4 s)
+bites  the scenario reads a parent only with scope all            test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (9 s)
+bites  a broken close reads as a broken list                      test_dotdiw.py test_a_failed_close_does_not_read_as_a_failed_list (2 s)
+bites  any refusal under a parent is called a missing parent      test_jira.py test_a_pour_jira_refuses_partway_is_one_line (4 s)
+bites  formula pour stops answering                               test_dotdiw.py test_it_pours_the_formula (3 s)
+bites  mol pour stops working once there is formula pour          test_dotdiw.py test_both_spellings_print_the_same (4 s)
+bites  formula pour drops --json                                  test_dotdiw.py test_json_after_the_formula_prints_the_record (3 s)
+bites  formula pour with no formula is not told how it is used    test_dotdiw.py test_with_no_formula_it_says_how_it_is_used (4 s)
+bites  create teaches mol pour where it should say formula pour   test_dotdiw.py test_what_dotdiw_prints_teaches_it (3 s)
+bites  formula list teaches mol pour where it should say formula pour test_dotdiw.py test_what_dotdiw_prints_teaches_it (4 s)
+bites  learn teaches mol pour where it should say formula pour    test_dotdiw.py test_what_dotdiw_prints_teaches_it (4 s)
+bites  the declaration says formula pour and rewrites every adopted checkout test_dotdiw.py test_the_declaration_stays_as_0_7_0_wrote_it (1 s)
+bites  mol pour prints a notice beside formula pour               test_dotdiw.py test_both_spellings_print_the_same (3 s)
 bites  learn claims you never type anything else                  test_dotdiw.py test_learn_claims_only_the_trackers_own_name (1 s)
-bites  init does not say who a checked tracker acts as            test_dotdiw.py test_a_checked_name_is_said_once_at_init (1 s)
-bites  init names someone nobody checked                          test_dotdiw.py test_a_name_nobody_checked_is_not_said (1 s)
-bites  tracker use does not say who it acts as                    test_dotdiw.py test_a_checked_name_is_said_each_time_a_tracker_is_chosen (1 s)
-bites  tracker use loses who the adoption asked                   test_dotdiw.py test_a_checked_name_is_said_each_time_a_tracker_is_chosen (1 s)
-bites  tracker use asks nobody of a store already open            test_jira.py test_tracker_use_names_the_account_and_never_its_email (2 s)
-bites  beads calls the name bd records checked                    test_dotdiw.py test_it_says_who_bd_records_and_that_nobody_checked (1 s)
-bites  beads keeps the word me                                    test_dotdiw.py test_an_assignee_of_me_is_the_name_bd_records (6 s)
-bites  beads keeps the word me when it is typed with an equals sign test_dotdiw.py test_an_assignee_of_me_under_beads_is_the_name_bd_records (17 s)
-bites  beads keeps the word me in an update as typed              test_dotdiw.py test_an_assignee_of_me_under_beads_is_the_name_bd_records (14 s)
-bites  the record leaves the assignee out under local             test_dotdiw.py test_an_assignee_reads_back (0 s)
-bites  the record leaves the assignee out under beads             test_dotdiw.py test_an_assignee_reads_back (6 s)
-bites  show hides who an item is assigned to                      test_dotdiw.py test_show_says_who_an_item_is_assigned_to (2 s)
-bites  a move says nothing of the assignees it left               test_dotdiw.py test_a_move_says_how_many_assignees_it_left (2 s)
-bites  a move counts every item as having an assignee             test_dotdiw.py test_a_move_with_no_assignee_says_nothing_of_them (1 s)
-bites  jira sends the word me as an account id                    test_jira.py test_an_assignee_of_me_is_the_account_behind_the_token (2 s)
-bites  jira shows the email address as the name                   test_jira.py test_init_names_the_account_once_and_never_its_email (1 s)
-bites  jira does not ask for the assignee                         test_jira.py test_an_assignee_of_me_is_the_account_behind_the_token (2 s)
-bites  a site that will not say who loses the tracker line of --version test_jira.py test_a_site_that_will_not_say_who_leaves_the_line_out (1 s)
-bites  local answers a root as molecule                           test_tracker.py test_the_scenario_passes_on_every_adapter (33 s)
-bites  an old store's molecule root reads as a task               test_dotdiw.py test_a_store_made_before_1_0_reads_its_molecule_roots_as_root (0 s)
-bites  an old store's molecule root stays open after its last step test_dotdiw.py test_a_store_made_before_1_0_reads_its_molecule_roots_as_root (0 s)
-bites  a root local pours stays open after its last step          test_dotdiw.py test_a_poured_root_closes_with_its_last_step (0 s)
-bites  beads answers its own type for a root                      test_tracker.py test_the_scenario_passes_on_every_adapter (24 s)
-bites  beads makes its root an epic                               test_tracker.py test_the_scenario_passes_on_every_adapter (24 s)
-bites  jira answers a root as an epic                             test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (1 s)
-bites  jira does not label its root                               test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (1 s)
-bites  a kind is passed to create-item                            test_promise.py test_create_item_takes_no_kind (0 s)
-bites  a move asks for the kind it read                           test_tracker.py test_every_pair_and_back (36 s)
-bites  a file written for interface 1 loads                       test_promise.py test_a_module_says_which_interface_it_was_written_for (0 s)
+bites  init does not say who a checked tracker acts as            test_dotdiw.py test_a_checked_name_is_said_once_at_init (2 s)
+bites  init names someone nobody checked                          test_dotdiw.py test_a_name_nobody_checked_is_not_said (3 s)
+bites  tracker use does not say who it acts as                    test_dotdiw.py test_a_checked_name_is_said_each_time_a_tracker_is_chosen (3 s)
+bites  tracker use loses who the adoption asked                   test_dotdiw.py test_a_checked_name_is_said_each_time_a_tracker_is_chosen (3 s)
+bites  tracker use asks nobody of a store already open            test_jira.py test_tracker_use_names_the_account_and_never_its_email (3 s)
+bites  beads calls the name bd records checked                    test_dotdiw.py test_it_says_who_bd_records_and_that_nobody_checked (2 s)
+bites  beads keeps the word me                                    test_dotdiw.py test_an_assignee_of_me_is_the_name_bd_records (12 s)
+bites  beads keeps the word me when it is typed with an equals sign test_dotdiw.py test_an_assignee_of_me_under_beads_is_the_name_bd_records (42 s)
+bites  beads keeps the word me in an update as typed              test_dotdiw.py test_an_assignee_of_me_under_beads_is_the_name_bd_records (32 s)
+bites  the record leaves the assignee out under local             test_dotdiw.py test_an_assignee_reads_back (1 s)
+bites  the record leaves the assignee out under beads             test_dotdiw.py test_an_assignee_reads_back (12 s)
+bites  show hides who an item is assigned to                      test_dotdiw.py test_show_says_who_an_item_is_assigned_to (4 s)
+bites  a move says nothing of the assignees it left               test_dotdiw.py test_a_move_says_how_many_assignees_it_left (5 s)
+bites  a move counts every item as having an assignee             test_dotdiw.py test_a_move_with_no_assignee_says_nothing_of_them (4 s)
+bites  jira sends the word me as an account id                    test_jira.py test_an_assignee_of_me_is_the_account_behind_the_token (4 s)
+bites  jira shows the email address as the name                   test_jira.py test_init_names_the_account_once_and_never_its_email (2 s)
+bites  jira does not ask for the assignee                         test_jira.py test_an_assignee_of_me_is_the_account_behind_the_token (5 s)
+bites  a site that will not say who loses the tracker line of --version test_jira.py test_a_site_that_will_not_say_who_leaves_the_line_out (3 s)
+bites  local answers a root as molecule                           test_tracker.py test_the_scenario_passes_on_every_adapter (82 s)
+bites  an old store's molecule root reads as a task               test_dotdiw.py test_a_store_made_before_1_0_reads_its_molecule_roots_as_root (1 s)
+bites  an old store's molecule root stays open after its last step test_dotdiw.py test_a_store_made_before_1_0_reads_its_molecule_roots_as_root (1 s)
+bites  a root local pours stays open after its last step          test_dotdiw.py test_a_poured_root_closes_with_its_last_step (1 s)
+bites  beads answers its own type for a root                      test_tracker.py test_the_scenario_passes_on_every_adapter (61 s)
+bites  beads makes its root an epic                               test_tracker.py test_the_scenario_passes_on_every_adapter (60 s)
+bites  jira answers a root as an epic                             test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (4 s)
+bites  jira does not label its root                               test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (3 s)
+bites  a kind is passed to create-item                            test_promise.py test_create_item_takes_no_kind (1 s)
+bites  a move asks for the kind it read                           test_tracker.py test_every_pair_and_back (89 s)
+bites  a file written for interface 1 loads                       test_promise.py test_a_module_says_which_interface_it_was_written_for (1 s)
 bites  a module that does not say its interface loads             test_promise.py test_a_module_says_which_interface_it_was_written_for (0 s)
-bites  the notice skips a parent built by hand                    test_dotdiw.py test_the_notice_names_a_parent_built_by_hand_and_never_a_root (2 s)
-bites  the notice names a poured root                             test_dotdiw.py test_the_notice_names_a_parent_built_by_hand_and_never_a_root (3 s)
-bites  a poured root's title seeds a new formula's examples       test_dotdiw.py test_formula_new_seeds_named_work_and_never_a_root (2 s)
-bites  the scenario takes a step of any kind                      test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (4 s)
-bites  verify-using is matched                                    test_dotdiw.py test_the_means_are_never_run_or_matched (1 s)
-bites  a command in verify-using is run                           test_dotdiw.py test_the_means_are_never_run_or_matched (2 s)
-bites  the means are not shown after a pour                       test_dotdiw.py test_a_pour_shows_the_means_and_the_root_keeps_them (1 s)
-bites  the means follow a pour's JSON                             test_dotdiw.py test_under_beads_the_means_follow_its_own_output (10 s)
-bites  the formula's description is not handed to pour-steps      test_dotdiw.py test_a_pour_shows_the_means_and_the_root_keeps_them (1 s)
-bites  the means are not handed to pour-steps                     test_dotdiw.py test_a_pour_shows_the_means_and_the_root_keeps_them (1 s)
-bites  local keeps no means on its root                           test_tracker.py test_the_scenario_passes_on_every_adapter (32 s)
-bites  local reads no means back                                  test_tracker.py test_the_scenario_passes_on_every_adapter (30 s)
-bites  beads keeps no means on a root it makes                    test_tracker.py test_the_scenario_passes_on_every_adapter (21 s)
-bites  beads keeps no means after its own pour                    test_dotdiw.py test_under_beads_the_means_follow_its_own_output (7 s)
-bites  beads reads no means back                                  test_tracker.py test_the_scenario_passes_on_every_adapter (19 s)
-bites  jira keeps no means on its root                            test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (2 s)
-bites  jira reads no means back                                   test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (1 s)
-bites  check misses a file git does not track                     test_dotdiw.py test_check_holds_a_file_of_this_repository_to_being_tracked (1 s)
-bites  check holds another repository's file to this one          test_dotdiw.py test_check_holds_a_file_of_this_repository_to_being_tracked (1 s)
-bites  a remote in scp form names another repository              test_dotdiw.py test_check_holds_a_file_of_this_repository_to_being_tracked (1 s)
-bites  a value longer than a line is read                         test_dotdiw.py test_check_names_a_value_it_cannot_read (1 s)
-bites  a value in none of the forms is read                       test_dotdiw.py test_check_names_a_value_it_cannot_read (1 s)
-bites  run: with no command is read                               test_dotdiw.py test_check_names_a_value_it_cannot_read (1 s)
-bites  a repository named with no file is read                    test_dotdiw.py test_check_names_a_value_it_cannot_read (1 s)
-bites  a value that is not text is read                           test_dotdiw.py test_check_names_a_value_it_cannot_read (1 s)
-bites  tracker check does not hold the round trip                 test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (4 s)
-bites  formula list leaves the means out of its JSON              test_dotdiw.py test_formula_list_carries_them_in_json_and_keeps_its_line (1 s)
-bites  the starting file's helper reads no means back             test_promise.py test_every_copy_of_the_helper_reads_back_what_it_kept (0 s)
-bites  a pour answered in JSON leaves its root without the means  test_dotdiw.py test_under_beads_the_means_follow_its_own_output (11 s)
-bites  a failed write of the means drops the root from the answer test_dotdiw.py test_under_beads_means_not_kept_fail_the_pour_naming_its_root (7 s)
-bites  a failed write of the means passes for a pour              test_dotdiw.py test_under_beads_means_not_kept_fail_the_pour_naming_its_root (7 s)
-bites  a failed pour that made a root says nothing of it          test_dotdiw.py test_under_beads_means_not_kept_fail_the_pour_naming_its_root (7 s)
-bites  a move drops the description                               test_tracker.py test_every_pair_and_back (88 s)
-bites  a move drops the means                                     test_tracker.py test_every_pair_and_back (92 s)
-bites  a move reads an item from the listing alone                test_tracker.py test_every_pair_and_back (146 s)
-bites  local writes a created item's description raw              test_tracker.py test_the_scenario_passes_on_every_adapter (33 s)
-bites  beads writes a created item's description raw              test_tracker.py test_the_scenario_passes_on_every_adapter (28 s)
-bites  jira writes an issue's description raw                     test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (1 s)
+bites  the notice skips a parent built by hand                    test_dotdiw.py test_the_notice_names_a_parent_built_by_hand_and_never_a_root (8 s)
+bites  the notice names a poured root                             test_dotdiw.py test_the_notice_names_a_parent_built_by_hand_and_never_a_root (6 s)
+bites  a poured root's title seeds a new formula's examples       test_dotdiw.py test_formula_new_seeds_named_work_and_never_a_root (4 s)
+bites  the scenario takes a step of any kind                      test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (11 s)
+bites  verify-using is matched                                    test_dotdiw.py test_the_means_are_never_run_or_matched (3 s)
+bites  a command in verify-using is run                           test_dotdiw.py test_the_means_are_never_run_or_matched (8 s)
+bites  the means are not shown after a pour                       test_dotdiw.py test_a_pour_shows_the_means_and_the_root_keeps_them (3 s)
+bites  the formula's description is not handed to pour-steps      test_dotdiw.py test_a_pour_shows_the_means_and_the_root_keeps_them (5 s)
+bites  the means are not handed to pour-steps                     test_dotdiw.py test_a_pour_shows_the_means_and_the_root_keeps_them (4 s)
+bites  local keeps no means on its root                           test_tracker.py test_the_scenario_passes_on_every_adapter (82 s)
+bites  local reads no means back                                  test_tracker.py test_the_scenario_passes_on_every_adapter (82 s)
+bites  beads keeps no means on a root it makes                    test_tracker.py test_the_scenario_passes_on_every_adapter (59 s)
+bites  beads reads no means back                                  test_tracker.py test_the_scenario_passes_on_every_adapter (48 s)
+bites  jira keeps no means on its root                            test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (4 s)
+bites  jira reads no means back                                   test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (3 s)
+bites  check misses a file git does not track                     test_dotdiw.py test_check_holds_a_file_of_this_repository_to_being_tracked (4 s)
+bites  check holds another repository's file to this one          test_dotdiw.py test_check_holds_a_file_of_this_repository_to_being_tracked (3 s)
+bites  a remote in scp form names another repository              test_dotdiw.py test_check_holds_a_file_of_this_repository_to_being_tracked (3 s)
+bites  a value longer than a line is read                         test_dotdiw.py test_check_names_a_value_it_cannot_read (4 s)
+bites  a value in none of the forms is read                       test_dotdiw.py test_check_names_a_value_it_cannot_read (3 s)
+bites  run: with no command is read                               test_dotdiw.py test_check_names_a_value_it_cannot_read (4 s)
+bites  a repository named with no file is read                    test_dotdiw.py test_check_names_a_value_it_cannot_read (4 s)
+bites  a value that is not text is read                           test_dotdiw.py test_check_names_a_value_it_cannot_read (3 s)
+bites  tracker check does not hold the round trip                 test_dotdiw.py test_the_scenario_holds_what_the_other_commands_rely_on (11 s)
+bites  formula list leaves the means out of its JSON              test_dotdiw.py test_formula_list_carries_them_in_json_and_keeps_its_line (3 s)
+bites  the starting file's helper reads no means back             test_promise.py test_every_copy_of_the_helper_reads_back_what_it_kept (1 s)
+bites  a move drops the description                               test_tracker.py test_every_pair_and_back (200 s)
+bites  a move drops the means                                     test_tracker.py test_every_pair_and_back (200 s)
+bites  a move reads an item from the listing alone                test_tracker.py test_every_pair_and_back (281 s)
+bites  local keeps no means on an item it creates                 test_dotdiw.py test_the_means_are_kept_in_a_column_of_their_own (2 s)
+bites  beads keeps no means on an item it creates                 test_dotdiw.py test_the_means_are_kept_in_the_issues_metadata (19 s)
+bites  jira writes an issue's description raw                     test_jira.py test_it_passes_the_check_from_where_a_package_puts_it (3 s)
 bites  the helper reads a description's own section as the means  test_promise.py test_every_copy_of_the_helper_reads_back_what_it_kept (0 s)
-bites  the helper takes the first section for the means           test_promise.py test_every_copy_of_the_helper_reads_back_what_it_kept (0 s)
+bites  the helper takes the first section for the means           test_promise.py test_every_copy_of_the_helper_reads_back_what_it_kept (1 s)
 bites  jira's helper reads a description's own section as the means test_promise.py test_every_copy_of_the_helper_reads_back_what_it_kept (0 s)
 bites  the benchmark compares no ids                              test_promise.py test_the_benchmark_compares_formula_ids (0 s)
-bites  the benchmark takes a ranking of nothing                   test_promise.py test_the_benchmark_compares_formula_ids (0 s)
-bites  beads reads a value as an option                           test_dotdiw.py test_a_value_is_never_read_as_an_option (5 s)
-bites  a create asks bd for a root                                test_dotdiw.py test_only_a_pour_makes_a_root (8 s)
-bites  an update asks bd for a root                               test_dotdiw.py test_only_a_pour_makes_a_root (6 s)
-bites  a typed description is written raw under beads             test_dotdiw.py test_a_typed_description_reads_back_as_typed (6 s)
-bites  local storage reads a directory whose name starts with a dot test_dotdiw.py test_local_storage_leaves_out_dot_directories_and_symbolic_links (1 s)
-bites  local storage follows a symbolic link                      test_dotdiw.py test_local_storage_leaves_out_dot_directories_and_symbolic_links (1 s)
-bites  local storage leaves out a formula git does not track      test_dotdiw.py test_an_uncommitted_formula_is_found_and_named_as_unshared (1 s)
-bites  a provider's formula is listed without its suffix          test_dotdiw.py test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from (1 s)
-bites  a provider's formula is shown under the provider's own id  test_dotdiw.py test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from (1 s)
-bites  the list header claims the repo for a provider's formula   test_dotdiw.py test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from (1 s)
-bites  a module without show loads as a provider                  test_dotdiw.py test_registration_refuses_in_one_line_and_registers_nothing (2 s)
-bites  a provider that declares list alone is registered          test_dotdiw.py test_registration_refuses_in_one_line_and_registers_nothing (2 s)
-bites  a provider name of other characters is registered          test_dotdiw.py test_registration_refuses_in_one_line_and_registers_nothing (2 s)
-bites  a taken provider name is registered over                   test_dotdiw.py test_registration_refuses_in_one_line_and_registers_nothing (2 s)
-bites  a provider is registered over a clashing local formula     test_dotdiw.py test_registration_waits_for_a_clashing_local_formula_to_migrate (1 s)
-bites  check is silent on a local formula that reads like a provider's test_dotdiw.py test_check_names_a_local_formula_that_reads_like_a_provider_formula (1 s)
-bites  a failing provider is left out without a word              test_dotdiw.py test_a_failing_provider_is_left_out_in_one_line (1 s)
-bites  a removed provider stays registered                        test_dotdiw.py test_the_providers_list_and_remove (2 s)
-bites  a provider's formula is listed as data without its provider test_dotdiw.py test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from (2 s)
+bites  the benchmark takes a ranking of nothing                   test_promise.py test_the_benchmark_compares_formula_ids (4 s)
+bites  beads reads a value as an option                           test_dotdiw.py test_a_value_is_never_read_as_an_option (15 s)
+bites  a create asks bd for a root                                test_dotdiw.py test_only_a_pour_makes_a_root (17 s)
+bites  an update asks bd for a root                               test_dotdiw.py test_only_a_pour_makes_a_root (17 s)
+bites  the pass-through rewrites a typed description              test_dotdiw.py test_a_typed_description_reads_back_as_typed (16 s)
+bites  local storage reads a directory whose name starts with a dot test_dotdiw.py test_local_storage_leaves_out_dot_directories_and_symbolic_links (3 s)
+bites  local storage follows a symbolic link                      test_dotdiw.py test_local_storage_leaves_out_dot_directories_and_symbolic_links (3 s)
+bites  local storage leaves out a formula git does not track      test_dotdiw.py test_an_uncommitted_formula_is_found_and_named_as_unshared (3 s)
+bites  a provider's formula is listed without its suffix          test_dotdiw.py test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from (4 s)
+bites  a list of local formulas says in this repo                 test_dotdiw.py test_a_list_of_local_formulas_has_the_one_header (4 s)
+bites  a module without show loads as a provider                  test_dotdiw.py test_registration_refuses_in_one_line_and_registers_nothing (7 s)
+bites  a provider that declares list alone is registered          test_dotdiw.py test_registration_refuses_in_one_line_and_registers_nothing (5 s)
+bites  a provider name of other characters is registered          test_dotdiw.py test_registration_refuses_in_one_line_and_registers_nothing (7 s)
+bites  a taken provider name is registered over                   test_dotdiw.py test_registration_refuses_in_one_line_and_registers_nothing (6 s)
+bites  a provider is registered over a clashing local formula     test_dotdiw.py test_registration_waits_for_a_clashing_local_formula_to_migrate (3 s)
+bites  check is silent on a local formula that reads like a provider's test_dotdiw.py test_check_names_a_local_formula_that_reads_like_a_provider_formula (3 s)
+bites  a failing provider is left out without a word              test_dotdiw.py test_a_failing_provider_is_left_out_in_one_line (3 s)
+bites  a removed provider stays registered                        test_dotdiw.py test_the_providers_list_and_remove (4 s)
+bites  a provider's formula is listed as data without its provider test_dotdiw.py test_a_provider_formula_carries_its_suffix_and_says_where_it_comes_from (4 s)
 bites  learn leaves out registering a provider                    test_dotdiw.py test_learn_names_the_provider_commands (1 s)
-bites  the conventions say an uncommitted formula is not found    test_dotdiw.py test_the_conventions_say_where_an_uncommitted_formula_is_found (1 s)
-bites  each question in a run asks the providers again            test_dotdiw.py test_a_rebuilt_index_asks_no_provider_again (1 s)
-bites  a provider's id that is a path or a command is taken       test_dotdiw.py test_a_provider_id_outside_its_shape_leaves_the_provider_out (1 s)
-bites  the command printed to pour runs what the id holds         test_dotdiw.py test_the_command_printed_to_pour_quotes_the_id (1 s)
-bites  the notice prints a title the shell reads                  test_dotdiw.py test_the_notice_quotes_the_title_it_prints (2 s)
-bites  the nudge prints text the shell reads                      test_dotdiw.py test_the_nudge_quotes_the_text_it_prints (0 s)
-bites  a provider's formula is written to a file named for its id test_dotdiw.py test_ids_that_differ_in_case_keep_their_own_files (1 s)
-bites  a file name resolves before an exact id                    test_dotdiw.py test_an_exact_id_comes_before_a_file_name (1 s)
-bites  two formulas under one id resolve to the first             test_dotdiw.py test_two_formulas_under_one_id_are_refused (1 s)
-bites  a refused show is handed to the tracker                    test_dotdiw.py test_two_formulas_under_one_id_are_refused (1 s)
-bites  a removed provider's suffix is handed to the tracker       test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (2 s)
-bites  a suffix its provider does not serve is handed to the tracker test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (2 s)
-bites  a refused id reaches the tracker at pour                   test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (2 s)
-bites  a removal forgets the name it removed                      test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (1 s)
-bites  a registration keeps its name among the removed            test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (2 s)
-bites  a registration leaves the run's index as it was            test_dotdiw.py test_one_run_forgets_its_index_when_the_registry_changes (1 s)
-bites  a removal leaves the run's index as it was                 test_dotdiw.py test_one_run_forgets_its_index_when_the_registry_changes (1 s)
-bites  a malformed entry is read with the rest                    test_dotdiw.py test_a_malformed_list_leaves_the_provider_out_and_create_succeeds (1 s)
-bites  the sharing check reads the index git keeps                test_dotdiw.py test_check_names_a_formula_head_does_not_hold (1 s)
-bites  a registration writes without the registry's lock          test_dotdiw.py test_a_registration_waits_for_the_registry_lock (3 s)
-bites  a removal writes without the registry's lock               test_dotdiw.py test_a_registration_waits_for_the_registry_lock (5 s)
-bites  a registration writes over a registry it did not read      test_dotdiw.py test_two_registrations_at_once_keep_both (1 s)
-bites  a directory store is recorded as it was typed              test_dotdiw.py test_a_directory_store_is_resolved_at_registration (1 s)
-bites  a directory store that is gone answers no formulas         test_dotdiw.py test_a_directory_store_is_resolved_at_registration (2 s)
-bites  every lookup reads the provider's whole catalog            test_dotdiw.py test_each_provider_is_asked_once_in_a_run (2 s)
-bites  the providers' list hides a registration that cannot answer test_dotdiw.py test_a_registration_that_cannot_answer_is_listed (1 s)
-bites  local storage opens a FIFO as a formula                    test_dotdiw.py test_local_storage_reads_regular_files_alone (61 s)
-bites  the provider's own id wins over the suffixed one           test_dotdiw.py test_a_quoted_formula_key_is_rewritten_in_place (1 s)
-bites  a provider's text is taken without reading it back         test_dotdiw.py test_a_provider_formula_that_does_not_read_back_is_refused (1 s)
-bites  a provider's formula file is rewritten in place            test_dotdiw.py test_each_text_a_provider_shows_is_its_own_file (1 s)
-bites  beads pours the proto it held when the file will not cook  test_dotdiw.py test_under_beads_a_formula_that_will_not_cook_pours_nothing (9 s)
-bites  a provider's suffix falls back to a file name              test_dotdiw.py test_a_providers_suffix_never_falls_back_to_a_file_name (1 s)
-bites  a path is matched by its file's name first                 test_dotdiw.py test_an_exact_path_comes_before_a_file_name (1 s)
-bites  check reads only the formulas that parse                   test_dotdiw.py test_check_names_a_formula_that_does_not_parse (1 s)
-bites  check is silent on a formula that does not parse           test_dotdiw.py test_check_names_a_formula_that_does_not_parse (1 s)
-bites  the index keeps no file it could not parse                 test_dotdiw.py test_check_names_a_formula_that_does_not_parse (1 s)
-bites  a run's index forgets the files it could not parse         test_dotdiw.py test_check_names_a_formula_that_does_not_parse (2 s)
-bites  a second cook lands between a cook and its pour            test_dotdiw.py test_under_beads_one_cook_and_its_pour_run_at_a_time (11 s)
-bites  a pour hands the tracker the file it did not read          test_dotdiw.py test_under_beads_a_pour_cooks_the_copy_it_read (8 s)
-bites  a local formula takes a provider's reserved id             test_dotdiw.py test_a_local_formula_never_takes_a_providers_suffix (1 s)
-bites  check is silent on a local formula with a removed provider's suffix test_dotdiw.py test_a_local_formula_never_takes_a_providers_suffix (2 s)
-bites  a provider's other values are dropped from what it shows   test_dotdiw.py test_a_provider_formula_keeps_every_value_it_was_given (1 s)
-bites  a string's quotes are written unescaped                    test_dotdiw.py test_toml_text_writes_back_every_value (0 s)
-bites  an array of tables is written as one table                 test_dotdiw.py test_toml_text_writes_back_every_value (0 s)
-bites  the pour hint names an id another formula answers to       test_dotdiw.py test_the_pour_hint_pours_the_formula_it_shows (2 s)
-bites  the pour hint misses an id two formulas share              test_dotdiw.py test_the_pour_hint_pours_the_formula_it_shows (2 s)
-bites  the pour hint is printed from the id alone                 test_dotdiw.py test_the_pour_hint_pours_the_formula_it_shows (2 s)
-bites  a forwarded cook lands between a pour's cook and its pour  test_dotdiw.py test_under_beads_a_forwarded_cook_waits_for_a_pour (8 s)
-bites  a cook behind a flag skips the pour lock                   test_dotdiw.py test_under_beads_a_cook_behind_a_flag_waits_for_a_pour (8 s)
-bites  a path hint is read as an option                           test_dotdiw.py test_the_pour_hint_is_never_read_as_an_option (2 s)
-bites  an id hint is read as an option                            test_dotdiw.py test_the_pour_hint_is_never_read_as_an_option (2 s)
-259 of 259 mutations caught
+bites  the conventions say an uncommitted formula is not found    test_dotdiw.py test_the_conventions_say_where_an_uncommitted_formula_is_found (2 s)
+bites  each question in a run asks the providers again            test_dotdiw.py test_a_rebuilt_index_asks_no_provider_again (3 s)
+bites  a provider's id that is a path or a command is taken       test_dotdiw.py test_a_provider_id_outside_its_shape_leaves_the_provider_out (4 s)
+bites  the command printed to pour runs what the id holds         test_dotdiw.py test_the_command_printed_to_pour_quotes_the_id (3 s)
+bites  the notice prints a title the shell reads                  test_dotdiw.py test_the_notice_quotes_the_title_it_prints (6 s)
+bites  the nudge prints text the shell reads                      test_dotdiw.py test_the_nudge_quotes_the_text_it_prints (1 s)
+bites  a file name resolves before an exact id                    test_dotdiw.py test_an_exact_id_comes_before_a_file_name (4 s)
+bites  two formulas under one id resolve to the first             test_dotdiw.py test_two_formulas_under_one_id_are_refused (3 s)
+bites  a refused show is handed to the tracker                    test_dotdiw.py test_two_formulas_under_one_id_are_refused (3 s)
+bites  a removed provider's suffix is handed to the tracker       test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (4 s)
+bites  a suffix its provider does not serve is handed to the tracker test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (4 s)
+bites  a refused id reaches the tracker at pour                   test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (5 s)
+bites  a removal forgets the name it removed                      test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (4 s)
+bites  a registration keeps its name among the removed            test_dotdiw.py test_a_removed_providers_formula_is_never_handed_to_the_tracker (5 s)
+bites  a registration keeps the run's provider lists              test_dotdiw.py test_one_run_forgets_its_index_when_the_registry_changes (3 s)
+bites  a malformed entry is read with the rest                    test_dotdiw.py test_a_malformed_list_leaves_the_provider_out_and_create_succeeds (4 s)
+bites  the sharing check reads the index git keeps                test_dotdiw.py test_check_names_a_formula_head_does_not_hold (3 s)
+bites  a registration writes without the registry's lock          test_dotdiw.py test_a_registration_waits_for_the_registry_lock (4 s)
+bites  a removal writes without the registry's lock               test_dotdiw.py test_a_registration_waits_for_the_registry_lock (6 s)
+bites  a registration writes over a registry it did not read      test_dotdiw.py test_two_registrations_at_once_keep_both (3 s)
+bites  a directory store is recorded as it was typed              test_dotdiw.py test_a_directory_store_is_resolved_at_registration (2 s)
+bites  a directory store that is gone answers no formulas         test_dotdiw.py test_a_directory_store_is_resolved_at_registration (3 s)
+bites  every lookup reads the provider's whole catalog            test_dotdiw.py test_each_provider_is_asked_once_in_a_run (4 s)
+bites  the providers' list hides a registration that cannot answer test_dotdiw.py test_a_registration_that_cannot_answer_is_listed (3 s)
+bites  local storage opens a FIFO as a formula                    test_dotdiw.py test_local_storage_reads_regular_files_alone (63 s)
+bites  a provider's suffix falls back to a file name              test_dotdiw.py test_a_providers_suffix_never_falls_back_to_a_file_name (3 s)
+bites  a path is matched by its file's name first                 test_dotdiw.py test_an_exact_path_comes_before_a_file_name (4 s)
+bites  check reads only the formulas that parse                   test_dotdiw.py test_check_names_a_formula_that_does_not_parse (3 s)
+bites  check is silent on a formula that does not parse           test_dotdiw.py test_check_names_a_formula_that_does_not_parse (2 s)
+bites  the index keeps no file it could not parse                 test_dotdiw.py test_check_names_a_formula_that_does_not_parse (3 s)
+bites  a run's index forgets the files it could not parse         test_dotdiw.py test_check_names_a_formula_that_does_not_parse (3 s)
+bites  a local formula takes a provider's reserved id             test_dotdiw.py test_a_local_formula_never_takes_a_providers_suffix (3 s)
+bites  check is silent on a local formula with a removed provider's suffix test_dotdiw.py test_a_local_formula_never_takes_a_providers_suffix (4 s)
+bites  the pour hint names an id another formula answers to       test_dotdiw.py test_the_pour_hint_pours_the_formula_it_shows (5 s)
+bites  the pour hint misses an id two formulas share              test_dotdiw.py test_the_pour_hint_pours_the_formula_it_shows (6 s)
+bites  the pour hint is printed from the id alone                 test_dotdiw.py test_the_pour_hint_pours_the_formula_it_shows (5 s)
+bites  a path hint is read as an option                           test_dotdiw.py test_the_pour_hint_is_never_read_as_an_option (4 s)
+bites  an id hint is read as an option                            test_dotdiw.py test_the_pour_hint_is_never_read_as_an_option (4 s)
+bites  a command other than init puts an earlier adoption right   test_dotdiw.py test_only_init_puts_an_earlier_adoption_right (31 s)
+bites  a command runs while an earlier adoption is left           test_dotdiw.py test_only_init_puts_an_earlier_adoption_right (22 s)
+bites  init leaves an earlier adoption as it was                  test_dotdiw.py test_repair_hands_the_hooks_back (21 s)
+bites  init adopts an in-tree tracker before it is put right      test_dotdiw.py test_init_upgrades_an_in_tree_adoption (30 s)
+bites  a tree tracker not adopted stops nothing                   test_dotdiw.py test_init_stops_where_the_tree_tracker_cannot_be_adopted (21 s)
+bites  init adopts on after what was left stopped it              test_dotdiw.py test_init_stops_where_the_tree_tracker_cannot_be_adopted (21 s)
+bites  init says nothing when it stops                            test_dotdiw.py test_init_stops_where_the_tree_tracker_cannot_be_adopted (23 s)
+bites  the local upgrade changes a store unasked                  test_dotdiw.py test_a_store_made_before_3_0_is_brought_up_to_date_when_init_asks (1 s)
+bites  the local upgrade leaves a section in its description      test_dotdiw.py test_a_store_made_before_3_0_is_brought_up_to_date_when_init_asks (1 s)
+bites  the beads upgrade moves nothing                            test_dotdiw.py test_a_workspace_poured_into_before_3_0_is_brought_up_to_date_when_init_asks (16 s)
+bites  a store bd opens starts with its means unmoved             test_dotdiw.py test_a_workspace_poured_into_before_3_0_is_brought_up_to_date_when_init_asks (10 s)
+bites  undo-earlier-adoption never asks the adapter keeping the store test_dotdiw.py test_init_brings_a_store_an_earlier_version_kept_up_to_date (3 s)
+bites  the beads upgrade moves an issue it marked again           test_dotdiw.py test_an_upgrade_cut_short_is_taken_up_where_it_stopped (25 s)
+bites  the beads upgrade marks no issue it moved                  test_dotdiw.py test_an_upgrade_cut_short_is_taken_up_where_it_stopped (24 s)
+bites  an upgrade that fails stops nothing                        test_dotdiw.py test_init_stops_where_the_beads_store_cannot_be_brought_up_to_date (18 s)
+bites  a beads record reads a dotdiw value of the issue's own as its own test_dotdiw.py test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is (30 s)
+bites  the beads upgrade reads a dotdiw value of the issue's own as a mark test_dotdiw.py test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is (22 s)
+bites  the beads upgrade moves the means beside a value of the issue's own test_dotdiw.py test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is (22 s)
+bites  the beads upgrade says nothing of an issue it left as given test_dotdiw.py test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is (21 s)
+bites  the beads adapter takes a dotdiw null of the issue's own for its own test_dotdiw.py test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is (22 s)
+bites  the notice reads the first 300 items alone                 test_dotdiw.py test_the_notice_the_past_titles_and_from_read_every_item (4 s)
+bites  the past titles stop at 300 items                          test_dotdiw.py test_the_notice_the_past_titles_and_from_read_every_item (4 s)
+bites  formula new --from reads the first 300 items alone         test_dotdiw.py test_the_notice_the_past_titles_and_from_read_every_item (2 s)
+bites  a pour under beads answers its step ids sorted             test_dotdiw.py test_under_beads_a_pour_answers_its_steps_in_the_formulas_order (36 s)
+bites  a pour under beads that fails after its root names nothing it made test_dotdiw.py test_under_beads_a_pour_that_fails_after_its_root_names_it (18 s)
+bites  beads create reads a title as a flag                       test_dotdiw.py test_a_title_that_reads_like_a_flag_is_kept_as_given (17 s)
+bites  beads create reads a description as a flag                 test_dotdiw.py test_a_title_that_reads_like_a_flag_is_kept_as_given (18 s)
+bites  beads pour reads the root's title as a flag                test_dotdiw.py test_a_title_that_reads_like_a_flag_is_kept_as_given (13 s)
+bites  beads pour reads a step's title as a flag                  test_dotdiw.py test_a_title_that_reads_like_a_flag_is_kept_as_given (13 s)
+bites  beads pour reads the root's description as a flag          test_dotdiw.py test_a_title_that_reads_like_a_flag_is_kept_as_given (12 s)
+bites  local pours steps that share an id                         test_dotdiw.py test_steps_that_share_an_id_pour_nothing (1 s)
+bites  beads pours steps that share an id                         test_dotdiw.py test_steps_that_share_an_id_pour_nothing (16 s)
+bites  a cut-short beads pour leaves out the steps it made        test_dotdiw.py test_under_beads_a_pour_that_fails_after_its_root_names_it (17 s)
+bites  formula pour --json drops a pour cut short                 test_dotdiw.py test_under_beads_a_pour_that_fails_after_its_root_names_it (20 s)
+bites  formula pour --json says nothing of a pour cut short       test_dotdiw.py test_under_beads_a_pour_that_fails_after_its_root_names_it (19 s)
+bites  jira pours steps that share an id                          test_jira.py test_steps_that_share_an_id_pour_nothing (0 s)
+bites  a cut-short jira pour names no root                        test_jira.py test_a_pour_jira_refuses_partway_is_one_line (4 s)
+bites  a Jira issue made and not read back keeps no key           test_jira.py test_a_pour_names_what_jira_made_and_could_not_read_back (4 s)
+bites  a Jira pour whose root was not read back names no root     test_jira.py test_a_pour_names_what_jira_made_and_could_not_read_back (4 s)
+bites  a cut-short Jira pour leaves out a step it made            test_jira.py test_a_pour_names_what_jira_made_and_could_not_read_back (4 s)
+bites  a Jira create made and not read back hides its key         test_jira.py test_a_create_names_what_jira_made_and_could_not_read_back (3 s)
+bites  a pour hands the tracker a file                            test_dotdiw.py test_a_pour_hands_the_tracker_the_formula_and_no_file (2 s)
+bites  a pour hands the tracker steps that share an id            test_promise.py test_a_formula_whose_steps_share_an_id_never_reaches_the_tracker (0 s)
+bites  a pour reads its formula's file again                      test_promise.py test_a_pour_pours_the_formula_its_lookup_selected (0 s)
+bites  every operation shares the last one's reading of the formulas test_promise.py test_every_pour_reads_the_formula_afresh (0 s)
+bites  create takes a flag of bd's own                            test_dotdiw.py test_create_pour_and_init_read_their_own_flags (13 s)
+bites  a flag with no value after it takes nothing                test_dotdiw.py test_create_pour_and_init_read_their_own_flags (11 s)
+bites  create takes a second title                                test_dotdiw.py test_create_pour_and_init_read_their_own_flags (13 s)
+bites  create -q surfaces what rides along with the create        test_dotdiw.py test_create_pour_and_init_read_their_own_flags (13 s)
+bites  a flag of create's takes the next flag for its value       test_dotdiw.py test_create_pour_and_init_read_their_own_flags (10 s)
+bites  --tracker takes the next flag for its name                 test_dotdiw.py test_create_pour_and_init_read_their_own_flags (12 s)
+bites  --tracker last runs on under a name of its own             test_dotdiw.py test_create_pour_and_init_read_their_own_flags (10 s)
+bites  --tracker= with no name falls to the default               test_dotdiw.py test_create_pour_and_init_read_their_own_flags (10 s)
+bites  a --tracker given no name runs on                          test_dotdiw.py test_create_pour_and_init_read_their_own_flags (10 s)
+bites  a module written for interface 2 loads                     test_promise.py test_a_module_says_which_interface_it_was_written_for (0 s)
+bites  a completed create carries no record                       test_promise.py test_a_create_or_a_pour_without_its_record_is_the_adapters_mistake (1 s)
+bites  a provider's formula outside its shape is taken            test_dotdiw.py test_a_provider_formula_outside_its_shape_is_refused (4 s)
+bites  a provider module written for another interface loads      test_dotdiw.py test_a_provider_written_for_another_interface_is_refused (3 s)
+bites  a pour drops the formula its lookup answered               test_dotdiw.py test_a_provider_formula_is_data_and_nothing_is_written_for_it (4 s)
+bites  formula show leaves a provider's means out                 test_dotdiw.py test_a_provider_formula_is_data_and_nothing_is_written_for_it (3 s)
+bites  the lookup's answer has no room for a provider's formula   test_dotdiw.py test_the_lookup_answers_a_providers_formula_as_resolve_does (3 s)
+bites  a provider's description is defaulted                      test_dotdiw.py test_nothing_a_provider_gives_is_replaced_by_a_default (1 s)
+bites  a provider's verifyUsing is defaulted                      test_dotdiw.py test_nothing_a_provider_gives_is_replaced_by_a_default (1 s)
+bites  a provider's steps are defaulted                           test_dotdiw.py test_nothing_a_provider_gives_is_replaced_by_a_default (1 s)
+bites  a provider step's needs are defaulted                      test_dotdiw.py test_nothing_a_provider_gives_is_replaced_by_a_default (1 s)
+bites  the lookup answers a local formula as its file reads now   test_promise.py test_a_pour_pours_the_formula_its_lookup_selected (1 s)
+bites  formula show prints a file in the tree as data             test_dotdiw.py test_an_exact_path_comes_before_a_file_name (2 s)
+305 of 305 mutations caught
 
-After a fifth review of the 2.0.0 commit found a fault and a lesser one, three
-mutations were added, one for each rule the fixes hold: a forwarded cook holding
-the pour lock whatever flags come before it, and the pour hint never read as an
-option, by its id or by its path. One text that moved with the code was
-retargeted first. The run above caught all 259.
+On 2026-11-10, a formula management provider came to answer show with the
+formula as data, and a module to say which provider interface it was written
+for. Seven mutations went with the rules they held, since no text is read, no
+file is written and no TOML is written back: a provider's formula written to a
+file named for its id, the provider's own id kept over the suffixed one, a text
+taken without reading it back, a file rewritten in place, a provider's other
+values dropped, a string's quotes written unescaped, and an array of tables
+written as one. Eleven came in: a formula outside its shape taken; a provider's
+description, verifyUsing, steps or a step's needs defaulted; a module written
+for another interface loading; a pour dropping the formula its lookup answered;
+the lookup answering a local formula as its file reads now; formula show leaving
+a provider's means out; the lookup's answer having no room for a provider's
+formula; and formula show printing a file in the tree as data. One text that
+moved with the code was retargeted. A first run, before the last seven, caught
+264 of 265: the mutation for a provider's formula shown under the provider's own
+id broke the id show answers with, which nothing reads now that a formula is
+shown under the id the index holds, and it went. The run above caught all 305.
+
+The run before, on 2026-11-10, on the tree after the tracker interface came to
+be number 3, carrying data alone, caught 302 of 302. That day, on 2026-11-10,
+the tracker interface came to be number 3, carrying data alone: no file, no
+words typed and no terminal reach an adapter, and no answer says it printed
+itself. Five mutations whose texts moved with the code were retargeted first.
+Two were added: a module written for interface 2 loading, and a completed create
+carrying no record. That run caught all 302.
+
+The run before, on 2026-11-10, on the tree after create, formula pour and init
+came to read dotdiw's own flags, caught 300 of 300. That day, on 2026-11-10,
+create, formula pour and init came to read dotdiw's own flags. Nine mutations
+whose texts moved with the code were retargeted at it, one under a new name for
+the rule as it now stands: formula pour dropping --json. Nine were added: create
+taking a flag of bd's own, a flag with no value after it taking nothing, a flag
+taking the next flag for its value, create taking a second title, create -q
+surfacing what rides along with the create, --tracker taking the next flag for
+its name, --tracker last running on under a name of its own, --tracker= with no
+name falling to the default, and a --tracker given no name running on. A first
+run, before the last five, caught 263 of 267. The mutation for the presenter
+printing a created issue went, since no adapter prints its create and the line
+it broke cannot be reached. Two mutations of the pass-through's reading named
+tests that typed their flags to create, which no longer goes through it; those
+tests now type them through the pass-through as well. And the test of create -q
+named a title no formula matched, so nothing was there to surface; it names one
+that matches now. That run caught all 300.
+
+The run before, on 2026-11-10, on the tree after a pour came to hand the tracker
+the formula it read, caught 292 of 292. That day, on 2026-11-10, a pour came to
+hand the tracker the formula it read, and no file: the snapshot under the
+workspace went. Four mutations came with it: a pour handing the tracker a file
+again, reading its formula's file again after the lookup read it, or handing the
+tracker steps that share an id, and every operation sharing the last one's
+reading of the formulas. One text that moved with the code was retargeted first.
+With every operation reading the formulas afresh, a registration came to forget
+the run's provider lists alone and a removal nothing; the first run with these
+changes caught 291 of 293, the two missed being a registration and a removal
+leaving the run's index as it was. The first now keeps the run's provider lists,
+which a test of a name registered again holds, and the second went with the line
+it broke. That run caught all 292.
+
+The run before, on 2026-11-10, on the tree after the pour lock under beads went,
+caught 289 of 289. That day, on 2026-11-10, the pour lock under beads went, with
+nothing left for it to keep apart. No mutation came or went: the lock's own went
+with the cook in the change before. That run caught all 289.
+
+The run before, on 2026-11-10, on the tree after a pour under beads came to make
+its root and steps itself, caught 289 of 289. That day, on 2026-11-10, a pour
+under beads came to make its root and steps itself, with bd create, in the order
+the needs allow. Eleven mutations went with the rules they held, since a pour no
+longer cooks, reads the workspace back or writes the means after bd's own pour:
+the means after bd's pour, under --json, dropped from a failed write's answer,
+or passed off as a pour; a failed pour that printed itself; the proto bd held
+when a file would not cook; a second cook between a cook and its pour; the file
+a pour hands the tracker; a forwarded cook, by its word or behind a flag,
+landing between a pour's cook and its pour; and the 300 issues a pour read back.
+Eighteen came in: the step ids answered sorted; a pour that fails after its root
+naming nothing it made, a cut-short pour leaving out the steps it made, and
+formula pour --json dropping a pour cut short or saying nothing of it; beads
+create reading a title or a description as a flag, and beads pour reading the
+root's title, a step's title or the root's description as one; the local store,
+beads and Jira pouring steps that share an id; a cut-short Jira pour naming no
+root, or leaving out a step it made; a Jira issue made and not read back keeping
+no key; a Jira pour whose root was not read back naming no root; and a Jira
+create made and not read back hiding its key. Three texts that moved with the
+code were retargeted. A first run, before the last sixteen, caught 260 of 263.
+The mutation for mol pour printing a notice named the comparison with 0.6.0,
+which no longer compares a pour, and now names the test of the two spellings.
+The one for the means following a pour's JSON went, since no pour prints itself
+and the line it broke cannot be reached. And bd numbers a root's children in the
+order they are made, so the test's six steps, declared in the order they run,
+came back sorted all the same; they are declared last first now. That run caught
+all 289.
+
+The run before, on 2026-11-10, on the tree after every read of the tracker came
+to read it whole, caught 283 of 283. That day, on 2026-11-10, every read dotdiw
+makes of the tracker came to read every item it asks for. Four mutations came
+with it, one for each read that stopped at 300 items without saying so: the
+notice of procedures built by hand, the past titles, formula new --from, and a
+pour under beads reading its steps back from 300 issues of the whole workspace.
+The first run with these changes caught 271 of 272: the test made its procedure
+after 305 items within one second, and the local store orders items of the same
+second by id, so the procedure was not always past the 300th. It now closes the
+procedure first, which the store lists after every open item. That run caught
+all 283.
+
+The run before, on 2026-11-10, on the tree after the local and beads trackers
+came to keep the means to prove a run as data, caught 279 of 279. That day, on
+2026-11-10, the local store and beads came to keep the means to prove a run as
+data, a column and the issue's metadata, with a store an earlier version kept
+brought up to date by init, an upgrade cut short taken up where it stopped, and
+an upgrade that fails stopping init. Nine mutations whose texts moved with the
+code were retargeted at it, three of them under new names for the rules as they
+now stand: an item the local store creates, an item beads creates, and a
+description typed through the pass-through, which is now written as typed.
+Thirteen were added: the local upgrade changing a store unasked, or leaving a
+section in a description; the beads upgrade moving nothing; a store bd opens
+starting with its means unmoved; undo-earlier-adoption never asking the adapter
+that keeps the store; the beads upgrade moving an issue it marked again, or
+marking no issue it moved; an upgrade that fails stopping nothing; and a beads
+record reading a dotdiw value of the issue's own as its own, the upgrade reading
+such a value as a mark, moving the means beside it, or saying nothing of an
+issue it left as given; and the adapter taking a dotdiw null of the issue's own
+for its own. A first run, before the last eight, caught 267 of 268: the text of
+the local store reading no means back still matched a line inside the upgrade,
+so the mutation broke the upgrade instead, and it was retargeted at the line
+that reads the column. That run caught all 279.
+
+The run before, on 2026-11-10, on the tree after an earlier adoption came to be
+put right by init alone, caught 266 of 266. That day, on 2026-11-10, what an
+earlier version left in a checkout came to be put right by init alone, and init
+came to stop in one line where a tracker kept in the tree cannot be adopted
+under the home. Seven mutations came with it, one for each rule it holds: a
+command other than init putting an earlier adoption right, a command running
+while one is left, init leaving one as it was, init adopting a tracker kept in
+the tree before putting it right, such a tracker not adopted stopping nothing,
+init adopting on once that has stopped it, and init saying nothing when it
+stops. One text that moved with the code was retargeted first. The mutation for
+the upgrade writing no choice now names the test of a choice that could not be
+written, since init writes the choice as it adopts as well; a first run, before
+the three that came with init stopping, caught 262 of 263, that mutation being
+the one missed. That run caught all 266.
+
+The run before, on 2026-11-10, on the tree after formula list's header became
+one for every list that holds a formula, caught 259 of 259. That day, on
+2026-11-10, formula list's header became one for every list that holds a
+formula, the number of formulas listed. The mutation for the header claiming the
+repository for a provider's formula went with the rule it held, and one for a
+list of local formulas saying in this repo took its place. That run caught all
+259.
+
+The run before, on 2026-11-09, on the 2.0.0 tree after the fifth review, caught
+259 of 259. That day, after a fifth review of the 2.0.0 commit found a fault and
+a lesser one, three mutations were added, one for each rule the fixes hold: a
+forwarded cook holding the pour lock whatever flags come before it, and the pour
+hint never read as an option, by its id or by its path. One text that moved with
+the code was retargeted first. That run caught all 259.
 
 The run before, on 2026-11-09, on the 2.0.0 tree after the fourth review, caught
 256 of 256. That day, after a fourth review of the 2.0.0 commit found two
