@@ -109,6 +109,7 @@ BINDINGS = (
     "RecordWhatAStepFound",
     "RecordClaim",
     "ReadRun",
+    "CompareWhatWasRead",
 )
 
 

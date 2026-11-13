@@ -33,6 +33,7 @@ itself.
 """
 
 import contextlib
+import datetime
 import fcntl
 import glob
 import importlib.machinery
@@ -52,7 +53,7 @@ import threading
 import time
 import tomllib
 import unittest
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOTDIW = os.path.join(HERE, "dotdiw")
@@ -497,6 +498,326 @@ class Adoption(unittest.TestCase):
         own = os.path.join(".dotdiw", self.repo.key())
         stray = [w for w in written if w not in allowed and not w.startswith(own + os.sep)]
         self.assertEqual(stray, [], written)
+
+
+class OneAdoptionOfACheckoutAtATime(unittest.TestCase):
+    """Two adoptions of a checkout with no key yet, at once: one adoption of
+    a checkout runs at a time, from reading its key through writing its
+    choice, and reads the key again once it runs; so the second finds the
+    key the first wrote, and neither takes the checkout from the work made
+    under the other."""
+
+    def setUp(self):
+        self.repo = Repo(tracker="local")
+        self.addCleanup(self.repo.close)
+        home = os.environ.get("HOME")
+        os.environ["HOME"] = self.repo.home
+        self.addCleanup(os.environ.__setitem__, "HOME", home or "")
+        self.m = load_module("dotdiw_one_adoption")
+        self.root = os.path.realpath(self.repo.path)
+
+    def adopt(self):
+        return self.m.invoke(
+            "operation.adopt-a-repository", {"root": self.root, "prefix": "t", "tracker": "local"}
+        )
+
+    def workspaces(self):
+        return [d for d in self.repo.trackers() if re.fullmatch(r"[0-9a-f]{16}", d)]
+
+    def test_a_second_adoption_finds_the_key_written_since_it_looked(self):
+        """The second adoption has looked and found no key when the first
+        adopts the checkout and work is made under it; the second then
+        adopts, and the work is still the checkout's."""
+        real = self.m.UndoEarlierAdoption
+        looked, go = threading.Event(), threading.Event()
+        seen: list[str | None] = []
+
+        def held(request):
+            out = real(request)
+            if threading.current_thread() is second:
+                seen.append(self.m.workspace(self.root))
+                looked.set()
+                go.wait(30)
+            return out
+
+        self.m.UndoEarlierAdoption = held
+        self.addCleanup(setattr, self.m, "UndoEarlierAdoption", real)
+        answers: dict[str, dict[str, object]] = {}
+        second = threading.Thread(target=lambda: answers.__setitem__("second", self.adopt()))
+        second.start()
+        try:
+            self.assertTrue(looked.wait(30))
+            first = self.adopt()
+            self.assertEqual(first["status"], "completed", first)
+            key = self.repo.key()
+            made = self.m.invoke(
+                "operation.start-named-work",
+                {"root": self.root, "title": "Count the plot", "quiet": True},
+            )
+            self.assertEqual(made["status"], "completed", made)
+        finally:
+            go.set()
+            second.join(30)
+        self.assertEqual(seen, [None])
+        self.assertEqual(answers["second"]["status"], "completed", answers["second"])
+        self.assertEqual(answers["second"]["summary"], "Already adopted.", answers["second"])
+        self.assertEqual((self.repo.key(), self.workspaces()), (key, [key]))
+        listed = self.m.invoke_tracker("operation.list-items", {"root": self.root, "scope": "all"})
+        self.assertIn(made["workRef"], [item["id"] for item in listed["items"]], listed)
+
+    def adopted_while_the_first_writes_its_key(
+        self, environ: dict[str, str]
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        """The first adoption held as it is about to write its key, having
+        found none; a second made meanwhile, under environ, and given half a
+        second to wait: the answers of the two."""
+        real = self.m.git
+        writing, go, first_write = threading.Event(), threading.Event(), [True]
+
+        def held(args, cwd=None):
+            if args[:3] == ["config", "--local", self.m.WORKSPACE_KEY] and first_write[0]:
+                first_write[0] = False
+                writing.set()
+                go.wait(30)
+            return real(args, cwd)
+
+        self.m.git = held
+        self.addCleanup(setattr, self.m, "git", real)
+        answers: dict[str, dict[str, object]] = {}
+        one = threading.Thread(target=lambda: answers.__setitem__("first", self.adopt()))
+        one.start()
+        saved = {k: os.environ.get(k) for k in environ}
+        try:
+            self.assertTrue(writing.wait(30))
+            self.m.TRACKER_LOCK_SECONDS = 0.5
+            os.environ.update(environ)
+            waited = self.adopt()
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+            go.set()
+            one.join(30)
+        return answers["first"], waited
+
+    def test_a_second_adoption_waits_for_the_first_to_write_its_key(self):
+        """The first adoption has found no key and is about to write one; the
+        second cannot look until the first is done, and, kept waiting longer
+        than it waits, adopts nothing."""
+        first, waited = self.adopted_while_the_first_writes_its_key({})
+        self.assertEqual(first["status"], "completed", first)
+        self.assertEqual(waited["status"], "failed", waited)
+        self.assertIn("adopting it or opening its tracker", str(waited["summary"]))
+        key = self.repo.key()
+        self.assertEqual(self.workspaces(), [key])
+        again = self.adopt()
+        self.assertEqual((again["status"], again["summary"]), ("completed", "Already adopted."))
+        self.assertEqual(self.repo.key(), key)
+
+    def test_an_adoption_told_the_git_directory_waits_all_the_same(self):
+        """The second adoption is told the checkout's git directory through
+        GIT_DIR, as a server started from one of its hooks is, and the first
+        is not: the two lock the one directory git names for the checkout
+        either way, so the second still cannot look until the first is done,
+        and the checkout keeps one key."""
+        first, waited = self.adopted_while_the_first_writes_its_key(
+            {"GIT_DIR": os.path.join(self.root, ".git")}
+        )
+        self.assertEqual(first["status"], "completed", first)
+        self.assertEqual(waited["status"], "failed", waited)
+        self.assertIn("adopting it or opening its tracker", str(waited["summary"]))
+        self.assertEqual(self.workspaces(), [self.repo.key()])
+
+
+class AnUpgradeKeepsAChoiceMadeMeanwhile(unittest.TestCase):
+    """A checkout adopted before there was a choice of tracker holds one
+    store and no choice, and init writes the choice as the tracker that
+    store is. A switch made while init looks stands: init writes the choice
+    under the lock an adoption holds, and only while none is written. The
+    tracker switched to keeps nothing in the workspace, so the one store
+    init finds there is still the earlier tracker's."""
+
+    def setUp(self):
+        self.repo = Repo(tracker="local")
+        self.addCleanup(self.repo.close)
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.repo.git("config", "--local", "--unset", "dotdiw.tracker")[0], 0)
+        text = ACME
+        for old, new in WhatAModuleGetsWrong.ELSEWHERE:
+            text = text.replace(old, new)
+        trackers = os.path.join(self.repo.home, ".dotdiw", "trackers")
+        os.makedirs(trackers)
+        with open(os.path.join(trackers, "acme.py"), "w", encoding="utf-8") as fh:
+            fh.write(text)
+        home = os.environ.get("HOME")
+        os.environ["HOME"] = self.repo.home
+        self.addCleanup(os.environ.__setitem__, "HOME", home or "")
+        self.m = load_module("dotdiw_upgrade_held")
+        self.root = os.path.realpath(self.repo.path)
+
+    def upgrade(self):
+        return self.m.invoke("operation.undo-earlier-adoption", {"root": self.root, "apply": True})
+
+    def switch(self):
+        return self.m.invoke("operation.use-tracker", {"root": self.root, "name": "acme"})
+
+    def choice(self):
+        return self.repo.git("config", "--local", "--get", "dotdiw.tracker")[1].strip()
+
+    def test_a_switch_before_init_holds_the_checkout_stands(self):
+        """init has found no tracker chosen and is about to hold the checkout
+        when the checkout switches; once it holds it, it reads the choice
+        again, and writes none."""
+        real = self.m.adoption_lock
+        looked, go = threading.Event(), threading.Event()
+        seen: list[str | None] = []
+
+        def held(root):
+            if threading.current_thread() is upgrade and not looked.is_set():
+                seen.append(self.m.tracker_name(self.root))
+                looked.set()
+                go.wait(30)
+            return real(root)
+
+        self.m.adoption_lock = held
+        self.addCleanup(setattr, self.m, "adoption_lock", real)
+        answers: dict[str, dict[str, object]] = {}
+        upgrade = threading.Thread(target=lambda: answers.__setitem__("upgrade", self.upgrade()))
+        upgrade.start()
+        try:
+            self.assertTrue(looked.wait(30))
+            switched = self.switch()
+        finally:
+            go.set()
+            upgrade.join(30)
+        self.assertEqual(seen, [None])
+        self.assertEqual(switched["status"], "completed", switched)
+        self.assertEqual(answers["upgrade"]["status"], "completed", answers["upgrade"])
+        self.assertEqual(self.choice(), "acme")
+
+    def test_a_switch_while_init_holds_the_checkout_waits(self):
+        """init holds the checkout and has found the store it will name when
+        the checkout switches: the switch waits for it, and, kept waiting
+        longer than it waits, writes nothing; asked again, it is made."""
+        real = self.m.tracker_with_store
+        found, go = threading.Event(), threading.Event()
+
+        def held(root):
+            out = real(root)
+            if threading.current_thread() is upgrade and not found.is_set():
+                found.set()
+                go.wait(30)
+            return out
+
+        self.m.tracker_with_store = held
+        self.addCleanup(setattr, self.m, "tracker_with_store", real)
+        answers: dict[str, dict[str, object]] = {}
+        upgrade = threading.Thread(target=lambda: answers.__setitem__("upgrade", self.upgrade()))
+        upgrade.start()
+        try:
+            self.assertTrue(found.wait(30))
+            self.m.TRACKER_LOCK_SECONDS = 0.5
+            switched = self.switch()
+        finally:
+            go.set()
+            upgrade.join(30)
+        self.assertEqual(switched["status"], "failed", switched)
+        self.assertIn("adopting it or opening its tracker", switched["summary"])
+        self.assertEqual(answers["upgrade"]["status"], "completed", answers["upgrade"])
+        self.assertEqual(self.choice(), "local")
+        again = self.switch()
+        self.assertEqual(again["status"], "completed", again)
+        self.assertEqual(self.choice(), "acme")
+
+
+class AnUpgradeWaitsForAWriteHeldToWhatItRead(unittest.TestCase):
+    """init brings a store an earlier version made up to date under the lock
+    a write of an item holds from comparing the ETags it rests on through
+    writing: the upgrade rewrites items, the means moved out of their
+    descriptions, and so changes their ETags, which cannot change between a
+    write's compare and its write."""
+
+    def setUp(self):
+        self.repo = Repo(tracker="local")
+        self.addCleanup(self.repo.close)
+        code, out = self.repo.dotdiw("init", "--prefix", "t")
+        self.assertEqual(code, 0, out)
+        store = os.path.join(self.repo.workspace(), "dotdiw.sqlite")
+        os.remove(store)
+        a_store_as_2_0_kept_it(
+            store, [("t-a", "task", "Ship it.\n\nVerify using:\n- run:make check")]
+        )
+        home = os.environ.get("HOME")
+        os.environ["HOME"] = self.repo.home
+        self.addCleanup(os.environ.__setitem__, "HOME", home or "")
+        self.m = load_module("dotdiw_upgrade_waits")
+        self.root = os.path.realpath(self.repo.path)
+
+    def init(self):
+        return self.m.invoke(
+            "operation.adopt-a-repository", {"root": self.root, "prefix": "t", "tracker": "local"}
+        )
+
+    def test_init_waits_for_a_write_between_its_compare_and_its_write(self):
+        """A rename of an item as an earlier version kept it, held to the
+        ETag it was read with, has compared it and is writing when init is
+        asked to bring the store up to date: init cannot until the rename is
+        written, and, kept waiting longer than it waits, changes nothing.
+        Asked again, it moves the means, and the rename stands."""
+        shown = self.m.invoke(
+            "operation.forward-to-the-tracker", {"root": self.root, "arguments": ["show", "t-a"]}
+        )
+        etag = shown["items"][0]["etag"]
+        _, adapter = self.m.resolve_tracker({"root": self.root, "tracker": "local"})
+        real = adapter["operations"]["operation.update-item"]
+        writing, go = threading.Event(), threading.Event()
+
+        def held(request):
+            writing.set()
+            go.wait(30)
+            return real(request)
+
+        adapter["operations"]["operation.update-item"] = held
+        self.addCleanup(adapter["operations"].__setitem__, "operation.update-item", real)
+        answers: dict[str, dict[str, object]] = {}
+        one = threading.Thread(
+            target=lambda: answers.__setitem__(
+                "rename",
+                self.m.invoke(
+                    "operation.forward-to-the-tracker",
+                    {
+                        "root": self.root,
+                        "arguments": ["update", "t-a", "--title", "Renamed"],
+                        "etags": [etag],
+                    },
+                ),
+            )
+        )
+        one.start()
+        try:
+            self.assertTrue(writing.wait(30))
+            self.m.TRACKER_LOCK_SECONDS = 0.5
+            waited = self.init()
+        finally:
+            go.set()
+            one.join(30)
+        self.assertEqual(answers["rename"]["status"], "completed", answers["rename"])
+        self.assertEqual(waited["status"], "failed", waited)
+        self.assertIn("held this checkout's tracker", str(waited["summary"]))
+        conn = sqlite3.connect(os.path.join(self.repo.workspace(), "dotdiw.sqlite"))
+        columns = [r[1] for r in conn.execute("PRAGMA table_info(items)")]
+        conn.close()
+        self.assertNotIn("verify_using", columns, "nothing brought up to date")
+        again = self.init()
+        self.assertEqual(again["status"], "completed", again)
+        item = self.m.invoke_tracker("operation.show-item", {"root": self.root, "id": "t-a"})
+        self.assertEqual(
+            (item["item"]["title"], item["item"]["description"], item["item"]["verifyUsing"]),
+            ("Renamed", "Ship it.", ["run:make check"]),
+        )
 
 
 @uses("bd")
@@ -998,6 +1319,63 @@ class InterfaceRecords(_TestBase):
         ):
             item = self.ask("show-item", id=ident)["item"]
             self.assertEqual((item["title"], item.get("description") or ""), (title, description))
+
+    def test_a_need_taken_off_as_the_item_is_put_under_what_it_needed_is_no_cycle(self):
+        """Child needs Top. One update puts Child under Top and takes that
+        need off: with the need off, nothing waits on itself, so the update
+        is made, Child under Top and waiting on nothing."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        top = self.ask("create-item", title="Top")["item"]["id"]
+        child = self.ask("create-item", title="Child")["item"]["id"]
+        self.assertEqual(self.ask("add-need", id=child, needs=top)["status"], "completed")
+        out = self.ask("update-item", id=child, parent=top, dropNeeds=[top])
+        self.assertEqual(out["status"], "completed", out)
+        shown = self.ask("show-item", id=child)["item"]
+        self.assertEqual((shown["parent"], shown["needs"]), (top, []))
+
+    def test_an_update_refused_keeps_the_needs_it_was_to_take_off(self):
+        """X needs P and N. An update that puts X under P is refused while X
+        still needs P, and one under an item there is none of is refused:
+        each takes nothing off, though it was to take N off -- a refused
+        update writes none of what it was given."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        p = self.ask("create-item", title="P")["item"]["id"]
+        n = self.ask("create-item", title="N")["item"]["id"]
+        x = self.ask("create-item", title="X")["item"]["id"]
+        for need in (p, n):
+            self.assertEqual(self.ask("add-need", id=x, needs=need)["status"], "completed")
+        for parent in (p, "w-nowhere"):
+            out = self.ask("update-item", id=x, parent=parent, dropNeeds=[n])
+            self.assertEqual(out["status"], "failed", out)
+            self.assertEqual(sorted(self.ask("show-item", id=x)["item"]["needs"]), sorted([p, n]))
+
+    def test_a_priority_outside_0_to_4_is_refused(self):
+        """A priority is 0 to 4, 0 the highest: 9 and -1 are refused, and the
+        item keeps its own."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        item = self.ask("create-item", title="Ship")["item"]["id"]
+        for priority in (9, -1):
+            out = self.ask("update-item", id=item, priority=priority)
+            self.assertEqual(out["status"], "failed", out)
+        self.assertEqual(self.ask("show-item", id=item)["item"]["priority"], 2)
+
+    def test_an_item_taken_from_under_its_parent_stands_under_none(self):
+        """An update that takes Child from under Top (dropParent) leaves it
+        under none; one that gives the parent empty gives none, and leaves
+        Child where it stands; one that gives a parent and takes it off at
+        once is refused."""
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        top = self.ask("create-item", title="Top")["item"]["id"]
+        child = self.ask("create-item", title="Child", parent=top)["item"]["id"]
+        out = self.ask("update-item", id=child, parent="")
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual(self.ask("show-item", id=child)["item"]["parent"], top)
+        out = self.ask("update-item", id=child, parent=top, dropParent=True)
+        self.assertEqual(out["status"], "failed", out)
+        self.assertEqual(self.ask("show-item", id=child)["item"]["parent"], top)
+        out = self.ask("update-item", id=child, dropParent=True)
+        self.assertEqual(out["status"], "completed", out)
+        self.assertIsNone(self.ask("show-item", id=child)["item"].get("parent"))
 
     def test_the_interface_in_records(self):
         out = self.ask("describe-tracker")
@@ -2696,6 +3074,7 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
                     "root": self.repo.path,
                     "tracker": "beads",
                     "arguments": ["list", "--json", "--brief"],
+                    "terminal": True,
                 },
             )
         self.assertEqual(forwarded["status"], "completed", forwarded)
@@ -2703,13 +3082,32 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
         self.assertEqual(
             out.getvalue(), forwarded["output"], "the stream went to the terminal as returned"
         )
+        self.assertTrue(forwarded["printed"])
         self.assertNotIn("bd", out.getvalue().split())
+        # A request that says no terminal is there has the output answered,
+        # and nothing printed.
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            quiet = m.invoke_extra(
+                "forward",
+                {"root": self.repo.path, "tracker": "beads", "arguments": ["list", "--json"]},
+            )
+        self.assertEqual(
+            (quiet["status"], quiet["printed"], out.getvalue()), ("completed", False, "")
+        )
+        self.assertIn("Something to list", quiet["output"])
         # The rewrite, on output that names the binary on every line: its
         # own help. Through the pass-through, every "bd" reads dotdiw.
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             helped = m.invoke_extra(
-                "forward", {"root": self.repo.path, "tracker": "beads", "arguments": ["--help"]}
+                "forward",
+                {
+                    "root": self.repo.path,
+                    "tracker": "beads",
+                    "arguments": ["--help"],
+                    "terminal": True,
+                },
             )
         self.assertEqual(helped["status"], "completed", helped)
         self.assertIn("dotdiw", helped["output"])
@@ -2749,6 +3147,136 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
         self.assertEqual((out["reason"], out["exitCode"]), ("not-installed", 127))
         out = self.m.invoke_extra("metrics-off", {"root": self.repo.path, "tracker": "beads"})
         self.assertEqual((out["status"], out["turnedOff"]), ("completed", False))
+
+    def test_bds_own_ready_and_a_move_into_beads_run_one_after_the_other(self):
+        """bd's own ready, through the pass-through, decided on while no move
+        into beads stands and held before bd runs: a move begun then makes
+        nothing until the ready has answered, so the ready lists nothing the
+        move made; the move then stops before it links Publish to Build, and
+        a ready after it leaves both out."""
+        root = self.repo.path
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        local = {"root": root, "tracker": "local"}
+        opened = self.m.invoke_tracker("operation.open-tracker", dict(local, prefix="l"))
+        self.assertEqual(opened["status"], "completed", opened)
+        steps: list[dict[str, Any]] = [{"id": "build", "title": "Build"}]
+        steps.append({"id": "publish", "title": "Publish", "needs": ["build"]})
+        poured = self.m.invoke_tracker(
+            "operation.pour-steps", dict(local, formulaRef="m", title="Ship", steps=steps)
+        )
+        self.assertEqual(poured["status"], "completed", poured)
+        _, beads = self.m.resolve_tracker({"root": root, "tracker": "beads"})
+        real_need = beads["operations"]["operation.add-need"]
+        down = {"status": "failed", "reason": "adapter-failed", "exitCode": 1, "summary": "down"}
+        beads["operations"]["operation.add-need"] = lambda request: dict(down)
+        self.addCleanup(beads["operations"].__setitem__, "operation.add-need", real_need)
+        real_extra = self.m.invoke_extra
+        deciding, go = threading.Event(), threading.Event()
+
+        def held(extra, request):
+            if extra == "forward" and threading.current_thread() is reader:
+                deciding.set()
+                go.wait(30)
+            return real_extra(extra, request)
+
+        self.m.invoke_extra = held
+        self.addCleanup(setattr, self.m, "invoke_extra", real_extra)
+        answers: dict[str, Any] = {}
+        # Given an option of bd's own, which dotdiw does not answer in records.
+        ready = {"root": root, "tracker": "beads", "arguments": ["ready", "-n", "5"]}
+        move = {"root": root, "fromTracker": "local", "toTracker": "beads"}
+        reader = threading.Thread(
+            target=lambda: answers.__setitem__(
+                "ready", self.m.invoke("operation.forward-to-the-tracker", ready)
+            )
+        )
+        mover = threading.Thread(
+            target=lambda: answers.__setitem__(
+                "move", self.m.invoke("operation.move-a-workspace", move)
+            )
+        )
+        reader.start()
+        try:
+            self.assertTrue(deciding.wait(30), "the ready was decided on")
+            mover.start()
+            mover.join(5)
+        finally:
+            go.set()
+            reader.join(30)
+            if mover.ident is not None:
+                mover.join(90)
+        self.assertEqual(answers["move"]["status"], "failed", answers["move"])
+        with open(
+            os.path.join(self.repo.workspace(), "migration-local-to-beads.json"), encoding="utf-8"
+        ) as fh:
+            made = sorted(json.load(fh)["ids"].values())
+        self.assertEqual(len(made), 3, made)
+        self.assertEqual(answers["ready"]["exitCode"], 0, answers["ready"])
+        self.assertFalse([m for m in made if m in answers["ready"]["output"]], answers["ready"])
+        after = self.m.invoke("operation.forward-to-the-tracker", dict(ready, arguments=["ready"]))
+        self.assertEqual(after["exitCode"], 0, after)
+        self.assertFalse(set(made) & {i["id"] for i in after.get("items") or []}, after)
+
+    def test_a_need_turned_into_a_parent_while_a_move_into_beads_stood_stopped_reaches_beads(
+        self,
+    ):
+        """H and Z need P in local; the move into beads writes the first need
+        and is refused the second, nothing settled. In local, the need whose
+        copy was written is taken off its item, which is put under P: the
+        next run takes the need off the copy before it puts it under P's,
+        which bd would refuse while the copy waits on P's, and finishes."""
+        root = self.repo.path
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        local = {"root": root, "tracker": "local"}
+        opened = self.m.invoke_tracker("operation.open-tracker", dict(local, prefix="l"))
+        self.assertEqual(opened["status"], "completed", opened)
+
+        def made(title):
+            out = self.m.invoke_tracker("operation.create-item", dict(local, title=title))
+            self.assertEqual(out["status"], "completed", out)
+            return out["item"]["id"]
+
+        p, h, z = made("P"), made("H"), made("Z")
+        for waiter in (h, z):
+            need = self.m.invoke_tracker("operation.add-need", dict(local, id=waiter, needs=p))
+            self.assertEqual(need["status"], "completed", need)
+        _, beads = self.m.resolve_tracker({"root": root, "tracker": "beads"})
+        real = beads["operations"]["operation.add-need"]
+        asked: list[Any] = []
+        down = {"status": "failed", "reason": "adapter-failed", "exitCode": 1, "summary": "down"}
+
+        def the_first_alone(request):
+            asked.append(request)
+            return real(request) if len(asked) == 1 else dict(down)
+
+        beads["operations"]["operation.add-need"] = the_first_alone
+        try:
+            first = self.m.invoke(
+                "operation.move-a-workspace",
+                {"root": root, "fromTracker": "local", "toTracker": "beads"},
+            )
+        finally:
+            beads["operations"]["operation.add-need"] = real
+        self.assertEqual(first["status"], "failed", first)
+        path = os.path.join(self.repo.workspace(), "migration-local-to-beads.json")
+        with open(path, encoding="utf-8") as fh:
+            record = json.load(fh)
+        ids = record["ids"]
+        self.assertEqual(record["settled"], [])
+        # Whichever need the move wrote first, its item is the one turned.
+        (turned,) = [w for w in (h, z) if self.ask("show-item", id=ids[w])["item"]["needs"]]
+        for change in ({"dropNeeds": [p]}, {"parent": p}):
+            done = self.m.invoke_tracker("operation.update-item", dict(local, id=turned, **change))
+            self.assertEqual(done["status"], "completed", done)
+        again = self.m.invoke(
+            "operation.move-a-workspace",
+            {"root": root, "fromTracker": "local", "toTracker": "beads"},
+        )
+        self.assertEqual(again["status"], "completed", again)
+        copy = self.ask("show-item", id=ids[turned])["item"]
+        self.assertEqual((copy["needs"], copy.get("parent")), ([], ids[p]))
+        other = h if turned == z else z
+        self.assertEqual(self.ask("show-item", id=ids[other])["item"]["needs"], [ids[p]])
 
 
 OLD_LOCAL_SCHEMA = """
@@ -3373,8 +3901,16 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
                 other, real = self.other_connection(), self.m.local_waiting
                 seen: list[str] = []
 
-                def waiting(conn, start, real=real, seen=seen, other=other, sql=writes[second[1]]):
-                    found = real(conn, start)
+                def waiting(
+                    conn,
+                    start,
+                    dropped=(),
+                    real=real,
+                    seen=seen,
+                    other=other,
+                    sql=writes[second[1]],
+                ):
+                    found = real(conn, start, dropped)
                     if not seen:
                         seen.append(self.meddle(other, *sql))
                     return found
@@ -3592,6 +4128,23 @@ class TheLocalCommandLine(unittest.TestCase):
         code, out = self.dotdiw("create", *args, "-q")
         self.assertEqual(code, 0, out)
         return group1(r"Created issue: (\S+)", out)
+
+    def test_update_given_an_empty_parent_takes_the_item_from_under_its_parent(self):
+        """update --parent "" and --parent= take the item from under its
+        parent, as said in one line; nothing else of it changes."""
+        self.adopted()
+        top = self.made("Top")
+        child = self.made("Child", "--parent", top)
+        for form in (("--parent", ""), ("--parent=",)):
+            with self.subTest(form=form):
+                code, out = self.dotdiw("update", child, "--parent", top)
+                self.assertEqual(code, 0, out)
+                code, out = self.dotdiw("update", child, *form)
+                self.assertEqual(code, 0, out)
+                self.assertNotIn("Traceback", out)
+                code, out = self.dotdiw("show", child, "--json")
+                shown = json.loads(out)
+                self.assertEqual((shown.get("parent"), shown["title"]), (None, "Child"), out)
 
     def test_the_notice_names_a_parent_built_by_hand_and_never_a_root(self):
         """A parent of kind task with ordered children is a procedure carried out
@@ -4126,6 +4679,9 @@ def impl_update_item(request):
     for key in ("title", "status", "priority", "parent"):
         if request.get(key) is not None:
             item[key] = request[key]
+    item["needs"] = [n for n in item.get("needs") or [] if n not in (request.get("dropNeeds") or [])]
+    if request.get("dropParent"):
+        item["parent"] = None
     _save(request["root"], data)
     return _ok(item=item)
 
@@ -5090,6 +5646,131 @@ class TheTrackerCommands(unittest.TestCase):
             [back[work]],
         )
 
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_an_issue_a_stopped_move_made_closes_once_it_is_finished(self):
+        """Through the pass-through: a close of an issue the record of a
+        stopped move into beads holds unsettled runs nothing, blocked by the
+        move, and the issue stays open; ready, typed at the command line,
+        leaves it out, and given options of the tracker's own that dotdiw
+        cannot answer, runs nothing; settled in the record, the issue is
+        ready and it closes."""
+        repo = self.repo
+        code, out = repo.dotdiw("init", "--prefix", "w", "--tracker", "beads")
+        self.assertEqual(code, 0, out)
+        made = group1("Created issue: (\\S+)", repo.dotdiw("create", "Publish the release")[1])
+        other = group1("Created issue: (\\S+)", repo.dotdiw("create", "Count the plot")[1])
+        record = os.path.join(repo.workspace(), "migration-local-to-beads.json")
+        stopped = {"from": "local", "to": "beads", "ids": {"w-was": made}}
+        with open(record, "w", encoding="utf-8") as fh:
+            json.dump(stopped, fh)
+        code, out = repo.dotdiw("close", made)
+        self.assertEqual(code, 1, out)
+        self.assertIn(
+            "%s is blocked by the move from local to beads: the move made it and stopped" % made,
+            out,
+        )
+        self.assertIn(made, [r["id"] for r in json.loads(repo.dotdiw("list", "--json")[1])])
+        code, out = repo.dotdiw("ready")
+        self.assertEqual(code, 0, out)
+        self.assertIn(other, out)
+        self.assertNotIn(made, out)
+        code, out = repo.dotdiw("ready", "--json")
+        self.assertEqual(code, 0, out)
+        self.assertEqual([r["id"] for r in json.loads(out)], [other], out)
+        code, out = repo.dotdiw("ready", "-n", "5")
+        self.assertEqual(code, 1, out)
+        m = load_module("dotdiw_ready_while_moving")
+        # The record, as an earlier dotdiw's, names no checkout: where it is,
+        # and how to let go of what it holds, are said.
+        again = m.MOVE_RECORD_ASIDE % (record, "names none")
+        self.assertIn(
+            m.READY_UNFINISHED
+            % ("ready -n 5", "local", "beads", "dotdiw", "dotdiw", "local", "beads", again),
+            out,
+        )
+        with open(record, "w", encoding="utf-8") as fh:
+            json.dump(dict(stopped, settled=["w-was"]), fh)
+        code, out = repo.dotdiw("ready")
+        self.assertEqual(code, 0, out)
+        self.assertIn(made, out)
+        code, out = repo.dotdiw("close", made)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn(made, [r["id"] for r in json.loads(repo.dotdiw("list", "--json")[1])])
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_a_root_a_stopped_move_holds_stays_open_when_its_last_step_closes(self):
+        """Through the pass-through: the record of a stopped move into beads
+        holds a run's root unsettled and its steps settled. The close of the
+        last step closes that step alone -- the root, which nothing but the
+        move closes, stays open, whether bd closed it of its own accord or
+        dotdiw would have after -- and settled in the record, it closes."""
+        repo = self.repo
+        code, out = repo.dotdiw("init", "--prefix", "w", "--tracker", "beads")
+        self.assertEqual(code, 0, out)
+        code, out = repo.dotdiw("formula", "pour", "mol-release-through-tap")
+        self.assertEqual(code, 0, out)
+        rows = json.loads(repo.dotdiw("list", "--all", "--json")[1])
+        (top,) = [r["id"] for r in rows if r.get("issue_type") == "molecule"]
+        steps = [r["id"] for r in rows if r["id"].startswith(top + ".")]
+        self.assertTrue(steps, rows)
+        record = os.path.join(repo.workspace(), "migration-local-to-beads.json")
+        made = dict({"w-top": top}, **{"w-step-%d" % n: step for n, step in enumerate(steps)})
+        stopped: dict[str, Any] = {"from": "local", "to": "beads", "ids": made}
+        stopped["settled"] = ["w-step-%d" % n for n in range(len(steps))]
+        with open(record, "w", encoding="utf-8") as fh:
+            json.dump(stopped, fh)
+
+        def status(ident):
+            rows = json.loads(repo.dotdiw("list", "--all", "--json")[1])
+            return {r["id"]: r["status"] for r in rows}[ident]
+
+        for _ in steps:
+            ready = [r["id"] for r in json.loads(repo.dotdiw("ready", "--json")[1])]
+            step = [r for r in ready if r in steps][0]
+            code, out = repo.dotdiw("close", step)
+            self.assertEqual(code, 0, out)
+            self.assertEqual((status(step), status(top)), ("closed", "open"), out)
+        code, out = repo.dotdiw("close", top)
+        self.assertEqual(code, 1, out)
+        self.assertIn("%s is blocked by the move from local to beads" % top, out)
+        with open(record, "w", encoding="utf-8") as fh:
+            json.dump(dict(stopped, settled=sorted(made)), fh)
+        code, out = repo.dotdiw("close", top)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(status(top), "closed")
+
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "bd is not installed")
+    def test_under_beads_what_a_stopped_move_holds_is_neither_listed_ready_nor_claimed(self):
+        """Through the pass-through: the record of a stopped move into beads
+        holds Build and Publish unsettled. bd's list --ready, which would
+        list both as ready, is refused as bd's ready is while the move
+        stands unfinished, and so is a close that would claim the next ready
+        issue: neither is listed, nor claimed."""
+        repo = self.repo
+        code, out = repo.dotdiw("init", "--prefix", "w", "--tracker", "beads")
+        self.assertEqual(code, 0, out)
+        made = {
+            title: group1("Created issue: (\\S+)", repo.dotdiw("create", title)[1])
+            for title in ("Build", "Publish", "Other")
+        }
+        held = {made["Build"], made["Publish"]}
+        record = os.path.join(repo.workspace(), "migration-local-to-beads.json")
+        ids = {"w-build": made["Build"], "w-publish": made["Publish"]}
+        with open(record, "w", encoding="utf-8") as fh:
+            json.dump({"from": "local", "to": "beads", "ids": ids, "settled": []}, fh)
+        for argv in (("list", "--ready", "--json"), ("close", made["Other"], "--claim-next")):
+            code, out = repo.dotdiw(*argv)
+            self.assertEqual(code, 1, out)
+            self.assertIn("while the move from local to beads is unfinished", out)
+            self.assertFalse([i for i in held if i in out], out)
+        rows = {r["id"]: r for r in json.loads(repo.dotdiw("list", "--all", "--json")[1])}
+        self.assertEqual(
+            {(rows[i]["status"], rows[i].get("assignee")) for i in held}, {("open", None)}
+        )
+
 
 @uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
@@ -5983,7 +6664,9 @@ class AnIdTheTrackerGaveIsReadWhole(PrefixCase):
     def test_a_move_copies_no_other_item_under_a_listed_id(self):
         """Another deletes a root after the move lists it, and the tracker,
         asked for it by id, shows its step: the move stops there, and writes
-        no copy of the root from the step's record."""
+        no copy of the root from the step's record. It reads the source whole
+        before it opens its target, so the target is left as it was, never
+        opened."""
         self.holding(
             {"id": "a-1", "kind": "root"},
             {"id": "a-1.1", "parent": "a-1", "run": "a-1", "step": "staffing"},
@@ -5995,7 +6678,7 @@ class AnIdTheTrackerGaveIsReadWhole(PrefixCase):
             out,
         )
         code, out = self.run_tool("list", "--all", "--tracker", "local")
-        self.assertIn("Total: 0 issues", out)
+        self.assertIn("This checkout has no tracker; init adopts it.", out)
 
 
 class TheFileATrackerStartsFrom(PrefixCase):
@@ -6058,6 +6741,24 @@ class TheFileATrackerStartsFrom(PrefixCase):
         self.assertEqual(code, 1, out)
         self.assertEqual(out.count("  FAIL  operation."), 11, out)
         self.assertNotIn("Traceback", out)
+
+    def test_the_table_the_guide_shows_is_one_this_dotdiw_loads(self):
+        """The table trackers/README.md gives an adapter's author in its step
+        2, put in place of the one tracker new writes, is loaded: it names
+        the interface this dotdiw speaks and its eleven operations, so the
+        check runs each of them, left raising, rather than refuse the file."""
+        with open(os.path.join(HERE, "trackers", "README.md"), encoding="utf-8") as fh:
+            guide = fh.read().split("**2. Fill the table.**", 1)[1]
+        shown = re.search(r"\n    TRACKER = \{\n.*?\n    \}\n", guide, re.S)
+        assert shown is not None, guide
+        table = "\n".join(line[4:] for line in shown.group(0).strip("\n").split("\n"))
+        code, out = self.run_tool("tracker", "new", "acme")
+        self.assertEqual(code, 0, out)
+        text = self.written("acme.py")
+        with open(os.path.join(self.repo, "acme.py"), "w", encoding="utf-8") as fh:
+            fh.write(text[: text.index("\nTRACKER = {")] + "\n" + table.replace("<name>", "acme"))
+        code, out = self.run_tool("tracker", "check", "./acme.py")
+        self.assertEqual((code, out.count("  FAIL  operation.")), (1, 11), out)
 
     def test_filled_in_it_passes(self):
         code, out = self.run_tool("tracker", "new", "acme")
@@ -9964,6 +10665,581 @@ class TheFormulaProviders(unittest.TestCase):
         code, out = self.dotdiw("formula", "provider", "remove", "acme")
         self.assertEqual(code, 1, out)
         self.assertIn("No formula management provider is registered as acme.", out)
+
+
+# A claimed step and the run it is poured in, as the tracker interface pours
+# them: what a write held to a run's ETag rests on.
+CLAIMED_STEPS = [
+    {
+        "id": "count",
+        "title": "Count the plot",
+        "claim": {"statement": "Counted {{ n }}.", "slots": ["n"]},
+    },
+    {"id": "file", "title": "File the count", "needs": ["count"]},
+]
+
+COUNTED = """formula = "count-the-plot"
+description = "Count the plot. Use when a plot is to be counted."
+examples = ["Count the plot", "Count the north plot", "Count a plot again"]
+
+[[steps]]
+id = "count"
+title = "Count the plot"
+
+[steps.claim]
+statement = "Counted {{ n }}."
+"n:" = {}
+"""
+
+
+class HeldToWhatWasRead(_TestBase):
+    """A write given the ETags it rests on takes effect only while each still
+    matches, and writes nothing otherwise; every read of an unchanged item
+    gives it the same ETag. Mixed into one class per shipped adapter."""
+
+    ADAPTER: str
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.close)
+        home = os.environ.get("HOME", "")
+        os.environ["HOME"] = self.repo.home
+        self.addCleanup(os.environ.__setitem__, "HOME", home)
+        self.addCleanup(os.environ.pop, "BEADS_DIR", None)
+        self.m = load_module("dotdiw_etags_" + self.ADAPTER)
+        self.repo.git("config", "--local", "dotdiw.workspace", "k" * 16)
+        os.makedirs(self.repo.workspace())
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+
+    def ask(self, operation, **request):
+        request.setdefault("root", self.repo.path)
+        request.setdefault("tracker", self.ADAPTER)
+        return self.m.invoke_tracker("operation." + operation, request)
+
+    def door(self, operation, **request):
+        request.setdefault("root", self.repo.path)
+        request.setdefault("tracker", self.ADAPTER)
+        return self.m.invoke("operation." + operation, request)
+
+    def command(self, *argv, etags=None):
+        return self.door("forward-to-the-tracker", arguments=list(argv), etags=etags)
+
+    def shown(self, ident):
+        return self.ask("show-item", id=ident)["item"]
+
+    def test_every_read_of_an_unchanged_item_gives_one_etag(self):
+        parent = self.ask("create-item", title="Parent", description="Its words.")["item"]
+        child = self.ask("create-item", title="Child", parent=parent["id"])["item"]
+        self.assertRegex(parent["etag"], r'^"item/%s/[0-9a-f]{16}"$' % re.escape(parent["id"]))
+        reads = [
+            self.shown(parent["id"])["etag"],
+            next(i["etag"] for i in self.ask("list-items")["items"] if i["id"] == parent["id"]),
+        ]
+        self.assertEqual(reads, [parent["etag"]] * 2)
+        children = self.ask("show-item", id=parent["id"])["children"]
+        self.assertEqual([c["etag"] for c in children], [self.shown(child["id"])["etag"]])
+        self.assertEqual(child["etag"], self.shown(child["id"])["etag"])
+        ready = {i["id"]: i["etag"] for i in self.ask("ready-items")["items"]}
+        self.assertEqual(ready.get(child["id"]), child["etag"])
+
+    def test_any_change_to_an_item_changes_its_etag(self):
+        made = self.ask("create-item", title="Theirs")["item"]
+        other = self.ask("create-item", title="Other")["item"]
+        before = self.shown(made["id"])["etag"]
+        self.ask("update-item", id=made["id"], assignee="someone")
+        after_assignee = self.shown(made["id"])["etag"]
+        self.ask("add-need", id=made["id"], needs=other["id"])
+        after_need = self.shown(made["id"])["etag"]
+        self.assertEqual(len({before, after_assignee, after_need}), 3)
+
+    def test_a_write_on_a_stale_read_writes_nothing(self):
+        made = self.ask("create-item", title="Count the plot")["item"]
+        stale = made["etag"]
+        out = self.command("update", made["id"], "--title", "Count the north plot", etags=[stale])
+        self.assertEqual(out["status"], "completed", out)
+        fresh = self.shown(made["id"])
+        self.assertNotEqual(fresh["etag"], stale)
+        for argv in (
+            ("update", made["id"], "--title", "Count the south plot"),
+            ("close", made["id"]),
+            ("dep", "add", made["id"], self.ask("create-item", title="Other")["item"]["id"]),
+        ):
+            with self.subTest(command=argv[0]):
+                out = self.command(*argv, etags=[stale])
+                self.assertEqual(
+                    (out["status"], out["reason"]), ("failed", "changed-since-read"), out
+                )
+                self.assertIn("%s changed since it was read" % made["id"], out["summary"])
+                self.assertEqual(self.shown(made["id"]), fresh)
+        out = self.command("close", made["id"], etags=[fresh["etag"]])
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual(out["closedRefs"], [made["id"]])
+        self.assertEqual(self.shown(made["id"])["status"], "closed")
+
+    def test_an_item_gone_has_changed(self):
+        gone = '"item/w-zzzz/0123456789abcdef"'
+        made = self.ask("create-item", title="Count the plot")["item"]
+        out = self.command("update", made["id"], "--title", "Other", etags=[gone])
+        self.assertEqual(out["reason"], "changed-since-read", out)
+        self.assertEqual(self.shown(made["id"])["title"], "Count the plot")
+
+    def test_an_etag_that_is_none_of_dotdiws_is_refused_before_anything(self):
+        made = self.ask("create-item", title="Count the plot")["item"]
+        for given in ("nonsense", made["etag"].strip('"'), '"item/%s/xyz"' % made["id"]):
+            with self.subTest(etag=given):
+                out = self.command("update", made["id"], "--title", "Other", etags=[given])
+                self.assertEqual((out["reason"], out["exitCode"]), ("not-an-etag", 2), out)
+        self.assertEqual(self.shown(made["id"])["title"], "Count the plot")
+
+    def test_a_create_under_a_parent_holds_to_the_parents_etag(self):
+        parent = self.ask("create-item", title="Parent")["item"]
+        self.ask("update-item", id=parent["id"], assignee="someone")
+        before = {i["id"] for i in self.ask("list-items", scope="all")["items"]}
+        out = self.door(
+            "start-named-work",
+            title="Child",
+            parent=parent["id"],
+            quiet=True,
+            etags=[parent["etag"]],
+        )
+        self.assertEqual((out["status"], out["reason"]), ("failed", "changed-since-read"), out)
+        self.assertEqual({i["id"] for i in self.ask("list-items", scope="all")["items"]}, before)
+        fresh = self.shown(parent["id"])["etag"]
+        out = self.door(
+            "start-named-work", title="Child", parent=parent["id"], quiet=True, etags=[fresh]
+        )
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual(out["item"]["etag"], self.shown(out["workRef"])["etag"])
+
+    def test_a_run_has_one_etag_over_every_item_poured_in_it(self):
+        poured = self.ask("pour-steps", formulaRef="m", title="m", steps=CLAIMED_STEPS)
+        root, (count, filed) = poured["rootId"], poured["stepIds"]
+        read = self.door("read-run", id=count)
+        run = read["run"]
+        self.assertRegex(run["etag"], r'^"run/%s/[0-9a-f]{16}"$' % re.escape(root))
+        self.assertEqual(self.door("read-run", id=root)["run"]["etag"], run["etag"])
+        self.assertEqual(run["steps"][0]["etag"], self.shown(count)["etag"])
+        self.ask("update-item", id=filed, assignee="someone")
+        self.assertNotEqual(self.door("read-run", id=root)["run"]["etag"], run["etag"])
+        out = self.command("close", count, etags=[run["etag"]])
+        self.assertEqual(out["reason"], "changed-since-read", out)
+        self.assertEqual(self.shown(count)["status"], "open")
+
+    def test_a_claim_waits_on_the_workspace_lock(self):
+        """Every write of an item's record holds the lock a write held to
+        what was read holds, so that none lands between its compare and its
+        write: a claim's values too, under every adapter."""
+        poured = self.ask("pour-steps", formulaRef="m", title="m", steps=CLAIMED_STEPS)
+        count = poured["stepIds"][0]
+        self.m.TRACKER_LOCK_SECONDS = 0.3
+        with open(os.path.join(self.repo.workspace(), self.m.TRACKER_LOCK), "a") as held:
+            fcntl.flock(held, fcntl.LOCK_EX)
+            out = self.door("record-claim", id=count, values=[{"label": "n", "text": "1"}])
+            fcntl.flock(held, fcntl.LOCK_UN)
+        self.assertEqual(out["status"], "failed", out)
+        self.assertIn("held this checkout's tracker for a minute", out["summary"])
+        self.assertIsNone(self.shown(count).get("values"))
+
+
+class TheLocalAdapterHeldToWhatWasRead(HeldToWhatWasRead, unittest.TestCase):
+    ADAPTER = "local"
+
+    def test_values_on_a_stale_run_are_not_recorded(self):
+        poured = self.ask("pour-steps", formulaRef="m", title="m", steps=CLAIMED_STEPS)
+        root, count = poured["rootId"], poured["stepIds"][0]
+        run = self.door("read-run", id=root)["run"]
+        out = self.door("record-what-a-step-found", id=count, values=[{"label": "n", "text": "1"}])
+        self.assertEqual(out["status"], "completed", out)
+        out = self.door(
+            "record-what-a-step-found",
+            id=count,
+            values=[{"label": "n", "text": "2"}],
+            etags=[run["etag"]],
+        )
+        self.assertEqual((out["status"], out["reason"]), ("failed", "changed-since-read"), out)
+        self.assertEqual(self.shown(count)["values"], [{"label": "n", "text": "1"}])
+        fresh = self.door("read-run", id=root)["run"]
+        out = self.door(
+            "record-what-a-step-found",
+            id=count,
+            values=[{"label": "n", "text": "2"}],
+            etags=[fresh["etag"], fresh["steps"][0]["etag"]],
+        )
+        self.assertEqual(out["status"], "completed", out)
+        self.assertEqual(out["run"]["steps"][0]["values"], [{"label": "n", "text": "2"}])
+
+
+@uses("bd")
+@unittest.skipUnless(have_bd(), "bd is not installed")
+class TheBeadsAdapterHeldToWhatWasRead(HeldToWhatWasRead, unittest.TestCase):
+    ADAPTER = "beads"
+
+    def test_a_record_a_write_answers_is_the_record_bd_holds(self):
+        """bd's create prints the time it ran to the microsecond and keeps it
+        to the second: the record answered is the one a read gives."""
+        made = self.ask("create-item", title="Count the plot")["item"]
+        self.assertEqual(made, self.shown(made["id"]))
+        self.assertRegex(made["createdAt"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+
+    def test_a_listing_holds_every_field_of_each_item(self):
+        made = self.ask("create-item", title="Count the plot", description="Its words.")["item"]
+        listed = next(i for i in self.ask("list-items")["items"] if i["id"] == made["id"])
+        self.assertEqual(listed.get("description"), "Its words.")
+        self.assertEqual(listed["etag"], made["etag"])
+
+    def test_a_command_passed_through_as_it_is_holds_to_its_etags(self):
+        made = self.ask("create-item", title="Count the plot")["item"]
+        stale = made["etag"]
+        self.ask("update-item", id=made["id"], assignee="someone")
+        out = self.command("label", "add", made["id"], "counted", etags=[stale])
+        self.assertEqual(out["reason"], "changed-since-read", out)
+        code, labels = self.repo.bd("label", "list", made["id"])
+        self.assertNotIn("counted", labels)
+
+    def while_it_closes(self, ident, *argv):
+        """The close of ident held once dotdiw has checked it, just before bd
+        runs it, and argv passed through meanwhile, given no ETag and half a
+        second to wait: the close's answer and argv's."""
+        _, adapter = self.m.resolve_tracker({"root": self.repo.path, "tracker": "beads"})
+        real = adapter["extras"]["forward"]
+        checked, go, first = threading.Event(), threading.Event(), [True]
+
+        def held(request):
+            if request.get("mark") and first[0]:
+                first[0] = False
+                checked.set()
+                go.wait(60)
+            return real(request)
+
+        adapter["extras"]["forward"] = held
+        self.addCleanup(adapter["extras"].__setitem__, "forward", real)
+        answers: dict[str, dict[str, object]] = {}
+        one = threading.Thread(
+            target=lambda: answers.__setitem__("close", self.command("close", ident))
+        )
+        one.start()
+        try:
+            self.assertTrue(checked.wait(60))
+            self.m.TRACKER_LOCK_SECONDS = 0.5
+            waited = self.command(*argv)
+        finally:
+            go.set()
+            one.join(60)
+        return answers["close"], waited
+
+    def test_a_quick_capture_under_an_issue_waits_for_its_close(self):
+        """bd q --parent, passed through as it is, while the parent's close
+        has found nothing open under it: it cannot run until the close is
+        done, and, kept waiting longer than it waits, makes nothing."""
+        parent = self.ask("create-item", title="Count the plot")["item"]
+        closed, waited = self.while_it_closes(
+            parent["id"], "q", "Count the beds", "--parent", parent["id"]
+        )
+        self.assertEqual(waited["status"], "failed", waited)
+        self.assertIn("held this checkout's tracker", str(waited["summary"]))
+        self.assertEqual(closed["closedRefs"], [parent["id"]], closed)
+        shown = self.ask("show-item", id=parent["id"])
+        self.assertEqual(shown["children"], [], shown)
+
+    def test_a_reopen_under_an_issue_waits_for_its_close(self):
+        """bd reopen of a closed child, passed through as it is, while its
+        parent's close has found nothing open under it: it cannot run until
+        the close is done, and, kept waiting longer than it waits, reopens
+        nothing. It begins with an option, so dotdiw reads it whole, and is
+        held by the command the reading names."""
+        parent = self.ask("create-item", title="Count the plot")["item"]
+        child = self.ask("create-item", title="Count the beds", parent=parent["id"])["item"]
+        self.assertEqual(self.ask("close-item", id=child["id"])["status"], "completed")
+        closed, waited = self.while_it_closes(
+            parent["id"], "--actor", "someone", "reopen", child["id"]
+        )
+        self.assertEqual(waited["status"], "failed", waited)
+        self.assertIn("held this checkout's tracker", str(waited["summary"]))
+        self.assertEqual(closed["closedRefs"], [parent["id"]], closed)
+        self.assertEqual(self.shown(child["id"])["status"], "closed")
+
+
+def have_grpc():
+    try:
+        importlib.import_module("grpc")
+        importlib.import_module("google.protobuf.descriptor_pb2")
+    except ImportError:
+        return False
+    return True
+
+
+class Served:
+    """dotdiw serve on a free port of the loopback address, in a checkout,
+    and a client of it whose messages are built from the descriptor it
+    serves."""
+
+    def __init__(self, path, env):
+        self.grpc = importlib.import_module("grpc")
+        pb = importlib.import_module("google.protobuf.descriptor_pb2")
+        pools = importlib.import_module("google.protobuf.descriptor_pool")
+        self.factory = importlib.import_module("google.protobuf.message_factory")
+        m = load_module("dotdiw_served")
+        self.pool = pools.DescriptorPool()
+        self.pool.Add(m.grpc_descriptor(pb))
+        self.package, self.root = m.GRPC_PACKAGE, path
+        self.server = subprocess.Popen(
+            [sys.executable, "-I", DOTDIW, "serve", "--address", "127.0.0.1:0"],
+            cwd=path,
+            env=env,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert self.server.stderr is not None
+        line = self.server.stderr.readline()
+        assert "serving gRPC on 127.0.0.1:" in line, line
+        self.channel = self.grpc.insecure_channel(line.strip().rsplit(" ", 1)[1])
+        self.method = "/%s.%s/" % (m.GRPC_PACKAGE, m.GRPC_SERVICE)
+
+    def kind(self, name):
+        return self.factory.GetMessageClass(
+            self.pool.FindMessageTypeByName("%s.%s" % (self.package, name))
+        )
+
+    def call(self, method, **fields):
+        fields.setdefault("root", self.root)
+        rpc = self.channel.unary_unary(
+            self.method + method,
+            request_serializer=lambda m: m.SerializeToString(),
+            response_deserializer=self.kind(method + "Response").FromString,
+        )
+        return rpc(self.kind(method + "Request")(**fields), timeout=300)
+
+    def code(self, method, **fields):
+        try:
+            self.call(method, **fields)
+        except self.grpc.RpcError as e:
+            return e.code(), e.details()
+        return self.grpc.StatusCode.OK, ""
+
+    def close(self):
+        self.channel.close()
+        self.server.terminate()
+        self.server.wait(10)
+        if self.server.stderr is not None:
+            self.server.stderr.close()
+
+
+@unittest.skipUnless(have_grpc(), "grpcio and protobuf are not installed")
+class ServedOverGrpc(unittest.TestCase):
+    """dotdiw serve answers POA's projection: a client reads an item with its
+    ETag and writes with it; a write on a stale read is ABORTED and writes
+    nothing; clients racing to write one item lose no update."""
+
+    TRACKER = "local"
+
+    def setUp(self):
+        self.repo = Repo(tracker=self.TRACKER)
+        self.addCleanup(self.repo.close)
+        code, out = self.repo.dotdiw("init", "--prefix", "demo")
+        self.assertEqual(code, 0, out)
+        self.served = Served(self.repo.path, self.repo.env)
+        self.addCleanup(self.served.close)
+
+    def run_command(self, *argv, etags=()):
+        return self.served.call("RunATrackerCommand", arguments=list(argv), etags=list(etags))
+
+    def test_a_write_on_a_stale_read_is_aborted_and_writes_nothing(self):
+        made = self.served.call("StartNamedWork", title="Count the plot", quiet=True)
+        ident, first = made.work_ref, made.item.etag
+        shown = self.run_command("show", ident).items
+        self.assertEqual([(i.id, i.etag) for i in shown], [(ident, first)])
+        wrote = self.run_command("update", ident, "--title", "Count the north plot", etags=[first])
+        self.assertEqual(wrote.exit_code, 0, wrote)
+        second = self.run_command("show", ident).items[0].etag
+        self.assertNotEqual(second, first)
+        code, said = self.served.code(
+            "RunATrackerCommand",
+            arguments=["update", ident, "--title", "Count the south plot"],
+            etags=[first],
+        )
+        self.assertEqual(code, self.served.grpc.StatusCode.ABORTED, said)
+        self.assertIn("changed since it was read", said)
+        after = self.run_command("show", ident).items[0]
+        self.assertEqual((after.title, after.etag), ("Count the north plot", second))
+        closed = self.run_command("close", ident, etags=[second])
+        self.assertEqual(list(closed.closed_refs), [ident], closed)
+
+    def test_what_is_not_a_request_is_refused_as_such(self):
+        made = self.served.call("StartNamedWork", title="Count the plot", quiet=True)
+        invalid = self.served.grpc.StatusCode.INVALID_ARGUMENT
+        code, said = self.served.code(
+            "RunATrackerCommand", arguments=["close", made.work_ref], etags=["nonsense"]
+        )
+        self.assertEqual(code, invalid, said)
+        code, said = self.served.code("RunATrackerCommand", root="", arguments=["list"])
+        self.assertEqual((code, said), (invalid, "RunATrackerCommand: root is required."))
+        rpc = self.served.channel.unary_unary(
+            self.served.method + "ShowItem",
+            request_serializer=lambda m: m,
+            response_deserializer=lambda b: b,
+        )
+        with self.assertRaises(self.served.grpc.RpcError) as raised:
+            rpc(b"", timeout=60)
+        self.assertEqual(raised.exception.code(), self.served.grpc.StatusCode.UNIMPLEMENTED)
+
+    def counted(self):
+        """A step of a run whose claim has one slot, n, and the call that
+        records a text for it."""
+        self.repo.write("count.formula.toml", COUNTED)
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, "formula", "pour", "count-the-plot", "--json"],
+            cwd=self.repo.path,
+            env=self.repo.env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        step, value = json.loads(p.stdout)["stepIds"][0], self.served.kind("ClaimValue")
+        return step, lambda text: self.served.call(
+            "RecordWhatAStepFound", id=step, values=[value(label="n", text=text)]
+        )
+
+    def test_an_empty_text_in_a_value_is_given(self):
+        """proto3 cannot tell empty text from text not given, but a value
+        cannot lack its text: an empty one is given, and removes the value,
+        as on the command line."""
+        step, record = self.counted()
+        for text, held in (("1", [("n", "1")]), ("", [])):
+            found = record(text)
+            self.assertEqual(found.exit_code, 0, found)
+            shown = self.run_command("show", step).items[0]
+            self.assertEqual([(v.label, v.text) for v in shown.values], held)
+
+    def test_clients_racing_to_write_one_item_lose_no_update(self):
+        """Each client reads the count, writes one more with the ETag it read,
+        and reads again on ABORTED: the count is every write that took."""
+        ident = self.served.call("StartNamedWork", title="count 0", quiet=True).work_ref
+        clients, each, aborted, errors = 6, 5, [], []
+
+        def client():
+            done = 0
+            while done < each:
+                item = self.run_command("show", ident).items[0]
+                n = int(item.title.split()[1])
+                try:
+                    self.run_command(
+                        "update", ident, "--title", "count %d" % (n + 1), etags=[item.etag]
+                    )
+                except self.served.grpc.RpcError as e:
+                    if e.code() != self.served.grpc.StatusCode.ABORTED:
+                        errors.append(e.details())
+                        return
+                    aborted.append(n)
+                    continue
+                done += 1
+
+        threads = [threading.Thread(target=client) for _ in range(clients)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            self.run_command("show", ident).items[0].title, "count %d" % (clients * each)
+        )
+
+
+@unittest.skipUnless(have_grpc(), "grpcio and protobuf are not installed")
+class AServedRequestStartsWhenAsked(unittest.TestCase):
+    """A served request's start, as the witness log records it, is when the
+    server began to answer it, and not when the server started: the time
+    from it to what the request surfaced is that request's own."""
+
+    def test_each_request_is_timed_from_its_own_start(self):
+        repo = Repo(tracker="local")
+        self.addCleanup(repo.close)
+        code, out = repo.dotdiw("init", "--prefix", "demo")
+        self.assertEqual(code, 0, out)
+        served = Served(repo.path, dict(repo.env, DOTDIW_WITNESS="1"))
+        self.addCleanup(served.close)
+        started = []
+        for title in ("Count the plot", "Count the north plot"):
+            asked = datetime.datetime.now(datetime.UTC)
+            made = served.call("StartNamedWork", title=title, quiet=True)
+            with open(os.path.join(repo.workspace(), "witness.jsonl"), encoding="utf-8") as fh:
+                named = [
+                    e
+                    for e in map(json.loads, fh)
+                    if e["label"] == "work_named" and e["workId"] == made.work_ref
+                ]
+            self.assertEqual(len(named), 1, named)
+            at = datetime.datetime.strptime(named[0]["startedAt"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            self.assertGreaterEqual(at.replace(tzinfo=datetime.UTC), asked, named[0])
+            started.append(named[0]["startedAt"])
+        self.assertNotEqual(started[0], started[1])
+
+
+@unittest.skipUnless(have_grpc(), "grpcio and protobuf are not installed")
+class AServerForksQuietly(unittest.TestCase):
+    """dotdiw's children run git or bd at once and never use gRPC, so gRPC's
+    fork handlers have nothing to do for them: a server answering, several
+    at once, requests that fork writes nothing of it to its stderr, which no
+    one may be reading -- a pipe there, once full, would stop the server."""
+
+    def test_requests_that_fork_at_once_leave_stderr_quiet(self):
+        repo = Repo(tracker="local")
+        self.addCleanup(repo.close)
+        code, out = repo.dotdiw("init", "--prefix", "demo")
+        self.assertEqual(code, 0, out)
+        served = Served(repo.path, repo.env)
+        self.addCleanup(served.close)
+
+        def ask():  # a check runs git for what it checks, each time
+            for _ in range(3):
+                served.call("DescribeAndCheck", mode="check")
+
+        threads = [threading.Thread(target=ask) for _ in range(6)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        served.server.terminate()
+        served.server.wait(10)
+        assert served.server.stderr is not None
+        self.assertNotIn("fork", served.server.stderr.read())
+
+
+@uses("bd")
+@unittest.skipUnless(have_bd(), "bd is not installed")
+@unittest.skipUnless(have_grpc(), "grpcio and protobuf are not installed")
+class ServedOverGrpcUnderBeads(ServedOverGrpc):
+    """The same, through the pass-through: without a terminal, show and list
+    are read as records, each item with its ETag."""
+
+    TRACKER = "beads"
+
+    def test_a_client_never_has_a_terminal(self):
+        """A request over gRPC that says a terminal is there is answered as
+        one without: the tracker runs quietly, its output in the answer."""
+        out = self.run_command("count")
+        said = self.served.call("RunATrackerCommand", arguments=["count"], terminal=True)
+        self.assertEqual((said.exit_code, said.output), (0, out.output))
+        self.assertTrue(said.output.strip(), said)
+
+    def test_an_empty_text_in_a_value_is_given(self):
+        """beads records no claim's values in this release: an empty text
+        reaches it as given, and it answers as it does any other."""
+        _, record = self.counted()
+        for text in ("1", ""):
+            found = record(text)
+            self.assertEqual((found.exit_code, found.reason), (1, "unsupported"), found)
+
+    def test_clients_racing_to_write_one_item_lose_no_update(self):
+        ident = self.served.call("StartNamedWork", title="count 0", quiet=True).work_ref
+        item = self.run_command("show", ident).items[0]
+        self.run_command("update", ident, "--title", "count 1", etags=[item.etag])
+        code, said = self.served.code(
+            "RunATrackerCommand",
+            arguments=["update", ident, "--title", "count 1"],
+            etags=[item.etag],
+        )
+        self.assertEqual(code, self.served.grpc.StatusCode.ABORTED, said)
+        self.assertEqual(self.run_command("show", ident).items[0].title, "count 1")
 
 
 if __name__ == "__main__":

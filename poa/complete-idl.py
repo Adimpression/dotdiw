@@ -329,8 +329,8 @@ def door_source(idl: Idl) -> str:
     }
     out = DOOR_OPEN
     out += "STATUSES = (%s)\n\n" % ", ".join('"%s"' % s for s in statuses)
-    out += "# operation id -> the body's name, the fields of its request, the required\n"
-    out += "# ones among them, and the same for its response.\n"
+    out += "# operation id -> the body's name, the operation's visibility, the fields of\n"
+    out += "# its request, the required ones among them, and the same for its response.\n"
     out += "DOOR: dict[str, DoorSpec] = {\n"
     for op in sorted(idl["operations"], key=lambda o: o["operationId"]):
         if op["operationId"] in inner or op["operationId"] in pending:
@@ -339,6 +339,7 @@ def door_source(idl: Idl) -> str:
         resp = types[op["responseType"]]["fields"]
         out += '    "%s": {\n' % op["operationId"]
         out += '        "body": "%s",\n' % op["name"]
+        out += '        "visibility": "%s",\n' % op["visibility"]
         out += names_tuple("request", sorted(f["name"] for f in req))
         out += names_tuple("requestRequired", sorted(f["name"] for f in req if f["required"]))
         out += names_tuple("response", sorted(f["name"] for f in resp))

@@ -99,6 +99,8 @@ INFRASTRUCTURE = {
     "git",
     "repo_root",
     "workspace",
+    "checkout_config",
+    "config_stamp",
     "forget_workspace",
     "tracker_name",
     "adopted",
@@ -114,6 +116,7 @@ INFRASTRUCTURE = {
     "held_index",
     "held_formula",
     "witness_on",
+    "request_started",
     "witness",
     "release_held",
     "witnessed",
@@ -128,6 +131,13 @@ INFRASTRUCTURE = {
     "registry_lock",
     "suffix_owner",
     "shell_word",
+    "held_for_writing",
+    "made_by_a_stopped_move",
+    "adoption_lock",
+    "held_at",
+    "digest_of",
+    "item_etag",
+    "run_etag",
 }
 
 # The formula management provider that ships inside dotdiw: a directory on the
@@ -162,6 +172,7 @@ TRACKER = {
     "load_tracker",
     "tracker_with_store",
     "resolve_tracker",
+    "tracker_found",
     "tracker_unknown",
     "is_loaded",
     "adapter_failed",
@@ -172,6 +183,7 @@ TRACKER = {
     "invoke_extra",
     "asked_of_an_extra",
     "invoke_adapter",
+    "stamp_etags",
 }
 
 # The adapters that ship inside dotdiw: name -> its definitions. The beads
@@ -207,6 +219,7 @@ ADAPTERS = {
         "beads_json",
         "beads_rows",
         "beads_record",
+        "beads_held_time",
         "beads_failed",
         "beads_actor",
         "beads_typed",
@@ -264,8 +277,11 @@ EXTRAS = {
     "upgrade": "operation.undo-earlier-adoption",
 }
 
-# The command line: parse the affordance, build the request, call the
-# operation. Infrastructure and operations, nothing else, may be called here.
+# The interfaces. The command line: parse the affordance, build the request,
+# call the operation. gRPC, which the command line starts with serve: the
+# projection's descriptor built from the door's types, a message turned into
+# the request, the operation called, the answer turned into the message.
+# Infrastructure and operations, nothing else, may be called here.
 INTERFACE = {
     "own_flags",
     "extract_tracker",
@@ -296,6 +312,13 @@ INTERFACE = {
     "show_new_tracker",
     "show_providers",
     "show_claim",
+    "serve",
+    "grpc_field",
+    "grpc_kind",
+    "grpc_descriptor",
+    "grpc_request",
+    "grpc_message",
+    "grpc_answer",
 }
 
 # Module-level definitions that are part of exactly one operation's body.
@@ -307,8 +330,10 @@ HELPERS = {
         "answered",
         "refusal",
         "command_words",
-        "held_for_writing",
+        "read_in_records",
         "held_at_the_command_line",
+        "ready_in_records",
+        "stopped_here",
         "closes_that_follow",
         "through_the_pass_through",
         "tracker_command_at_sight",
@@ -1180,11 +1205,20 @@ class TheDoor(unittest.TestCase):
         """Routing is hand-written, reaches an operation only by its id through
         a door, and every id it reaches is one the IDL binds to the command
         line -- the tracker's description under --version included. Its own
-        argument parsing is the one interface call it makes."""
+        argument parsing is one interface call it makes; starting the other
+        interface, serve, is the other."""
         called = self.source.names_called("main")
         self.assertIn("invoke", called)
         beyond = (
-            called - INFRASTRUCTURE - {"invoke", "invoke_tracker", "own_flags", "extract_tracker"}
+            called
+            - INFRASTRUCTURE
+            - {
+                "invoke",
+                "invoke_tracker",
+                "own_flags",
+                "extract_tracker",
+                "serve",
+            }
         )
         self.assertEqual(beyond, set(), "main() calls %s" % sorted(beyond))
         doors = [
@@ -2321,7 +2355,7 @@ class TheTrackerDoor(unittest.TestCase):
         with open(os.path.join(HERE, "trackers", "README.md"), encoding="utf-8") as fh:
             guide = fh.read()
         pairs = re.findall(r'"(operation\.[a-z-]+)": ([a-z_]+),', guide)
-        self.assertEqual(len(pairs), 10)
+        self.assertEqual(len(pairs), 11)
         for operation, function in pairs:
             self.assertIn('"%s": %s,' % (operation, function), m.TRACKER_SKELETON)
             self.assertIn("def %s(request: Record)" % function, m.TRACKER_SKELETON)
@@ -2959,6 +2993,105 @@ class TheRankingBenchmark(unittest.TestCase):
 
         with self.assertRaises(SystemExit):
             bench.rankings(Nameless, HERE, ["Anything"])
+
+
+def have_protobuf():
+    try:
+        importlib.import_module("google.protobuf.descriptor_pb2")
+    except ImportError:
+        return False
+    return True
+
+
+class TheGrpcProjection(unittest.TestCase):
+    """dotdiw serve serves POA's projection of the IDL: every operation with
+    a body that is not internal-only, and no other, by the descriptor POA
+    generates, field for field."""
+
+    idl: dict[str, Any]
+    module: Any
+
+    @classmethod
+    def setUpClass(cls):
+        cls.idl = load_idl()
+        cls.module = load_module("dotdiw_grpc_under_test", SCRIPT)
+
+    def served(self):
+        return {
+            spec["body"]
+            for spec in self.module.DOOR.values()
+            if spec["visibility"] != "internal-only"
+        }
+
+    def test_the_operations_served_are_those_with_a_body_not_internal_only(self):
+        ops = {op["operationId"]: op for op in self.idl["operations"]}
+        for op_id, spec in self.module.DOOR.items():
+            self.assertEqual(spec["visibility"], ops[op_id]["visibility"], op_id)
+        expected = {
+            op["name"]
+            for op in self.idl["operations"]
+            if op["visibility"] != "internal-only" and op["operationId"] in self.module.DOOR
+        }
+        self.assertEqual(self.served(), expected)
+        self.assertNotIn("AnswerThroughTheTracker", self.served())
+        inner = inner_ids(self.idl)
+        self.assertFalse(
+            {o["name"] for o in self.idl["operations"] if o["operationId"] in inner} & self.served()
+        )
+        if have_protobuf():
+            pb = importlib.import_module("google.protobuf.descriptor_pb2")
+            methods = self.module.grpc_descriptor(pb).service[0].method
+            self.assertEqual({m.name for m in methods}, self.served())
+
+    @uses("poa")
+    @unittest.skipUnless(os.path.exists(POA), "POA is not at ~/poa")
+    @unittest.skipUnless(shutil.which("buf"), "Buf is not installed")
+    @unittest.skipUnless(have_protobuf(), "protobuf is not installed")
+    def test_the_descriptor_served_is_the_one_poa_generates(self):
+        """POA generates the proto from the IDL and Buf compiles it; the
+        descriptor dotdiw builds from the door's types holds each message it
+        serves field for field -- name, number, label, type, and the name
+        the IDL gives it -- and each method its types."""
+        pb = importlib.import_module("google.protobuf.descriptor_pb2")
+        out = tempfile.mkdtemp(prefix="dotdiw-grpc-")
+        self.addCleanup(shutil.rmtree, out, True)
+        for argv in (
+            [
+                POA,
+                "generate",
+                "grpc",
+                "--idl",
+                IDL,
+                "--out",
+                out,
+                "--language",
+                "python",
+                "--write",
+            ],
+            ["buf", "dep", "update"],
+            ["buf", "build", "-o", "image.binpb"],
+        ):
+            p = subprocess.run(argv, cwd=out, capture_output=True, text=True)
+            self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        image = pb.FileDescriptorSet()
+        with open(os.path.join(out, "image.binpb"), "rb") as fh:
+            image.ParseFromString(fh.read())
+        poa = next(f for f in image.file if f.name == self.module.GRPC_FILE)
+        ours = self.module.grpc_descriptor(pb)
+        self.assertEqual((ours.package, ours.service[0].name), (poa.package, poa.service[0].name))
+
+        def shape(message):
+            return [
+                (f.name, f.number, f.label, f.type, f.type_name, f.json_name) for f in message.field
+            ]
+
+        theirs = {m.name: m for m in poa.message_type}
+        for message in ours.message_type:
+            with self.subTest(message=message.name):
+                self.assertEqual(shape(message), shape(theirs[message.name]))
+        methods = {m.name: (m.input_type, m.output_type) for m in poa.service[0].method}
+        for m in ours.service[0].method:
+            self.assertEqual((m.input_type, m.output_type), methods[m.name], m.name)
 
 
 if __name__ == "__main__":

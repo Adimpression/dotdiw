@@ -58,6 +58,13 @@ minimumReview:
       howCarries: >
         Names the work first, reads what surfaced, and writes down what they
         repeated as a formula rather than as prose.
+    - carrierId: carrier.dotdiw-served
+      name: dotdiw serve, for clients that are not a terminal
+      kind: software
+      howCarries: >
+        Answers the same operations over gRPC, to clients that call at once,
+        each item read with its ETag; a write given the ETags it rests on
+        takes effect only while each still matches, and is refused otherwise.
     - carrierId: carrier.formula-management-provider
       name: A formula management provider
       kind: software
@@ -138,6 +145,15 @@ minimumReview:
       whyItMatters: >
         One id that names two formulas surfaces one of them, and the worker
         cannot tell which.
+    - dutyId: duty.write-on-what-you-read
+      statement: >
+        A client that writes on what it read gives back the ETags the read
+        answered, and on ABORTED reads again and decides again; it never sends
+        the same write again unread.
+      whyItMatters: >
+        Another client may change the work between a read and a write. A write
+        on what no longer is overwrites that change, or leaves the work
+        inconsistent.
   proof:
     - evidenceId: evidence.create-first-in-the-log
       statement: >
@@ -191,6 +207,10 @@ minimumReview:
       statement: >
         A local formula and a provider's formula read as one id, and the worker
         follows the one they did not mean.
+    - riskId: risk.write-on-a-stale-read
+      statement: >
+        A client writes with no ETags, or retries an ABORTED write as it was,
+        and another client's change is overwritten. Every call succeeds.
   topGaps:
     - >
       The maintainer's praxis -- what dotdiw may do to a repository on
@@ -524,7 +544,7 @@ praxisModel:
         status: draft
 metadata:
   createdAt: "2026-11-01"
-  updatedAt: "2026-11-08"
+  updatedAt: "2026-11-13"
   authors:
     - The dotdiw maintainers
     - The agent working in this repository on 2026-11-01, as bearer

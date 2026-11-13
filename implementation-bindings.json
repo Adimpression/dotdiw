@@ -1,7 +1,7 @@
 {
   "trackerInterface": {
     "number": 4,
-    "digest": "d963b9603d214300"
+    "digest": "9c26b9bf7be6ed43"
   },
   "implementationBindings": [
     {
@@ -435,6 +435,14 @@
       "implementationMode": "inline-body",
       "privateHelpersUsed": false,
       "notes": "The body is dotdiw::ReadRun, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
+    },
+    {
+      "bindingId": "impl.compare-what-was-read",
+      "operationId": "operation.compare-what-was-read",
+      "implementationUnit": "promise_bindings::CompareWhatWasRead",
+      "implementationMode": "inline-body",
+      "privateHelpersUsed": false,
+      "notes": "The body is dotdiw::CompareWhatWasRead, reached only through the door, invoke, by this operation's id; promise_bindings.py asks the door for it under this name, which is how the conformance harness calls it. test_promise.py holds the body to the calls declared here and to the door."
     },
     {
       "bindingId": "impl.list-trackers",

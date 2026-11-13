@@ -1660,6 +1660,20 @@ journeys:
           summary: >-
             Print the record of the work created as JSON, and nothing else; from
             --json.
+        - name: etags
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            The ETags this write rests on, as reads returned them: an item's,
+            a run's, any number. Given, the operation takes effect only if
+            each still matches, compared under the lock of the store written to; one that
+            changed writes nothing and answers changed-since-read. Given none,
+            the write is unconditional.
+          cardinality: many
       responseFields:
         - name: workRef
           valueType:
@@ -1686,6 +1700,27 @@ journeys:
           summary: >-
             What the command line exits with for this response: 0 unless the
             tracker or the operation failed.
+        - name: item
+          valueType:
+            kind: type-ref
+            typeId: type.tracker-item
+          required: false
+          summary: "The work item created, as the tracker holds it, with its ETag."
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - not-installed
+              - no-workspace
+              - tracker-unknown
+              - adapter-failed
+              - changed-since-read
+              - not-an-etag
+          required: false
+          summary: >-
+            Why nothing was created: as name-the-work answers it;
+            changed-since-read when an ETag given no longer matches, and
+            not-an-etag when one is not dotdiw's.
   - journeyId: journey.write-a-procedure-down
     dutyId: duty.keep-procedures-findable
     title: Write a procedure down
@@ -2030,6 +2065,7 @@ journeys:
       - For cook, the formula id is resolved to the file it lives in, wherever that is in the tree.
       - The command runs in the chosen adapter; under beads through a pty when the terminal is interactive, with the tracker's name rewritten in the stream.
       - For doctor and lint, the conventions check and the handmade notice follow the tracker's own report; for remember, a memory that reads like a procedure is answered with the formula new line.
+      - A write given the ETags it rests on runs only if each still matches, compared under the lock of the store written to; otherwise nothing is written and the answer names what changed.
     completionCriteria:
       - The tracker's exit code and output are the worker's, with the tracker's name replaced.
       - A doctor or lint run shows the project's convention problems under the tracker's report.
@@ -2050,6 +2086,7 @@ journeys:
       - invariant.one-name-for-all-four
     stepIds:
       - step.forward-to-the-tracker
+      - step.compare-what-was-read
     sliIds: []
     sloIds: []
     goldenTraceIds:
@@ -2123,12 +2160,86 @@ journeys:
             default. The command line fills it from --tracker or
             DOTDIW_TRACKER and nothing else does; a journey hands it to its
             steps.
+        - name: etags
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            The ETags this write rests on, as reads returned them: an item's,
+            a run's, any number. Given, the operation takes effect only if
+            each still matches, compared under the lock of the store written to; one that
+            changed writes nothing and answers changed-since-read. Given none,
+            the write is unconditional.
+          cardinality: many
+        - name: terminal
+          valueType:
+            kind: scalar
+            scalar: boolean
+          required: false
+          summary: >-
+            Whether the worker's terminal is there: the command line says so,
+            and a transport without one leaves it out. Without one, a command
+            the tracker runs itself runs quietly, its output in the response,
+            and list, ready and show are answered as records under every
+            adapter, each item with its ETag.
       responseFields:
         - name: exitCode
           valueType:
             kind: scalar
             scalar: integer
           required: false
+        - name: items
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.tracker-item
+          required: false
+          summary: >-
+            The records the command answered with or wrote, each with its
+            ETag: a show's item and then its children, a list's or ready's
+            items, and each item a close, an update or a need wrote, as it
+            now stands. Empty for a command the tracker answered in its own
+            output.
+          cardinality: many
+        - name: closedRefs
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            The ids the command closed, in the order it named them, and the
+            roots whose close followed after.
+          cardinality: many
+        - name: output
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            What the tracker printed for a command it ran itself, its name
+            rewritten, when no terminal saw it.
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - not-installed
+              - unsupported
+              - tracker-unknown
+              - adapter-failed
+              - unsupported-command
+              - changed-since-read
+              - not-an-etag
+          required: false
+          summary: >-
+            Why nothing, or not all, was done: as forward-to-the-tracker
+            answers it; changed-since-read when an ETag given no longer
+            matches, and not-an-etag when one is not dotdiw's.
   - journeyId: journey.find-a-held-procedure
     dutyId: duty.keep-procedures-findable
     title: Find a held procedure
@@ -2694,6 +2805,60 @@ journeys:
             scalar: string
           required: true
           summary: "The adapter to write it into."
+        - name: deletedIds
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Ids in the target of items the move made, which whoever runs the
+            move deleted there: a run that finds none of one makes it again,
+            finished or not, and what waits on it or stands under it there
+            it writes again to the new one; where something the move made
+            stands in its run, which only a make writes, that must be named
+            too. One it finds none of and is not told of stays made, as a
+            tracker answers so of an item its caller may not see.
+        - name: sourceGoneIds
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Ids in the source that the source's listing holds no more, as
+            whoever runs the move says -- deleted there, or archived, which a
+            source may show by id and never list again: a run leaves as it
+            was made the copy of one the move made and has not finished, and
+            nothing holds it, and leaves out a need on one or a place under
+            one. Not told, a run writes nothing while the source shows what
+            it does not list, and keeps held the copy of what it neither
+            lists nor shows, as a tracker answers so of an item its caller
+            may not see.
+        - name: fromStore
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The store of the source an earlier run read from, as the source
+            names it (storeId), told to a run whose record holds what it made
+            and names none, as an earlier dotdiw's: held to it, the run goes
+            on, and the record names it from then on. A record that names one
+            is held to that.
+        - name: toStore
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The store of the target an earlier run wrote to, as the target
+            names it (storeId), told to a run whose record holds what it made
+            and names none, as an earlier dotdiw's: held to it, the run goes
+            on, and the record names it from then on. A record that names one
+            is held to that.
       responseFields:
         - name: moved
           valueType:
@@ -3075,6 +3240,20 @@ journeys:
             scalar: boolean
           required: false
           summary: "Whether the run is answered as data on the command line."
+        - name: etags
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            The ETags this write rests on, as reads returned them: an item's,
+            a run's, any number. Given, the operation takes effect only if
+            each still matches, compared under the lock of the store written to; one that
+            changed writes nothing and answers changed-since-read. Given none,
+            the write is unconditional.
+          cardinality: many
       responseFields:
         - name: run
           valueType:
@@ -3093,6 +3272,8 @@ journeys:
               - adapter-failed
               - tracker-unknown
               - unsupported
+              - changed-since-read
+              - not-an-etag
           required: false
           summary: "Why nothing was recorded or read, when that is so."
         - name: exitCode
@@ -3117,6 +3298,7 @@ steps:
       - No branch, file or other command preceded it for this work.
       - create takes its own flags -- one title, -p or --priority, --parent, -d or --description, --json, and -q, --quiet or --silent, which print the work created and nothing that rides along with it -- and refuses any other in one line, naming it, as it refuses one of its own given no value -- nothing after it, or another flag where its value belongs; --description=<text> gives a value that starts with a dash. Nothing typed goes to the tracker.
       - --tracker given no name is refused in one line before anything runs, and is never taken for the default.
+      - Under a parent, the item is made under the lock of the store written to, given ETags or not -- the lock a close holds from checking that nothing under the item it closes stands open through closing it -- so that no child is made between the two, left open under a parent closed for having nothing open under it; one kept waiting a minute is not made.
     relatedObjectIds:
       - object.work
     relatedInteractionIds:
@@ -3138,6 +3320,12 @@ steps:
             dotdiw's own flags filled.
           required: true
           failurePropagation: propagate
+        - operationId: operation.compare-what-was-read
+          callPurpose: >-
+            Given ETags: under the lock of the store written to, before
+            anything is written, whether everything the write rests on is as it was read.
+          required: false
+          failurePropagation: propagate
       externalCalls:
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.tracker"
@@ -3150,6 +3338,12 @@ steps:
           callPurpose: >-
             The checkout, when the request carries no root, for the tracker
             door to read the workspace's adapter from.
+          failurePropagation: propagate
+        - dependencyId: dependency.git
+          operationRef: "product.git::config --local --get dotdiw.workspace"
+          callPurpose: >-
+            The key the workspace sits under, whose lock a write holds from
+            its check to its log.
           failurePropagation: propagate
       requestFields:
         - name: root
@@ -3205,6 +3399,20 @@ steps:
           summary: >-
             Print the record of the work created as JSON, and nothing else; from
             --json.
+        - name: etags
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            The ETags this write rests on, as reads returned them: an item's,
+            a run's, any number. Given, the operation takes effect only if
+            each still matches, compared under the lock of the store written to; one that
+            changed writes nothing and answers changed-since-read. Given none,
+            the write is unconditional.
+          cardinality: many
       responseFields:
         - name: workRef
           valueType:
@@ -3227,6 +3435,8 @@ steps:
               - no-workspace
               - tracker-unknown
               - adapter-failed
+              - changed-since-read
+              - not-an-etag
           required: false
           summary: >-
             Why the create was refused, when the adapter said: the tracker
@@ -3376,6 +3586,7 @@ steps:
       - The answer names each claimed step the pour made, its statement and its slots, so that whoever does the step knows what to record and every carrier can say so; the command line prints the command that records it.
       - dotdiw mol pour, the older spelling, does the same and prints the same.
       - A step cannot be closed before the steps it needs.
+      - The steps are made under the lock of the store written to, the lock a close holds from checking that nothing under the item it closes stands open through closing it, so that a step closed while the pour runs cannot close the root with steps still to be made under it; a pour kept waiting a minute pours nothing.
       - The root names the formula it was poured from.
       - The formula is read once, by the lookup that selects it, and the tracker is handed what that reading parsed -- its title, its description, its means to prove and its steps -- so that the formula asked for is the one poured, whatever is written to its file meanwhile, and the next pour reads it again; no file goes to the tracker, none is read again, and nothing is written under the workspace for it.
       - An id refused as ambiguous, as a provider's formula the provider does not serve, or for a provider that failed, never reaches the tracker.
@@ -4089,6 +4300,7 @@ steps:
       - Outside a git repository init refuses with exit code 2 and creates nothing; in an adopted repository it says so and initialises nothing.
       - A tracker that does not open stops the adoption. What it said is shown, no choice is written and nothing is declared.
       - Where the tracker checked who it acts as, init names them once; a name anyone could give is not shown.
+      - One adoption of a checkout runs at a time, from reading its key through writing its choice, and reads both again once it runs; of two at once, the one that runs second finds the key and the choice the first wrote and writes no key of its own, so the checkout keeps one workspace and the work made in it. The lock is the git directory git names for the checkout, the same whether git was told it through GIT_DIR or not.
     relatedObjectIds:
       - object.repository
     relatedInteractionIds:
@@ -4123,6 +4335,13 @@ steps:
             Outside a git repository init refuses: there is no .git/config to
             key from, and the tracker's own init would run git init on the
             worker's behalf.
+          failurePropagation: propagate
+        - dependencyId: dependency.git
+          operationRef: "product.git::rev-parse --git-common-dir"
+          callPurpose: >-
+            The git directory git names for the checkout, the lock one
+            adoption of it holds from reading its key through writing its
+            choice, the same whether git was told it through GIT_DIR or not.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
@@ -4417,11 +4636,13 @@ steps:
       - Only init puts anything right. Every other command but learn and --version asks first and writes nothing, and while anything is left it exits 1 with one line naming dotdiw init.
       - What cannot be put right -- a tracker in the tree that is not adopted under the home, or a store the adapter's upgrade extra could not bring up to date -- stops init in one line naming it, with exit 1, and init adopts nothing.
       - The tracker's store as an earlier version kept it is the adapter's to say and to bring up to date, through its upgrade extra; the local store and beads keep the means to prove a run as data from 3.0.0, and a store kept before then has each description's section of means moved into the store's own place for them, once, under init; an upgrade cut short is taken up by the next init where it stopped, and what it moved is left as it is; an issue whose beads metadata holds dotdiw as a value of its own, null included, keeps that value and its description as they were, since the means cannot sit beside it, and init names it.
+      - init brings a store up to date under the lock a write of an item holds from comparing the ETags it rests on through writing, since the upgrade rewrites items and so changes their ETags; kept waiting a minute for it, init brings nothing up to date and stops in one line saying so.
       - A core.hooksPath pointing anywhere but .beads is left alone.
       - Nothing in the in-tree copy is read but its metadata, and nothing in it is moved, edited or deleted; a remote inside it reaches nothing, since no tracker runs there any more.
       - The new tracker has the old prefix and no tasks.
       - Nothing is printed where there was nothing to do, and the upgrade's notice is printed once.
       - The notice says an earlier version left it, which is the only case there is; a fresh init leaves nothing to put right, and nothing is printed.
+      - The choice is written for a workspace with one adapter's store and none chosen under the lock an adoption of the checkout holds, and only while still none is chosen once held; a choice made meanwhile, by an adoption or a switch, stands.
     relatedObjectIds:
       - object.repository
     relatedInteractionIds:
@@ -4442,6 +4663,13 @@ steps:
           callPurpose: >-
             Whether the tracker's hook directory stands in for the
             repository's own.
+          failurePropagation: propagate
+        - dependencyId: dependency.git
+          operationRef: "product.git::rev-parse --git-common-dir"
+          callPurpose: >-
+            The git directory git names for the checkout, the lock an
+            adoption holds, under which the choice for a workspace an
+            earlier version adopted is written.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::rev-parse --show-toplevel"
@@ -4699,7 +4927,7 @@ steps:
     title: Forward to the tracker
     given: A command dotdiw does not own, or cook, which is the tracker's underneath.
     when: dotdiw runs it.
-    then: Under beads the command runs, where dotdiw can check what it would close and make wait before it runs, with the worker's terminal, through a pty when it is interactive, every occurrence of the tracker's name in the stream is rewritten to dotdiw on the way out, and the exit code is the tracker's; under an adapter with no pass-through, list, ready, show, close, update and dep add are answered from its records, --help, -h and help with the conventions text as bare dotdiw gives it, and any other command is refused as unsupported.
+    then: Under beads the command runs, where dotdiw can check what it would close and make wait before it runs, with the worker's terminal, through a pty when it is interactive, every occurrence of the tracker's name in the stream is rewritten to dotdiw on the way out, and the exit code is the tracker's; under an adapter with no pass-through, list, ready, show, close, update, dep add and dep remove are answered from its records, --help, -h and help with the conventions text as bare dotdiw gives it, and any other command is refused as unsupported.
     thenAssertions:
       - Interactive prompts still work.
       - A word split across two reads is still rewritten.
@@ -4710,9 +4938,12 @@ steps:
       - Under a pass-through, a command dotdiw checks is read as the tracker itself will read it, from the tracker's own help for that command and by the rules its options follow -- a value after "=", in the next word or joined to its letter; letters run together; a switch given true or false; the last of an option of one value -- so that no spelling of it is checked as one thing and run as another. One it cannot read so does not run -- a quick capture included, whose type then cannot be checked -- nor does a close or an update that names no id, which the tracker may take for the last item touched, nor a need given twice over, which may be read either way, nor a command that points the tracker at a store not this checkout's. Help given as true runs help alone; given false, the command is read as any other. An update or a quick capture asking for the type a root has is refused, however the type is spelled.
       - Under a pass-through, a close -- by close or done, or by an update to the closed status, whatever options stand before the verb and whether an id is given whole or short -- is refused before the tracker's command runs while what the item waits on stands open, an open need, an open child or an open item poured in its run, as close-item refuses it, so that no run closes before its steps through dotdiw; what stands open is read from every item, a pinned one included, which the tracker's list of open items leaves out.
       - Under a pass-through, a close runs under a session of its own, which the tracker keeps on what it closes and keeps through a later close; what it named is read back after it ran, and what carries that session -- each id named, in the order named, and a root above them the tracker closed of its own accord as its last child closed -- is this command's close, and nothing else is, whoever else is writing; an item another writer closed first is no close of this command's, logged nor followed, whether this one then fails or closes nothing more. One closed while what it waits on stood open, another writer having opened or moved it meanwhile, is opened again to the status it had, and so is one after it that closed over it; a close the command named, so opened again, fails it, while one the tracker made of its own accord leaves the command's own standing. What stood closed before the command is no close of its, whatever session the tracker now keeps on it -- an update to the closed status writes its own over the first close's -- and an item named twice, whole and short, is one close. And whoever closed what, a root that stands closed while an item poured in its run stands open is opened again, where the command named it, or an item it named stands under it or was poured in it, or it stood open before the command -- the tracker closes a root of its own accord when its last child closes, knowing no run; so the close run again sets right a root an earlier close left so. Where the marks cannot be read back -- the tracker shows nothing for an id asked, and does not say it holds it no more -- nothing is known to be this command's close, so nothing is logged or followed, and the command fails naming each id it named, the rule held all the same; where the items cannot be read, nothing can be held either, and it fails the same way. A list of the items after the close that leaves out one listed before, which the tracker still holds, is not every item and is no reading of them; one the tracker holds no more is no gap, and whether it holds one is asked by that whole id, an item shown under another id being no item held. An item the command named that stood open before it and that the tracker holds no more after it is not read back, so nothing of it is logged, and the command fails naming it, its other closes standing. And where the tracker's command ended without an error, an id it named that stood open before it and stands open after it was not closed by it, and the command fails saying so.
-      - Under every adapter, a command that closes an item or makes one wait holds the workspace's lock from its check through its write, and on until the witness log has what it wrote, so that two dotdiw commands at once on this machine cannot each pass the check before the other writes, and the log has their closes in the order the tracker made them; one kept waiting a minute does not run. The lock is the request's own, as all it holds is, so that another request running in the same process lets go of none of it. A writer outside dotdiw is not held.
+      - Under every adapter, a command that closes an item or makes one wait holds the lock of the store it writes to from its check through its write -- the workspace's, under an adapter dotdiw ships, and under one loaded from a file the one every checkout under one dotdiw home shares for that tracker -- and on until the witness log has what it wrote, so that two dotdiw commands at once under that home cannot each pass the check before the other writes, and the log has their closes in the order the tracker made them; one kept waiting a minute does not run. The lock is the request's own, as all it holds is, so that another request running in the same process lets go of none of it. A writer outside dotdiw is not held.
+      - Under a pass-through, a command run as it is that can leave an item open under another or before what it needs -- q, which makes one under --parent, and reopen, whatever options stand before the verb -- holds that lock too, given ETags or not, so that it cannot run between a close's check that nothing under the item stands open and its close; one kept waiting a minute does not run.
       - Under a pass-through, a command that could close an item does not run where what stands open cannot be read, or what an id it names cannot be, or where the tracker's list of every item leaves out one it names; under any tracker, a parent or a need does not go to the tracker where what its item would wait on cannot be read, and a root a close may have left with nothing open that cannot be read is named and fails the close; a tracker the interface cannot reach at all is left to answer the command itself.
       - Under every adapter, a close that leaves the item's poured root, or the root of the run it was poured in, with nothing open closes that root too, named after the item.
+      - Under every adapter, a close of an item a move into the tracker made and stopped before finishing -- unsettled in the move's record, read under the lock the close holds, which the move holds through its last save -- runs nothing and is refused as blocked by the move, saying to run the move again in the checkout it ran in, and ready leaves the item out, until a run of the move finishes it. Nor does a close of another item close it in its wake -- the root above that item, or of its run, left with nothing open -- since the adapter is told to keep it open (keepOpen), dotdiw's own closes that follow leave it, and one the tracker closed of its own accord is opened again. Under a tracker loaded from a file the records read are every checkout's under the home, which all share its lock, save those of a move into another store than the tracker keeps this checkout's items in (storeId); under one dotdiw ships, the checkout's own.
+      - Ready reads the items and the moves' records under the lock a write of the store holds, so that both are read at one moment between writes, and no item is given ready that a pour or a move was part way through; under a pass-through, a ready typed while a move into the tracker is unfinished is answered by dotdiw, as records, and one with options dotdiw cannot answer runs nothing; which it is, is decided and the tracker's own ready run under that lock, so that no move makes an item between the two.
       - Under any tracker, update --parent, dep add, dep --blocks and link refuse a parent or a need that waits on the item to close -- through its needs, its children or the items poured in its run -- or that is the item itself, since then it could never close; an edge of any type but those that make nothing wait is held as a need, a parent-child edge as a parent.
       - Under any tracker, what an item waits on, and a root a close left due, are asked for by the whole ids the tracker itself gave, and an item shown under another id is taken as not found -- a tracker may read an id it holds nothing of as another item's, as bd reads a deleted root's as its only step's -- so that nothing is refused, closed or followed on another item's record.
       - Under a pass-through, an update runs only once each id it names is shown as the tracker reads it, a short one as the full one; where the tracker shows an item whose id runs on past the word -- begins with it, or holds it after a dash, and neither is it nor ends with it -- the word is a whole id the tracker holds nothing of, read as another item's, as bd reads a deleted root's id, full or short, as its only step's, and nothing runs. The command then goes to the tracker as typed, and a deletion between that reading and the tracker's own command, which reads the word again, is the tracker's -- bd reads an id whole only in its batch and its delete -- so under beads an item deleted after that reading may have an update, a close or an edge written to the one item whose id begins with its id, in its place. A command held to the item read is not offered under beads.
@@ -4799,7 +5030,9 @@ steps:
         - operationId: operation.update-item
           callPurpose: >-
             Under an adapter without a pass-through: update <id> with a title,
-            status, priority, parent or assignee. Under a pass-through: an
+            status, priority, parent or assignee -- a parent given empty taking
+            it from under its parent (dropParent) -- and dep remove <id>
+            <needs>, the need taken off (dropNeeds). Under a pass-through: an
             item a close named that closed over what stood open, or a root
             above it that closed while it ran, set back to the status it had.
           required: true
@@ -4808,6 +5041,19 @@ steps:
           callPurpose: >-
             Under an adapter without a pass-through: dep add <id> <needs>.
           required: true
+          failurePropagation: propagate
+        - operationId: operation.compare-what-was-read
+          callPurpose: >-
+            Given ETags: under the lock of the store written to, before
+            anything is written, whether everything the write rests on is as it was read.
+          required: false
+          failurePropagation: propagate
+        - operationId: operation.describe-tracker
+          callPurpose: >-
+            Where a stopped move's record says which store it wrote to: where
+            the tracker keeps this checkout's items, so that a move into
+            another store of the same tracker holds nothing here.
+          required: false
           failurePropagation: propagate
       requestFields:
         - name: root
@@ -4840,6 +5086,31 @@ steps:
             default. The command line fills it from --tracker or
             DOTDIW_TRACKER and nothing else does; a journey hands it to its
             steps.
+        - name: etags
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            The ETags this write rests on, as reads returned them: an item's,
+            a run's, any number. Given, the operation takes effect only if
+            each still matches, compared under the lock of the store written to; one that
+            changed writes nothing and answers changed-since-read. Given none,
+            the write is unconditional.
+          cardinality: many
+        - name: terminal
+          valueType:
+            kind: scalar
+            scalar: boolean
+          required: false
+          summary: >-
+            Whether the worker's terminal is there: the command line says so,
+            and a transport without one leaves it out. Without one, a command
+            the tracker runs itself runs quietly, its output in the response,
+            and list, ready and show are answered as records under every
+            adapter, each item with its ETag.
       responseFields:
         - name: exitCode
           valueType:
@@ -4875,6 +5146,8 @@ steps:
               - tracker-unknown
               - adapter-failed
               - unsupported-command
+              - changed-since-read
+              - not-an-etag
           required: false
           summary: >-
             Why nothing ran: the tracker underneath is not installed, the
@@ -4922,6 +5195,134 @@ steps:
           summary: >-
             The adapter that answered, as the tracker door stamped it; the
             witness log records it.
+        - name: items
+          valueType:
+            kind: list
+            itemType:
+              kind: type-ref
+              typeId: type.tracker-item
+          required: false
+          summary: >-
+            The records the command answered with or wrote, each with its
+            ETag: a show's item and then its children, a list's or ready's
+            items, and each item a close, an update or a need wrote, as it
+            now stands. Empty for a command the tracker answered in its own
+            output.
+          cardinality: many
+  - stepId: step.compare-what-was-read
+    journeyId: journey.run-a-tracker-command
+    sequence: 2
+    title: Hold a write to what was read
+    given: A write given the ETags it rests on, under the lock of the store it writes to.
+    when: Before anything is written.
+    then: Each ETag's item or run is read again and compared, and the write goes ahead only if every one still matches.
+    thenAssertions:
+      - An item's ETag is a digest of its record, every field but the ETag; a run's is a digest over its root's ETag and those of every item poured in it.
+      - The same record gives the same ETag through show, list and ready, under every adapter, so a write is held to the item as it was read, whichever read it was.
+      - An item read again under another id than the whole one its ETag names, or not found, has changed.
+      - An ETag not in dotdiw's form is refused as not-an-etag, and nothing is compared.
+      - A tracker that cannot be read refuses the write with its own failure; nothing is written on a compare not made.
+      - The lock is held from the compare through the write and until the door has logged it, and never between two calls of a client.
+      - The checkout's tracker is found afresh by each request -- its choice, or, where it has made none, the one tracker holding a store in its workspace -- and holds for its length, so that a write's lock, its compare, its write and what it reads back all go to one tracker, though the checkout choose another meanwhile, by another request or on the command line, or a move make another store there; the next request follows.
+    relatedObjectIds:
+      - object.work
+      - object.molecule
+    relatedInteractionIds: []
+    relatedInvariantIds:
+      - invariant.one-door
+      - invariant.one-tracker-door
+    expectedUserVisibleOutcome: A write made on a stale read is refused, naming what changed, and nothing is written; the client reads again and retries.
+    status: active
+    operation:
+      kind: query
+      idempotency:
+        idempotencyClass: query-only
+        explanation: >-
+          Reads the tracker; changes nothing.
+      derivedFrom:
+        - sourceKind: manual-decision
+          sourceRef: step.compare-what-was-read
+          reason: "Holds a write to the ETags it rests on."
+      calls:
+        - operationId: operation.show-item
+          callPurpose: >-
+            Each item an ETag names, and the root of each run one names, as it
+            stands now.
+          required: true
+          failurePropagation: propagate
+        - operationId: operation.list-items
+          callPurpose: >-
+            The items poured in each run an ETag names, wherever each stands
+            now.
+          required: true
+          failurePropagation: propagate
+      externalCalls:
+        - dependencyId: dependency.git
+          operationRef: "product.git::config --local --get dotdiw.workspace"
+          callPurpose: >-
+            The key this checkout's store sits under, read once per process by
+            the adapter that answers.
+          failurePropagation: propagate
+        - dependencyId: dependency.git
+          operationRef: "product.git::rev-parse --show-toplevel"
+          callPurpose: >-
+            The checkout, when the request carries no root, to read the
+            workspace's adapter from.
+          failurePropagation: propagate
+      requestFields:
+        - name: root
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The repository the interface resolved; bodies never ask git for it
+            themselves.
+        - name: tracker
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The adapter to answer, by its registered name; unsaid, the
+            workspace's dotdiw.tracker answers, and unsaid there, local.
+        - name: etags
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: true
+          summary: "The ETags to compare, as reads returned them."
+          cardinality: many
+      responseFields:
+        - name: changed
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: "The ETags given that no longer match, in the order given."
+          cardinality: many
+        - name: reason
+          valueType:
+            kind: enum-inline
+            values:
+              - changed-since-read
+              - not-an-etag
+              - adapter-failed
+              - tracker-unknown
+          required: false
+          summary: "Why the write may not go ahead, when that is so."
+        - name: exitCode
+          valueType:
+            kind: scalar
+            scalar: integer
+          required: false
+          summary: >-
+            What the command line exits with for this response: 0 when every
+            ETag matches.
   - stepId: step.index-the-project
     journeyId: journey.find-a-held-procedure
     sequence: 1
@@ -5456,6 +5857,7 @@ steps:
       - The record never carries a credential.
       - The capabilities say whether needs are native or kept in a sidecar.
       - An adapter that can say who it acts as names them and says whether the tracker checked; never with an email address.
+      - An adapter that can say where it keeps the checkout's items names that store (storeId), as two checkouts name it alike only when they reach the same items, so that what a move into one store left unfinished holds nothing in another of the same tracker; and by an id it reads and writes only the items of that store, as Jira's reaches only its project's issues, a value handed in that it puts into a query being that one value and never more of the query, so that an item a move into another store left unfinished, which nothing here holds, nothing here writes either; it makes no item under a parent, or in a run, of another store, which a close there would not see stand open; and what holds a close it reads wherever the tracker keeps it, an open child or need of another store holding it, and a need there closed being closed for ready. Where the tracker's own search may be without a write for a while after it, as Jira's is, what holds a close, what a listing of every item and ready give, the children show gives and what a cycle check follows are not left to the search -- Jira's adapter keeps by key what was written through the dotdiw home within ten minutes, and reads by key each of those that stood under the item or in its run, or that the search lacks, so that a child made a moment ago holds its parent's close, and a step its root's, a child taken from under an item a moment ago neither holds its close nor closes a cycle through it, a need written a moment ago keeps its item out of ready, and a listing, ready and show have each such issue as it stands; and one the search has open under an item that no lookup reads -- deleted, or no longer the token's to see, which Jira's answer does not tell apart -- holds the item's close as the search has it. It takes an issue's key as Jira gives it, which reads one in any case, so that what holds a close is found under the key however it was typed; puts each part of a request's path quoted, as it does each value of a query; and closing an issue that stands closed without the reason it was to keep, as a close cut short once the issue was done leaves it, writes the reason, and closes what that close would have closed in its wake, a root whose last step it was. The reason an issue shows is that of its latest close, written since Jira says it last came to be done, so that an earlier close's is not taken for it. One site is one store however it is spelled, its scheme and host read in any case. The project's record beside the workspace is written whole and put in its place, and only where it changes, so that a reader finds the project at every moment; and the file of what was written of late is written whole beside itself and put in its place under a lock of its own, so that a write cut short loses at most its own entry. A need is refused as a cycle where what it needs waits on the item through its needs, its children or the issues poured in its run, as the local adapter refuses one. A claim's values a make is given are each kept as a write of their own, so that no one property holds more than Jira lets it. A description Jira's own editor wrote reads with its paragraphs apart, its line breaks kept and each item of a list on a line of its own.
     relatedObjectIds:
       - object.tracker-adapter
     relatedInteractionIds:
@@ -5534,6 +5936,16 @@ steps:
           summary: >-
             The adapter's store for the checkout the request names, when it
             has one; absent when the tracker is unopened there.
+        - name: storeId
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            Where the tracker keeps the checkout's items -- a hosted tracker's
+            site and project -- named alike by two checkouts only when they
+            reach the same items, and the only items the adapter reaches by
+            id; unsaid where the adapter cannot say.
         - name: tracker
           valueType:
             kind: scalar
@@ -5563,7 +5975,7 @@ steps:
       - A create that asks the tracker for the type a root has is refused in one line.
       - The description and the means come back from show exactly as given, a description that reads like the means included.
       - The tracker is handed the item's fields alone, and no words typed and no terminal.
-      - A create the tracker made and could not read back fails, naming the item it made.
+      - A create the tracker made and could not read back fails, naming the item it made, in madeId too, so that a move holds the item made and finishes it, and makes it no second time.
       - Under beads, an item made in a run carries dotdiw's run label, given in the one create that makes it, so that bd's query for the label -- no listing -- answers it wherever it stands, and nothing is left to write once it is made.
     relatedObjectIds:
       - object.tracker
@@ -5687,6 +6099,14 @@ steps:
             typeId: type.tracker-item
           required: false
           summary: "The item as made."
+        - name: madeId
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            On a create that failed once the tracker had made the item -- it
+            could not finish it, or read it back -- the id of the item made.
         - name: reason
           valueType:
             kind: enum-inline
@@ -5995,7 +6415,7 @@ steps:
             close: the tracker is read after it all the same.
           failurePropagation: propagate
         - dependencyId: dependency.beads
-          operationRef: "product.beads::list --json --brief"
+          operationRef: "product.beads::list --json"
           callPurpose: >-
             Under the beads adapter: every item, before the close and after
             it, so that a root is refused while an item poured in its run is
@@ -6073,6 +6493,18 @@ steps:
             scalar: string
           required: false
           summary: "Why, kept with the item."
+        - name: keepOpen
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Ids the close leaves open though it would close them with the
+            item -- a root above it, or of its run, left with nothing open --
+            as dotdiw gives those a move into the tracker made and has not
+            finished, which nothing but the move closes.
       responseFields:
         - name: item
           valueType:
@@ -6153,8 +6585,10 @@ steps:
           callPurpose: "Under the beads adapter: the issue with its edges."
           failurePropagation: propagate
         - dependencyId: dependency.beads
-          operationRef: "product.beads::list --json --brief"
-          callPurpose: "Under the beads adapter: the issue's children."
+          operationRef: "product.beads::list --json"
+          callPurpose: >-
+            Under the beads adapter: the issue's children, every field of each
+            listed, so that a child listed is the record shown.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
@@ -6253,12 +6687,13 @@ steps:
       visibility: internal-only
       externalCalls:
         - dependencyId: dependency.beads
-          operationRef: "product.beads::list --json --brief"
+          operationRef: "product.beads::list --json"
           callPurpose: >-
             Under the beads adapter: the open issues, or all of them, those bd
             lists only when asked included, perhaps under a parent; in a run,
             all of them, kept where the metadata names the run, since bd
-            filters no nested key.
+            filters no nested key. Every field of each is listed, so that an
+            item listed is the record shown, and has the same ETag.
           failurePropagation: propagate
         - dependencyId: dependency.beads
           operationRef: "product.beads::query --all --json"
@@ -6372,6 +6807,10 @@ steps:
     thenAssertions:
       - A status outside the set is refused.
       - Closing through update is refused; close is the one way to close.
+      - Each need given to take off (dropNeeds) is taken off, the item waiting on it no more; the local adapter deletes the edge under its write lock, beads through bd's batch, which reads both ids whole, and Jira deletes the link. An adapter that keeps the need answers with it still there, and a move reading that back stops, saying to take it off by hand.
+      - Each need given to take off (dropNeeds) is taken off before a parent given is checked, so that a parent that waited on the item only through that need is no cycle; under Jira only once the status asked for is reached, so that an update refused for its status takes nothing off.
+      - An item taken from under its parent (dropParent) stands under none; local writes no parent, beads gives bd's update an empty parent, and Jira writes none and reads the issue back, answering unsupported where Jira keeps it under the parent or refuses the write. A parent given with it is refused, and a parent given empty is none given.
+      - Under Jira, whose issue is written in parts, one request each, the way the workflow offers to the status is asked before anything is written; the parts Jira may refuse once asked are written first -- the person named as assignee, the parent taken off, the fields, the transition -- each put back as it was where a later one is refused, so that an update refused for any of them writes nothing; the needs given to take off come off last, once the status is reached. A request cut short, or a put back Jira refuses, leaves what was written, and the update answers failed. A priority outside 0 to 4 is refused under every adapter dotdiw ships.
       - An assignee of me is whoever the adapter acts as; any other is the tracker's own id for a person, never a name to search for, and a tracker that checks refuses one it does not know.
       - An update that asks the tracker for the type a root has is refused in one line, however the type is spelled.
       - A parent that waits on the item to close -- through its needs, its children or the items poured in its run -- or is the item itself may be refused as cycle; the local adapter refuses it under its write lock, so that two writers at once cannot each pass the check.
@@ -6477,6 +6916,27 @@ steps:
             scalar: string
           required: false
           summary: "Who claims it."
+        - name: dropNeeds
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Ids the item needs no more: the need on each is taken off, as a
+            move takes off a need it wrote of an item it has not finished
+            that the source no longer shows the item needing.
+        - name: dropParent
+          valueType:
+            kind: scalar
+            scalar: boolean
+          required: false
+          summary: >-
+            The item taken from under its parent, to stand under none, as a
+            move takes a copy it has not finished from under a parent the
+            source no longer shows it under. A parent given as well is
+            refused.
       responseFields:
         - name: item
           valueType:
@@ -6497,6 +6957,7 @@ steps:
               - cycle
               - not-installed
               - no-workspace
+              - unsupported
           required: false
           summary: "Why the operation failed, when it did."
         - name: exitCode
@@ -7089,7 +7550,23 @@ steps:
       - Run twice, the second run changes nothing.
       - A write the target refuses, an item, a need, a status or a close, fails the move and names it; what was written stays recorded.
       - The next run makes only the items not yet made, and finishes the needs, statuses and closes of those an earlier run left.
-      - Assignees do not carry over, and the move says how many items had one.
+      - Each item an earlier run made and has not finished is brought in line with what the source shows of it now, since the source may change while the move stands stopped. Before anything is made or written, each is taken off what the source no longer shows it on -- each need the move wrote of it that the source no longer shows (dropNeeds), and the parent it stands under where the source shows it under none, or under one the move leaves out (dropParent) -- so that no parent or need written after makes a cycle with one turned round; a need of the copy the move never wrote, written in the target, is kept, and said; and each need the source shows is recorded as the move's own before it is written, or where it is found written on the copy, so that one a run wrote and died before recording, or one found there, is taken off should the source take it off, and what waits on an item made again waits on the new one. Then its title, priority and parent are written, its claim's values as the source shows them and in its order -- a value the move wrote that the source took off taken off, and a label recorded on the copy alone kept, and said -- each need the source shows and the copy, as read back, lacks, whatever the record says was written, and its status as shown, open included, so that a copy an earlier run moved on is set back as the item is. A copy closed already is closed again as the source shows it -- a close cut short finished with the source's reason where the target writes it -- and is never opened again, which could leave it held by what then stands open; one that keeps another reason than the source shows keeps it, and that is said. A target that keeps a need taken off stops the move, saying to take it off there by hand; one that will not take a copy from under a parent keeps the parent, and that is said; and a write the target refuses as a cycle names what closes it, read from the target -- the way from the one end to the other, what the source does not show of it -- with the command to run once it is taken off. What only a make writes -- description, means, step, claim, run -- is kept as made, and said; what a run said a copy keeps is said no more once a later run finds it as the source shows it, or makes the copy again, or forgets it; and the run that finishes reads back each copy an earlier run said keeps a need, a label or a parent, and says it only where the copy still holds it. An item made and not read back is read against what the move gave it, which the record keeps, not against what the source shows now.
+      - Each close the move makes leaves open what the source shows open and what the move has yet to close itself (keepOpen), so that a root closed in the wake of its last step does not take the adapter's reason in place of its own. Where no close of a pass gets through, the close named is one held by what can be closed -- neither a close the move has yet to make, nor what waits on one, to any depth, in the source -- through its needs, its children, the items poured in its run -- or in the target, as it shows each item read back, a copy left as made or a need written there among them -- so that closing what it names lets the move go on.
+      - What the runs since the move last finished left out, kept as made, made again, forgot or left as made, and what they were told and acted on, is said by the run that finishes it, kept in the record across the runs a stop cuts it into; and each told id that no run acted on is said to have come to nothing.
+      - An item the listing lacks whose copy the run is told was deleted in the target and that the run is told the source holds no more is gone from both -- its copy read back first, one the target still holds left as made, and one it holds none of forgotten, and a need on it, a place under it or in its run left out, and said. One the listing lacks whose copy the run is told was deleted, and that the run is not told is gone, stops the move -- shown, it is the listing's omission; not shown, the run says to run again once the source shows it, or, gone from the source too, told so. A write the target refuses because a copy the move made is gone names that copy, and says how the move goes on.
+      - Told of an item deleted in the target, a run shows every item it lists by its id, so that what stood under it or waited on it is written again as the source shows it, not as a lagging listing has it; and every item the move made that the listing lacks is shown by its id too, so that one that waited on it, stood under it or is in its run waits on, stands under, or is named with, the new copy as the source shows it; one that was to stand under an item made again is shown by its id on each run until it does, whatever the run is told. An item finished but for a need on an item made again is shown by its id on each run until it waits on it; one the source shows none of is held, as an unfinished one is, until the source shows it or the run is told it is gone, when it is left as made.
+      - The record is the record of one pair of trackers -- a record whose name is another pair's -- a to b-to-c, a-to-b to c -- moves nothing, one that names no pair is this move's from then on -- and, before any run binds it, held to the pair its name gives by what nothing but the move closes -- and a file that holds no record of a move -- JSON, but no object, or a field not as a move keeps it -- moves nothing, saying which, while what a close or ready reads of it holds what it can. Where the move runs is kept in the record as the run starts, however early it then stops, so that a close held by it names where to run it.
+      - An id a run is told is deleted or gone that is empty moves nothing, and a store given empty is none given; an id or store that starts with a dash is given after an = in each command the run prints, so that the command line takes it.
+      - Every option the command line gives a move is one it knows, with a value -- --help prints how to run it, and an option it does not know, or one given no value, is refused with that, and nothing is read or written.
+      - Assignees do not carry over, and the move says how many items had one; nor do a need on an item the source does not list, or a parent it does not list, as a Jira issue may wait on or stand under another project's, and the move says which.
+      - One move of a workspace runs at a time, from its listing through the last save of its record, so that a second move at once makes nothing the first made; one kept waiting a minute moves nothing.
+      - A move reads the source whole -- the listing, and each item it makes, shown -- under the lock a write of the source holds, and lets go of it before it writes anything, so that it reads no write half made, a pour's steps without their needs, and records no item settled as the source never held it; a move kept waiting a minute moves nothing, and the next run reads the source afresh. Each item it has anything to write of -- not yet made, made and not finished, or to be made again -- it takes as the source shows it by its id, not as the listing has it, which may be without a write for a while after it, as Jira's search is. What the listing lacks that the move must know of it reads by its id as well -- an item an earlier run made and has not finished, and a need, a parent or the root of the run, not yet made, of an item it writes -- and one the source shows is the listing's omission, so the run writes nothing and what the move made stays held as it was; a need, parent or root of a run it shows none of is outside the source and is left out, the move saying which; an unfinished item it shows none of keeps its copy held, since a tracker answers so of an item its caller may not see. One the run is told the source holds no more (sourceGoneIds) -- deleted there, or archived, which a source may show and never list again -- is taken so unasked, the copy made of it settled as it was made, for good, a need on it or a place under it written to that copy, and, where the move made none, left out, the move saying so; and a refusal for what the source shows and does not list gives the command that tells the run so.
+      - A move opens its target under the lock an adoption of the checkout holds, as the adoption opens its tracker, so that the two cannot each find it unopened and record a store of their own, the later over the earlier; an adoption made while a move opens its target finds the store the move made and keeps it, and one kept waiting a minute adopts nothing, as a move kept waiting moves nothing.
+      - A move writes the target under the lock a write held to what was read holds there, held from its first write there to its last, as a pour holds it, so that no other write lands between that write's compare and its write, nor between an item the move made and the needs, status and close it writes of it -- no step made is closed before it waits on what it needs; a write of the target waits on the move, one kept waiting a minute writes nothing, and a move kept waiting a minute for the target moves nothing.
+      - A move that stops part way leaves what it made unsettled in its record, and an item so left nothing but the move closes through dotdiw, nor gives as ready, until a run of the move finishes it, so that a step made stays unclosed across the stop though its needs be not yet written; a close of it is refused as blocked by the move, saying to run the move again in the checkout it ran in. Under a tracker loaded from a file the record holds so in every checkout under the home, as the lock does, save one whose tracker keeps its items in another store than the move wrote to, by the store the tracker names. An item the move does not close is settled once its needs and its status are written, and one it closes once it closes, so that a close the target refuses holds only what the move is to close, and a close there of what that waits on lets the next run through. Nor is an item so left listed as ready by another name -- bd's list --ready -- nor claimed or named as the next ready by a close that goes on to one -- bd's --claim-next, --continue, --suggest-next -- which runs not while a move stands unfinished; and of a claim's values recorded on it, the next run writes each label the source holds as the source shows it, and keeps, saying so, each the source does not. Where the record names no checkout, or one it is no longer the record of -- gone, or another workspace's -- what is said names the record, and to move it aside once the checkout it ran in is gone.
+      - A run whose target keeps the checkout's items in another store than the record says the move wrote to writes nothing, since the record's ids name nothing there, or another item; where the move has not finished, it says to point the target back at that store, and what the move made there stays held until a run finishes it; where it has, it says which record to move aside to move the items there anew. So does a run whose source keeps them in another store than the record says the move read from, since the record's ids are that store's and the source's items of the same ids are other items -- it would skip those and make what needs them wait on what the move made of the others. A record that holds what the move made and names no store on a side where the tracker names one, as an earlier dotdiw's, is held to none -- the run writes nothing and says to name the store the move read from or wrote to, if it is the one the tracker names now (fromStore, toStore), or else to point the tracker back or move the record aside -- and told it, the run goes on as for a record that names it, and the record names it from then on.
+      - Each item an earlier run made and has not finished, and each the run is told was deleted in the target (deletedIds), is read back before anything else is written. Not found and not told of, it stays made and the move writes nothing more, since a tracker answers so of an item its caller may not see, and says to run the move again once it can be read, or told it was deleted. Told of and not found, it is made again, finished or not -- what waits on it is written again to wait on the new item, its needs alone, its status and its close left as they stand in the target, where it may have moved on; and what stands under it is put under the new one, each read back first; what stands in its run, which only a make writes, must be deleted and named as well, and the run writes nothing until it is, naming it. Told of and found, it is left as it is, and the move says nothing was made again of it. An item the target made and could not read back -- the create failing, naming the item made -- is recorded made and held as what the move made is; read back as the move gave it, it is finished and never made a second time, and otherwise the move writes nothing more and says to delete it and run the move told so, since only a make writes what it lacks. Each command a refusal gives names all the run was told -- the stores, what was deleted in the target, what is gone from the source -- and what it asks for besides, each id and store one word to a shell, so that the run it gives goes on.
+      - A move whose source holds what a stopped move into it made writes nothing, and says to finish that move first, in the checkout it ran in, since it would read those items half made and settle them so.
       - Each item is read whole with show-item, and its description and verify-using move with it exactly as given; a root's arrive on the task it becomes, and a second move carries them again.
       - An item the source shows under another id than the one it listed -- deleted since, its id read as another item's -- is not copied from that record; the move fails naming it, and the next run continues.
       - A root moves as a task; how migrate copies a root is question.how-migrate-copies-a-root.
@@ -7107,38 +7584,63 @@ steps:
       visibility: supporting
       calls:
         - operationId: operation.list-items
-          callPurpose: "Everything the source holds, open and closed."
+          callPurpose: >-
+            Everything the source holds, open and closed, read under the lock
+            a write of the source holds.
           required: true
           failurePropagation: propagate
         - operationId: operation.show-item
           callPurpose: >-
-            Each item read whole before it is written into the target, its
+            Each item not yet made read whole, under that lock with the
+            listing and before anything is written into the target, its
             description and its means with it, since list-items need not carry
-            them.
+            them; and of the target, an item an earlier run made and could not
+            read back, before anything more is written.
           required: true
           failurePropagation: propagate
         - operationId: operation.open-tracker
           callPurpose: "The target's store for the workspace, opened if it is not."
           required: true
           failurePropagation: propagate
+        - operationId: operation.describe-tracker
+          callPurpose: >-
+            Where the target keeps this checkout's items, recorded with the
+            move; and, where a stopped move into the source says which store
+            it wrote to, where the source keeps them.
+          required: false
+          failurePropagation: propagate
         - operationId: operation.create-item
           callPurpose: >-
             Each item written into the target, parents first, with its id
-            asked for.
+            asked for, under the target's lock, held through the move's last
+            write there.
           required: true
           failurePropagation: propagate
         - operationId: operation.add-need
-          callPurpose: "Each need, between the ids the target gave."
+          callPurpose: >-
+            Each need, between the ids the target gave, written before the
+            target's lock is let go of, so that no step made stands open to a
+            close without it.
           required: true
           failurePropagation: propagate
         - operationId: operation.update-item
-          callPurpose: "An item that was in progress or blocked, set so."
+          callPurpose: >-
+            An item set to the status the source shows, open included; and an
+            item an earlier run made and has not finished brought in line with
+            the source -- its title, priority and parent, and each need the
+            source no longer shows taken off.
           required: true
+          failurePropagation: propagate
+        - operationId: operation.record-values
+          callPurpose: >-
+            The values of a claim an item an earlier run made and has not
+            finished holds, written as the source shows them.
+          required: false
           failurePropagation: propagate
         - operationId: operation.close-item
           callPurpose: >-
             Each closed item closed with its reason, in passes, as its needs
-            and children close.
+            and children close, leaving open what the move has yet to close.
           required: true
           failurePropagation: propagate
       externalCalls:
@@ -7147,6 +7649,12 @@ steps:
           callPurpose: >-
             The workspace, where the record of the move is kept beside the
             stores.
+          failurePropagation: propagate
+        - dependencyId: dependency.git
+          operationRef: "product.git::rev-parse --git-common-dir"
+          callPurpose: >-
+            The git directory git names for the checkout, the lock an
+            adoption holds, under which the move opens its target.
           failurePropagation: propagate
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.tracker"
@@ -7181,6 +7689,60 @@ steps:
             scalar: string
           required: true
           summary: "The adapter to write it into."
+        - name: deletedIds
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Ids in the target of items the move made, which whoever runs the
+            move deleted there: a run that finds none of one makes it again,
+            finished or not, and what waits on it or stands under it there
+            it writes again to the new one; where something the move made
+            stands in its run, which only a make writes, that must be named
+            too. One it finds none of and is not told of stays made, as a
+            tracker answers so of an item its caller may not see.
+        - name: sourceGoneIds
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            Ids in the source that the source's listing holds no more, as
+            whoever runs the move says -- deleted there, or archived, which a
+            source may show by id and never list again: a run leaves as it
+            was made the copy of one the move made and has not finished, and
+            nothing holds it, and leaves out a need on one or a place under
+            one. Not told, a run writes nothing while the source shows what
+            it does not list, and keeps held the copy of what it neither
+            lists nor shows, as a tracker answers so of an item its caller
+            may not see.
+        - name: fromStore
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The store of the source an earlier run read from, as the source
+            names it (storeId), told to a run whose record holds what it made
+            and names none, as an earlier dotdiw's: held to it, the run goes
+            on, and the record names it from then on. A record that names one
+            is held to that.
+        - name: toStore
+          valueType:
+            kind: scalar
+            scalar: string
+          required: false
+          summary: >-
+            The store of the target an earlier run wrote to, as the target
+            names it (storeId), told to a run whose record holds what it made
+            and names none, as an earlier dotdiw's: held to it, the run goes
+            on, and the record names it from then on. A record that names one
+            is held to that.
       responseFields:
         - name: moved
           valueType:
@@ -7717,6 +8279,12 @@ steps:
             The values, recorded on the item by the adapter that holds it.
           required: true
           failurePropagation: propagate
+        - operationId: operation.compare-what-was-read
+          callPurpose: >-
+            Given ETags: under the lock of the store written to, before
+            anything is written, whether everything the write rests on is as it was read.
+          required: false
+          failurePropagation: propagate
       externalCalls:
         - dependencyId: dependency.git
           operationRef: "product.git::config --local --get dotdiw.workspace"
@@ -7764,6 +8332,20 @@ steps:
             The values to record, each a label in lowercase kebab-case and its
             text; a label given empty removes its value.
           cardinality: many
+        - name: etags
+          valueType:
+            kind: list
+            itemType:
+              kind: scalar
+              scalar: string
+          required: false
+          summary: >-
+            The ETags this write rests on, as reads returned them: an item's,
+            a run's, any number. Given, the operation takes effect only if
+            each still matches, compared under the lock of the store written to; one that
+            changed writes nothing and answers changed-since-read. Given none,
+            the write is unconditional.
+          cardinality: many
       responseFields:
         - name: item
           valueType:
@@ -7782,6 +8364,8 @@ steps:
               - adapter-failed
               - tracker-unknown
               - unsupported
+              - changed-since-read
+              - not-an-etag
           required: false
           summary: "Why nothing was recorded or read, when that is so."
         - name: exitCode
@@ -7923,7 +8507,8 @@ experience:
       description: >
         Time from invoking dotdiw create to the applying formulas being
         printed. Measured from the witness log: work_named carries startedAt,
-        the process's first instruction after start-up, and the
+        for a command the process's first instruction after start-up, for a
+        request served the moment the server began to answer it, and the
         formula_surfaced or nothing_surfaced event of the same case carries
         occurredAt, written as the match was printed. First measured
         2026-11-01, ten creates in a throwaway repository on the maintainer's
@@ -8943,6 +9528,12 @@ operationTypes:
         required: true
         summary: "Each placeholder of the statement left as written."
         cardinality: many
+      - name: etag
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: "The ETag of the item poured for the step, as the run was read."
   - typeId: type.claim-run
     name: ClaimRun
     kind: record
@@ -8989,6 +9580,16 @@ operationTypes:
         required: true
         summary: "Each placeholder of the means left as written."
         cardinality: many
+      - name: etag
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: >-
+          The run's ETag: a digest over its root's ETag and those of every
+          item poured in it, in the form "run/<root>/<digest>", quoted. A
+          write given it takes effect only while nothing in the run has
+          changed.
   - typeId: type.tracker-item
     name: TrackerItem
     kind: record
@@ -9125,6 +9726,17 @@ operationTypes:
           The values recorded for the claim, one per label, in the order they
           were first recorded; show-item returns them exactly as given.
         cardinality: many
+      - name: etag
+        valueType:
+          kind: scalar
+          scalar: string
+        required: false
+        summary: >-
+          The item's ETag, as AIP-154 has it: a digest of this record, every
+          field but this one, in the form "item/<id>/<digest>", quoted. The
+          tracker door stamps it on every record an adapter answers; an
+          adapter never gives it, and one given is replaced. A write given it
+          takes effect only while the item is as it was read.
   - typeId: type.tracker-edge
     name: TrackerEdge
     kind: record
@@ -9404,7 +10016,7 @@ externalProductDependencies:
       - "mol pour"
       - "cook --persist --force"
       - "metrics off"
-      - "list --json --brief"
+      - "list --json"
       - "dep add"
       - close
       - show
@@ -9475,7 +10087,7 @@ operationProjections:
       and fails on any difference.
   - projectionId: projection.grpc
     projectionKind: grpc
-    status: planned
+    status: generated
     outputPath: gen
     protoOutputPath: gen/proto
     bufConfigPath: gen/buf.yaml
@@ -9488,8 +10100,26 @@ operationProjections:
       dependency: buf.build/bufbuild/protovalidate
       import: buf/validate/validate.proto
     generator: >-
-      poa conform grpc-signatures, as a conformance harness only: generated
-      into gitignored gen/ on a machine with Buf; never served
+      poa generate grpc writes the proto into gitignored gen/ on a machine
+      with Buf, and poa conform grpc-signatures checks it there. dotdiw serve
+      serves it: the descriptor is built at run time from the door's types,
+      numbered as the IDL orders each type's fields, and test_promise.py
+      holds it to the generated proto wherever gen/ exists
+    notes: >-
+      Every operation with a body that is not internal-only is served; the
+      tracker interface never is. An RPC turns the message into the
+      operation's request, asks the door, and turns the response into the
+      message: changed-since-read answers ABORTED, as AIP-154 has it;
+      not-an-etag or a required field missing, INVALID_ARGUMENT, a field
+      left at its default being one not given -- except, in a record within
+      the request, a field the record requires, which it cannot lack, so
+      that an empty text removing a claim's value is given; any other
+      DoorError or exception, INTERNAL; every other answer is the response,
+      its status inside. Each request reads the checkout's choice of tracker
+      afresh, and is timed from when the server began to answer it. gRPC's
+      fork handlers are off, since every child dotdiw forks runs git or bd
+      at once. grpcio and protobuf are imported by dotdiw serve
+      alone.
   - projectionId: projection.tracker-door
     projectionKind: python-protocol
     status: generated
@@ -11232,6 +11862,195 @@ updates:
         A run says what its steps found.
       compatibility: additive
       createdAt: "2026-11-11T00:00:00+08:00"
+      approvalStatus: draft
+  - changeId: change.a-write-holds-to-what-was-read
+    changeType: model-update
+    targetRefs:
+      - journey.run-a-tracker-command
+      - journey.record-what-a-step-found
+      - journey.start-named-work
+      - journey.move-a-workspace
+      - journey.adopt-a-repository
+      - step.forward-to-the-tracker
+      - step.record-claim
+      - step.name-the-work
+      - step.pour-procedure
+      - step.compare-what-was-read
+      - step.migrate-workspace
+      - step.adopt-repository
+      - step.undo-earlier-adoption
+      - type.tracker-item
+      - type.claimed-step
+      - type.claim-run
+      - projection.grpc
+    summary: >
+      From 4.1.0, clients other than the command line call dotdiw's
+      operations at once over gRPC, as dotdiw serve serves POA's projection,
+      and a write takes effect only if what it rests on is as it was read.
+      Every item a read answers carries an ETag, a digest of its record that
+      the tracker door stamps, and a run carries one over its root and every
+      item poured in it. A close, an update, a need, a claim's values and a
+      create given the ETags they rest on compare them under the lock of the
+      store they write to, held from the compare through the write and until
+      the door has logged it, and never between two calls; one that changed
+      writes nothing and answers changed-since-read, which gRPC answers
+      ABORTED. That lock is the workspace's under an adapter dotdiw ships,
+      whose store is the workspace's; under one loaded from a file, whose
+      store other checkouts may reach too, as every checkout adopted on one
+      hosted project does, it is the one every checkout under one dotdiw home
+      shares for that tracker, the home being where the tracker's name means
+      that adapter. Two homes, or two machines, writing one hosted project
+      through dotdiw hold no lock in common. Each request finds the
+      checkout's tracker afresh, from its choice or, where it has made none,
+      from the stores in its workspace, and holds to it for its length, so
+      that a write's lock, its compare, its write and what it reads back go
+      to one tracker, and a server follows a choice made on the command line
+      from its next request. One move of a workspace runs at a time, from its
+      listing through the last save of its record, so that two at once make
+      nothing twice; it reads the source whole under the source's lock, let
+      go of before it writes, so that it settles no run read half made; and
+      it writes the target under the target's lock, from its first write
+      there to its last, so that no step it made is closed before it waits
+      on what it needs; and what a move that stopped part way made, nothing
+      but the move closes, nor gives as ready, nor moves as a source, until
+      a run of it finishes it, an item the target made and could not read
+      back included, which the next run finishes and never makes again; a
+      store of the same tracker elsewhere is no part of it, by the store the
+      tracker names. Ready reads under the store's lock. One adoption of a checkout runs at a time, from reading its key
+      through writing its choice, and reads both again once it runs, so that
+      two at once leave the checkout one workspace; its lock is the git
+      directory git names for the checkout, told it through GIT_DIR or not.
+      init writes the choice for a workspace an earlier version adopted under
+      that lock too, and only while none is chosen, and a move opens its
+      target under it, so that a move and an adoption at once open one store.
+      A request served is timed
+      in the witness log from when the server began to answer it.
+      Every dotdiw write that changes an item's record holds that lock, a
+      claim's values now too; under beads a command passed through as it is
+      holds it when given ETags, and a q or a reopen always. A create under
+      a parent holds it given ETags or not, and a pour while it makes its
+      steps, so that nothing is
+      made under an item between a close's check that nothing under it
+      stands open and its close; init brings a store an earlier version
+      made up to date under it, the upgrade rewriting items and so their
+      ETags. Without a terminal, list, ready and show
+      answer records under every adapter; the beads adapter lists items
+      whole and answers each time to the whole second, as bd holds it, so
+      that every read of an item answers the same record. Through gRPC, a
+      field a record within the request requires is read at its default
+      when not set, so that an empty text removes a claim's value.
+    reason: >
+      A client reads in one call and writes in a later one; another may
+      change the workspace between the two, and a write made on what it no
+      longer is overwrites that change or leaves the workspace inconsistent.
+    compatibility: additive
+    impactAssessment:
+      affectedDuties:
+        - duty.put-all-four-under-one-name
+        - duty.keep-what-a-run-found
+        - duty.surface-procedures-when-work-starts
+      affectedJourneys:
+        - journey.run-a-tracker-command
+        - journey.record-what-a-step-found
+        - journey.start-named-work
+        - journey.move-a-workspace
+        - journey.adopt-a-repository
+      affectedSlos: []
+      affectedTraces: []
+      affectedInvariants: []
+      riskLevel: low
+      riskExplanation: >
+        New fields and one new operation; a write given no ETags runs as
+        before. A claim now waits on the store's lock as a close does, and
+        under a loaded tracker, writes from every checkout under one home
+        wait on one lock. A second move of a workspace waits for the first,
+        a move's read of its source waits for the source's lock and keeps a
+        write of the source waiting until it has read, and a move writes its
+        target under the target's lock from its first write there to its
+        last, keeping a write of the target waiting for all of it; what a
+        move that stopped part way made closes through nothing but the move,
+        is no ready item, and stops a move from that tracker, until the move
+        runs again and finishes it -- under a loaded tracker, in every
+        checkout under the home on that store; ready waits on a write of the
+        store, a move's whole run included, as a close does; a second
+        adoption of a checkout waits for the first, and a move about to open
+        its target waits for an adoption, as an adoption does for it. A
+        create under a parent and a pour wait on the store's lock as a close
+        does, and so does init bringing an earlier version's store up to
+        date; so does bd's own ready through the pass-through. A run of a
+        move whose source or target names another store than its record
+        writes nothing, and so does a run of a record an earlier dotdiw
+        wrote, naming no store, until the run is told the store; one that
+        cannot read back an item an earlier run made writes nothing more
+        until it reads, or the run is told it was deleted. Under Jira, a
+        checkout reaches by key only its project's issues: one of another
+        project on the same site is none it shows or writes, nor a parent or
+        run root it makes an issue under, nor one a listing reaches through a
+        parent that reads as more of the query; a close reads an issue's
+        children on the whole site, and ready reads a need of another
+        project; what was written through the home within ten minutes a
+        close, a listing, ready, show and a cycle check read by key, as
+        Jira's search may be without it, at one read for each such issue
+        under the one closed, in its run or missing from the search, and an
+        issue the search has open under one closed that no lookup reads
+        holds the close. A move settles what it does not
+        close once its needs and status are written; it takes each item it
+        writes of as shown by its id, and reads by id what its listing
+        lacks, writing nothing while the listing is behind; it reads back
+        every item an earlier run made and has not finished, and each it is
+        told was deleted, before it writes more; and it says which needs,
+        parents and runs it leaves out. Two options tell a run what is
+        gone: deleted in the target, or held no more by the source. A
+        close through dotdiw tells the adapter which roots to keep open in
+        its wake, those a move holds unfinished, by a new optional field of
+        close-item; a module that closes a root with its last step and
+        does not read the field closes a held root so, as before. An update
+        takes needs off (dropNeeds) and takes an item from under its parent
+        (dropParent), by two new optional fields of update-item, so that a
+        move brings what it made and has not finished in line with a source
+        changed while it stood stopped; a module that reads neither keeps
+        them, and the move says so. Under Jira a site is one store however
+        its scheme, host and default port are spelled; a description Jira's
+        editor wrote reads with its links, mentions, dates and action items;
+        values are written in as few properties as hold them, and an issue
+        that holds them is read whole from a listing and from ready, as its
+        project's alone; a write of values is read whole or not at all
+        however many properties it takes, and a value longer than one holds
+        is kept in pieces; a cycle check reads by key what the issue
+        reaches -- children in any project, a need written a moment ago, and
+        a run's issues where a root of one, poured or marked so as a move
+        makes the run, is reached -- and none of the project besides, and
+        refuses a parent that waits on the issue; a pour asks no cycle check
+        of the needs of the steps it checked whole; what was written of late
+        in another project is never read again; an update writes first what
+        Jira may refuse, putting back what it wrote where a later part is
+        refused; and a close of an issue closed already
+        leaves a root done and opened again since as it stands, as its
+        changelog says.
+    migrationPlan: >
+      None. The tracker interface stays 4: the ETag is stamped by the
+      tracker door, and a module written for interface 4 answers the new
+      types unchanged; madeId and storeId are answered where a module can,
+      and one that answers neither is held as before.
+    approvalStatus: draft
+    createdAt: "2026-11-13T00:00:00+08:00"
+    idlRecord:
+      changeType: project-python-protocol
+      targetRefs:
+        - idl.dotdiw
+        - projection.door
+        - projection.tracker-door
+        - projection.grpc
+      summary: >-
+        operation.compare-what-was-read joins the IDL; type.tracker-item,
+        type.claimed-step and type.claim-run carry an etag; the writing
+        operations take etags and answer changed-since-read and
+        not-an-etag; run-a-tracker-command answers items, closedRefs, output
+        and reason, and takes terminal; projection.grpc is served.
+      reason: >-
+        A write holds to what was read.
+      compatibility: additive
+      createdAt: "2026-11-13T00:00:00+08:00"
       approvalStatus: draft
 
 openQuestions:

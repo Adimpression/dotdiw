@@ -67,7 +67,7 @@ whole adapter to read beside it.
 **2. Fill the table.**
 
     TRACKER = {
-        "info": {"name": "<name>", "version": "0.1.0", "interface": 3,
+        "info": {"name": "<name>", "version": "0.1.0", "interface": 4,
                  "nativeNeeds": True, "checkTarget": "scratch", "extras": []},
         "operations": {
             "operation.open-tracker": open_tracker,
@@ -80,15 +80,16 @@ whole adapter to read beside it.
             "operation.list-items": list_items,
             "operation.update-item": update_item,
             "operation.ready-items": ready_items,
+            "operation.record-values": record_values,
         },
         "extras": {},
     }
 
 `info` needs `name` and `version`; `origin` is set to `loaded` and `source` to
 the file's path when the module is loaded. `interface` is the number of the
-tracker interface the module was written for, 3 for this dotdiw; without it
-dotdiw reads 1, and a module written for 1 or 2 is refused in one line that names
-it.
+tracker interface the module was written for, 4 for this dotdiw; without it
+dotdiw reads 1, and a module written for 1, 2 or 3 is refused in one line that
+names it.
 `nativeNeeds` says whether the tracker holds needs itself or the adapter keeps
 them in a store of its own.
 `checkTarget` is where `dotdiw tracker check` may create and close items:
@@ -128,7 +129,7 @@ adapter may keep nothing under the workspace: a checkout that chose it counts as
 adopted.
 
 Registration refuses a table that lacks an operation, offers one outside the
-ten, whose callables take anything but `request`, whose info lacks a name or a
+eleven, whose callables take anything but `request`, whose info lacks a name or a
 version, or whose interface is one this dotdiw does not support.
 
 **3. Answer in records.** Each operation takes one dict and returns one. The
@@ -167,6 +168,25 @@ it:
   `name`, never an email address; `id` where the tracker has one; and
   `verified`, true only where the tracker checked credentials. `init` says a
   verified name once, and `tracker use` each time it chooses the tracker.
+  An adapter whose store other checkouts may reach adds `storeId`, naming where
+  it keeps this checkout's items, alike for two checkouts only when they reach
+  the same items -- a hosted tracker's site and project -- so that what a move
+  into one store left unfinished holds nothing in another of the same name.
+  By an id it then reads and writes only the items of that store, as
+  `jira.py` reaches only its project's issues: an item of another store is
+  `item-not-found`, since nothing this checkout holds of a move holds it, and
+  a `parent` or `run` of another store is `parent-not-found`. What holds a
+  close is read wherever the tracker keeps it: an open child or need in
+  another store holds it, and a need there closed is closed for `ready`.
+  A value handed in that goes into a query -- `list-items`' `parent` -- is
+  one value there, quoted, whatever it holds. Where your tracker's search
+  may be without a write for a while after it, do not leave to it what
+  holds a close, what a listing or `ready` gives, the children `show-item`
+  gives, or what a cycle check follows: `jira.py` keeps by key what it
+  wrote in the last ten minutes, under the dotdiw home, and reads those by
+  key. An item the search has open under the one closing that no lookup
+  reads holds the close: a lookup that finds nothing does not say the item
+  was closed.
 - `create-item`, given `title`, `priority`, `parent`, `description`, and from
   migrate an `id`, `verifyUsing`, `step`, `claim`, `values` and `run`, all
   kept and returned exactly as given: honour the id, or give your own, and the id
@@ -174,8 +194,10 @@ it:
   task, since only a pour makes a root; a child carries its parent; an unknown
   parent is `parent-not-found`. The description and `verifyUsing` are kept as
   `pour-steps` keeps a root's, and come back exactly as given. A create the
-  tracker made and could not read back fails, and its summary names the id it
-  made.
+  tracker made and could not finish or read back fails, its summary naming the
+  id it made and `madeId` giving it, so that a move holds the item made and
+  finishes it rather than make a second; one it then cannot find stays made
+  until it is found, or the move is told it was deleted.
 - `add-need`, given `id` and `needs`: the `edge` comes back; an unknown item
   is `item-not-found`; a cycle is `cycle`; a need already there answers
   completed, since a move that was interrupted asks for it again.
@@ -199,7 +221,9 @@ it:
   whole, never old values beside new ones. Where the tracker sets one field at
   a time, keep each write whole in a field of its own and read the writes in
   order, as the Jira adapter keeps each in an issue property named for when it
-  was written. The record comes back as it now stands. Unknown is
+  was written; where a write takes more than one field, as values longer than
+  one Jira property holds do, mark its fields as one write, and read it only
+  once every field is there. The record comes back as it now stands. Unknown is
   `item-not-found`. Write the values to the item of that very id. Where the
   only write that sets them reads an id the tracker holds nothing of as
   another item's, as bd's update does, answer every `record-values` as
@@ -250,7 +274,11 @@ it:
   wherever the step stands, each named in `closedIds` after the step; or
   leave them to closes of their own. Either passes: through dotdiw, a close
   that leaves a root with nothing open is followed by the root's, under
-  every adapter. A module whose tracker knows no run holds the rule after
+  every adapter. Given `keepOpen`, a close leaves open each id it names,
+  though it would close it with the item: dotdiw names there what a move
+  into the tracker made and has not finished, which nothing but the move
+  closes, and a module that closes a root with its last step must leave
+  those open, as `tracker check` asks of it. A module whose tracker knows no run holds the rule after
   the close too, of the items as they stand then and on every path -- the
   item closed already or not, the tracker's close answered with an error or
   not, since what a close did is read from the tracker and not from how its
@@ -297,7 +325,22 @@ it:
   item's, as bd's update does, name the item it wrote: the beads adapter
   writes with bd's own update, whose answer names the item written, and
   fails naming that item where it is another, one deleted as the update
-  ran.
+  ran. Given `dropNeeds`, an update takes the need on each id it names off
+  the item, before it checks a `parent` given, so that a parent that waited
+  on the item only through such a need is no cycle; and only once the
+  status asked for is reached, so that an update refused for its status
+  takes nothing off. Given `dropParent`, it takes the item from under its
+  parent, to stand under none; a `parent` given with it is refused, and a
+  `parent` given empty is none given. A tracker that will not take an item
+  from under its parent answers `unsupported`. Where the tracker writes an
+  item in parts, ask first what can be asked before anything is written --
+  the way to the status -- and write first the parts it may refuse once
+  asked, putting back each already written where a later one is refused, as
+  the Jira adapter does with the person, the parent, the fields and the
+  status, so that a refusal writes nothing; take needs off last. A move uses both on what it
+  made and has not finished, where the source no longer shows the need or
+  the parent; it stops, saying to take a need off by hand, where the item
+  still has it after, and keeps a parent the tracker keeps, saying so.
 - `pour-steps`, given `formulaRef`, `title`, `steps`, each `id`, `title`,
   `needs` naming step ids anywhere in the list, and a `claim` when the step
   declares one, which the item made for it keeps with the step's id and with

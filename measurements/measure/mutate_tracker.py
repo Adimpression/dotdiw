@@ -63,11 +63,11 @@ MUTATIONS = [
         '    kinds = record_kinds(spec["responseType"])\n'
         "    for key, value in response.items():\n"
         "        hold_value(operation, key, value, kinds[key])\n"
-        "    settle_exit_code(",
+        "    stamp_etags(kinds, response)\n",
         '    kinds = record_kinds(spec["responseType"])\n'
         "    for key, value in response.items():\n"
         "        hold_value(operation, key, value, kinds[key])\n"
-        "    settle_exit_code(",
+        "    stamp_etags(kinds, response)\n",
         [
             "test_promise.py",
             "TheTrackerDoor.test_the_tracker_door_raises_naming_the_operation_and_the_key",
@@ -86,8 +86,8 @@ MUTATIONS = [
     (
         "the upgrade writes no choice",
         "dotdiw",
-        '            git(["config", "--local", TRACKER_KEY, pinned], root)\n            forget_workspace(root)\n            if tracker_name(root) == pinned:\n',
-        "            forget_workspace(root)\n            if True:\n",
+        '                git(["config", "--local", TRACKER_KEY, pinned], root)\n                forget_workspace(root)\n                if tracker_name(root) == pinned:\n',
+        "                forget_workspace(root)\n                if True:\n",
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_a_choice_that_could_not_be_pinned_is_not_said_to_be",
@@ -103,8 +103,8 @@ MUTATIONS = [
     (
         "a body runs the binary itself",
         "dotdiw",
-        '    root = request["root"]\n    made = invoke_tracker(\n        "operation.create-item",\n',
-        '    root = request["root"]\n    beads_quiet(["list"], root)\n    made = invoke_tracker(\n        "operation.create-item",\n',
+        '    root = request["root"]\n    etags = list(request.get("etags") or [])\n',
+        '    root = request["root"]\n    beads_quiet(["list"], root)\n    etags = list(request.get("etags") or [])\n',
         ["test_promise.py", "TheSort.test_only_the_adapter_names_the_binary"],
     ),
     (
@@ -117,15 +117,15 @@ MUTATIONS = [
     (
         "the move leaves the needs behind",
         "dotdiw",
-        '        for need in item.get("needs") or []:\n            if need in ids and [item["id"], need] not in linked:\n',
-        '        for need in []:\n            if need in ids and [item["id"], need] not in linked:\n',
+        '                for need in needs:\n                    out = written("operation.add-need"',
+        '                for need in []:\n                    out = written("operation.add-need"',
         ["test_tracker.py", "MovingBetweenAdapters.test_every_pair_and_back"],
     ),
     (
         "the witness forgets which adapter answered",
         "dotdiw",
-        '                title=request.get("title"),\n                startedAt=STARTED_AT,\n                tracker=response.get("tracker"),\n            )\n',
-        '                title=request.get("title"),\n                startedAt=STARTED_AT,\n            )\n',
+        '                title=request.get("title"),\n                startedAt=request_started(),\n                tracker=response.get("tracker"),\n            )\n',
+        '                title=request.get("title"),\n                startedAt=request_started(),\n            )\n',
         [
             "test_promise.py",
             "TheWitnessLogUnderLocal.test_a_real_run_is_a_story_the_contract_calls_valid",
@@ -168,8 +168,8 @@ MUTATIONS = [
     (
         "a refused need passes for a completed move",
         "dotdiw",
-        '                if out["status"] != "completed":\n                    return refused("the need of %s on %s" % (item["id"], need), out)\n',
-        '                if False:\n                    return refused("the need of %s on %s" % (item["id"], need), out)\n',
+        '                        return refused(\n                            "the need of %s on %s" % (item["id"], need),\n                            out,\n                            (ids[need], ids[item["id"]]),\n                        )\n',
+        "                        pass\n",
         [
             "test_tracker.py",
             "AnInterruptedMove.test_a_refused_need_is_reported_and_written_by_the_next_run",
@@ -209,8 +209,8 @@ MUTATIONS = [
     (
         "a switch that fails still changes the choice",
         "dotdiw",
-        '    opened = invoke_tracker(\n        "operation.open-tracker",\n        {"root": root, "tracker": name, "prefix": prefix},\n    )\n',
-        '    git(["config", "--local", TRACKER_KEY, name], root)\n    opened = invoke_tracker(\n        "operation.open-tracker",\n        {"root": root, "tracker": name, "prefix": prefix},\n    )\n',
+        '        opened = invoke_tracker(\n            "operation.open-tracker",\n            {"root": root, "tracker": name, "prefix": prefix},\n        )\n',
+        '        git(["config", "--local", TRACKER_KEY, name], root)\n        opened = invoke_tracker(\n            "operation.open-tracker",\n            {"root": root, "tracker": name, "prefix": prefix},\n        )\n',
         ["test_dotdiw.py", "TheLocalCommandLine.test_a_switch_that_fails_keeps_the_choice"],
     ),
     (
@@ -223,8 +223,8 @@ MUTATIONS = [
     (
         "the description stops short of the item",
         "dotdiw",
-        '            "title": request["title"],\n            "description": request.get("description"),\n',
-        '            "title": request["title"],\n',
+        '                "title": request["title"],\n                "description": request.get("description"),\n',
+        '                "title": request["title"],\n',
         ["test_dotdiw.py", "TheLocalCommandLine.test_a_description_is_saved_on_the_item"],
     ),
     (
@@ -246,8 +246,8 @@ MUTATIONS = [
         "dotdiw",
         "    for key, value in response.items():\n"
         "        hold_value(operation, key, value, kinds[key])\n"
-        "    settle_exit_code(",
-        "    settle_exit_code(",
+        "    stamp_etags(kinds, response)\n",
+        "    stamp_etags(kinds, response)\n",
         [
             "test_promise.py",
             "TheTrackerDoor.test_a_value_outside_its_type_is_one_line_from_a_loaded_adapter",
@@ -263,8 +263,8 @@ MUTATIONS = [
     (
         "a Jira assignee goes by name",
         "trackers/jira.py",
-        '{"accountId": who}',
-        '{"name": who}',
+        'call("PUT", of(key, "assignee"), {"accountId": who})',
+        'call("PUT", of(key, "assignee"), {"name": who})',
         ["test_jira.py", "TheHostedAdapter.test_an_assignee_is_an_account_id"],
     ),
     (
@@ -559,8 +559,8 @@ MUTATIONS = [
     (
         "a stock line replaces what the tracker said",
         "dotdiw",
-        '            "summary": opened["summary"],\n            "workspace": ws,\n',
-        '            "summary": "The tracker\'s init failed.",\n            "workspace": ws,\n',
+        '                "summary": opened["summary"],\n                "workspace": ws,\n',
+        '                "summary": "The tracker\'s init failed.",\n                "workspace": ws,\n',
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_init_says_why_the_store_did_not_open_and_stops",
@@ -613,8 +613,8 @@ MUTATIONS = [
     (
         "a choice that was not written is reported as written",
         "dotdiw",
-        '        if tracker_name(root) != name:\n            return {\n                "status": "failed",\n                "summary": NOT_WRITTEN % TRACKER_KEY,\n',
-        '        if False:\n            return {\n                "status": "failed",\n                "summary": NOT_WRITTEN % TRACKER_KEY,\n',
+        '            if tracker_name(root) != name:\n                return {\n                    "status": "failed",\n                    "summary": NOT_WRITTEN % TRACKER_KEY,\n',
+        '            if False:\n                return {\n                    "status": "failed",\n                    "summary": NOT_WRITTEN % TRACKER_KEY,\n',
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_use_says_when_the_choice_could_not_be_written",
@@ -884,8 +884,8 @@ MUTATIONS = [
     (
         "a pin that was not written is said to be",
         "dotdiw",
-        "            if tracker_name(root) == pinned:\n                done.append(\n",
-        "            if True:\n                done.append(\n",
+        "                if tracker_name(root) == pinned:\n                    done.append(\n",
+        "                if True:\n                    done.append(\n",
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_a_choice_that_could_not_be_pinned_is_not_said_to_be",
@@ -1121,8 +1121,8 @@ MUTATIONS = [
     (
         "jira sends the word me as an account id",
         "trackers/jira.py",
-        'who = myself().get("accountId") if request["assignee"] == "me" else request["assignee"]',
-        'who = request["assignee"]',
+        '                who = (\n                    myself().get("accountId")\n                    if request["assignee"] == "me"\n                    else request["assignee"]\n                )',
+        '                who = request["assignee"]',
         ["test_jira.py", "TheHostedAdapter.test_an_assignee_of_me_is_the_account_behind_the_token"],
     ),
     (
@@ -1211,15 +1211,15 @@ MUTATIONS = [
     (
         "a kind is passed to create-item",
         "dotdiw",
-        '            "parent": request.get("parent"),\n        },\n    )\n    code = made.get("exitCode", 0 if made["status"] == "completed" else 1)\n',
-        '            "parent": request.get("parent"),\n            "kind": "task",\n        },\n    )\n    code = made.get("exitCode", 0 if made["status"] == "completed" else 1)\n',
+        '                "parent": request.get("parent"),\n            },\n        )\n    code = made.get("exitCode", 0 if made["status"] == "completed" else 1)\n',
+        '                "parent": request.get("parent"),\n                "kind": "task",\n            },\n        )\n    code = made.get("exitCode", 0 if made["status"] == "completed" else 1)\n',
         ["test_promise.py", "TheTrackerDoor.test_create_item_takes_no_kind"],
     ),
     (
         "a move asks for the kind it read",
         "dotdiw",
-        '                "title": item["title"],\n                "priority": item.get("priority"),\n',
-        '                "title": item["title"],\n                "kind": item.get("kind"),\n                "priority": item.get("priority"),\n',
+        '                    "title": item["title"],\n                    "priority": item.get("priority"),\n',
+        '                    "title": item["title"],\n                    "kind": item.get("kind"),\n                    "priority": item.get("priority"),\n',
         ["test_tracker.py", "MovingBetweenAdapters.test_every_pair_and_back"],
     ),
     (
@@ -1313,8 +1313,8 @@ MUTATIONS = [
     (
         "the means are not handed to pour-steps",
         "dotdiw",
-        '            "verifyUsing": list(formula.get("verifyUsing") or []),\n        },\n',
-        '            "verifyUsing": [],\n        },\n',
+        '                "verifyUsing": list(formula.get("verifyUsing") or []),\n            },\n',
+        '                "verifyUsing": [],\n            },\n',
         [
             "test_dotdiw.py",
             "TheMeansToProveARun.test_a_pour_shows_the_means_and_the_root_keeps_them",
@@ -1471,9 +1471,12 @@ MUTATIONS = [
     (
         "a move reads an item from the listing alone",
         "dotdiw",
-        '        whole = shown["item"]\n',
-        "        whole = item\n",
-        ["test_tracker.py", "MovingBetweenAdapters.test_every_pair_and_back"],
+        '                wholes[item["id"]] = shown["item"]\n',
+        '                wholes[item["id"]] = item\n',
+        [
+            "test_tracker.py",
+            "AMoveShowsEachItemItMakes.test_the_description_and_the_means_move_as_shown",
+        ],
     ),
     (
         "local keeps no means on an item it creates",
@@ -2097,8 +2100,8 @@ MUTATIONS = [
     (
         "undo-earlier-adoption never asks the adapter keeping the store",
         "dotdiw",
-        "    if checkout_adopted(root) and stopped is None:\n        kept = invoke_extra(\n",
-        "    if False:\n        kept = invoke_extra(\n",
+        "    if checkout_adopted(root) and stopped is None:\n        # Brought up to date under the lock a write of an item holds from\n",
+        "    if False:\n        # Brought up to date under the lock a write of an item holds from\n",
         [
             "test_dotdiw.py",
             "TheLocalCommandLine.test_init_brings_a_store_an_earlier_version_kept_up_to_date",
@@ -2370,8 +2373,8 @@ MUTATIONS = [
     (
         "a pour hands the tracker a file",
         "dotdiw",
-        '            "verifyUsing": list(formula.get("verifyUsing") or []),\n        },\n',
-        '            "verifyUsing": list(formula.get("verifyUsing") or []),\n            "path": os.path.join(root, r["path"]) if found else None,\n        },\n',
+        '                "verifyUsing": list(formula.get("verifyUsing") or []),\n            },\n',
+        '                "verifyUsing": list(formula.get("verifyUsing") or []),\n                "path": os.path.join(root, r["path"]) if found else None,\n            },\n',
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_a_pour_hands_the_tracker_the_formula_and_no_file",
@@ -2524,8 +2527,8 @@ MUTATIONS = [
     (
         "the lookup's answer has no room for a provider's formula",
         "dotdiw",
-        '        "body": "FindAHeldProcedure",\n        "request": (\n            "ask", "correlationId", "formulaRef", "ident", "json", "root",\n            "sourceRefs",\n        ),\n        "requestRequired": (\n            "ask", "root",\n        ),\n        "response": (\n            "exitCode", "formula", "formulaCount", "formulaRef", "formulas",\n',
-        '        "body": "FindAHeldProcedure",\n        "request": (\n            "ask", "correlationId", "formulaRef", "ident", "json", "root",\n            "sourceRefs",\n        ),\n        "requestRequired": (\n            "ask", "root",\n        ),\n        "response": (\n            "exitCode", "formulaCount", "formulaRef", "formulas",\n',
+        '        "body": "FindAHeldProcedure",\n        "visibility": "external-facing",\n        "request": (\n            "ask", "correlationId", "formulaRef", "ident", "json", "root",\n            "sourceRefs",\n        ),\n        "requestRequired": (\n            "ask", "root",\n        ),\n        "response": (\n            "exitCode", "formula", "formulaCount", "formulaRef", "formulas",\n',
+        '        "body": "FindAHeldProcedure",\n        "visibility": "external-facing",\n        "request": (\n            "ask", "correlationId", "formulaRef", "ident", "json", "root",\n            "sourceRefs",\n        ),\n        "requestRequired": (\n            "ask", "root",\n        ),\n        "response": (\n            "exitCode", "formulaCount", "formulaRef", "formulas",\n',
         [
             "test_dotdiw.py",
             "TheFormulaProviders.test_the_lookup_answers_a_providers_formula_as_resolve_does",
@@ -2834,12 +2837,15 @@ MUTATIONS = [
         "trackers/jira.py",
         '        query = {"jql": jql, "maxResults": 100, "fields": FIELDS, "properties": PROPERTY}\n',
         '        query = {"jql": jql, "maxResults": 100, "fields": FIELDS}\n',
-        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_step_poured_shows_its_claim_among_its_roots_children_as_a_search_reads_it",
+        ],
     ),
     (
         "jira keeps no values",
         "trackers/jira.py",
-        '        call("PUT", path, {"values": list(request["values"])})\n',
+        '        call("PUT", of(key, "properties", name), body)\n',
         "        pass\n",
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
@@ -2853,15 +2859,15 @@ MUTATIONS = [
     (
         "a step with no claim takes values",
         "dotdiw",
-        '    if not item.get("claim"):\n        return {\n            "status": "failed",\n            "reason": "no-claim",\n',
-        '    if False:\n        return {\n            "status": "failed",\n            "reason": "no-claim",\n',
+        '        if not item.get("claim"):\n            return {\n                "status": "failed",\n                "reason": "no-claim",\n',
+        '        if False:\n            return {\n                "status": "failed",\n                "reason": "no-claim",\n',
         ["test_promise.py", "AStepsRun.test_nothing_is_recorded_where_it_should_not_be"],
     ),
     (
         "a closed step takes values",
         "dotdiw",
-        '    if item["status"] == "closed":\n        return {\n            "status": "failed",\n            "reason": "step-closed",\n',
-        '    if False:\n        return {\n            "status": "failed",\n            "reason": "step-closed",\n',
+        '        if item["status"] == "closed":\n            return {\n                "status": "failed",\n                "reason": "step-closed",\n',
+        '        if False:\n            return {\n                "status": "failed",\n                "reason": "step-closed",\n',
         ["test_promise.py", "AStepsRun.test_nothing_is_recorded_where_it_should_not_be"],
     ),
     (
@@ -3114,9 +3120,12 @@ MUTATIONS = [
     (
         "jira shows a step without its values",
         "trackers/jira.py",
-        '            record(full(i))\n            for i in search("project',
-        '            record(i)\n            for i in search("project',
-        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+        '                full(i, project)\n                for i in as_they_stand(\n                    request.get("root"),\n                    project,\n                    search(\n                        "project = %s AND parent = %s',
+        '                i\n                for i in as_they_stand(\n                    request.get("root"),\n                    project,\n                    search(\n                        "project = %s AND parent = %s',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_ready_gives_the_etag_show_and_list_give_for_an_issue_with_values",
+        ],
     ),
     (
         "a step is read in the run of the parent it stands under",
@@ -3164,16 +3173,19 @@ MUTATIONS = [
     (
         "jira lists every item in a run",
         "trackers/jira.py",
-        '            if run is None or ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == run\n',
-        "            if True\n",
+        '                if run is None\n                or ((i.get("properties")',
+        '                if True\n                or ((i.get("properties")',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
         "jira lists a step without its values",
         "trackers/jira.py",
-        "            record(full(i))\n            for i in search(jql)\n",
-        "            record(i)\n            for i in search(jql)\n",
-        ["test_jira.py", "TheHostedAdapter.test_a_write_jira_refuses_reads_as_it_was"],
+        '                full(i, project)\n                for i in as_they_stand(\n                    request.get("root"), project, search(jql',
+        '                i\n                for i in as_they_stand(\n                    request.get("root"), project, search(jql',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_with_values_and_no_step_lists_as_it_shows",
+        ],
     ),
     (
         "migrate writes a step before the root of its run",
@@ -3185,11 +3197,8 @@ MUTATIONS = [
     (
         "migrate writes runs that wait on each other",
         "dotdiw",
-        "            if not cut:\n                stuck = sorted(",
-        "            if not cut:\n"
-        "                cut = left\n"
-        "            if False:\n"
-        "                stuck = sorted(",
+        "                if not cut:\n                    stuck = sorted(",
+        "                if not cut:\n                    cut = left\n                if False:\n                    stuck = sorted(",
         [
             "test_dotdiw.py",
             "TheClaimCommand.test_runs_that_wait_on_each_other_stop_the_move_unwritten",
@@ -3215,9 +3224,12 @@ MUTATIONS = [
     (
         "a root closes while a step of its run is open, under jira",
         "trackers/jira.py",
-        '        if ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == key\n',
-        "        if False\n",
-        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+        '        if ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == key:\n',
+        "        if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_was_written_elsewhere_holds_a_close_by_what_a_search_finds",
+        ],
     ),
     (
         "a molecule may close before any step of it",
@@ -3236,8 +3248,8 @@ MUTATIONS = [
     (
         "jira reads the writes newest first",
         "trackers/jira.py",
-        "    for key in sorted(k for k in properties if write_moment(k) is not None):\n",
-        "    for key in sorted((k for k in properties if write_moment(k) is not None), reverse=True):\n",
+        "    names = sorted(k for k in properties if write_moment(k) is not None)\n",
+        "    names = sorted((k for k in properties if write_moment(k) is not None), reverse=True)\n",
         ["test_jira.py", "TheHostedAdapter.test_a_write_is_read_after_every_write_the_step_held"],
     ),
     (
@@ -3255,28 +3267,16 @@ MUTATIONS = [
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
-        "jira writes each value apart",
-        "trackers/jira.py",
-        '        call("PUT", path, {"values": list(request["values"])})\n',
-        '        for v in request["values"]:\n'
-        '            name = write_name(held(key).get("properties") or {})\n'
-        '            call("PUT", "/rest/api/3/issue/%s/properties/%s" % (key, name), {"values": [v]})\n',
-        ["test_jira.py", "TheHostedAdapter.test_a_write_jira_refuses_reads_as_it_was"],
-    ),
-    (
         "migrate leaves a parent it set late unset",
         "dotdiw",
-        "        out = invoke_tracker(\n"
-        '            "operation.update-item",\n'
-        '            {"root": root, "tracker": dst, "id": ids[ident], "parent": ids[parent]},\n'
-        "        )\n",
-        '        out = {"status": "completed"}\n',
+        '            out = written("operation.update-item", {"id": ids[ident], "parent": ids[parent]})\n',
+        '            out = {"status": "completed"}\n',
         ["test_dotdiw.py", "TheClaimCommand.test_a_root_under_its_own_step_keeps_that_parent"],
     ),
     (
         "migrate forgets which items wait for their parent",
         "dotdiw",
-        '        if early:\n            unparented.append(item["id"])\n',
+        '                if early:\n                    unparented.append(item["id"])\n',
         "",
         ["test_dotdiw.py", "TheClaimCommand.test_a_root_under_its_own_step_keeps_that_parent"],
     ),
@@ -3364,10 +3364,7 @@ MUTATIONS = [
     (
         "jira leaves the root of a moved step's run open",
         "trackers/jira.py",
-        "        if run and run != parent:\n"
-        "            above = fetch(run)\n"
-        "            if above is not None:\n"
-        "                roots.append(record(above))\n",
+        "    if run and run != parent:\n        above = fetch_here(run, project)\n        if above is not None:\n            roots.append(above)\n",
         "",
         [
             "test_jira.py",
@@ -3392,8 +3389,8 @@ MUTATIONS = [
     (
         "jira lists every item in an empty run",
         "trackers/jira.py",
-        '            if run is None or ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == run\n',
-        '            if not run or ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == run\n',
+        '                if run is None\n                or ((i.get("properties")',
+        '                if not run\n                or ((i.get("properties")',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
@@ -3423,7 +3420,7 @@ MUTATIONS = [
     (
         "the pass-through reports closed what its words name",
         "dotdiw",
-        '            closed, notes = what_the_close_closed(\n                common, closing, every, out.get("markedIds"), out.get("exitCode", 1) != 0\n            )\n',
+        '            closed, notes = what_the_close_closed(\n                common, closing, every, out.get("markedIds"), out.get("exitCode", 1) != 0, holds\n            )\n',
         "            closed, notes = list(closing), []\n",
         [
             "test_dotdiw.py",
@@ -3495,7 +3492,7 @@ MUTATIONS = [
     (
         "the pass-through leaves the root of a run open",
         "dotdiw",
-        "    follows = closes_that_follow(common, shut, {**before, **now}, standing)\n",
+        "    follows = closes_that_follow(common, shut, {**before, **now}, standing, keep)\n",
         "    follows: list[Response] = []\n",
         [
             "test_dotdiw.py",
@@ -3505,7 +3502,7 @@ MUTATIONS = [
     (
         "a module's root is left open",
         "dotdiw",
-        "        answers += closes_that_follow(common, closed, records, None)\n",
+        "            answers += closes_that_follow(common, closed, records, None, holds)\n",
         "",
         [
             "test_dotdiw.py",
@@ -3525,10 +3522,8 @@ MUTATIONS = [
     (
         "local waits by needs alone",
         "dotdiw",
-        '            "SELECT needs FROM edges WHERE id = ? UNION SELECT id FROM items "\n'
-        '            "WHERE parent = ? OR run = ?",\n'
-        "            (at, at, at),\n",
-        '            "SELECT needs FROM edges WHERE id = ?",\n            (at,),\n',
+        "        for nxt in needs + under:\n",
+        "        for nxt in needs:\n",
         [
             "test_dotdiw.py",
             "TheLocalAdapter.test_a_root_and_its_step_cannot_come_to_wait_on_each_other",
@@ -3537,7 +3532,7 @@ MUTATIONS = [
     (
         "local takes a parent that waits on the item",
         "dotdiw",
-        "            if parent and (parent == ident or parent in local_waiting(conn, ident)):\n",
+        "            if parent and (parent == ident or parent in local_waiting(conn, ident, drop)):\n",
         "            if False:\n",
         [
             "test_dotdiw.py",
@@ -3580,45 +3575,8 @@ MUTATIONS = [
     (
         "local checks a parent before its write",
         "dotdiw",
-        '    ident = request["id"]\n'
-        "    try:\n"
-        "        with local_write(conn):\n"
-        "            if not local_fetch(conn, ident):\n"
-        "                return {\n"
-        '                    "status": "failed",\n'
-        '                    "reason": "item-not-found",\n'
-        '                    "exitCode": 1,\n'
-        '                    "summary": "%s names no item here." % ident,\n'
-        "                }\n"
-        '            parent = request.get("parent")\n'
-        "            if parent and not local_fetch(conn, parent):\n"
-        "                return {\n"
-        '                    "status": "failed",\n'
-        '                    "reason": "item-not-found",\n'
-        '                    "exitCode": 1,\n'
-        '                    "summary": "%s names no item here." % parent,\n'
-        "                }\n"
-        "            if parent and (parent == ident or parent in local_waiting(conn, ident)):\n",
-        '    ident = request["id"]\n'
-        "    try:\n"
-        "        early = local_waiting(conn, ident)\n"
-        "        with local_write(conn):\n"
-        "            if not local_fetch(conn, ident):\n"
-        "                return {\n"
-        '                    "status": "failed",\n'
-        '                    "reason": "item-not-found",\n'
-        '                    "exitCode": 1,\n'
-        '                    "summary": "%s names no item here." % ident,\n'
-        "                }\n"
-        '            parent = request.get("parent")\n'
-        "            if parent and not local_fetch(conn, parent):\n"
-        "                return {\n"
-        '                    "status": "failed",\n'
-        '                    "reason": "item-not-found",\n'
-        '                    "exitCode": 1,\n'
-        '                    "summary": "%s names no item here." % parent,\n'
-        "                }\n"
-        "            if parent and (parent == ident or parent in early):\n",
+        '    try:\n        with local_write(conn):\n            if not local_fetch(conn, ident):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % ident,\n                }\n            drop = [str(n) for n in request.get("dropNeeds") or []]\n            if parent and not local_fetch(conn, parent):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % parent,\n                }\n            # Checked as the item will wait once the needs given to take off\n            # are off, so that a parent that waited on it only through one of\n            # them is no cycle; and nothing written where it is refused.\n            if parent and (parent == ident or parent in local_waiting(conn, ident, drop)):',
+        '    try:\n        early = local_waiting(conn, ident, [str(n) for n in request.get("dropNeeds") or []])\n        with local_write(conn):\n            if not local_fetch(conn, ident):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % ident,\n                }\n            drop = [str(n) for n in request.get("dropNeeds") or []]\n            if parent and not local_fetch(conn, parent):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % parent,\n                }\n            # Checked as the item will wait once the needs given to take off\n            # are off, so that a parent that waited on it only through one of\n            # them is no cycle; and nothing written where it is refused.\n            if parent and (parent == ident or parent in early):',
         [
             "test_dotdiw.py",
             "TheLocalAdapter.test_a_parent_and_a_need_cannot_close_a_cycle_between_them",
@@ -3974,7 +3932,7 @@ MUTATIONS = [
     (
         "the checkout is let go before the log has the close",
         "dotdiw",
-        "            if held and scope is not None and scope.depth:\n",
+        "            if held and until_logged and scope is not None and scope.depth:\n",
         "            if False:\n",
         [
             "test_promise.py",
@@ -4098,8 +4056,8 @@ MUTATIONS = [
     (
         "a short id names no children",
         "dotdiw",
-        '        ["list", "--all", "--json", "--brief", "-n", "0", *BEADS_EVERY_ROW, "--parent", ident],\n',
-        '        ["list", "--all", "--json", "--brief", "-n", "0", *BEADS_EVERY_ROW, "--parent", request["id"]],\n',
+        '        ["list", "--all", "--json", "-n", "0", *BEADS_EVERY_ROW, "--parent", ident],\n',
+        '        ["list", "--all", "--json", "-n", "0", *BEADS_EVERY_ROW, "--parent", request["id"]],\n',
         [
             "test_dotdiw.py",
             "TheBeadsAdapter.test_a_short_id_is_read_as_bd_reads_it_for_children_too",
@@ -4115,8 +4073,8 @@ MUTATIONS = [
     (
         "a pass-through that reads no command is refused every command",
         "dotdiw",
-        '    if "forward" in extras and "read" not in extras:\n',
-        "    if False:\n",
+        '        if "read" in extras:\n            return through_the_pass_through(common, argv, etags, terminal)\n',
+        "        if True:\n            return through_the_pass_through(common, argv, etags, terminal)\n",
         ["test_dotdiw.py", "WhatAModuleGetsWrong.test_a_forward_extra_is_held_to_the_same_rule"],
     ),
     (
@@ -4531,8 +4489,8 @@ MUTATIONS = [
     (
         "a move copies the item shown in a listed one's place",
         "dotdiw",
-        '        shown = shown_by_its_id(\n            item["id"],\n            invoke_tracker("operation.show-item", {"root": root, "tracker": src, "id": item["id"]}),\n        )\n',
-        '        shown = invoke_tracker("operation.show-item", {"root": root, "tracker": src, "id": item["id"]})\n',
+        '                shown = shown_by_its_id(\n                    item["id"],\n                    invoke_tracker(\n                        "operation.show-item", {"root": root, "tracker": src, "id": item["id"]}\n                    ),\n                )\n',
+        '                shown = invoke_tracker("operation.show-item", {"root": root, "tracker": src, "id": item["id"]})\n',
         [
             "test_dotdiw.py",
             "AnIdTheTrackerGaveIsReadWhole.test_a_move_copies_no_other_item_under_a_listed_id",
@@ -4863,6 +4821,2937 @@ MUTATIONS = [
             "TheBeadsAdapter.test_a_claims_values_are_declined_and_nothing_is_written",
         ],
     ),
+    (
+        "a write on a stale read writes anyway",
+        "dotdiw",
+        "        if now != etag:\n",
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_a_write_on_a_stale_read_writes_nothing",
+        ],
+    ),
+    (
+        "an item gone is taken as unchanged",
+        "dotdiw",
+        '            if shown.get("reason") == "item-not-found":\n                changed.append(etag)\n',
+        '            if shown.get("reason") == "item-not-found":\n                pass\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_an_item_gone_has_changed",
+        ],
+    ),
+    (
+        "an ETag not in dotdiw's form is compared",
+        "dotdiw",
+        "        if form is None:\n",
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_an_etag_that_is_none_of_dotdiws_is_refused_before_anything",
+        ],
+    ),
+    (
+        "the tracker door stamps no ETag",
+        "dotdiw",
+        "    stamp_etags(kinds, response)\n    settle_exit_code(operation, response)\n",
+        "    settle_exit_code(operation, response)\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_every_read_of_an_unchanged_item_gives_one_etag",
+        ],
+    ),
+    (
+        "an item's ETag leaves a field out",
+        "dotdiw",
+        '    own = {k: v for k, v in record.items() if k != "etag"}\n',
+        '    own = {k: v for k, v in record.items() if k not in ("etag", "assignee")}\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_any_change_to_an_item_changes_its_etag",
+        ],
+    ),
+    (
+        "a run's ETag leaves its items out",
+        "dotdiw",
+        "    held = [item_etag(root)] + sorted(item_etag(i) for i in items)\n",
+        "    held = [item_etag(root)]\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_a_run_has_one_etag_over_every_item_poured_in_it",
+        ],
+    ),
+    (
+        "a claim takes no lock",
+        "dotdiw",
+        '    with held_for_writing(request.get("root"), request.get("tracker")) as held:\n',
+        "    with contextlib.nullcontext(True) as held:\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_a_claim_waits_on_the_workspace_lock",
+        ],
+    ),
+    (
+        "a claim's values compare nothing",
+        "dotdiw",
+        '        if request.get("etags"):\n            compared = invoke(\n                "operation.compare-what-was-read", dict(where, etags=request["etags"])\n',
+        '        if False:\n            compared = invoke(\n                "operation.compare-what-was-read", dict(where, etags=request["etags"])\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_values_on_a_stale_run_are_not_recorded",
+        ],
+    ),
+    (
+        "a create compares nothing",
+        "dotdiw",
+        '        if etags:\n            compared = invoke(\n                "operation.compare-what-was-read",\n                {"root": root, "tracker": request.get("tracker"), "etags": etags},\n',
+        '        if False:\n            compared = invoke(\n                "operation.compare-what-was-read",\n                {"root": root, "tracker": request.get("tracker"), "etags": etags},\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_a_create_under_a_parent_holds_to_the_parents_etag",
+        ],
+    ),
+    (
+        "a write answered in records compares nothing",
+        "dotdiw",
+        "                return refusal(operation, [compared])\n        holds: list[str] = []\n        refused, _ = held_at_the_command_line(\n",
+        "                pass\n        holds: list[str] = []\n        refused, _ = held_at_the_command_line(\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapterHeldToWhatWasRead.test_a_write_on_a_stale_read_writes_nothing",
+        ],
+    ),
+    (
+        "a write checked under the pass-through compares nothing",
+        "dotdiw",
+        "                return refusal(operation, [compared])\n        every: dict[str, TrackerItem] | None = None\n",
+        "                pass\n        every: dict[str, TrackerItem] | None = None\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapterHeldToWhatWasRead.test_a_write_on_a_stale_read_writes_nothing",
+        ],
+    ),
+    (
+        "a command run as it is compares nothing",
+        "dotdiw",
+        "                    return refusal(None, [compared])\n            stopped = stopped_here(common) if ready else {}\n",
+        "                    pass\n            stopped = stopped_here(common) if ready else {}\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapterHeldToWhatWasRead.test_a_command_passed_through_as_it_is_holds_to_its_etags",
+        ],
+    ),
+    (
+        "beads lists an item without its description",
+        "dotdiw",
+        '    argv = ["list", "--json", "-n", "0" if run is not None else str(limit)]\n',
+        '    argv = ["list", "--json", "--brief", "-n", "0" if run is not None else str(limit)]\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapterHeldToWhatWasRead.test_a_listing_holds_every_field_of_each_item",
+        ],
+    ),
+    (
+        "beads answers a write's time to the microsecond",
+        "dotdiw",
+        '        "createdAt": beads_held_time(row.get("created_at")),\n',
+        '        "createdAt": row.get("created_at"),\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapterHeldToWhatWasRead.test_a_record_a_write_answers_is_the_record_bd_holds",
+        ],
+    ),
+    (
+        "without a terminal, show runs as the tracker prints it",
+        "dotdiw",
+        '    return len(plain) == 1 if verb == "show" else not plain\n',
+        "    return False\n",
+        [
+            "test_dotdiw.py",
+            "ServedOverGrpcUnderBeads.test_a_write_on_a_stale_read_is_aborted_and_writes_nothing",
+        ],
+    ),
+    (
+        "gRPC answers a stale write as a response",
+        "dotdiw",
+        '        if response.get("reason") == "changed-since-read":\n            context.abort(grpc.StatusCode.ABORTED, response["summary"])\n',
+        "",
+        [
+            "test_dotdiw.py",
+            "ServedOverGrpc.test_a_write_on_a_stale_read_is_aborted_and_writes_nothing",
+        ],
+    ),
+    (
+        "gRPC lets a client say a terminal is there",
+        "dotdiw",
+        '        request.pop("terminal", None)\n',
+        "",
+        [
+            "test_dotdiw.py",
+            "ServedOverGrpcUnderBeads.test_a_client_never_has_a_terminal",
+        ],
+    ),
+    (
+        "gRPC projects an internal-only operation",
+        "dotdiw",
+        '    for spec in DOOR.values():\n        if spec["visibility"] == "internal-only":\n            continue\n',
+        "    for spec in DOOR.values():\n        if False:\n            continue\n",
+        [
+            "test_promise.py",
+            "TheGrpcProjection.test_the_operations_served_are_those_with_a_body_not_internal_only",
+        ],
+    ),
+    (
+        "a loaded tracker's lock is its checkout's",
+        "dotdiw",
+        "    if adapter is not None and is_loaded(adapter):\n",
+        "    if False:\n",
+        [
+            "test_jira.py",
+            "TwoCheckoutsOnOneProject.test_a_write_from_another_checkout_waits_then_finds_it_changed",
+        ],
+    ),
+    (
+        "two moves of one workspace run at once",
+        "dotdiw",
+        "    with held_at(os.path.join(ws, MIGRATION_LOCK)) as held:\n",
+        "    with contextlib.nullcontext(True) as held:\n",
+        [
+            "test_jira.py",
+            "OneMoveOfAWorkspaceAtATime.test_a_second_move_waits_and_makes_nothing_the_first_made",
+        ],
+    ),
+    (
+        "gRPC reads a value's empty text as none given",
+        "dotdiw",
+        "    for name in sorted(kind.__required_keys__ - out.keys()) if within else []:\n",
+        "    for name in []:\n",
+        [
+            "test_dotdiw.py",
+            "ServedOverGrpc.test_an_empty_text_in_a_value_is_given",
+        ],
+    ),
+    (
+        "a process keeps the checkout's choice for every request",
+        "dotdiw",
+        "    if stamp is not None and known is not None and known[0] == stamp:\n        return known[1]\n",
+        "    if known is not None:\n        return known[1]\n",
+        [
+            "test_jira.py",
+            "OneTrackerForARequest.test_a_choice_made_on_the_command_line_holds_for_the_next_request",
+        ],
+    ),
+    (
+        "a request finds the checkout's tracker again at each step",
+        "dotdiw",
+        "    held = scope.trackers if scope is not None else {}\n    if root not in held:\n",
+        "    held = scope.trackers if scope is not None else {}\n    if True:\n",
+        [
+            "test_jira.py",
+            "AWriteKeepsTheTrackerItResolved.test_a_tracker_found_by_its_store_holds_for_the_write",
+        ],
+    ),
+    (
+        "a choice written leaves the tracker the request found",
+        "dotdiw",
+        "        scope.workspaces.pop(root, None)\n        scope.trackers.pop(root, None)\n",
+        "        scope.workspaces.pop(root, None)\n",
+        [
+            "test_jira.py",
+            "OneAdoptionOfACheckoutAtATime.test_an_adoption_naming_no_tracker_keeps_the_one_chosen_meanwhile",
+        ],
+    ),
+    (
+        "an adoption keeps the key it read before it held the checkout",
+        "dotdiw",
+        '        forget_workspace(root)\n        prefix = request.get("prefix")\n',
+        '        prefix = request.get("prefix")\n',
+        [
+            "test_dotdiw.py",
+            "OneAdoptionOfACheckoutAtATime.test_a_second_adoption_finds_the_key_written_since_it_looked",
+        ],
+    ),
+    (
+        "two adoptions of a checkout run at once",
+        "dotdiw",
+        "    with held_at(lock, until_logged=False) as held:\n",
+        "    with contextlib.nullcontext(True) as held:\n",
+        [
+            "test_dotdiw.py",
+            "OneAdoptionOfACheckoutAtATime.test_a_second_adoption_waits_for_the_first_to_write_its_key",
+        ],
+    ),
+    (
+        "init writes an earlier version's choice unheld",
+        "dotdiw",
+        "        with held_at(adoption_lock(root), until_logged=False) as held:\n",
+        "        with contextlib.nullcontext(True) as held:\n",
+        [
+            "test_dotdiw.py",
+            "AnUpgradeKeepsAChoiceMadeMeanwhile.test_a_switch_while_init_holds_the_checkout_waits",
+        ],
+    ),
+    (
+        "init writes a choice without reading it again once it holds the checkout",
+        "dotdiw",
+        "            if held and tracker_name(root) is None:\n",
+        "            if held:\n",
+        [
+            "test_dotdiw.py",
+            "AnUpgradeKeepsAChoiceMadeMeanwhile.test_a_switch_before_init_holds_the_checkout_stands",
+        ],
+    ),
+    (
+        "an adoption told of its git directory through GIT_DIR locks another",
+        "dotdiw",
+        '    common = git(["rev-parse", "--git-common-dir"], root).strip()\n',
+        '    common = os.path.dirname(checkout_config(root) or "")\n',
+        [
+            "test_dotdiw.py",
+            "OneAdoptionOfACheckoutAtATime.test_an_adoption_told_the_git_directory_waits_all_the_same",
+        ],
+    ),
+    (
+        "a move opens its target unheld by an adoption",
+        "dotdiw",
+        "        with held_at(adoption_lock(root), until_logged=False) as adopting:\n",
+        "        with contextlib.nullcontext(True) as adopting:\n",
+        [
+            "test_jira.py",
+            "OneFirstOpenOfACheckoutsTracker.test_an_adoption_while_a_move_opens_jira_keeps_the_moves_project",
+        ],
+    ),
+    (
+        "a create under a parent given no ETags is made unheld",
+        "dotdiw",
+        '        if etags or request.get("parent")\n',
+        "        if etags\n",
+        [
+            "test_jira.py",
+            "WorkMadeUnderAnIssueWhileItCloses.test_a_child_named_while_its_parent_closes_waits",
+        ],
+    ),
+    (
+        "a pour makes its steps unheld",
+        "dotdiw",
+        '    with held_for_writing(root, request.get("tracker")) as held:\n',
+        "    with contextlib.nullcontext(True) as held:\n",
+        [
+            "test_jira.py",
+            "WorkMadeUnderAnIssueWhileItCloses.test_a_step_closed_while_its_pour_runs_waits",
+        ],
+    ),
+    (
+        "init brings a store up to date unheld",
+        "dotdiw",
+        '            held_for_writing(root, request.get("tracker"), until_logged=False)\n',
+        "            contextlib.nullcontext(True)\n",
+        [
+            "test_dotdiw.py",
+            "AnUpgradeWaitsForAWriteHeldToWhatItRead.test_init_waits_for_a_write_between_its_compare_and_its_write",
+        ],
+    ),
+    (
+        "a quick capture passed through runs unheld",
+        "dotdiw",
+        'TRACKER_HELD_AS_IT_IS = ("q", "reopen")\n',
+        'TRACKER_HELD_AS_IT_IS = ("reopen",)\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapterHeldToWhatWasRead.test_a_quick_capture_under_an_issue_waits_for_its_close",
+        ],
+    ),
+    (
+        "a reopen passed through runs unheld",
+        "dotdiw",
+        'TRACKER_HELD_AS_IT_IS = ("q", "reopen")\n',
+        'TRACKER_HELD_AS_IT_IS = ("q",)\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapterHeldToWhatWasRead.test_a_reopen_under_an_issue_waits_for_its_close",
+        ],
+    ),
+    (
+        "a command read whole is held by its first word",
+        "dotdiw",
+        '            asks, closing_words, edges, writes = what_the_command_asks(reading)\n            named = str((reading.get("command") or [""])[0])\n',
+        "            asks, closing_words, edges, writes = what_the_command_asks(reading)\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapterHeldToWhatWasRead.test_a_reopen_under_an_issue_waits_for_its_close",
+        ],
+    ),
+    (
+        "a move writes to its target unheld",
+        "dotdiw",
+        "        with held_for_writing(root, dst) as writing:\n",
+        "        with contextlib.nullcontext(True) as writing:\n",
+        [
+            "test_jira.py",
+            "AMoveWritesUnderTheTargetsLock.test_a_resumed_move_cannot_write_between_a_compare_and_its_write",
+        ],
+    ),
+    (
+        "a move lets go of its target between its writes",
+        "dotdiw",
+        '        with held_for_writing(root, dst) as writing:\n            if not writing:\n                return {"status": "failed", "exitCode": 1, "summary": MOVE_BUSY % dst}\n            if told:\n                save()  # the stores it was told, kept though nothing is written\n\n            def written(operation: str, fields: dict[str, Any]) -> Response:\n                return invoke_tracker(operation, dict(fields, root=root, tracker=dst))\n',
+        '        with contextlib.nullcontext(True) as writing:\n            if not writing:\n                return {"status": "failed", "exitCode": 1, "summary": MOVE_BUSY % dst}\n            if told:\n                save()  # the stores it was told, kept though nothing is written\n\n            def written(operation: str, fields: dict[str, Any]) -> Response:\n                with held_for_writing(root, dst, until_logged=False) as held:\n                    if not held:\n                        return dict(TRACKER_BUSY)\n                    return invoke_tracker(operation, dict(fields, root=root, tracker=dst))\n',
+        [
+            "test_jira.py",
+            "AMoveWritesUnderTheTargetsLock.test_a_step_closed_before_the_move_makes_it_need_its_build_waits",
+        ],
+    ),
+    (
+        "a stopped move's step closes",
+        "dotdiw",
+        "    stopped = stopped_here(common) if closing_words else {}\n",
+        "    stopped = {}\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_step_it_made_stays_unclosed_until_a_run_finishes_it",
+        ],
+    ),
+    (
+        "a stopped move's step closes through the pass-through",
+        "dotdiw",
+        "    stopped = stopped_here(common) if closing_words else {}\n",
+        "    stopped = stopped_here(common) if closing_words and every is None else {}\n",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_an_issue_a_stopped_move_made_closes_once_it_is_finished",
+        ],
+    ),
+    (
+        "a close with no pass-through is not held to a stopped move",
+        "dotdiw",
+        '            common, plain if operation == "operation.close-item" else None, edges, None, (), holds\n',
+        "            common, None, edges, None, (), holds\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_step_it_made_stays_unclosed_until_a_run_finishes_it",
+        ],
+    ),
+    (
+        "ready gives a stopped move's steps",
+        "dotdiw",
+        '    if stopped:\n        items = [i for i in answer.get("items") or [] if i["id"] not in stopped]\n',
+        '    if False:\n        items = [i for i in answer.get("items") or [] if i["id"] not in stopped]\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_step_it_made_stays_unclosed_until_a_run_finishes_it",
+        ],
+    ),
+    (
+        "a loaded tracker holds only this checkout's stopped moves",
+        "dotdiw",
+        '        os.path.join(os.path.expanduser(DOTDIW_HOME), "*")\n',
+        "        ws\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_another_checkout_on_the_project_cannot_close_it_either",
+        ],
+    ),
+    (
+        "a shipped tracker holds no stopped move",
+        "dotdiw",
+        "        else ws\n    )\n",
+        "        else os.devnull\n    )\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_under_local_the_checkouts_own_record_holds_it",
+        ],
+    ),
+    (
+        "a stopped move holds what it settled",
+        "dotdiw",
+        "        made = [str(m) for s, m in ids.items() if s not in settled]\n",
+        "        made = [str(m) for s, m in ids.items()]\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_step_it_made_stays_unclosed_until_a_run_finishes_it",
+        ],
+    ),
+    (
+        "a close blocked by a move is said in bd's words",
+        "dotdiw",
+        '            if answer.get("reason") == "blocked" and answer.get("blockedBy"):\n',
+        '            if answer.get("reason") == "blocked":\n',
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_an_issue_a_stopped_move_made_closes_once_it_is_finished",
+        ],
+    ),
+    (
+        "jira names no issue it made and could not read back",
+        "trackers/jira.py",
+        "        out = dict(out, madeId=key)\n",
+        "        out = dict(out)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_and_could_not_read_back_is_finished_not_made_again",
+        ],
+    ),
+    (
+        "a move forgets an item the target made and could not read back",
+        "dotdiw",
+        '                    if made.get("madeId"):\n',
+        "                    if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_and_could_not_read_back_is_finished_not_made_again",
+        ],
+    ),
+    (
+        "a move takes an item made half for whole",
+        "dotdiw",
+        '                        unread.append(item["id"])\n',
+        "                        pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_without_its_step_is_made_again_once_deleted",
+        ],
+    ),
+    (
+        "a move reads no item it made unread from its source",
+        "dotdiw",
+        '                if item["id"] in settled and not deleted:\n',
+        '                if item["id"] in ids and not deleted:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_unfinished_item_is_taken_as_jira_shows_it_while_its_search_lags",
+        ],
+    ),
+    (
+        "a move finishes an item that holds not what its make gave",
+        "dotdiw",
+        "                if lacks:\n",
+        "                if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_without_its_step_is_made_again_once_deleted",
+        ],
+    ),
+    (
+        "a move holds an item gone from the target",
+        "dotdiw",
+        '                if there.get("reason") == "item-not-found":\n                    if ids[ident] not in deleted:\n',
+        "                if False:\n                    if ids[ident] not in deleted:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_without_its_step_is_made_again_once_deleted",
+        ],
+    ),
+    (
+        "a move keeps the id of an item gone from the target",
+        "dotdiw",
+        "                for ident in lost:\n                    forget(ident)\n",
+        "                for ident in lost:\n                    pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_without_its_step_is_made_again_once_deleted",
+        ],
+    ),
+    (
+        "a move reads an item it finished back on every run",
+        "dotdiw",
+        '                unread.remove(ident)\n                (record.get("madeAs") or {}).pop(ident, None)\n                save()\n',
+        '                (record.get("madeAs") or {}).pop(ident, None)\n                save()\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_and_could_not_read_back_is_finished_not_made_again",
+        ],
+    ),
+    (
+        "a move reads back no step",
+        "dotdiw",
+        'MADE_ONLY_BY_A_MAKE = ("description", "verifyUsing", "step", "claim", "run")\n',
+        'MADE_ONLY_BY_A_MAKE = ("description", "verifyUsing", "claim", "run")\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_without_its_step_is_made_again_once_deleted",
+        ],
+    ),
+    (
+        "a move from a store with unfinished imports runs",
+        "dotdiw",
+        "            if half:\n",
+        "            if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_from_jira_waits_for_the_move_into_it_to_finish",
+        ],
+    ),
+    (
+        "a move into another store holds items here",
+        "dotdiw",
+        '        if here and isinstance(record.get("store"), str) and record["store"] != here:\n',
+        "        if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_on_another_site_is_no_part_of_this_ones_move",
+        ],
+    ),
+    (
+        "a move records no store",
+        "dotdiw",
+        '        record["fromStore"], record["store"] = source_store, here\n',
+        '        record["fromStore"], record["store"] = source_store, None\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_on_another_site_is_no_part_of_this_ones_move",
+        ],
+    ),
+    (
+        "a stopped move asks the tracker no store",
+        "dotdiw",
+        '    here = kept() if any(isinstance(r.get("store"), str) for r, _, _ in unsettled) else None\n',
+        "    here = None\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_on_another_site_is_no_part_of_this_ones_move",
+        ],
+    ),
+    (
+        "jira names no store",
+        "trackers/jira.py",
+        '        "storeId": "%s/projects/%s" % (cfg[0], project) if cfg is not None and project else None,\n',
+        '        "storeId": None,\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_on_another_site_is_no_part_of_this_ones_move",
+        ],
+    ),
+    (
+        "a move records no checkout",
+        "dotdiw",
+        '        record["checkout"] = root\n',
+        "        pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_and_could_not_read_back_is_finished_not_made_again",
+        ],
+    ),
+    (
+        "a stopped move says not where to run it again",
+        "dotdiw",
+        '            again = " in %s" % checkout\n',
+        '            again = ""\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_step_it_made_stays_unclosed_until_a_run_finishes_it",
+        ],
+    ),
+    (
+        "ready reads unheld",
+        "dotdiw",
+        '        else held_for_writing(common.get("root"), common.get("tracker"), until_logged=False)\n    ) as held:\n',
+        "        else contextlib.nullcontext(True)\n    ) as held:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_ready_reads_the_issues_and_the_record_at_one_moment",
+        ],
+    ),
+    (
+        "a pass-through's ready lists a stopped move's issues",
+        "dotdiw",
+        "            stopped = stopped_here(common) if ready else {}\n",
+        "            stopped = {}\n",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_an_issue_a_stopped_move_made_closes_once_it_is_finished",
+        ],
+    ),
+    (
+        "a pass-through's ready is refused whole while a move stands",
+        "dotdiw",
+        "            if stopped and read_in_records(argv):\n",
+        "            if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_an_issue_a_stopped_move_made_closes_once_it_is_finished",
+        ],
+    ),
+    (
+        "a pass-through's ready with options runs while a move stands",
+        "dotdiw",
+        "            if stopped:\n                source, target, again = stopped[sorted(stopped)[0]]\n                said = READY_UNFINISHED % (\n",
+        "            if False:\n                source, target, again = stopped[sorted(stopped)[0]]\n                said = READY_UNFINISHED % (\n",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_an_issue_a_stopped_move_made_closes_once_it_is_finished",
+        ],
+    ),
+    (
+        "a move into another store reuses what it made there",
+        "dotdiw",
+        '        elsewhere = held_to("to", here)\n',
+        "        elsewhere = None\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_run_of_the_move_on_another_site_writes_nothing_there",
+        ],
+    ),
+    (
+        "a move finished in another store says to finish it",
+        "dotdiw",
+        "                    % (src, dst, some_of(unfinished), recorded, dst, where, dst, recorded)\n                    if unfinished\n",
+        "                    % (src, dst, some_of(unfinished), recorded, dst, where, dst, recorded)\n                    if True\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_finished_on_one_site_writes_nothing_on_another",
+        ],
+    ),
+    (
+        "a move holds a record naming no store to the store named now",
+        "dotdiw",
+        "            recorded = record.get(key) or told\n",
+        "            recorded = record.get(key) or told or now\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_that_names_no_store_is_held_to_one_only_once_told",
+        ],
+    ),
+    (
+        "a move takes an item not found for deleted",
+        "dotdiw",
+        "                    if ids[ident] not in deleted:\n                        return not_found(ident)\n                    lost.add(ident)\n",
+        "                    lost.add(ident)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_cannot_find_is_held_until_it_reads_or_its_deletion_is_said",
+        ],
+    ),
+    (
+        "a move told of a deletion makes again what it reads",
+        "dotdiw",
+        '                if there.get("reason") == "item-not-found":\n                    if ids[ident] not in deleted:\n',
+        '                if there.get("reason") == "item-not-found" or ids[ident] in deleted:\n                    if ids[ident] not in deleted:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_cannot_find_is_held_until_it_reads_or_its_deletion_is_said",
+        ],
+    ),
+    (
+        "a move hears no deletion",
+        "dotdiw",
+        '        deleted = set(request.get("deletedIds") or [])  # deleted in the target, the run is told\n',
+        "        deleted: set[str] = set()\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_without_its_step_is_made_again_once_deleted",
+        ],
+    ),
+    (
+        "the journey drops the deletions",
+        "dotdiw",
+        '            "deletedIds": request.get("deletedIds"),\n',
+        '            "deletedIds": None,\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_without_its_step_is_made_again_once_deleted",
+        ],
+    ),
+    (
+        "the command line drops --deleted",
+        "dotdiw",
+        "                if told is not None:\n                    told.append(value)\n",
+        "                if told is not None:\n                    pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_made_without_its_step_is_made_again_once_deleted",
+        ],
+    ),
+    (
+        "jira asks no project of an issue",
+        "trackers/jira.py",
+        '    "description,project,statuscategorychangedate"\n',
+        '    "description,statuscategorychangedate"\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira shows an issue of another project",
+        "trackers/jira.py",
+        'def jira_show(request: Request) -> Response:\n    if config() is None:\n        return dict(NOT_CONFIGURED)\n    project, refused = opened(request.get("root"))\n    if refused or not project:\n        return refused or dict(NO_WORKSPACE)\n    key = request["id"]\n    try:\n        issue = fetch_here(key, project)\n',
+        'def jira_show(request: Request) -> Response:\n    if config() is None:\n        return dict(NOT_CONFIGURED)\n    project, refused = opened(request.get("root"))\n    if refused or not project:\n        return refused or dict(NO_WORKSPACE)\n    key = request["id"]\n    try:\n        issue = fetch(key)\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira closes an issue of another project",
+        "trackers/jira.py",
+        'def jira_close(request: Request) -> Response:\n    if config() is None:\n        return dict(NOT_CONFIGURED)\n    project, refused = opened(request.get("root"))\n    if refused or not project:\n        return refused or dict(NO_WORKSPACE)\n    key = request["id"]\n    try:\n        issue = fetch_here(key, project)\n',
+        'def jira_close(request: Request) -> Response:\n    if config() is None:\n        return dict(NOT_CONFIGURED)\n    project, refused = opened(request.get("root"))\n    if refused or not project:\n        return refused or dict(NO_WORKSPACE)\n    key = request["id"]\n    try:\n        issue = fetch(key)\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira records values on an issue of another project",
+        "trackers/jira.py",
+        'def jira_record_values(request: Request) -> Response:\n    """operation.record-values: the values given, kept whole in one issue\n    property named after every write the issue holds, so that a write is\n    there whole or not at all and is read after them: a write cut short\n    reads as it was, writers of the same labels at once leave one write\n    whole, and a writer of other labels keeps what it recorded. Values more\n    than one property holds are kept in as few as hold them, a text longer\n    than one holds cut in pieces, each named after the one before and all\n    one write (keep_values), read whole or not at all."""\n    if config() is None:\n        return dict(NOT_CONFIGURED)\n    project, refused = opened(request.get("root"))\n    if refused or not project:\n        return refused or dict(NO_WORKSPACE)\n    key = request["id"]\n    try:\n        issue = fetch_here(key, project)',
+        'def jira_record_values(request: Request) -> Response:\n    """operation.record-values: the values given, kept whole in one issue\n    property named after every write the issue holds, so that a write is\n    there whole or not at all and is read after them: a write cut short\n    reads as it was, writers of the same labels at once leave one write\n    whole, and a writer of other labels keeps what it recorded. Values more\n    than one property holds are kept in as few as hold them, a text longer\n    than one holds cut in pieces, each named after the one before and all\n    one write (keep_values), read whole or not at all."""\n    if config() is None:\n        return dict(NOT_CONFIGURED)\n    project, refused = opened(request.get("root"))\n    if refused or not project:\n        return refused or dict(NO_WORKSPACE)\n    key = request["id"]\n    try:\n        issue = fetch(key)',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira updates an issue of another project",
+        "trackers/jira.py",
+        '        issue = fetch_here(key, project)\n        if issue is None:\n            return {\n                "status": "failed",\n                "reason": "item-not-found",\n                "exitCode": 1,\n                "summary": "%s names no issue here." % key,\n            }\n        key = issue["key"]  # as Jira gives it, which reads a key in any case\n        drop =',
+        '        issue = fetch(key)\n        if issue is None:\n            return {\n                "status": "failed",\n                "reason": "item-not-found",\n                "exitCode": 1,\n                "summary": "%s names no issue here." % key,\n            }\n        key = issue["key"]  # as Jira gives it, which reads a key in any case\n        drop =',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira sets a parent of another project",
+        "trackers/jira.py",
+        '            above = fetch_here(request["parent"], project)\n',
+        '            above = fetch(request["parent"])\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira links an issue of another project",
+        "trackers/jira.py",
+        "            issue = fetch_here(one, project)\n",
+        "            issue = fetch(one)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira closes the root another project's issue stands under",
+        "trackers/jira.py",
+        '        above = fetch_here(parent, project)\n        if above is not None and record(above)["kind"] == "root":\n',
+        '        above = fetch(parent)\n        if above is not None and record(above)["kind"] == "root":\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira closes the root another project's issue was poured in",
+        "trackers/jira.py",
+        "        above = fetch_here(run, project)\n        if above is not None:\n            roots.append(above)\n",
+        "        above = fetch(run)\n        if above is not None:\n            roots.append(above)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "a move from another store reuses what it read",
+        "dotdiw",
+        '            elsewhere = held_to("from", source_store)\n',
+        "            elsewhere = None\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_stopped_move_from_one_site_finishes_from_it_alone",
+        ],
+    ),
+    (
+        "a move finished from another store says to finish it",
+        "dotdiw",
+        "                    % (src, dst, recorded, some_of(unfinished), src, where, src, recorded)\n                    if unfinished\n",
+        "                    % (src, dst, recorded, some_of(unfinished), src, where, src, recorded)\n                    if True\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_from_one_site_is_no_move_from_another",
+        ],
+    ),
+    (
+        "a move records no store read from",
+        "dotdiw",
+        '        record["fromStore"], record["store"] = source_store, here\n',
+        '        record["fromStore"], record["store"] = None, here\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_from_one_site_is_no_move_from_another",
+        ],
+    ),
+    (
+        "a move takes a store it is told over the record's",
+        "dotdiw",
+        "            recorded = record.get(key) or told\n",
+        "            recorded = told or record.get(key)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_run_of_the_move_on_another_site_writes_nothing_there",
+        ],
+    ),
+    (
+        "a move keeps no store it is told",
+        "dotdiw",
+        '        told = bool(ids) and (record.get("fromStore"), record.get("store")) != (source_store, here)\n',
+        "        told = False\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_told_its_store_keeps_it_though_nothing_is_written",
+        ],
+    ),
+    (
+        "a move hears the store told of the other side",
+        "dotdiw",
+        '                ("fromStore", src, request.get("fromStore"))\n',
+        '                ("fromStore", src, request.get("toStore"))\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_told_its_store_keeps_it_though_nothing_is_written",
+        ],
+    ),
+    (
+        "a move names a store where the target names none",
+        "dotdiw",
+        "            where = now or STORE_UNNAMED\n",
+        "            where = now\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_target_that_names_no_store_now_is_held_to_none",
+        ],
+    ),
+    (
+        "a move asks the store of the other side",
+        "dotdiw",
+        '                    ("read from", "--from-store") if side == "from" else ("wrote to", "--to-store")\n',
+        '                    ("read from", "--from-store") if side == "to" else ("wrote to", "--to-store")\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_that_names_no_store_is_held_to_one_only_once_told",
+        ],
+    ),
+    (
+        "the journey drops the store written to",
+        "dotdiw",
+        '            "toStore": request.get("toStore"),\n',
+        '            "toStore": None,\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_that_names_no_store_is_held_to_one_only_once_told",
+        ],
+    ),
+    (
+        "the journey drops the store read from",
+        "dotdiw",
+        '            "fromStore": request.get("fromStore"),\n',
+        '            "fromStore": None,\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_told_its_store_keeps_it_though_nothing_is_written",
+        ],
+    ),
+    (
+        "the command line drops --to-store",
+        "dotdiw",
+        "                elif field:\n                    stores[field] = value\n",
+        "                elif field:\n                    pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_that_names_no_store_is_held_to_one_only_once_told",
+        ],
+    ),
+    (
+        "the command line drops --from-store=",
+        "dotdiw",
+        '                option, eq, value = words[i].partition("=")\n',
+        '                option, eq, value = words[i], "", ""\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_that_names_no_store_read_from_is_held_to_one_only_once_told",
+        ],
+    ),
+    (
+        "jira makes an issue under a parent of another project",
+        "trackers/jira.py",
+        "                above = fetch_here(request[field], project) if request.get(field) else None\n",
+        "                above = fetch(request[field]) if request.get(field) else None\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira makes an issue in a run of another project",
+        "trackers/jira.py",
+        '            for field in ("parent", "run"):\n',
+        '            for field in ("parent",):\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira checks no parent a create names",
+        "trackers/jira.py",
+        '    if config() is not None and (request.get("parent") or request.get("run")):\n',
+        "    if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira counts only its project's children",
+        "trackers/jira.py",
+        '    found = {i["key"]: record(i) for i in search("parent = %s ORDER BY created ASC" % text(key))}\n',
+        '    found = {\n        i["key"]: record(i)\n        for i in search(\n            "project = %s AND parent = %s ORDER BY created ASC" % (text(project), text(key))\n        )\n    }\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
+        ],
+    ),
+    (
+        "jira's ready takes another project's need for open",
+        "trackers/jira.py",
+        '        for n in sorted({n for i in items for n in i["needs"]} - set(status)):\n',
+        "        for n in []:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_waiting_on_a_closed_issue_of_another_project_is_ready",
+        ],
+    ),
+    (
+        "jira's ready takes another project's need for closed",
+        "trackers/jira.py",
+        '            status[n] = record(issue)["status"] if issue is not None else "open"\n',
+        '            status[n] = "closed"\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_waiting_on_a_closed_issue_of_another_project_is_ready",
+        ],
+    ),
+    (
+        "a move settles nothing before its closes",
+        "dotdiw",
+        '            done = [i["id"] for i in unsettled if i.get("status") != "closed" or i["id"] in relink]\n',
+        "            done: list[str] = []\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_close_the_target_refuses_holds_only_what_is_closed",
+        ],
+    ),
+    (
+        "a move settles nothing as it closes",
+        "dotdiw",
+        '                        settle([item["id"]])\n                        open_there.discard(copy_id)\n                        save()\n',
+        "                        pass\n",
+        [
+            "test_tracker.py",
+            "AnInterruptedMove.test_a_finished_move_writes_nothing_again",
+        ],
+    ),
+    (
+        "a move holds what it is told the source deleted",
+        "dotdiw",
+        "            settled.extend(missing)\n",
+        "            pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_item_the_source_holds_no_more_stays_held_until_said",
+        ],
+    ),
+    (
+        "a move says nothing of what it left as made",
+        "dotdiw",
+        '            if said.get("leftAsMade"):\n',
+        "            if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_item_the_source_holds_no_more_stays_held_until_said",
+        ],
+    ),
+    (
+        "a move reads back only what it could not read",
+        "dotdiw",
+        "                if i in missing or i in byid and (i not in settled or ids[i] in deleted)\n",
+        "                if i in unread and i in byid\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_deleted_in_jira_is_made_again_once_said",
+        ],
+    ),
+    (
+        "a move keeps what it is told was deleted",
+        "dotdiw",
+        "                    lost.add(ident)\n                    continue\n",
+        "                    continue\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_deleted_in_jira_is_made_again_once_said",
+        ],
+    ),
+    (
+        "a move reads not whole what it makes again",
+        "dotdiw",
+        '                if item["id"] in settled and not deleted:\n',
+        '                if item["id"] in settled:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_finished_issue_said_deleted_is_made_again",
+        ],
+    ),
+    (
+        "a move makes again a parent what it made stands under",
+        "dotdiw",
+        "                for ident in under:\n                    if ident not in unparented:\n                        unparented.append(ident)\n",
+        "                for ident in under:\n                    pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_issues_in_the_run_of_a_deleted_one_are_made_again_with_it",
+        ],
+    ),
+    (
+        "a move makes again the root of a run it made",
+        "dotdiw",
+        "                if in_run:\n",
+        "                if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_issues_in_the_run_of_a_deleted_one_are_made_again_with_it",
+        ],
+    ),
+    (
+        "a move says nothing of what it leaves out",
+        "dotdiw",
+        '            if said.get("leftOut"):\n',
+        "            if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_says_what_it_leaves_out_of_another_project",
+        ],
+    ),
+    (
+        "a move says nothing of a parent it leaves out",
+        "dotdiw",
+        '                                ("parent", "stands under"),\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_says_what_it_leaves_out_of_another_project",
+        ],
+    ),
+    (
+        "jira puts a parent into a query as it is given",
+        "trackers/jira.py",
+        '            jql += " AND parent = %s" % text(under)\n',
+        '            jql += " AND parent = %s" % under\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_listing_under_a_parent_reaches_no_other_project",
+        ],
+    ),
+    (
+        "jira lets a quote end a value in a query",
+        "trackers/jira.py",
+        '    return \'"%s"\' % value.replace("\\\\", "\\\\\\\\").replace(\'"\', \'\\\\"\')\n',
+        '    return \'"%s"\' % value.replace("\\\\", "\\\\\\\\")\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_listing_under_a_parent_reaches_no_other_project",
+        ],
+    ),
+    (
+        "jira lets a backslash end a value in a query",
+        "trackers/jira.py",
+        '    return \'"%s"\' % value.replace("\\\\", "\\\\\\\\").replace(\'"\', \'\\\\"\')\n',
+        "    return '\"%s\"' % value.replace('\"', '\\\\\"')\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_listing_under_a_parent_reaches_no_other_project",
+        ],
+    ),
+    (
+        "a move takes its listing's word for what is gone",
+        "dotdiw",
+        "            for ident in missing + aside + unlisted:\n",
+        "            for ident in []:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_lists_late_stays_held_until_it_lists_it",
+        ],
+    ),
+    (
+        "a move leaves as made what the source may yet show",
+        "dotdiw",
+        "                elif ident in missing:\n",
+        "                elif False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_item_the_source_holds_no_more_stays_held_until_said",
+        ],
+    ),
+    (
+        "a move hears of no deletion in the source",
+        "dotdiw",
+        '        source_gone = set(request.get("sourceGoneIds") or [])  # deleted there, as told\n',
+        "        source_gone: set[str] = set()\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_item_the_source_holds_no_more_stays_held_until_said",
+        ],
+    ),
+    (
+        "the journey drops the deletions in the source",
+        "dotdiw",
+        '            "sourceGoneIds": request.get("sourceGoneIds"),\n',
+        '            "sourceGoneIds": None,\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_item_the_source_holds_no_more_stays_held_until_said",
+        ],
+    ),
+    (
+        "the command line drops --source-gone=",
+        "dotdiw",
+        '                told = {"--deleted": deleted, "--source-gone": gone}.get(option)\n',
+        '                told = {"--deleted": deleted, "--source-gone": deleted}.get(option)\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_item_the_source_holds_no_more_stays_held_until_said",
+        ],
+    ),
+    (
+        "the command line takes --source-gone for --deleted",
+        "dotdiw",
+        '                told = {"--deleted": deleted, "--source-gone": gone}.get(option)\n',
+        '                told = {"--deleted": deleted, "--source-gone": deleted}.get(option)\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_item_the_source_holds_no_more_stays_held_until_said",
+        ],
+    ),
+    (
+        "a move records nothing gone",
+        "dotdiw",
+        "            gone.extend(missing)\n",
+        "            pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_item_the_source_holds_no_more_stays_held_until_said",
+        ],
+    ),
+    (
+        "a move asks no need its listing lacks",
+        "dotdiw",
+        '                    {n for i in to_write for n in i.get("needs") or []}\n',
+        "                    set()\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_jira_lists_late_stops_the_move_before_it_writes",
+        ],
+    ),
+    (
+        "a move asks no parent its listing lacks",
+        "dotdiw",
+        '                    | {i["parent"] for i in to_write if i.get("parent")}\n',
+        "                    | set()\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_parent_jira_lists_late_stops_the_move_before_it_writes",
+        ],
+    ),
+    (
+        "a move takes an item as its listing has it",
+        "dotdiw",
+        '                items[n] = cast(TrackerItem, dict(item, **shown["item"]))\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_takes_an_issue_as_jira_shows_it_not_as_its_search_has_it",
+        ],
+    ),
+    (
+        "a move reads back no finished item it is told was deleted",
+        "dotdiw",
+        "                if i in missing or i in byid and (i not in settled or ids[i] in deleted)\n",
+        "                if i in missing or i in byid and i not in settled\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_finished_issue_said_deleted_is_made_again",
+        ],
+    ),
+    (
+        "a move leaves settled what waited on what it makes again",
+        "dotdiw",
+        "                        settled.remove(ident)\n                        relink.append(ident)\n",
+        "                        pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_finished_issue_said_deleted_is_made_again",
+        ],
+    ),
+    (
+        "a move reads back nothing that stands on what it makes again",
+        "dotdiw",
+        "                for ident in sorted(set(waiting) | set(under)):\n",
+        "                for ident in []:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_the_command_given_names_all_the_run_was_told",
+        ],
+    ),
+    (
+        "the command a refusal gives leaves out what the run was told",
+        "dotdiw",
+        '                + [given("--deleted", t) for t in sorted(deleted | set(more))]\n',
+        '                + [given("--deleted", t) for t in sorted(set(more))]\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_the_command_given_names_all_the_run_was_told",
+        ],
+    ),
+    (
+        "a store splits in the command a refusal gives",
+        "dotdiw",
+        '                return "%s%s%s" % (flag, joined, shlex.quote(value))\n',
+        '                return "%s%s%s" % (flag, joined, value)\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_store_said_with_a_space_is_quoted_in_the_command_given",
+        ],
+    ),
+    (
+        "an id splits in the command a refusal gives",
+        "dotdiw",
+        '                + [given("--source-gone", t) for t in sorted(source_gone | set(more_gone))]\n',
+        '                + ["--source-gone %s" % t for t in sorted(source_gone | set(more_gone))]\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_id_with_a_space_is_one_word_in_the_command_given",
+        ],
+    ),
+    (
+        "a move says nothing of a deletion it made nothing again of",
+        "dotdiw",
+        '            unheard = sorted(deleted - set(said.get("deletedHeard") or []))\n            if unheard:\n',
+        '            unheard = sorted(deleted - set(said.get("deletedHeard") or []))\n            if False:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_run_says_what_it_was_told_and_had_nothing_to_do_of",
+        ],
+    ),
+    (
+        "a move says nothing of a source deletion it left nothing of",
+        "dotdiw",
+        '            unheard = sorted(source_gone - set(said.get("goneHeard") or []))\n            if unheard:\n',
+        '            unheard = sorted(source_gone - set(said.get("goneHeard") or []))\n            if False:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_run_says_what_it_was_told_and_had_nothing_to_do_of",
+        ],
+    ),
+    (
+        "jira keeps no issue it makes",
+        "trackers/jira.py",
+        '    wrote(request.get("root"), key, request.get("parent"), request.get("run"))\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_made_a_moment_ago_holds_its_parents_close_though_no_search_finds_it",
+        ],
+    ),
+    (
+        "jira keeps an issue without what it stands under",
+        "trackers/jira.py",
+        '    entry = {"site": cfg[0], "key": key, "above": sorted({a for a in above if a}), "at": now}\n',
+        '    entry = {"site": cfg[0], "key": key, "above": [], "at": now}\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_made_a_moment_ago_holds_its_parents_close_though_no_search_finds_it",
+        ],
+    ),
+    (
+        "jira reads by key nothing it wrote of late",
+        "trackers/jira.py",
+        "    for k in reversed(again):\n",
+        "    for k in []:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_made_a_moment_ago_holds_its_parents_close_though_no_search_finds_it",
+        ],
+    ),
+    (
+        "jira answers a root's close by a step a search has open",
+        "trackers/jira.py",
+        '            if k not in again and r["status"] != "closed":\n',
+        '            if r["status"] != "closed":\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_step_closed_right_after_its_pour_leaves_the_root_open",
+        ],
+    ),
+    (
+        "jira keeps no issue it closes",
+        "trackers/jira.py",
+        '        wrote(checkout, key, item.get("parent"), item.get("run"))\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_closed_or_opened_a_moment_ago_is_read_as_it_stands",
+        ],
+    ),
+    (
+        "jira keeps no issue it opens again",
+        "trackers/jira.py",
+        '        wrote(request.get("root"), key, request.get("parent") or was.get("parent"), was.get("run"))\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_closed_or_opened_a_moment_ago_is_read_as_it_stands",
+        ],
+    ),
+    (
+        "jira keeps an issue it moves without what it now stands under",
+        "trackers/jira.py",
+        '        wrote(request.get("root"), key, request.get("parent") or was.get("parent"), was.get("run"))\n',
+        '        wrote(request.get("root"), key, was.get("parent"), was.get("run"))\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_moved_under_another_a_moment_ago_holds_that_ones_close",
+        ],
+    ),
+    (
+        "jira's listing lacks what it wrote a moment ago",
+        "trackers/jira.py",
+        "        if key in have or (under and under not in above):\n            continue\n",
+        "        if True:\n            continue\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_made_a_moment_ago_is_listed_and_moved_though_no_search_finds_it",
+        ],
+    ),
+    (
+        "jira lists another project's issue it wrote",
+        "trackers/jira.py",
+        "        fresh = fetch_here(key, project)\n        if fresh is not None and not (under",
+        "        fresh = fetch(key)\n        if fresh is not None and not (under",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_an_issue_written_lately_and_moved_to_another_project_is_none_of_this_listing",
+        ],
+    ),
+    (
+        "jira forgets nothing it wrote",
+        "trackers/jira.py",
+        '            kept = [e for e in entries(fh) if e["at"] > now - RECENT_SECONDS]\n',
+        "            kept = entries(fh)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_was_written_longer_ago_than_a_search_lags_is_kept_no_more",
+        ],
+    ),
+    (
+        "jira reads what it wrote longer ago than a search lags",
+        "trackers/jira.py",
+        '        if e.get("site") == cfg[0] and e["at"] > time.time() - RECENT_SECONDS:\n',
+        '        if e.get("site") == cfg[0]:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_was_written_longer_ago_than_a_search_lags_is_kept_no_more",
+        ],
+    ),
+    (
+        "jira reads another site's writes as this one's",
+        "trackers/jira.py",
+        '        if e.get("site") == cfg[0] and e["at"] > time.time() - RECENT_SECONDS:\n',
+        '        if e["at"] > time.time() - RECENT_SECONDS:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_was_written_longer_ago_than_a_search_lags_is_kept_no_more",
+        ],
+    ),
+    (
+        "jira reads a line that is no write",
+        "trackers/jira.py",
+        '        if isinstance(entry, dict) and isinstance(entry.get("at"), (int, float)):\n',
+        "        if True:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_was_written_longer_ago_than_a_search_lags_is_kept_no_more",
+        ],
+    ),
+    (
+        "a move asks the source of what the run says is gone from it",
+        "dotdiw",
+        "                if ident in source_gone:\n                    continue  # gone from the source, as the run is told, whatever it shows\n",
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_jira_shows_and_lists_no_more_is_gone_once_the_run_is_told",
+        ],
+    ),
+    (
+        "local's close closes in its wake what a move holds",
+        "dotdiw",
+        '        if item["id"] in keep:\n            continue\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_held_root_stays_open_when_an_item_of_its_run_left_as_made_is_closed",
+        ],
+    ),
+    (
+        "local's close reads nothing to keep open",
+        "dotdiw",
+        '                list(request.get("keepOpen") or []),\n',
+        "                [],\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_held_root_stays_open_when_an_item_of_its_run_left_as_made_is_closed",
+        ],
+    ),
+    (
+        "the closes that follow close what a move holds",
+        "dotdiw",
+        "            if up in done or up in keep:\n",
+        "            if up in done:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_held_root_stays_open_when_an_item_of_its_run_left_as_made_is_closed",
+        ],
+    ),
+    (
+        "a close is told of nothing to keep open",
+        "dotdiw",
+        "                            keepOpen=holds or None,\n",
+        "                            keepOpen=None,\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_held_root_stays_open_when_an_item_of_its_run_left_as_made_is_closed",
+        ],
+    ),
+    (
+        "the guard says nothing of what a move holds",
+        "dotdiw",
+        "        holds.extend(sorted(stopped))\n",
+        "        pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_held_root_stays_open_when_an_item_of_its_run_left_as_made_is_closed",
+        ],
+    ),
+    (
+        "jira's close closes in its wake what a move holds",
+        "trackers/jira.py",
+        '        if root["id"] in keep:\n            continue  # one to keep open: nothing closes it in the wake of this close\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_root_held_to_wait_on_an_issue_made_again_stays_open_in_the_wake_of_its_run",
+        ],
+    ),
+    (
+        "a root the tracker closed of its own accord, held by a move, stays closed",
+        "dotdiw",
+        "        if ident in held and ident not in named and ident not in tried:\n",
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_a_root_a_stopped_move_holds_stays_open_when_its_last_step_closes",
+        ],
+    ),
+    (
+        "the pass-through's close hands on nothing to keep open",
+        "dotdiw",
+        '                common, closing, every, out.get("markedIds"), out.get("exitCode", 1) != 0, holds\n',
+        '                common, closing, every, out.get("markedIds"), out.get("exitCode", 1) != 0\n',
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_a_root_a_stopped_move_holds_stays_open_when_its_last_step_closes",
+        ],
+    ),
+    (
+        "the pass-through's guard says nothing of what a move holds",
+        "dotdiw",
+        "            common, closing_words, edges, every, writes, holds\n",
+        "            common, closing_words, edges, every, writes\n",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_a_root_a_stopped_move_holds_stays_open_when_its_last_step_closes",
+        ],
+    ),
+    (
+        "beads' close reads nothing to keep open",
+        "dotdiw",
+        '        [ident], marked or [], before, now, reopen, list(request.get("keepOpen") or [])\n',
+        "        [ident], marked or [], before, now, reopen, []\n",
+        [
+            "test_tracker.py",
+            "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter",
+        ],
+    ),
+    (
+        "jira holds a close to what stands under the key as it was typed",
+        "trackers/jira.py",
+        '        key = issue["key"]  # as Jira gives it, which reads a key in any case\n        item = record(issue)\n',
+        "        item = record(issue)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_key_in_another_case_is_the_issue_it_names",
+        ],
+    ),
+    (
+        "jira links issues under the keys as they were typed",
+        "trackers/jira.py",
+        '            ends.append(str(issue["key"]))\n',
+        "            ends.append(one)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_key_in_another_case_is_the_issue_it_names",
+        ],
+    ),
+    (
+        "jira makes an issue under its parent's key as it was typed",
+        "trackers/jira.py",
+        '                    request = dict(request, **{field: above["key"]})\n',
+        "                    pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_key_in_another_case_is_the_issue_it_names",
+        ],
+    ),
+    (
+        "jira moves an issue under its parent's key as it was typed",
+        "trackers/jira.py",
+        '            request = dict(request, parent=above["key"])\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_key_in_another_case_is_the_issue_it_names",
+        ],
+    ),
+    (
+        "jira lists under a parent's key as it was typed",
+        "trackers/jira.py",
+        '            under = above["key"] if above is not None else under\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_key_in_another_case_is_the_issue_it_names",
+        ],
+    ),
+    (
+        "jira leaves a close cut short without its reason",
+        "trackers/jira.py",
+        '            if request.get("closeReason") and not item.get("reason"):\n',
+        "            if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_close_cut_short_keeps_its_reason_on_the_next_run",
+        ],
+    ),
+    (
+        "jira writes a second reason on an issue closed with one",
+        "trackers/jira.py",
+        '            if request.get("closeReason") and not item.get("reason"):\n',
+        '            if request.get("closeReason"):\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_close_cut_short_keeps_its_reason_on_the_next_run",
+        ],
+    ),
+    (
+        "jira puts a key into a path as it is given",
+        "trackers/jira.py",
+        '    parts = "".join("/" + urllib.parse.quote(part, safe="") for part in (key,) + more)\n',
+        '    parts = "".join("/" + part for part in (key,) + more)\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_listing_under_a_parent_reaches_no_other_project",
+        ],
+    ),
+    (
+        "jira lists as a search has it what it wrote a moment ago",
+        "trackers/jira.py",
+        '        if issue["key"] in lately_written:\n',
+        "        if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_moved_under_another_a_moment_ago_is_listed_as_it_stands",
+        ],
+    ),
+    (
+        "a move asks no root of a run its listing lacks",
+        "dotdiw",
+        '                    | {i["run"] for i in to_write if i.get("run")}\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_the_root_of_a_run_jira_lists_late_stops_the_move_before_it_writes",
+        ],
+    ),
+    (
+        "a move says nothing of a run it leaves out",
+        "dotdiw",
+        '                                ("run", "is in the run of"),\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_says_what_it_leaves_out_of_another_project",
+        ],
+    ),
+    (
+        "the command a refusal gives leaves out the stores the run was told",
+        "dotdiw",
+        '                "--from-store": request.get("fromStore"),\n                "--to-store": request.get("toStore"),\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_each_command_given_names_the_stores_the_run_was_told",
+        ],
+    ),
+    (
+        "a move writes its status over what waited on what it makes again",
+        "dotdiw",
+        '                if item["id"] in relink:\n                    continue\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_closed_in_jira_stays_closed_when_its_need_is_made_again",
+        ],
+    ),
+    (
+        "a move keeps as to be linked again what it has linked again",
+        "dotdiw",
+        '            done = [i["id"] for i in unsettled if i.get("status") != "closed" or i["id"] in relink]\n',
+        '            done = [i["id"] for i in unsettled if i.get("status") != "closed"]\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_closed_in_jira_stays_closed_when_its_need_is_made_again",
+        ],
+    ),
+    (
+        "a move takes off no need the source no longer shows",
+        "dotdiw",
+        '                if drop:\n                    out = written("operation.update-item", {"id": copy_id, "dropNeeds": drop})\n',
+        '                if False:\n                    out = written("operation.update-item", {"id": copy_id, "dropNeeds": drop})\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_turned_round_in_jira_while_stopped_is_written_as_jira_shows_it",
+        ],
+    ),
+    (
+        "a move takes off no need written before a stop it did not record",
+        "dotdiw",
+        "                if fresh:\n                    linked.extend(fresh)\n                    save()\n",
+        "                if False:\n                    linked.extend(fresh)\n                    save()\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_taken_off_in_jira_while_the_move_stands_stopped_is_taken_off_the_copy",
+        ],
+    ),
+    (
+        "local takes off no need it is told to",
+        "dotdiw",
+        '                conn.execute("DELETE FROM edges WHERE id = ? AND needs = ?", (ident, need))\n',
+        "                pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_turned_round_in_jira_while_stopped_is_written_as_jira_shows_it",
+        ],
+    ),
+    (
+        "jira takes off no need it is told to",
+        "trackers/jira.py",
+        '                call(\n                    "DELETE",\n                    "/rest/api/3/issueLink/%s" % urllib.parse.quote(str(link["id"]), safe=""),\n                )\n',
+        "                pass\n",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_it_is_listed_from_the_home_and_passes_the_check",
+        ],
+    ),
+    (
+        "beads takes off no need it is told to",
+        "dotdiw",
+        '            code, out, err = beads_batch([["dep", "remove", ident, n] for n in drop], root)\n',
+        '            code, out, err = 0, "", ""\n',
+        [
+            "test_tracker.py",
+            "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter",
+        ],
+    ),
+    (
+        "a move writes no parent the source set while it stood stopped",
+        "dotdiw",
+        '                if above is not None and above != copy.get("parent"):\n',
+        "                if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_parent_written_in_the_source_between_runs_reaches_the_copy",
+        ],
+    ),
+    (
+        "a move writes no title the source set while it stood stopped",
+        "dotdiw",
+        '                if item.get("title") and item["title"] != copy.get("title"):\n',
+        "                if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_title_a_priority_and_values_written_between_runs_reach_the_copy",
+        ],
+    ),
+    (
+        "a move writes no priority the source set while it stood stopped",
+        "dotdiw",
+        '                if item.get("priority") is not None and item["priority"] != copy.get("priority"):\n',
+        "                if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_title_a_priority_and_values_written_between_runs_reach_the_copy",
+        ],
+    ),
+    (
+        "a move writes no values the source recorded while it stood stopped",
+        "dotdiw",
+        '                for values in writes:\n                    out = written("operation.record-values"',
+        '                for values in []:\n                    out = written("operation.record-values"',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_title_a_priority_and_values_written_between_runs_reach_the_copy",
+        ],
+    ),
+    (
+        "a move writes no status set back to open",
+        "dotdiw",
+        '                if want != "closed" and want != standing:\n',
+        '                if want in ("in_progress", "blocked") and want != standing:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_status_set_back_to_open_between_runs_reaches_the_copy",
+        ],
+    ),
+    (
+        "a move's close leaves open nothing it has yet to close",
+        "dotdiw",
+        '                            "keepOpen": sorted(open_there - {ids[item["id"]]}),\n',
+        '                            "keepOpen": [],\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_closed_run_root_keeps_its_own_close_reason_either_way",
+        ],
+    ),
+    (
+        "a stuck move names a close held by another of its own",
+        "dotdiw",
+        "                                back.get(b) not in held_up and not held_there(b)",
+        "                                False",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_close_the_target_refuses_is_named_where_what_holds_it_is_not_held",
+        ],
+    ),
+    (
+        "what a run said is kept for no later run",
+        "dotdiw",
+        '            record["said"] = said\n',
+        "            pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_left_out_is_said_by_the_run_that_finishes_after_a_stop_at_a_close",
+        ],
+    ),
+    (
+        "a move forgets nothing gone from both",
+        "dotdiw",
+        "                for ident in dropped:\n                    forget(ident)\n",
+        "                for ident in dropped:\n                    pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_archived_need_whose_copy_was_deleted_is_left_out_once_both_are_said",
+        ],
+    ),
+    (
+        "a move shows no waiter its listing lacks",
+        "dotdiw",
+        '                    items.append(cast(TrackerItem, dict(shown["item"])))\n',
+        "                    pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_archived_waiter_of_an_item_made_again_waits_on_the_new_copy",
+        ],
+    ),
+    (
+        "a create refused for a gone copy says nothing of it",
+        "dotdiw",
+        '                        gone_there = none_there(item.get("parent"), wholes[item["id"]].get("run"))\n',
+        "                        gone_there = None\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_parent_whose_copy_is_gone_from_jira_is_named_when_a_child_is_made_under_it",
+        ],
+    ),
+    (
+        "a move leaves as made a copy that is gone",
+        "dotdiw",
+        "                if i in missing or i in byid and (i not in settled or ids[i] in deleted)\n",
+        "                if i in byid and (i not in settled or ids[i] in deleted)\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_copy_gone_from_local_of_an_issue_gone_from_jira_is_not_said_left_as_made",
+        ],
+    ),
+    (
+        "a move writes under another pair's record",
+        "dotdiw",
+        '        if (record.get("from"), record.get("to")) not in ((src, dst), (None, None)):\n',
+        "        if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_move_whose_record_another_move_keeps_under_its_name_writes_nothing",
+        ],
+    ),
+    (
+        "the command line runs a move on an option it does not know",
+        "dotdiw",
+        '                    if words[i].startswith("-") and words[i] != "-":\n',
+        "                    if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_migrate_given_help_or_an_option_it_does_not_take_writes_nothing",
+        ],
+    ),
+    (
+        "bd's list --ready lists what a move holds",
+        "dotdiw",
+        '            or named == "list"\n',
+        "            or False\n",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_what_a_stopped_move_holds_is_neither_listed_ready_nor_claimed",
+        ],
+    ),
+    (
+        "bd's close claims the next ready while a move stands",
+        "dotdiw",
+        '        if closing_words is not None and any(\n            a.partition("=")[0] in CLOSE_TAKES_THE_NEXT for a in argv\n        ):\n',
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_what_a_stopped_move_holds_is_neither_listed_ready_nor_claimed",
+        ],
+    ),
+    (
+        "jira reads a site spelled two ways as two",
+        "trackers/jira.py",
+        "    scheme, netloc = parts.scheme.lower(), parts.netloc.lower()\n",
+        "    scheme, netloc = parts.scheme.lower(), parts.netloc\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_the_site_spelled_with_its_scheme_in_upper_case_holds_what_the_move_made",
+        ],
+    ),
+    (
+        "jira reads an editor's description as one run of text",
+        "trackers/jira.py",
+        '        said += ("" if n == 0 else "\\n" if listed_here else "\\n\\n") + text\n',
+        "        said += text\n",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_description_written_in_jiras_editor_reads_as_it_was_written",
+        ],
+    ),
+    (
+        "jira shows the reason of an earlier close",
+        "trackers/jira.py",
+        "        if since is not None and made is not None and made < since:\n            continue\n",
+        "",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_the_reason_an_issue_shows_is_that_of_its_latest_close",
+        ],
+    ),
+    (
+        "jira rewrites its journal in place",
+        "trackers/jira.py",
+        '                with open(temporary, "w", encoding="utf-8") as fh:\n                    fh.write("".join(json.dumps(e) + "\\n" for e in kept + [entry]))\n',
+        '                with open(path, "w", encoding="utf-8") as fh:\n                    fh.write("".join(json.dumps(e) + "\\n" for e in kept + [entry]))\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_write_of_the_journal_that_fails_keeps_what_it_held",
+        ],
+    ),
+    (
+        "jira rewrites jira.json on every open",
+        "trackers/jira.py",
+        "    if created or project_of(root) != project:\n",
+        "    if True:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_run_of_the_move_writes_jira_json_beside_it_and_only_where_it_changes",
+        ],
+    ),
+    (
+        "jira asks after a project key unquoted",
+        "trackers/jira.py",
+        '        call("GET", "/rest/api/3/project/%s" % urllib.parse.quote(project, safe=""))\n',
+        '        call("GET", "/rest/api/3/project/%s" % project)\n',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_the_project_checked_is_the_key_kept_however_it_is_spelled",
+        ],
+    ),
+    (
+        "jira keeps every value of a make in each property",
+        "trackers/jira.py",
+        "                keep_values(key, values, {})",
+        '                call("PUT", of(key, "properties", write_name({})), {"values": values})',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_values_too_long_for_one_property_are_kept_one_property_each",
+        ],
+    ),
+    (
+        "jira's cycle check follows needs alone",
+        "trackers/jira.py",
+        "        todo.extend([(n, None) for n in needs] + [(c, key) for c in sorted(children | poured)])",
+        "        todo.extend([(n, None) for n in needs])",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_jira_refuses_a_need_that_would_wait_on_itself_through_a_parent_or_a_run",
+        ],
+    ),
+    (
+        "jira closes nothing in the wake of a close of a closed step",
+        "trackers/jira.py",
+        "            after = in_the_wake(checkout, project, item, keep, done_at)\n",
+        "            after: list[str] = []\n",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_step_closed_again_after_a_close_cut_short_closes_its_root",
+        ],
+    ),
+    (
+        "a move given no checkout runs on none",
+        "dotdiw",
+        '    root = request.get("root")\n    if not root:\n        return {\n            "status": "failed",\n            "summary": "Nothing was moved: no checkout was given to move.",\n',
+        '    root = request.get("root")\n    if False:\n        return {\n            "status": "failed",\n            "summary": "Nothing was moved: no checkout was given to move.",\n',
+        [
+            "test_jira.py",
+            "TheHostedAdapterServed.test_a_move_given_no_root_is_answered_and_no_internal_error",
+        ],
+    ),
+    (
+        "the command to run once the source lists it drops what the run was told",
+        "dotdiw",
+        "                    summary = MOVE_UNLISTED % (src, ident, command(), command((), [ident]))\n",
+        '                    summary = MOVE_UNLISTED % (src, ident, "%s tracker migrate %s %s" % (PROG, src, dst), command((), [ident]))\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_the_command_to_run_once_it_lists_it_names_what_the_run_was_told",
+        ],
+    ),
+    (
+        "a move takes away values only its copy holds",
+        "dotdiw",
+        '                if there_in_turn[k:] or ours_only:\n                    writes.append(\n                        [{"label": lb, "text": ""} for lb, _ in there_in_turn[k:]]\n                        + [{"label": lb, "text": ""} for lb in ours_only]',
+        '                if there_in_turn[k:] or [lb for lb in values_there if lb not in values_now]:\n                    writes.append(\n                        [{"label": lb, "text": ""} for lb, _ in there_in_turn[k:]]\n                        + [{"label": lb, "text": ""} for lb in [lb for lb in values_there if lb not in values_now]]',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_values_recorded_on_a_step_the_move_holds_ask_for_no_deletion_of_it",
+        ],
+    ),
+    (
+        "a move takes values for what only a make writes",
+        "dotdiw",
+        'MADE_ONLY_BY_A_MAKE = ("description", "verifyUsing", "step", "claim", "run")\n',
+        'MADE_ONLY_BY_A_MAKE = ("description", "verifyUsing", "step", "claim", "run", "values")\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_values_recorded_on_a_step_the_move_holds_ask_for_no_deletion_of_it",
+        ],
+    ),
+    (
+        "bd's own ready decides and runs unheld",
+        "dotdiw",
+        "            if etags or ready or named in TRACKER_HELD_AS_IT_IS\n",
+        "            if etags or named in TRACKER_HELD_AS_IT_IS\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_bds_own_ready_and_a_move_into_beads_run_one_after_the_other",
+        ],
+    ),
+    (
+        "ready takes the lock its caller holds",
+        "dotdiw",
+        "        if locked\n        else held_for_writing(",
+        "        if False\n        else held_for_writing(",
+        [
+            "test_dotdiw.py",
+            "TheTrackerCommands.test_under_beads_an_issue_a_stopped_move_made_closes_once_it_is_finished",
+        ],
+    ),
+    (
+        "a move reads its source unheld",
+        "dotdiw",
+        "        with held_for_writing(root, src, until_logged=False) as reading:\n",
+        "        with contextlib.nullcontext(True) as reading:\n",
+        [
+            "test_jira.py",
+            "AMoveReadsNoPourHalfMade.test_a_move_while_a_pour_links_its_steps_waits",
+        ],
+    ),
+    (
+        "a move holds its source through its writes",
+        "dotdiw",
+        "        with held_for_writing(root, src, until_logged=False) as reading:\n",
+        "        with held_for_writing(root, src) as reading:\n",
+        ["test_tracker.py", "MovingBetweenAdapters.test_every_pair_and_back"],
+    ),
+    (
+        "a served request is timed from the server's start",
+        "dotdiw",
+        '            scope.started = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")\n',
+        "            pass\n",
+        [
+            "test_dotdiw.py",
+            "AServedRequestStartsWhenAsked.test_each_request_is_timed_from_its_own_start",
+        ],
+    ),
+    (
+        "a server leaves gRPC's fork handlers on",
+        "dotdiw",
+        '    os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "false")\n',
+        "    pass\n",
+        [
+            "test_dotdiw.py",
+            "AServerForksQuietly.test_requests_that_fork_at_once_leave_stderr_quiet",
+        ],
+    ),
+    (
+        "local checks a parent as though no need were taken off",
+        "dotdiw",
+        "parent in local_waiting(conn, ident, drop)):",
+        "parent in local_waiting(conn, ident)):",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_need_taken_off_as_the_item_is_put_under_what_it_needed_is_no_cycle",
+        ],
+    ),
+    (
+        "local takes needs off an update it refuses",
+        "dotdiw",
+        '            drop = [str(n) for n in request.get("dropNeeds") or []]\n',
+        '            drop = [str(n) for n in request.get("dropNeeds") or []]\n            for need in drop:\n                conn.execute("DELETE FROM edges WHERE id = ? AND needs = ?", (ident, need))\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_an_update_refused_keeps_the_needs_it_was_to_take_off",
+        ],
+    ),
+    (
+        "beads writes the parent before it takes needs off",
+        "dotdiw",
+        '        if drop:\n            # Each need taken off through bd\'s batch, which reads both ids\n            # whole, as add-need\'s are written -- before the parent is\n            # written, so that one that waited on the item only through\n            # such a need is no cycle.\n            code, out, err = beads_batch([["dep", "remove", ident, n] for n in drop], root)\n            if code != 0:\n                return beads_failed(UpdateItemResponse, out, err, refusals)\n        if flags:\n            code, out, err = beads_quiet(\n                ["update", ident, "--json"] + beads_typed(flags, root)[0], root\n            )\n            if code != 0:\n                if drop:\n                    # bd refused the rest: the needs taken off for it are\n                    # put back, so that a refused update writes none of it.\n                    beads_batch([["dep", "add", ident, n] for n in drop], root)\n                return beads_failed(UpdateItemResponse, out, err, refusals)\n            wrote = [str(r.get("id")) for r in beads_json(out)]\n            if wrote and ident not in wrote:\n                return failed_as(\n                    UpdateItemResponse,\n                    "item-not-found",\n                    "The tracker holds %s no more, and wrote the update to %s in its place."\n                    % (ident, wrote[0]),\n                )\n',
+        '        if flags:\n            code, out, err = beads_quiet(\n                ["update", ident, "--json"] + beads_typed(flags, root)[0], root\n            )\n            if code != 0:\n                if drop:\n                    # bd refused the rest: the needs taken off for it are\n                    # put back, so that a refused update writes none of it.\n                    beads_batch([["dep", "add", ident, n] for n in drop], root)\n                return beads_failed(UpdateItemResponse, out, err, refusals)\n            wrote = [str(r.get("id")) for r in beads_json(out)]\n            if wrote and ident not in wrote:\n                return failed_as(\n                    UpdateItemResponse,\n                    "item-not-found",\n                    "The tracker holds %s no more, and wrote the update to %s in its place."\n                    % (ident, wrote[0]),\n                )\n        if drop:\n            # Each need taken off through bd\'s batch, which reads both ids\n            # whole, as add-need\'s are written -- before the parent is\n            # written, so that one that waited on the item only through\n            # such a need is no cycle.\n            code, out, err = beads_batch([["dep", "remove", ident, n] for n in drop], root)\n            if code != 0:\n                return beads_failed(UpdateItemResponse, out, err, refusals)\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_need_taken_off_as_the_item_is_put_under_what_it_needed_is_no_cycle",
+        ],
+    ),
+    (
+        "beads keeps needs off an update bd refused",
+        "dotdiw",
+        "                if drop:\n                    # bd refused the rest",
+        "                if False:\n                    # bd refused the rest",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_update_refused_keeps_the_needs_it_was_to_take_off",
+        ],
+    ),
+    (
+        "local takes no parent off",
+        "dotdiw",
+        '            if request.get("dropParent"):\n                sets.append("parent = NULL")',
+        '            if False:\n                sets.append("parent = NULL")',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_an_item_taken_from_under_its_parent_stands_under_none",
+        ],
+    ),
+    (
+        "local writes an empty parent",
+        "dotdiw",
+        '    parent = request.get("parent") or None  # one given empty is none given',
+        '    parent = request.get("parent")',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_an_item_taken_from_under_its_parent_stands_under_none",
+        ],
+    ),
+    (
+        "the command line gives an empty parent as one",
+        "dotdiw",
+        '        if fields.get("parent") == "":\n            del fields["parent"]',
+        '        if False:\n            del fields["parent"]',
+        [
+            "test_dotdiw.py",
+            "TheLocalCommandLine.test_update_given_an_empty_parent_takes_the_item_from_under_its_parent",
+        ],
+    ),
+    (
+        "beads takes no parent off",
+        "dotdiw",
+        '        flags += ["--parent", ""]  # bd\'s update takes an empty parent as none',
+        "        pass",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_item_taken_from_under_its_parent_stands_under_none",
+        ],
+    ),
+    (
+        "a move takes no parent off",
+        "dotdiw",
+        '                if not copy.get("parent") or (above and (above in ids or above in byid)):',
+        "                if True:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_and_its_parent_that_change_places_while_stopped_change_places_in_local",
+        ],
+    ),
+    (
+        "a move takes off a need it never wrote",
+        "dotdiw",
+        "                drop = sorted((has & ours) - wanted)",
+        "                drop = sorted((has & set(ids.values())) - wanted - {copy_id})",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_written_in_jira_between_held_copies_is_kept_and_said",
+        ],
+    ),
+    (
+        "a move says nothing of a need the target wrote",
+        "dotdiw",
+        '                    ["%s needs %s" % (copy_id, n) for n in sorted(has - wanted - ours)],',
+        "                    [],",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_written_in_jira_between_held_copies_is_kept_and_said",
+        ],
+    ),
+    (
+        "a move writes no need the copy lost",
+        "dotdiw",
+        '                needs = [n for n in item.get("needs") or [] if n in ids and ids[n] not in has]',
+        '                needs = [\n                    n\n                    for n in item.get("needs") or []\n                    if n in ids and [item["id"], n] not in linked and ids[n] not in has\n                ]',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_taken_off_a_held_copy_in_jira_is_written_again",
+        ],
+    ),
+    (
+        "a move says a copy keeps what it no longer does",
+        "dotdiw",
+        "            held[what] = list(values)\n            if not held[what]:\n                del held[what]",
+        "            held[what] = sorted(set(held.get(what) or []) | set(values))\n            if not held[what]:\n                del held[what]",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_a_run_said_was_kept_as_made_is_said_no_more_once_the_copy_matches",
+        ],
+    ),
+    (
+        "a move reads an unread copy against the source now",
+        "dotdiw",
+        "                if isinstance(gave, dict):",
+        "                if False:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_unread_copy_holding_what_it_was_given_is_finished_though_the_source_changed",
+        ],
+    ),
+    (
+        "a move writes values out of the source's order",
+        "dotdiw",
+        "                if there_in_turn[k:] or ours_only:",
+        "                if ours_only:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_label_recorded_again_while_stopped_reaches_the_copy_in_the_sources_order",
+        ],
+    ),
+    (
+        "a move names no gone parent copy in its update",
+        "dotdiw",
+        '                            gone_there = none_there(item.get("parent"), ident)',
+        "                            gone_there = None",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_parent_whose_copy_is_gone_from_jira_is_named_when_a_held_copy_is_put_under_it",
+        ],
+    ),
+    (
+        "a stuck move names a close held up behind one of its own",
+        "dotdiw",
+        "                            if at not in held_up and on & held_up:",
+        "                            if False:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_stuck_close_named_is_none_whose_blocker_waits_on_one_through_its_run",
+        ],
+    ),
+    (
+        "a move takes a relink item for an unfinished one",
+        "dotdiw",
+        "                if i not in settled and i not in in_listing and i not in dropped and i not in relink",
+        "                if i not in settled and i not in in_listing and i not in dropped",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_archived_waiter_held_to_wait_on_an_item_made_again_is_relinked_after_a_stop",
+        ],
+    ),
+    (
+        "a move shows no archived item it made when told of a deletion",
+        "dotdiw",
+        "                and (a in relink or (a in settled and (deleted or a in unparented)))",
+        "                and (a in relink or (a in settled and a in unparented))",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_archived_child_of_an_item_made_again_stands_under_the_new_copy",
+        ],
+    ),
+    (
+        "a record naming no pair stays unpaired",
+        "dotdiw",
+        '        record["from"], record["to"] = src, dst',
+        "        pass",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_that_names_no_pair_holds_what_its_stopped_run_made",
+        ],
+    ),
+    (
+        "a move keeps not where it runs",
+        "dotdiw",
+        '        if record.get("checkout") != root:\n            record["checkout"] = root\n            if ids:\n                save()\n',
+        '        if record.get("checkout") != root:\n            record["checkout"] = root\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_run_from_where_the_checkout_was_moved_keeps_that_place_though_it_stops_early",
+        ],
+    ),
+    (
+        "a record that is no object is read as one",
+        "dotdiw",
+        '        if not isinstance(record, dict):\n            return {"status": "failed", "exitCode": 1, "summary": MOVE_NO_RECORD % path}',
+        '        if not isinstance(record, (dict, list, str, int, float)):\n            return {"status": "failed", "exitCode": 1, "summary": MOVE_NO_RECORD % path}',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_that_holds_no_object_is_refused_and_left_as_it_is",
+        ],
+    ),
+    (
+        "a move takes an empty told id",
+        "dotdiw",
+        "        if any(\n            not str(w)",
+        "        if any(\n            False",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_id_the_run_is_told_is_one_a_command_it_gives_can_take",
+        ],
+    ),
+    (
+        "a dashed told id reads as an option",
+        "dotdiw",
+        '                joined = "=" if value.startswith("-") else " "',
+        '                joined = " "',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_id_the_run_is_told_is_one_a_command_it_gives_can_take",
+        ],
+    ),
+    (
+        "jira takes needs off before it reaches the status",
+        "trackers/jira.py",
+        '        status = (issue.get("fields") or {}).get("status") or {}\n        way = None\n',
+        '        for link in (issue.get("fields") or {}).get("issuelinks") or []:\n            other = str((link.get("inwardIssue") or {}).get("key") or "").upper()\n            if (link.get("type") or {}).get("name") == "Blocks" and other in drop:\n                call("DELETE", "/rest/api/3/issueLink/%s" % link["id"])\n        status = (issue.get("fields") or {}).get("status") or {}\n        way = None\n',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_an_update_refused_for_its_status_keeps_the_needs_it_was_to_take_off",
+        ],
+    ),
+    (
+        "jira checks no parent for a cycle",
+        "trackers/jira.py",
+        '            if above["key"] == key or reaches(',
+        "            if False and reaches(",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_parent_that_waits_on_the_issue_is_refused_unless_the_need_it_waits_through_comes_off",
+        ],
+    ),
+    (
+        "jira's cycle check reaches no child of another project",
+        "trackers/jira.py",
+        '        children = {i["key"] for i in search("parent = %s" % text(key))} | {',
+        "        children = set() | {",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_jira_refuses_a_need_that_would_wait_on_itself_through_another_projects_child",
+        ],
+    ),
+    (
+        "jira keeps the default port",
+        "trackers/jira.py",
+        "    if default and netloc.endswith(default):",
+        "    if False:",
+        [
+            "test_jira.py",
+            "TheTable.test_a_site_spelled_with_the_port_its_scheme_takes_is_the_same_site",
+        ],
+    ),
+    (
+        "jira takes no issue from under its parent",
+        "trackers/jira.py",
+        '        if request.get("dropParent") and was.get("parent"):',
+        "        if False:",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_an_issue_taken_from_under_its_parent_stands_under_none",
+        ],
+    ),
+    (
+        "jira reads a link card, a mention or an emoji as nothing",
+        "trackers/jira.py",
+        '            elif kind in ("inlineCard", "blockCard", "embedCard"):\n                out.append(str(attrs(leaf).get("url") or ""))\n            elif kind in ("mention", "emoji", "status", "placeholder"):',
+        '            elif False:\n                out.append(str(attrs(leaf).get("url") or ""))\n            elif False:',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_what_jiras_editor_keeps_as_a_node_of_its_own_reads_as_its_text",
+        ],
+    ),
+    (
+        "jira reads an action item as paragraphs",
+        "trackers/jira.py",
+        '            if entry.get("type") in ("taskItem", "decisionItem"):\n                said.append(inline(entry))  # what an action item holds is inline',
+        "            if False:\n                said.append(inline(entry))",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_what_jiras_editor_keeps_as_a_node_of_its_own_reads_as_its_text",
+        ],
+    ),
+    (
+        "jira reads a nested list as more of the list",
+        "trackers/jira.py",
+        '            lines.append("  " * depth + mark + "\\n".join(said))',
+        '            lines.append(mark + "\\n".join(said))',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_what_jiras_editor_keeps_as_a_node_of_its_own_reads_as_its_text",
+        ],
+    ),
+    (
+        "jira lists an issue with values as a search has it",
+        "trackers/jira.py",
+        '    if issue.get("whole") or not (own.get("step") or own.get("values")):',
+        '    if issue.get("whole") or not own.get("step"):',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_an_issue_with_values_and_no_step_lists_as_it_shows",
+        ],
+    ),
+    (
+        "jira records values all in one property",
+        "trackers/jira.py",
+        '        if writes and len(json.dumps({"values": writes[-1] + [piece]})) <= room:',
+        "        if writes:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_values_too_long_for_one_property_recorded_while_stopped_reach_the_copy",
+        ],
+    ),
+    (
+        "jira closes a root opened again in the wake of a close of a closed step",
+        "trackers/jira.py",
+        '        if (\n            since is not None\n            and changed is not None\n            and changed > since\n            and stood_open_since(root["id"], since) is not True\n        ):',
+        "        if False:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_close_of_a_closed_step_leaves_a_root_opened_again_since_open",
+        ],
+    ),
+    (
+        "a move says nothing of a close reason a copy keeps",
+        "dotdiw",
+        '                            if (closed_as.get("reason") or None) != (item.get("reason") or None)',
+        "                            if False",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_close_reason_changed_in_local_while_stopped_is_said_kept_as_the_copy_has_it",
+        ],
+    ),
+    (
+        "a move opens a copy closed with another reason",
+        "dotdiw",
+        '                if want != "closed":\n                    aspect(copy_id, "reason", [])  # open, as the source shows it\n',
+        '                if want != "closed":\n                    aspect(copy_id, "reason", [])  # open, as the source shows it\n                elif standing == "closed" and (copies.get(item["id"]) or {}).get("reason") != item.get(\n                    "reason"\n                ):\n                    written("operation.update-item", {"id": copy_id, "status": "open"})\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_copy_closed_without_its_reason_is_finished_where_it_stands",
+        ],
+    ),
+    (
+        "a move keeps a parent the source moved to one it leaves out",
+        "dotdiw",
+        '                if not copy.get("parent") or (above and (above in ids or above in byid)):',
+        '                if not copy.get("parent") or above:',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_held_copy_whose_parent_is_moved_to_one_left_out_stands_under_none",
+        ],
+    ),
+    (
+        "a move relinks only what it wrote",
+        "dotdiw",
+        '                    | {\n                        i\n                        for i in ids\n                        if i not in lost and lost & set((byid.get(i) or {}).get("needs") or [])\n                    }\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_found_written_on_a_copy_waits_on_the_new_copy_of_what_it_needs",
+        ],
+    ),
+    (
+        "a move keeps what it said of a copy made again",
+        "dotdiw",
+        "            of_copies.pop(ids[ident], None)\n",
+        "            pass\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_was_said_of_a_copy_made_again_goes_with_it",
+        ],
+    ),
+    (
+        "a move saves what it said only while it says something",
+        "dotdiw",
+        '            if of_copies:\n                said["copies"] = of_copies\n            else:\n                said.pop("copies", None)\n            record["said"] = said',
+        '            if of_copies:\n                said["copies"] = of_copies\n                record["said"] = said\n            else:\n                said.pop("copies", None)',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_a_run_that_stops_takes_back_is_said_no_more",
+        ],
+    ),
+    (
+        "a move reads a record of any shape",
+        "dotdiw",
+        "        misshapen = record_misshapen(record)\n",
+        "        misshapen = None\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_whose_field_is_not_as_a_move_keeps_it_moves_nothing",
+        ],
+    ),
+    (
+        "a move keeps not where it runs before it reads the source",
+        "dotdiw",
+        '        if record.get("checkout") != root:\n            record["checkout"] = root\n            if ids:\n                save()\n',
+        '        if record.get("checkout") != root:\n            record["checkout"] = root\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_run_from_a_moved_checkout_keeps_its_place_though_it_stops_reading_the_source",
+        ],
+    ),
+    (
+        "a move names nothing it keeps in a cycle refused",
+        "dotdiw",
+        "                    if kept:\n                        summary += MOVE_KEPT_IN_THE_WAY",
+        "                    if False:\n                        summary += MOVE_KEPT_IN_THE_WAY",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_cycle_refused_names_what_the_move_keeps_that_closes_it",
+        ],
+    ),
+    (
+        "dotdiw takes no need off",
+        "dotdiw",
+        '    elif verb == "dep" and plain[:1] == ["remove"] and len(plain) == 3:',
+        "    elif False:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_cycle_refused_names_what_the_move_keeps_that_closes_it",
+        ],
+    ),
+    (
+        "a move keeps a value it wrote that the source took off",
+        "dotdiw",
+        "                    if lb not in values_now and lb in (labels_of.get(ident) or [])",
+        "                    if False",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_value_the_move_wrote_and_the_source_took_off_is_taken_off_the_copy",
+        ],
+    ),
+    (
+        "a move forgets a copy told deleted that stands",
+        "dotdiw",
+        '                    if there["status"] == "completed" and there.get("item"):\n                        still_there.append(ident)',
+        "                    if False:\n                        still_there.append(ident)",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_copy_told_deleted_that_stands_is_left_as_made_and_kept",
+        ],
+    ),
+    (
+        "a move shows what was to stand under an item made again only when told",
+        "dotdiw",
+        "                and (a in relink or (a in settled and (deleted or a in unparented)))",
+        "                and (a in relink or (a in settled and deleted))",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_what_stood_under_an_item_made_again_stands_under_it_after_a_stop",
+        ],
+    ),
+    (
+        "jira leaves a person written on a parent it could not take off",
+        "trackers/jira.py",
+        "                if refusal is not None:\n                    put_back()",
+        "                if refusal is not None:\n                    pass",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_an_update_refused_writes_none_of_what_it_was_given",
+        ],
+    ),
+    (
+        "jira writes the rest over a parent it kept",
+        "trackers/jira.py",
+        '            if kept is not None and kept.get("parent"):',
+        "            if False:",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_an_update_refused_writes_none_of_what_it_was_given",
+        ],
+    ),
+    (
+        "jira's cycle check reaches no child of another project's issue",
+        "trackers/jira.py",
+        '        children = {i["key"] for i in search("parent = %s" % text(key))} | {',
+        "        children = set() | {",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_need_that_would_wait_on_itself_through_another_projects_subtask_is_refused",
+        ],
+    ),
+    (
+        "jira reads a write cut short between its properties",
+        "trackers/jira.py",
+        '        group = write.get("group")\n        if isinstance(group, str):\n            parts = write.get("of")\n            if not isinstance(parts, int) or there.get(group, 0) < parts:\n                continue  # a part is missing: none of it\n            gathered.setdefault(group, []).extend(values)\n            if write.get("part") != parts - 1:\n                continue  # read where its last part is\n            values = gathered.pop(group)\n',
+        '        group = write.get("group")\n',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_write_of_values_more_than_one_property_holds_is_read_whole_or_not_at_all",
+        ],
+    ),
+    (
+        "jira cuts no value too long for a property",
+        "trackers/jira.py",
+        "        if len(json.dumps(v)) <= room:",
+        "        if True:",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_write_of_values_more_than_one_property_holds_is_read_whole_or_not_at_all",
+        ],
+    ),
+    (
+        "jira lists another project's issue read whole",
+        "trackers/jira.py",
+        '    return fetch_here(issue["key"], project)  # None where it is the project\'s no more',
+        '    return fetch(issue["key"]) or issue',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_listed_issue_moved_to_another_project_is_none_of_this_checkouts",
+        ],
+    ),
+    (
+        "jira takes a root moved on while open for one opened again",
+        "trackers/jira.py",
+        '            and stood_open_since(root["id"], since) is not True\n',
+        "",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_close_of_a_closed_step_closes_a_root_moved_on_while_it_stood_open",
+        ],
+    ),
+    (
+        "jira journals no need it writes",
+        "trackers/jira.py",
+        '            wrote(request.get("root"), ident, waiting.get("parent"), waiting.get("run"))\n',
+        "",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_need_written_a_moment_ago_is_listed_though_no_search_has_it",
+        ],
+    ),
+    (
+        "jira reads an action item as an item of a bulleted list",
+        "trackers/jira.py",
+        '                mark = "[x] " if attrs(entry).get("state") == "DONE" else "[ ] "',
+        '                mark = "- [x] " if attrs(entry).get("state") == "DONE" else "- [ ] "',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_what_jiras_editor_keeps_as_a_node_of_its_own_reads_as_its_text",
+        ],
+    ),
+    (
+        "jira reads a write in parts where each part stands",
+        "trackers/jira.py",
+        '            if write.get("part") != parts - 1:\n                continue  # read where its last part is\n            values = gathered.pop(group)\n',
+        "            values = gathered.pop(group)\n",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_write_of_values_more_than_one_property_holds_is_read_whole_or_not_at_all",
+        ],
+    ),
+    (
+        "a move takes a need it found written for one it did not write",
+        "dotdiw",
+        '                fresh = [\n                    [item["id"], n]\n                    for n in item.get("needs") or []\n                    if n in ids and [item["id"], n] not in linked\n                ]',
+        '                fresh = [[item["id"], n] for n in needs if [item["id"], n] not in linked]',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_found_written_on_a_copy_is_taken_off_when_the_source_takes_it_off",
+        ],
+    ),
+    (
+        "jira ready reads an issue with values as its search has it",
+        "trackers/jira.py",
+        '                full(i, project)\n                for i in as_they_stand(\n                    request.get("root"),\n                    project,\n                    search("project = %s ORDER BY created ASC" % text(project)),',
+        '                i\n                for i in as_they_stand(\n                    request.get("root"),\n                    project,\n                    search("project = %s ORDER BY created ASC" % text(project)),',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_ready_gives_the_etag_show_and_list_give_for_an_issue_with_values",
+        ],
+    ),
+    (
+        "jira puts back nothing it wrote",
+        "trackers/jira.py",
+        "            for path, body in reversed(undo):",
+        "            for path, body in []:",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_an_update_whose_transition_jira_refuses_writes_none_of_the_rest",
+        ],
+    ),
+    (
+        "jira takes needs off before the transition it may be refused",
+        "trackers/jira.py",
+        '            if way is not None:\n                try:\n                    call("POST", of(key, "transitions"), {"transition": {"id": way}})\n                except JiraError as e:\n                    if e.status != 400:\n                        raise\n                    put_back()\n                    return {\n                        "status": "failed",\n                        "reason": "bad-status",\n                        "exitCode": 1,\n                        "summary": "Jira refused %s the way to %s: %s" % (key, wanted, e.text),\n                    }\n        except JiraError:\n            put_back()\n            raise\n        # Each need given to take off, its link deleted: the issue waits on\n        # it no more.\n        for link in now.get("issuelinks") or []:\n            other = str((link.get("inwardIssue") or {}).get("key") or "").upper()\n            if (link.get("type") or {}).get("name") == "Blocks" and other in drop:\n                call(\n                    "DELETE",\n                    "/rest/api/3/issueLink/%s" % urllib.parse.quote(str(link["id"]), safe=""),\n                )\n',
+        '            for link in now.get("issuelinks") or []:\n                other = str((link.get("inwardIssue") or {}).get("key") or "").upper()\n                if (link.get("type") or {}).get("name") == "Blocks" and other in drop:\n                    call("DELETE", "/rest/api/3/issueLink/%s" % link["id"])\n            if way is not None:\n                try:\n                    call("POST", of(key, "transitions"), {"transition": {"id": way}})\n                except JiraError as e:\n                    if e.status != 400:\n                        raise\n                    put_back()\n                    return {\n                        "status": "failed",\n                        "reason": "bad-status",\n                        "exitCode": 1,\n                        "summary": "Jira refused %s the way to %s: %s" % (key, wanted, e.text),\n                    }\n        except JiraError:\n            put_back()\n            raise\n',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_an_update_whose_transition_jira_refuses_writes_none_of_the_rest",
+        ],
+    ),
+    (
+        "jira closes a root done when its step closed and opened since",
+        "trackers/jira.py",
+        '    if then and then[-1] == "done":',
+        "    if False:",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_root_done_when_its_step_closed_and_opened_since_is_left_as_it_stands",
+        ],
+    ),
+    (
+        "local takes any priority",
+        "dotdiw",
+        "    if priority is not None and not 0 <= int(priority) <= 4:",
+        "    if False:",
+        ["test_dotdiw.py", "TheLocalAdapter.test_a_priority_outside_0_to_4_is_refused"],
+    ),
+    (
+        "jira takes any priority",
+        "trackers/jira.py",
+        '    if request.get("priority") is not None and not 0 <= int(request["priority"]) <= 4:',
+        "    if False:",
+        ["test_jira.py", "TheHostedAdapter.test_a_priority_outside_0_to_4_is_refused"],
+    ),
+    (
+        "the guard holds nothing of a record naming no pair",
+        "dotdiw",
+        '            record.get("to") is None\n            and record.get("from") is None\n            and named.endswith("-to-" + name)',
+        "            False",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_naming_no_pair_holds_what_its_stopped_run_made_before_any_run",
+        ],
+    ),
+    (
+        "the guard trusts the shape of a record's settled",
+        "dotdiw",
+        "        settled = {s for s in listed if isinstance(s, str)} if isinstance(listed, list) else set()",
+        "        settled = set(listed or [])",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_record_with_a_field_not_as_a_move_keeps_it_is_no_traceback_on_close_or_ready",
+        ],
+    ),
+    (
+        "a stuck move reads nothing of what holds a close in the target",
+        "dotdiw",
+        "                                back.get(b) not in held_up and not held_there(b)",
+        "                                back.get(b) not in held_up",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_stuck_close_named_is_one_whose_blocker_waits_on_no_close_the_move_holds",
+        ],
+    ),
+    (
+        "a move names nothing that closes a cycle as the target holds it",
+        "dotdiw",
+        "                    way = way_there(*cycle) if cycle is not None else None",
+        "                    way = None",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_cycle_closed_by_a_need_a_copy_left_as_made_keeps_is_named",
+        ],
+    ),
+    (
+        "a move says what an earlier run said of a copy it does not read back",
+        "dotdiw",
+        "            for copy_id in [c for c in of_copies if c not in looked_at]:",
+        "            for copy_id in []:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_need_taken_off_as_a_cycle_refused_asks_is_said_kept_no_more",
+        ],
+    ),
+    (
+        "jira reads the whole project for every need",
+        "trackers/jira.py",
+        '        if now["kind"] == "root" or own.get("runRoot"):',
+        "        if True:",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_need_and_a_pour_read_no_more_of_a_large_project_than_they_reach",
+        ],
+    ),
+    (
+        "jira checks a pour's own needs for a cycle",
+        "trackers/jira.py",
+        '            edge = linked_to({"root": root, "id": ids[s["id"]], "needs": ids[n]}, fresh=True)',
+        '            edge = linked_to({"root": root, "id": ids[s["id"]], "needs": ids[n]}, fresh=False)',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_need_and_a_pour_read_no_more_of_a_large_project_than_they_reach",
+        ],
+    ),
+    (
+        "jira reads again what was written lately in another project",
+        "trackers/jira.py",
+        '        if not key.upper().startswith(project.upper() + "-"):',
+        "        if False:",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_listing_reads_again_none_of_what_was_written_lately_in_another_project",
+        ],
+    ),
+    (
+        "jira marks no run's root",
+        "trackers/jira.py",
+        '        if not own.get("runRoot"):\n            try:',
+        "        if False:\n            try:",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_jira_refuses_a_need_that_would_wait_on_itself_through_a_parent_or_a_run",
+        ],
+    ),
+    (
+        "jira takes an open child no lookup reads for closed",
+        "trackers/jira.py",
+        '        if fresh is None and k in found and found[k]["status"] != "closed":\n',
+        "        if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_a_search_has_open_and_no_lookup_reads_holds_its_parents_close",
+        ],
+    ),
+    (
+        "jira closes a root in the wake past an open step no lookup reads",
+        "trackers/jira.py",
+        '        if fresh is None and k in found and found[k]["status"] != "closed":\n',
+        '        if fresh is None and k in found and found[k]["status"] != "closed" and not first:\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_step_a_search_has_open_and_no_lookup_reads_keeps_its_root_open",
+        ],
+    ),
+    (
+        "jira's ready reads a search as it has what was written a moment ago",
+        "trackers/jira.py",
+        '                for i in as_they_stand(\n                    request.get("root"),\n                    project,\n                    search("project = %s ORDER BY created ASC" % text(project)),\n                )\n',
+        '                for i in search("project = %s ORDER BY created ASC" % text(project))\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_ready_reads_what_was_written_a_moment_ago_as_show_does",
+        ],
+    ),
+    (
+        "jira's ready gives last what it read by key",
+        "trackers/jira.py",
+        '        items.sort(key=lambda i: (i["createdAt"] or "", i["id"]))\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_ready_reads_what_was_written_a_moment_ago_as_show_does",
+        ],
+    ),
+    (
+        "jira's show gives the children as a search has them",
+        "trackers/jira.py",
+        '                for i in as_they_stand(\n                    request.get("root"),\n                    project,\n                    search(\n                        "project = %s AND parent = %s ORDER BY created ASC"\n                        % (text(project), text(key))\n                    ),\n                    key,\n                )\n',
+        '                for i in search(\n                    "project = %s AND parent = %s ORDER BY created ASC"\n                    % (text(project), text(key))\n                )\n',
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_show_gives_the_children_a_listing_under_the_issue_gives_though_a_search_lags",
+        ],
+    ),
+    (
+        "jira's show gives last the children it read by key",
+        "trackers/jira.py",
+        '        children.sort(key=lambda c: (c["createdAt"] or "", c["id"]))\n',
+        "",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_show_gives_the_children_a_listing_under_the_issue_gives_though_a_search_lags",
+        ],
+    ),
+    (
+        "jira's cycle check follows a child taken from under it a moment ago",
+        "trackers/jira.py",
+        '        if unsure and now is not None and via not in (now.get("parent"), now.get("run")):\n',
+        "        if False:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_taken_from_under_an_issue_a_moment_ago_closes_no_cycle_through_it",
+        ],
+    ),
+    (
+        "jira's cycle check reaches a child written of late unread",
+        "trackers/jira.py",
+        "        if key == target and not unsure:\n",
+        "        if key == target:\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_taken_from_under_an_issue_a_moment_ago_closes_no_cycle_through_it",
+        ],
+    ),
+    (
+        "jira's cycle check reads again a child nothing wrote of late",
+        "trackers/jira.py",
+        "        unsure = via is not None and key in lately",
+        "        unsure = via is not None",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_a_child_taken_from_under_an_issue_a_moment_ago_closes_no_cycle_through_it",
+        ],
+    ),
 ]
 
 
@@ -4885,6 +7774,18 @@ def run_check(copy, suite, test):
     return subprocess.run(
         [sys.executable, "-I", suite, test], cwd=copy, capture_output=True, text=True
     )
+
+
+def without_bytecode(copy):
+    """The copy's cached bytecode gone. A cache holds the mtime of its source
+    to the second, and its size: a mutation as long as the text it replaces,
+    written in the second the run before compiled the file, would run as that
+    cache has it, unbroken, and be counted a miss."""
+    for here, dirs, _ in os.walk(copy):
+        dirs[:] = [d for d in dirs if d != ".git"]
+        if "__pycache__" in dirs:
+            shutil.rmtree(os.path.join(here, "__pycache__"), ignore_errors=True)
+            dirs.remove("__pycache__")
 
 
 def copy_of_repo():
@@ -4958,11 +7859,13 @@ def run(argv):
                 continue
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(text.replace(old, new))
+            without_bytecode(copy)
             started = time.perf_counter()
             p = run_check(copy, suite, test)
             took = time.perf_counter() - started
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(text)
+            without_bytecode(copy)
             if p.returncode != 0:
                 bites.append(name)
                 print("bites  %-58s %s %s (%.0f s)" % (name, suite, test.split(".")[-1], took))
