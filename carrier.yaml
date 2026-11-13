@@ -18,6 +18,16 @@ carriers:
       - cannot match prose
       - cannot see a formula outside its checkout and the providers registered under its home
       - cannot tell whether a run was proved
+  - carrierId: dotdiwServed
+    carrierKind: software
+    carries: [workNaming, formulaSurfacing, procedurePouring, claimRecording]
+    strengths:
+      - the same operations of the same file, over gRPC, to clients that are not a terminal, at once
+      - a write on a stale read is refused, never applied
+    limits:
+      - no TLS and no authentication; the loopback address unless told otherwise
+      - cannot tell 0, false or empty text from a field not given, but in a record within a request
+      - cannot stop a write made past dotdiw, or through dotdiw under another home, from landing between its compare and its write
   - carrierId: projectInstructions
     carrierKind: hybrid
     carries: [workNaming]

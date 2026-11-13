@@ -547,6 +547,55 @@ promiseChanges:
     rationale: >
       In the trial of step claims, agents asked claim and pour for --help
       and were refused.
+  - changeId: change.a-write-holds-to-what-was-read
+    summary: >
+      From 4.1.0, dotdiw serve serves every operation with a body that is not
+      internal-only over gRPC, as POA's projection of the IDL, to clients
+      that call at once. Every item a read answers carries an ETag, a digest
+      of its record, and a run read back carries one over every item poured
+      in it. A write given the ETags it rests on takes effect only while each
+      still matches, compared under the lock of the store it writes to in
+      one step with the write, and otherwise writes nothing and answers
+      ABORTED. Under a tracker loaded from a file, as a hosted one is, every
+      checkout under one dotdiw home shares that lock; two homes, or two
+      machines, share none. Each request finds the checkout's tracker
+      afresh, from its choice or, where it has made none, from the stores in
+      its workspace, and keeps it for its length. A claim's values hold that
+      lock too, as do a create under a parent, a pour, and under beads a q
+      or a reopen passed through, given ETags or not, init bringing an
+      earlier version's store up to date, a move reading its source
+      whole before it writes, and a move writing its target, from its first
+      write there to its last; one move of a workspace runs at a time,
+      and one adoption of a checkout, under whose lock a move opens its
+      target. What a move that stopped part way made, nothing but the move
+      closes, nothing lists as ready, and no move reads as its source, until
+      a run of it finishes it -- an item the target made and could not read
+      back included, which the next run finishes and never makes again, and
+      which, not found, stays made until it reads or the run is told it was
+      deleted; a store of the same tracker elsewhere is no part of it, and a
+      run whose source or target names another store than the move read
+      from or wrote to writes nothing, as does a run of a record naming no
+      store until told it. What a move does not close is finished once its
+      needs and status are written, so a close the target refuses holds
+      only what it closes. A move takes what it writes of as shown by id,
+      and writes nothing while its listing lacks what the source shows;
+      what the source shows none of stays held until the run is told the
+      source holds it no more, and what the target holds none of is made again
+      once told so, what stood on it written again; it says which needs,
+      parents and runs it leaves out, and nothing closes what it holds, by
+      name or in another close's wake. Under Jira a checkout reaches only its
+      project's issues and makes none under another's, a listing's parent
+      is one value to the query, an issue's children and needs in another
+      project hold its close, and what was written within ten minutes is
+      read by key where a close or a listing would go by a search that may
+      lag it. Ready reads under the store's lock, bd's own included.
+      Without a terminal, list, ready and show
+      answer records under every adapter.
+    compatibility: additive
+    rationale: >
+      A client reads in one call and writes in a later one, and another may
+      change the work in between; a write on what no longer is overwrites
+      that change or leaves the work inconsistent.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >
