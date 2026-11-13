@@ -1,18 +1,27 @@
 """Do the tests that hold the tracker door bite?
 
 Each mutation below breaks one rule the tracker abstraction promises -- in
-a copy of the repository, never here -- and the test named for it must fail
-on the broken copy. A mutation that survives is a rule nothing holds. The
-table printed is the record; it goes in ../results/mutation-tracker.txt.
+a copy of the working tree, never here -- and the test named for it must fail
+on the broken copy. A mutation that survives is a rule nothing holds. Each
+test is run first on the copy unbroken, and one that fails there catches
+nothing: its mutations are counted as missed, never as caught. A mutation
+of the witness contract is checked where the contract's checks run, by poa
+replaying the one trace it should break, never by the test suite. The table
+printed is the record; it goes in ../results/mutation-tracker.txt.
 
     python3 -I measure/mutate_tracker.py [-k substring]
 
 Run from `measurements/`. bd must be on PATH for the beads mutations; the
-others need no binary. The byte-identity mutation takes a minute.
+others need no binary. The byte-identity mutation takes a minute. The copy of
+the tree, and every store a test makes in it, is kept on a RAM disk made for
+the run, as the suites that run bd keep theirs (suites.py), and on the disk
+where none can be had or DOTDIW_TEST_ON_DISK is set.
 """
 
+import importlib.util
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -40,8 +49,25 @@ MUTATIONS = [
     (
         "the tracker door lets a response step outside its type",
         "dotdiw",
-        '    for key in response:\n        if key not in spec["response"]:\n            raise DoorError(\'%s: "%s" is not a field of its response\' % (operation, key))\n    for key in spec["responseRequired"]:\n        if response.get(key) is None:\n            raise DoorError(\'%s: "%s" is required in its response and missing\' % (operation, key))\n    if response["status"] not in STATUSES:\n        raise DoorError(\n            \'%s: status "%s" is not one of %s\'\n            % (operation, response["status"], ", ".join(STATUSES))\n        )\n    kinds = record_kinds(spec["responseType"])\n',
-        '    kinds = record_kinds(spec["responseType"])\n',
+        "    for key in response:\n"
+        '        if key not in spec["response"]:\n'
+        "            raise DoorError('%s: \"%s\" is not a field of its response' % (operation, key))\n"
+        '    for key in spec["responseRequired"]:\n'
+        "        if response.get(key) is None:\n"
+        "            raise DoorError('%s: \"%s\" is required in its response and missing' % (operation, key))\n"
+        '    if response["status"] not in STATUSES:\n'
+        "        raise DoorError(\n"
+        "            '%s: status \"%s\" is not one of %s'\n"
+        '            % (operation, response["status"], ", ".join(STATUSES))\n'
+        "        )\n"
+        '    kinds = record_kinds(spec["responseType"])\n'
+        "    for key, value in response.items():\n"
+        "        hold_value(operation, key, value, kinds[key])\n"
+        "    settle_exit_code(",
+        '    kinds = record_kinds(spec["responseType"])\n'
+        "    for key, value in response.items():\n"
+        "        hold_value(operation, key, value, kinds[key])\n"
+        "    settle_exit_code(",
         [
             "test_promise.py",
             "TheTrackerDoor.test_the_tracker_door_raises_naming_the_operation_and_the_key",
@@ -218,8 +244,10 @@ MUTATIONS = [
     (
         "a value outside its type passes the door",
         "dotdiw",
-        "    for key, value in response.items():\n        hold_value(operation, key, value, kinds[key])\n",
-        "",
+        "    for key, value in response.items():\n"
+        "        hold_value(operation, key, value, kinds[key])\n"
+        "    settle_exit_code(",
+        "    settle_exit_code(",
         [
             "test_promise.py",
             "TheTrackerDoor.test_a_value_outside_its_type_is_one_line_from_a_loaded_adapter",
@@ -416,7 +444,7 @@ MUTATIONS = [
     (
         "a local phase closes over its open items",
         "dotdiw",
-        "    return needs + [c for c in children if c not in needs]\n",
+        "    return needs + [c for c in under if c not in needs]\n",
         "    return needs\n",
         ["test_dotdiw.py", "ThePlanFormula.test_the_layout_keeps_the_order_under_local"],
     ),
@@ -802,8 +830,8 @@ MUTATIONS = [
     (
         "a forward extra's failure says nothing",
         "dotdiw",
-        '            sys.stderr.write("%s: %s\\n" % (PROG, response["summary"]))\n        else:\n            sys.stdout.write(',
-        "            pass\n        else:\n            sys.stdout.write(",
+        '        if response["status"] != "completed":\n            sys.stderr.write("%s: %s\\n" % (PROG, response["summary"]))\n        else:\n            sys.stdout.write(response.get("output") or "")\n',
+        '        if response["status"] != "completed":\n            pass\n        else:\n            sys.stdout.write(response.get("output") or "")\n',
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_a_forward_extra_that_prints_nothing_is_shown",
@@ -812,8 +840,8 @@ MUTATIONS = [
     (
         "a forward extra's output is not shown",
         "dotdiw",
-        '            sys.stdout.write(response.get("output") or "")\n',
-        "            pass\n",
+        '        else:\n            sys.stdout.write(response.get("output") or "")\n        return\n    glyphs',
+        "        else:\n            pass\n        return\n    glyphs",
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_a_forward_extra_that_prints_nothing_is_shown",
@@ -1138,8 +1166,8 @@ MUTATIONS = [
     (
         "an old store's molecule root stays open after its last step",
         "dotdiw",
-        '            and parent["kind"] in ("root", "molecule")\n',
-        '            and parent["kind"] == "root"\n',
+        '        if parent and parent["kind"] in ("root", "molecule"):\n',
+        '        if parent and parent["kind"] == "root":\n',
         [
             "test_dotdiw.py",
             "TheLocalAdapter.test_a_store_made_before_1_0_reads_its_molecule_roots_as_root",
@@ -1148,8 +1176,8 @@ MUTATIONS = [
     (
         "a root local pours stays open after its last step",
         "dotdiw",
-        '            and parent["kind"] in ("root", "molecule")\n',
-        '            and parent["kind"] == "molecule"\n',
+        '        if parent and parent["kind"] in ("root", "molecule"):\n',
+        '        if parent and parent["kind"] == "molecule":\n',
         ["test_dotdiw.py", "TheLocalAdapter.test_a_poured_root_closes_with_its_last_step"],
     ),
     (
@@ -1457,8 +1485,8 @@ MUTATIONS = [
     (
         "beads keeps no means on an item it creates",
         "dotdiw",
-        '    if means:\n        argv += ["--metadata=" + beads_means({}, means)]\n    code, out, err = beads_quiet(argv, root)\n    if code != 0:\n',
-        '    if False:\n        argv += ["--metadata=" + beads_means({}, means)]\n    code, out, err = beads_quiet(argv, root)\n    if code != 0:\n',
+        '        argv += ["--metadata=" + beads_means({"metadata": given}, means)]\n',
+        '        argv += ["--metadata=" + beads_means({"metadata": given}, [])]\n',
         ["test_dotdiw.py", "TheBeadsMetadata.test_the_means_are_kept_in_the_issues_metadata"],
     ),
     (
@@ -1511,18 +1539,18 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheArgumentsBeadsIsGiven.test_a_value_is_never_read_as_an_option"],
     ),
     (
-        "a create asks bd for a root",
+        "a root's type in capitals passes",
         "dotdiw",
-        '        if flag in ("-t", "--type") and value.strip().lower() == "molecule":\n',
-        "        if False:\n",
-        ["test_dotdiw.py", "TheArgumentsBeadsIsGiven.test_only_a_pour_makes_a_root"],
+        '        and str(given.get("type", "")).strip().lower() in BEADS_ROOT_TYPES\n',
+        '        and str(given.get("type", "")).strip() in BEADS_ROOT_TYPES\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_only_a_pour_makes_a_root"],
     ),
     (
         "an update asks bd for a root",
         "dotdiw",
-        '        args, refused = beads_typed(args, request.get("root"))\n',
-        '        args, refused = beads_typed(args, request.get("root"))[0], None\n',
-        ["test_dotdiw.py", "TheArgumentsBeadsIsGiven.test_only_a_pour_makes_a_root"],
+        '        reading.get("command") in (["update"], ["q"])\n',
+        "        False\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_only_a_pour_makes_a_root"],
     ),
     (
         "the pass-through rewrites a typed description",
@@ -1918,7 +1946,7 @@ MUTATIONS = [
     (
         "a run's index forgets the files it could not parse",
         "dotdiw",
-        '            "unparsed": list(UNPARSED.get(root, [])),\n',
+        '            "unparsed": list(scope.unparsed.get(root, [])),\n',
         '            "unparsed": [],\n',
         ["test_dotdiw.py", "TheFormulaProviders.test_check_names_a_formula_that_does_not_parse"],
     ),
@@ -2029,8 +2057,8 @@ MUTATIONS = [
     (
         "the local upgrade changes a store unasked",
         "dotdiw",
-        '        if not request.get("apply"):\n            return dict(\n                nothing,\n                summary="The store keeps the means to prove a run inside descriptions.",\n',
-        '        if False:\n            return dict(\n                nothing,\n                summary="The store keeps the means to prove a run inside descriptions.",\n',
+        '        if not request.get("apply"):\n            return dict(nothing, summary="The store is %s." % "; ".join(left), pending=left)\n',
+        '        if False:\n            return dict(nothing, summary="The store is %s." % "; ".join(left), pending=left)\n',
         [
             "test_dotdiw.py",
             "TheLocalAdapter.test_a_store_made_before_3_0_is_brought_up_to_date_when_init_asks",
@@ -2302,8 +2330,8 @@ MUTATIONS = [
     (
         "a Jira issue made and not read back keeps no key",
         "trackers/jira.py",
-        "        return out, key\n",
-        "        return out, None\n",
+        '        out["summary"] = "Jira made %s and could not read it back: %s" % (key, out["summary"])\n        return out, key\n',
+        '        out["summary"] = "Jira made %s and could not read it back: %s" % (key, out["summary"])\n        return out, None\n',
         [
             "test_jira.py",
             "TheHostedAdapter.test_a_pour_names_what_jira_made_and_could_not_read_back",
@@ -2369,8 +2397,8 @@ MUTATIONS = [
     (
         "every operation shares the last one's reading of the formulas",
         "dotdiw",
-        "    if DEPTH == 0:\n        INDEXES.clear()\n",
-        "    if False:\n        INDEXES.clear()\n",
+        "    finally:\n        SCOPE.reset(begun)\n        GATE.leave()\n",
+        "    finally:\n        GATE.leave()\n",
         ["test_promise.py", "TheTrackerDoor.test_every_pour_reads_the_formula_afresh"],
     ),
     (
@@ -2437,10 +2465,10 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheLocalCommandLine.test_create_pour_and_init_read_their_own_flags"],
     ),
     (
-        "a module written for interface 2 loads",
+        "a module written for the interface before this one loads",
         "dotdiw",
         "    if declared != TRACKER_INTERFACE or isinstance(declared, bool):\n",
-        "    if declared not in (2, TRACKER_INTERFACE) or isinstance(declared, bool):\n",
+        "    if declared not in (TRACKER_INTERFACE - 1, TRACKER_INTERFACE) or isinstance(declared, bool):\n",
         ["test_promise.py", "TheTrackerDoor.test_a_module_says_which_interface_it_was_written_for"],
     ),
     (
@@ -2516,8 +2544,10 @@ MUTATIONS = [
     (
         "a provider's verifyUsing is defaulted",
         "dotdiw",
-        "    means = [] if means is None else means\n",
-        "    means = means or []\n",
+        "    if means is None:\n"
+        "        # A provider with title and description fields alone keeps the means\n",
+        "    if not means:\n"
+        "        # A provider with title and description fields alone keeps the means\n",
         [
             "test_dotdiw.py",
             "TheFormulaProviders.test_nothing_a_provider_gives_is_replaced_by_a_default",
@@ -2557,16 +2587,2318 @@ MUTATIONS = [
         '    body = r.get("formula")\n    if body:\n',
         ["test_dotdiw.py", "TheFormulaProviders.test_an_exact_path_comes_before_a_file_name"],
     ),
+    (
+        "a step's claim is kept off its step",
+        "dotdiw",
+        '                if claim is not None:\n                    step["claim"] = claim\n',
+        "                if claim is not None:\n                    pass\n",
+        ["test_promise.py", "AStepsClaim.test_a_claim_is_read_onto_its_step_in_the_formula_record"],
+    ),
+    (
+        "a claim that is not a table is read",
+        "dotdiw",
+        '    if not isinstance(said, dict):\n        return None, "the claim of step %s is not a table" % step\n',
+        '    if False:\n        return None, "the claim of step %s is not a table" % step\n',
+        ["test_promise.py", "AStepsClaim.test_a_claim_that_cannot_be_read_is_left_off_and_named"],
+    ),
+    (
+        "a claim is read with no statement",
+        "dotdiw",
+        '    if not isinstance(statement, str) or not statement.strip():\n        return None, "the claim of step %s has no statement" % step\n',
+        '    if False:\n        return None, "the claim of step %s has no statement" % step\n',
+        ["test_promise.py", "AStepsClaim.test_a_claim_that_cannot_be_read_is_left_off_and_named"],
+    ),
+    (
+        "a key with no colon is read as a slot",
+        "dotdiw",
+        '        label = str(key)[:-1] if str(key).endswith(":") else None\n',
+        '        label = str(key).rstrip(":")\n',
+        ["test_promise.py", "AStepsClaim.test_a_claim_that_cannot_be_read_is_left_off_and_named"],
+    ),
+    (
+        "a slot's label is not held to kebab-case",
+        "dotdiw",
+        "        if label is None or not CLAIM_LABEL.match(label):\n",
+        "        if label is None:\n",
+        ["test_promise.py", "AStepsClaim.test_a_claim_that_cannot_be_read_is_left_off_and_named"],
+    ),
+    (
+        "a slot may hold a value",
+        "dotdiw",
+        "        if value != {}:\n",
+        "        if False:\n",
+        ["test_promise.py", "AStepsClaim.test_a_claim_that_cannot_be_read_is_left_off_and_named"],
+    ),
+    (
+        "a placeholder may name no slot",
+        "dotdiw",
+        "        if name not in slots:\n            return None, (\n",
+        "        if False:\n            return None, (\n",
+        ["test_promise.py", "AStepsClaim.test_a_claim_that_cannot_be_read_is_left_off_and_named"],
+    ),
+    (
+        "check does not name a claim it cannot read",
+        "dotdiw",
+        '        for what in f.get("claimUnread") or []:\n            probs.append(("formula", f["rel"], what))\n',
+        '        for what in []:\n            probs.append(("formula", f["rel"], what))\n',
+        ["test_promise.py", "AStepsClaim.test_a_claim_that_cannot_be_read_is_left_off_and_named"],
+    ),
+    (
+        "a provider's claim is left off its step",
+        "dotdiw",
+        '            step["claim"] = held_claim(ident, claim)\n',
+        "            pass\n",
+        ["test_promise.py", "AStepsClaim.test_a_providers_answer_carries_a_steps_claim"],
+    ),
+    (
+        "a provider's claim is taken whatever keys it holds",
+        "dotdiw",
+        '    if not isinstance(said, dict) or set(said) - {"statement", "slots"}:\n',
+        "    if not isinstance(said, dict):\n",
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_claim_outside_its_shape_refuses_the_formula",
+        ],
+    ),
+    (
+        "a provider's claim may have no statement",
+        "dotdiw",
+        '    if not isinstance(statement, str) or not statement.strip():\n        raise ValueError("the claim of step %s has no statement" % step)\n',
+        '    if False:\n        raise ValueError("the claim of step %s has no statement" % step)\n',
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_claim_outside_its_shape_refuses_the_formula",
+        ],
+    ),
+    (
+        "a provider's slots are not held to kebab-case",
+        "dotdiw",
+        "    if not isinstance(slots, list) or not all(\n        isinstance(s, str) and CLAIM_LABEL.match(s) for s in slots\n    ):\n",
+        "    if not isinstance(slots, list) or not all(\n        isinstance(s, str) for s in slots\n    ):\n",
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_claim_outside_its_shape_refuses_the_formula",
+        ],
+    ),
+    (
+        "a provider's claim may name a slot twice",
+        "dotdiw",
+        "    if len(set(slots)) != len(slots):\n",
+        "    if False:\n",
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_claim_outside_its_shape_refuses_the_formula",
+        ],
+    ),
+    (
+        "a provider's placeholder may name no slot",
+        "dotdiw",
+        "        if name not in slots:\n            raise ValueError(\n",
+        "        if False:\n            raise ValueError(\n",
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_claim_outside_its_shape_refuses_the_formula",
+        ],
+    ),
+    (
+        "a pour hands the tracker no claim",
+        "dotdiw",
+        '        out["claim"] = step["claim"]\n',
+        "        pass\n",
+        ["test_promise.py", "TheTrackerDoor.test_a_pour_hands_the_tracker_each_steps_claim"],
+    ),
+    (
+        "local pours a step without its claim",
+        "dotdiw",
+        '                        json.dumps(s["claim"]) if s.get("claim") else None,\n',
+        "                        None,\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "local pours a step without its id",
+        "dotdiw",
+        '                        root_id,\n                        s["id"],\n',
+        "                        root_id,\n                        None,\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "local reads no step back",
+        "dotdiw",
+        '        item["step"] = row["step"]\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "local reads no claim back",
+        "dotdiw",
+        '        item["claim"] = json.loads(row["claim"])\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "local reads no values back",
+        "dotdiw",
+        '        item["values"] = json.loads(row["claim_values"])\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "local creates an item without the values a move carries",
+        "dotdiw",
+        "                    json.dumps(values) if values else None,\n",
+        "                    None,\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "local records no values",
+        "dotdiw",
+        '                (json.dumps(values) if values else None, local_now(), request["id"]),\n',
+        '                (None, local_now(), request["id"]),\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "a label given empty is kept",
+        "dotdiw",
+        "            if at is not None:\n                out.pop(at)\n",
+        "            pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "a label given again is added twice",
+        "dotdiw",
+        '            out[at] = {"label": v["label"], "text": v["text"]}\n',
+        '            out.append({"label": v["label"], "text": v["text"]})\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "labels not given are dropped",
+        "dotdiw",
+        '    out: list[ClaimValue] = [{"label": v["label"], "text": v["text"]} for v in held]\n',
+        "    out: list[ClaimValue] = []\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "a store 3.0.0 made gets no place for claims",
+        "dotdiw",
+        '                for column in ("step", "claim", "claim_values", "run"):\n',
+        "                for column in ():\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_store_made_by_3_0_takes_step_claims_when_init_asks",
+        ],
+    ),
+    (
+        "beads pours a step without its claim",
+        "dotdiw",
+        '            poured["claim"] = s["claim"]\n',
+        "            pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "beads reads no claim back",
+        "dotdiw",
+        '        item["claim"] = own["claim"]\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "beads reads no values back",
+        "dotdiw",
+        '        item["values"] = [{"label": label, "text": text} for _, label, text in kept]\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "beads creates an item without what a move carries",
+        "dotdiw",
+        '    moved = {k: request[k] for k in ("step", "claim", "run") if request.get(k)}\n',
+        "    moved: dict[str, Any] = {}\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira pours a step without its claim",
+        "trackers/jira.py",
+        '                "claim": s.get("claim"),\n',
+        '                "claim": None,\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira reads no values back",
+        "trackers/jira.py",
+        '        out["values"] = values\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira lists children without their claims",
+        "trackers/jira.py",
+        '        query = {"jql": jql, "maxResults": 100, "fields": FIELDS, "properties": PROPERTY}\n',
+        '        query = {"jql": jql, "maxResults": 100, "fields": FIELDS}\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira keeps no values",
+        "trackers/jira.py",
+        '        call("PUT", path, {"values": list(request["values"])})\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "a label not in kebab-case is recorded",
+        "dotdiw",
+        '    bad = [v["label"] for v in values if not CLAIM_LABEL.match(v["label"])]\n',
+        "    bad: list[str] = []\n",
+        ["test_promise.py", "AStepsRun.test_nothing_is_recorded_where_it_should_not_be"],
+    ),
+    (
+        "a step with no claim takes values",
+        "dotdiw",
+        '    if not item.get("claim"):\n        return {\n            "status": "failed",\n            "reason": "no-claim",\n',
+        '    if False:\n        return {\n            "status": "failed",\n            "reason": "no-claim",\n',
+        ["test_promise.py", "AStepsRun.test_nothing_is_recorded_where_it_should_not_be"],
+    ),
+    (
+        "a closed step takes values",
+        "dotdiw",
+        '    if item["status"] == "closed":\n        return {\n            "status": "failed",\n            "reason": "step-closed",\n',
+        '    if False:\n        return {\n            "status": "failed",\n            "reason": "step-closed",\n',
+        ["test_promise.py", "AStepsRun.test_nothing_is_recorded_where_it_should_not_be"],
+    ),
+    (
+        "a step reads its own run as if it were the root",
+        "dotdiw",
+        '    if shown["status"] == "completed" and shown["item"].get("run"):\n',
+        "    if False:\n",
+        ["test_promise.py", "AStepsRun.test_values_are_recorded_and_the_run_read_back"],
+    ),
+    (
+        "a value that is not simple fills the means",
+        "dotdiw",
+        "        return value if value is not None and CLAIM_SIMPLE.match(value) else None\n",
+        "        return value\n",
+        [
+            "test_promise.py",
+            "AStepsRun.test_a_value_that_is_not_simple_fills_the_claim_and_not_the_means",
+        ],
+    ),
+    (
+        "a placeholder left open is not named",
+        "dotdiw",
+        "            if m.group(0) not in left:\n                left.append(m.group(0))\n",
+        "            pass\n",
+        ["test_promise.py", "AStepsRun.test_values_are_recorded_and_the_run_read_back"],
+    ),
+    (
+        "the journey answers no run",
+        "dotdiw",
+        '    if read.get("run"):\n        out["run"] = read["run"]\n',
+        "    pass\n",
+        ["test_promise.py", "AStepsRun.test_values_are_recorded_and_the_run_read_back"],
+    ),
+    (
+        "claim reads nothing from standard input",
+        "dotdiw",
+        "        if not lines and not sys.stdin.isatty():\n",
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_lines_on_standard_input_are_recorded_the_same_way",
+        ],
+    ),
+    (
+        "claim records a line that is not label: value",
+        "dotdiw",
+        "            if colon and CLAIM_LABEL.match(label.strip()):\n",
+        "            if colon:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_a_line_that_is_not_label_value_refuses_the_whole_input",
+        ],
+    ),
+    (
+        "a pour names no claimed step",
+        "dotdiw",
+        '        if claim and made.get(s["id"]):\n',
+        "        if False:\n",
+        ["test_promise.py", "TheTrackerDoor.test_a_pour_names_each_claimed_step_it_made"],
+    ),
+    (
+        "the pour prints no claim",
+        "dotdiw",
+        '    for c in response.get("claims") or [] if not request.get("json") else []:\n',
+        "    for c in []:\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_the_pour_says_how_to_record_each_claim"],
+    ),
+    (
+        "dotdiw's own commands answer no --help",
+        "dotdiw",
+        '    if helped and ("--help" in argv[1:] or "-h" in argv[1:]):\n',
+        "    if False:\n",
+        ["test_dotdiw.py", "TheHelpOfDotdiwsOwnCommands.test_each_own_command_answers_help"],
+    ),
+    (
+        "a Jira issue whose claim was not kept hides its key",
+        "trackers/jira.py",
+        '            out["summary"] = "Jira made %s and could not keep its claim: %s" % (key, out["summary"])\n            return out, key\n',
+        '            out["summary"] = "Jira made %s and could not keep its claim: %s" % (key, out["summary"])\n            return out, None\n',
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_pour_whose_claim_jira_cannot_keep_names_what_it_made",
+        ],
+    ),
+    (
+        "a provider's description keeps its means",
+        "dotdiw",
+        '        kept, means = read_verify_using(description.rstrip("\\n"))\n',
+        "        kept, means = description, []\n",
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_descriptions_are_read_into_the_same_model",
+        ],
+    ),
+    (
+        "a step's description names no id",
+        "dotdiw",
+        '            told["id"] = line[len("Step ID:") :].strip()\n',
+        "            pass\n",
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_descriptions_are_read_into_the_same_model",
+        ],
+    ),
+    (
+        "a step's description names no needs",
+        "dotdiw",
+        '            told["needs"] = [n.strip() for n in line[len("Needs:") :].split(",") if n.strip()]\n',
+        "            pass\n",
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_descriptions_are_read_into_the_same_model",
+        ],
+    ),
+    (
+        "a step's description holds no claim",
+        "dotdiw",
+        '            told["claim"] = {\n',
+        '            told["unread"] = {\n',
+        [
+            "test_promise.py",
+            "AStepsClaim.test_a_providers_descriptions_are_read_into_the_same_model",
+        ],
+    ),
+    (
+        "formula show answers a provider's claim in the record's form",
+        "dotdiw",
+        '                claim.update({"%s:" % label: {} for label in s["claim"]["slots"]})\n',
+        '                claim["slots"] = s["claim"]["slots"]\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_formula_show_answers_a_providers_claim_in_the_form_a_file_takes",
+        ],
+    ),
+    (
+        "a means' placeholder splits at its first dot",
+        "dotdiw",
+        '        step, dot, label = inner.rpartition(".")\n',
+        '        step, dot, label = inner.partition(".")\n',
+        ["test_promise.py", "AStepsRun.test_a_step_id_with_a_dot_names_its_step_in_the_means"],
+    ),
+    (
+        "check names no means placeholder",
+        "dotdiw",
+        "            if label not in claimed.get(step_id, []):\n",
+        "            if False:\n",
+        [
+            "test_promise.py",
+            "AStepsClaim.test_check_names_a_means_placeholder_that_names_no_claimed_slot",
+        ],
+    ),
+    (
+        "a run's steps are its root's children",
+        "dotdiw",
+        '    listed = invoke_tracker("operation.list-items", dict(where, scope="all", run=top["id"]))\n',
+        '    listed = dict(shown, items=shown.get("children"))\n',
+        ["test_promise.py", "AStepsRun.test_a_step_moved_in_from_another_run_is_left_out"],
+    ),
+    (
+        "a move leaves the run behind",
+        "dotdiw",
+        '                "run": ids.get(whole["run"]) if whole.get("run") else None,\n',
+        '                "run": None,\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_a_move_carries_the_claims_their_values_and_their_run",
+        ],
+    ),
+    (
+        "a move leaves the values behind",
+        "dotdiw",
+        '                "values": list(whole.get("values") or []) or None,\n',
+        '                "values": None,\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_a_move_carries_the_claims_their_values_and_their_run",
+        ],
+    ),
+    (
+        "a move leaves the claim behind",
+        "dotdiw",
+        '                "claim": whole.get("claim"),\n',
+        '                "claim": None,\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_a_move_carries_the_claims_their_values_and_their_run",
+        ],
+    ),
+    (
+        "local pours a step without its run",
+        "dotdiw",
+        '                        json.dumps(s["claim"]) if s.get("claim") else None,\n'
+        "                        root_id,\n",
+        '                        json.dumps(s["claim"]) if s.get("claim") else None,\n'
+        "                        None,\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "local reads no run back",
+        "dotdiw",
+        '        item["run"] = row["run"]\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "beads pours a step without its run",
+        "dotdiw",
+        '        poured: dict[str, Any] = {"step": s["id"], "run": root_id}\n',
+        '        poured: dict[str, Any] = {"step": s["id"]}\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "beads reads no run back",
+        "dotdiw",
+        '        item["run"] = own["run"]\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "beads puts every value under one key",
+        "dotdiw",
+        '            BEADS_VALUE + v["label"].replace("-", "_"): json.dumps(\n',
+        '            BEADS_VALUE + "all": json.dumps(\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_claims_values_are_declined_and_nothing_is_written",
+        ],
+    ),
+    (
+        "jira pours a step without its run",
+        "trackers/jira.py",
+        '                "run": root_id,\n',
+        '                "run": None,\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira reads no run back",
+        "trackers/jira.py",
+        '        out["run"] = own["run"]\n',
+        "        pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira keeps every write under one property",
+        "trackers/jira.py",
+        '    return "%s%020d.%s" % (WRITE, moment, os.urandom(4).hex())\n',
+        '    return WRITE + "0"\n',
+        ["test_jira.py", "TheHostedAdapter.test_a_writer_of_other_labels_keeps_what_it_recorded"],
+    ),
+    (
+        "jira shows a step without its values",
+        "trackers/jira.py",
+        '            record(full(i))\n            for i in search("project',
+        '            record(i)\n            for i in search("project',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "a step is read in the run of the parent it stands under",
+        "dotdiw",
+        '    if shown["status"] == "completed" and shown["item"].get("run"):\n        its_run = str(shown["item"]["run"])\n',
+        '    if shown["status"] == "completed" and shown["item"].get("parent"):\n        its_run = str(shown["item"]["parent"])\n',
+        [
+            "test_promise.py",
+            "AStepsRun.test_a_step_moved_away_is_read_in_the_run_it_was_poured_in",
+        ],
+    ),
+    (
+        "a step moved under another run's root is read in that run",
+        "dotdiw",
+        '    if shown["status"] == "completed" and shown["item"].get("run"):\n        its_run = str(shown["item"]["run"])\n',
+        '    if shown["status"] == "completed" and shown["item"].get("parent"):\n        its_run = str(shown["item"]["parent"])\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_a_run_reads_only_the_steps_it_poured",
+        ],
+    ),
+    (
+        "a run is read from its root's children on the command line",
+        "dotdiw",
+        '    listed = invoke_tracker("operation.list-items", dict(where, scope="all", run=top["id"]))\n',
+        '    listed = dict(shown, items=shown.get("children"))\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_a_run_reads_only_the_steps_it_poured"],
+    ),
+    (
+        "local lists every item in a run",
+        "dotdiw",
+        '    if request.get("run") is not None:\n'
+        '        where.append("run = ?")\n'
+        '        args.append(request["run"])\n',
+        "",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "beads lists every item in a run",
+        "dotdiw",
+        '        items = [i for i in items if i.get("run") == run][: limit or None]\n',
+        "        items = items[: limit or None]\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira lists every item in a run",
+        "trackers/jira.py",
+        '            if run is None or ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == run\n',
+        "            if True\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira lists a step without its values",
+        "trackers/jira.py",
+        "            record(full(i))\n            for i in search(jql)\n",
+        "            record(i)\n            for i in search(jql)\n",
+        ["test_jira.py", "TheHostedAdapter.test_a_write_jira_refuses_reads_as_it_was"],
+    ),
+    (
+        "migrate writes a step before the root of its run",
+        "dotdiw",
+        '            if item["id"] in placed or waits(item, "parent") or waits(item, "run"):\n',
+        '            if item["id"] in placed or waits(item, "parent"):\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_a_move_writes_each_runs_root_before_its_steps"],
+    ),
+    (
+        "migrate writes runs that wait on each other",
+        "dotdiw",
+        "            if not cut:\n                stuck = sorted(",
+        "            if not cut:\n"
+        "                cut = left\n"
+        "            if False:\n"
+        "                stuck = sorted(",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_runs_that_wait_on_each_other_stop_the_move_unwritten",
+        ],
+    ),
+    (
+        "a root closes while a step of its run is open, under local",
+        "dotdiw",
+        "            \"SELECT id FROM items WHERE (parent = ? OR run = ?) AND status != 'closed' \"\n",
+        "            \"SELECT id FROM items WHERE (parent = ? OR NULL = ?) AND status != 'closed' \"\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_a_run_closes_after_every_step_poured_in_it"],
+    ),
+    (
+        "a root closes while a step of its run is open, under beads",
+        "dotdiw",
+        '        poured = [i for i, o in before.items() if o.get("run") == ident]\n',
+        "        poured = []\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_named_by_its_short_id_is_held_as_by_its_full_one",
+        ],
+    ),
+    (
+        "a root closes while a step of its run is open, under jira",
+        "trackers/jira.py",
+        '        if ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == key\n',
+        "        if False\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "a molecule may close before any step of it",
+        "contracts/named-work-found-its-procedure.cesc.yaml",
+        "  - relationId: relation.a-step-closed-before-completed\n"
+        "    before: step_closed\n"
+        "    after: completed\n"
+        "    quantifier: exists\n"
+        "    meaning: enables\n"
+        "    requiredEvidence:\n"
+        "      anyOf:\n"
+        "        - sameCaseKey\n",
+        "",
+        ["poa", "antitrace.run-closed-before-its-steps"],
+    ),
+    (
+        "jira reads the writes newest first",
+        "trackers/jira.py",
+        "    for key in sorted(k for k in properties if write_moment(k) is not None):\n",
+        "    for key in sorted((k for k in properties if write_moment(k) is not None), reverse=True):\n",
+        ["test_jira.py", "TheHostedAdapter.test_a_write_is_read_after_every_write_the_step_held"],
+    ),
+    (
+        "jira names a write for now, behind a later one",
+        "trackers/jira.py",
+        "    moment = max([time.time_ns() // 1000] + [m + 1 for m in moments])\n",
+        "    moment = time.time_ns() // 1000\n",
+        ["test_jira.py", "TheHostedAdapter.test_a_write_is_read_after_every_write_the_step_held"],
+    ),
+    (
+        "jira keeps a label written empty",
+        "trackers/jira.py",
+        '                held.pop(str(v.get("label")), None)\n',
+        "                pass\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira writes each value apart",
+        "trackers/jira.py",
+        '        call("PUT", path, {"values": list(request["values"])})\n',
+        '        for v in request["values"]:\n'
+        '            name = write_name(held(key).get("properties") or {})\n'
+        '            call("PUT", "/rest/api/3/issue/%s/properties/%s" % (key, name), {"values": [v]})\n',
+        ["test_jira.py", "TheHostedAdapter.test_a_write_jira_refuses_reads_as_it_was"],
+    ),
+    (
+        "migrate leaves a parent it set late unset",
+        "dotdiw",
+        "        out = invoke_tracker(\n"
+        '            "operation.update-item",\n'
+        '            {"root": root, "tracker": dst, "id": ids[ident], "parent": ids[parent]},\n'
+        "        )\n",
+        '        out = {"status": "completed"}\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_a_root_under_its_own_step_keeps_that_parent"],
+    ),
+    (
+        "migrate forgets which items wait for their parent",
+        "dotdiw",
+        '        if early:\n            unparented.append(item["id"])\n',
+        "",
+        ["test_dotdiw.py", "TheClaimCommand.test_a_root_under_its_own_step_keeps_that_parent"],
+    ),
+    (
+        "check looks in git for a file a claim names",
+        "dotdiw",
+        "            if CLAIM_PLACEHOLDER.search(path):\n"
+        "                continue  # a claimed slot names it, so it is known once the run records it\n",
+        "",
+        ["test_dotdiw.py", "TheMeansToProveARun.test_check_leaves_a_file_a_claim_names_to_the_run"],
+    ),
+    (
+        "the tracker door lets a request value outside its type",
+        "dotdiw",
+        '    kinds = record_kinds(spec["requestType"])\n'
+        "    for key, value in request.items():\n"
+        "        hold_value(operation, key, value, kinds[key], words=False)\n"
+        "    name, adapter = resolve_tracker(request)\n",
+        "    name, adapter = resolve_tracker(request)\n",
+        [
+            "test_promise.py",
+            "TheTrackerDoor.test_a_request_value_outside_its_type_raises_before_an_adapter_answers",
+        ],
+    ),
+    (
+        "the tracker door holds an enum's word in a request to its words",
+        "dotdiw",
+        "        hold_value(operation, key, value, kinds[key], words=False)\n",
+        "        hold_value(operation, key, value, kinds[key])\n",
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "the pass-through closes a root while a step of its run is open",
+        "dotdiw",
+        "                standing = what_stands_open(ident, before[ident], before, earlier)\n",
+        "                standing = []\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_the_command_line_holds_a_root_while_a_step_of_its_run_is_open",
+        ],
+    ),
+    (
+        "a root may come to wait on what waits on it",
+        "dotdiw",
+        "        if waiter == item or (waits is not None and waiter in waits):\n",
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_no_edge_by_any_name_makes_a_root_wait_on_itself",
+        ],
+    ),
+    (
+        "what an item waits on leaves out its run",
+        "dotdiw",
+        '        for above in (i.get("parent"), i.get("run")):\n',
+        '        for above in (i.get("parent"),):\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_no_edge_by_any_name_makes_a_root_wait_on_itself",
+        ],
+    ),
+    (
+        "a need is never held at the command line",
+        "dotdiw",
+        '        return "checked", None, edge_pairs(words[0], needs.pop(), options.get("type")), []\n',
+        '        return "as-it-is", None, [], []\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_no_edge_by_any_name_makes_a_root_wait_on_itself",
+        ],
+    ),
+    (
+        "local leaves the root of a moved step's run open",
+        "dotdiw",
+        '    if run and run != row["parent"]:\n'
+        "        root = local_fetch(conn, run)\n"
+        "        if root:\n"
+        "            above.append(root)\n",
+        "",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_the_last_step_closes_the_root_of_its_run_wherever_it_stands",
+        ],
+    ),
+    (
+        "jira leaves the root of a moved step's run open",
+        "trackers/jira.py",
+        "        if run and run != parent:\n"
+        "            above = fetch(run)\n"
+        "            if above is not None:\n"
+        "                roots.append(record(above))\n",
+        "",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_the_last_step_closes_the_root_of_its_run_wherever_it_stands",
+        ],
+    ),
+    (
+        "local lists every item in an empty run",
+        "dotdiw",
+        '    if request.get("run") is not None:\n        where.append("run = ?")\n',
+        '    if request.get("run"):\n        where.append("run = ?")\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "beads lists every item in an empty run",
+        "dotdiw",
+        "    if run is not None:\n"
+        '        items = [i for i in items if i.get("run") == run][: limit or None]\n',
+        '    if run:\n        items = [i for i in items if i.get("run") == run][: limit or None]\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "jira lists every item in an empty run",
+        "trackers/jira.py",
+        '            if run is None or ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == run\n',
+        '            if not run or ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == run\n',
+        ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
+    ),
+    (
+        "the log vouches for every close of a molecule",
+        "dotdiw",
+        '                        everyStepClosed=set(poured[ident].get("stepIds") or []) <= shut,\n',
+        "                        everyStepClosed=True,\n",
+        [
+            "test_promise.py",
+            "TheWitnessLogUnderLocal.test_a_root_closed_before_the_log_saw_every_step_is_no_valid_story",
+        ],
+    ),
+    (
+        "a molecule closed early completes its story",
+        "contracts/named-work-found-its-procedure.cesc.yaml",
+        "  - relationId: relation.every-step-closed-before-the-molecule\n"
+        "    before: completed\n"
+        "    after: closed_early\n"
+        "    quantifier: exists\n"
+        "    meaning: enables\n"
+        "    requiredEvidence:\n"
+        "      anyOf:\n"
+        "        - sameCaseKey\n",
+        "",
+        ["poa", "antitrace.run-closed-with-a-step-unclosed"],
+    ),
+    (
+        "the pass-through reports closed what its words name",
+        "dotdiw",
+        '            closed, notes = what_the_close_closed(\n                common, closing, every, out.get("markedIds"), out.get("exitCode", 1) != 0\n            )\n',
+        "            closed, notes = list(closing), []\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_another_writer_made_first_is_not_this_ones",
+        ],
+    ),
+    (
+        "done closes a root unheld",
+        "dotdiw",
+        '    path = [word] if word in top["subcommands"] else beads_command([word], root)\n',
+        '    path = [word] if word in top["subcommands"] else None\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "an option before the verb hides it",
+        "dotdiw",
+        '    while i < len(args) and args[i].startswith("-") and args[i] not in ("-", "--"):\n',
+        "    while False:\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "a short id is held as no item",
+        "dotdiw",
+        '            read[word] = str((shown.get("item") or {}).get("id") or word)\n',
+        "            read[word] = word\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "an update to closed is no close",
+        "dotdiw",
+        '        return "checked", words if status == "closed" else None, edges, words\n',
+        '        return "checked", None, edges, words\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "a forced close passes an open child",
+        "dotdiw",
+        '        if i != ident and i not in earlier and ident in (o.get("parent"), o.get("run"))\n',
+        '        if i != ident and i not in earlier and ident == o.get("run")\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "a forced close passes an open need",
+        "dotdiw",
+        '    needs = [n for n in item.get("needs") or [] if n in standing and n not in earlier]\n',
+        "    needs: list[str] = []\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "a close runs where the tracker cannot be read",
+        "dotdiw",
+        '        elif listed.get("reason") not in TRACKER_CANNOT_ANSWER:\n',
+        "        elif False:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_does_not_run_where_the_tracker_cannot_be_read",
+        ],
+    ),
+    (
+        "a close by another command stands",
+        "dotdiw",
+        "        waiting = what_stands_open(ident, now[ident], standing, set())\n        if waiting:\n",
+        "        waiting = what_stands_open(ident, now[ident], standing, set())\n        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_what_a_close_closed_over_an_open_step_is_opened_again",
+        ],
+    ),
+    (
+        "the pass-through leaves the root of a run open",
+        "dotdiw",
+        "    follows = closes_that_follow(common, shut, {**before, **now}, standing)\n",
+        "    follows: list[Response] = []\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_the_last_step_closes_the_root_of_its_run",
+        ],
+    ),
+    (
+        "a module's root is left open",
+        "dotdiw",
+        "        answers += closes_that_follow(common, closed, records, None)\n",
+        "",
+        [
+            "test_dotdiw.py",
+            "ThePlacesAModuleIsFound.test_through_dotdiw_a_modules_root_closes_with_its_last_step",
+        ],
+    ),
+    (
+        "a parent no pour made closes with its last child",
+        "dotdiw",
+        '            if must_be_root and record.get("kind") != "root":\n',
+        "            if False:\n",
+        [
+            "test_dotdiw.py",
+            "ThePlacesAModuleIsFound.test_through_dotdiw_a_modules_root_closes_with_its_last_step",
+        ],
+    ),
+    (
+        "local waits by needs alone",
+        "dotdiw",
+        '            "SELECT needs FROM edges WHERE id = ? UNION SELECT id FROM items "\n'
+        '            "WHERE parent = ? OR run = ?",\n'
+        "            (at, at, at),\n",
+        '            "SELECT needs FROM edges WHERE id = ?",\n            (at,),\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_root_and_its_step_cannot_come_to_wait_on_each_other",
+        ],
+    ),
+    (
+        "local takes a parent that waits on the item",
+        "dotdiw",
+        "            if parent and (parent == ident or parent in local_waiting(conn, ident)):\n",
+        "            if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_root_and_its_step_cannot_come_to_wait_on_each_other",
+        ],
+    ),
+    (
+        "local checks a need before its write",
+        "dotdiw",
+        '    ident, needs = request["id"], request["needs"]\n'
+        "    try:\n"
+        "        with local_write(conn):\n"
+        "            for one in (ident, needs):\n"
+        "                if not local_fetch(conn, one):\n"
+        "                    return {\n"
+        '                        "status": "failed",\n'
+        '                        "reason": "item-not-found",\n'
+        '                        "exitCode": 1,\n'
+        '                        "summary": "%s names no item here." % one,\n'
+        "                    }\n"
+        "            if ident == needs or ident in local_waiting(conn, needs):\n",
+        '    ident, needs = request["id"], request["needs"]\n'
+        "    try:\n"
+        "        early = local_waiting(conn, needs)\n"
+        "        with local_write(conn):\n"
+        "            for one in (ident, needs):\n"
+        "                if not local_fetch(conn, one):\n"
+        "                    return {\n"
+        '                        "status": "failed",\n'
+        '                        "reason": "item-not-found",\n'
+        '                        "exitCode": 1,\n'
+        '                        "summary": "%s names no item here." % one,\n'
+        "                    }\n"
+        "            if ident == needs or ident in early:\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_parent_and_a_need_cannot_close_a_cycle_between_them",
+        ],
+    ),
+    (
+        "local checks a parent before its write",
+        "dotdiw",
+        '    ident = request["id"]\n'
+        "    try:\n"
+        "        with local_write(conn):\n"
+        "            if not local_fetch(conn, ident):\n"
+        "                return {\n"
+        '                    "status": "failed",\n'
+        '                    "reason": "item-not-found",\n'
+        '                    "exitCode": 1,\n'
+        '                    "summary": "%s names no item here." % ident,\n'
+        "                }\n"
+        '            parent = request.get("parent")\n'
+        "            if parent and not local_fetch(conn, parent):\n"
+        "                return {\n"
+        '                    "status": "failed",\n'
+        '                    "reason": "item-not-found",\n'
+        '                    "exitCode": 1,\n'
+        '                    "summary": "%s names no item here." % parent,\n'
+        "                }\n"
+        "            if parent and (parent == ident or parent in local_waiting(conn, ident)):\n",
+        '    ident = request["id"]\n'
+        "    try:\n"
+        "        early = local_waiting(conn, ident)\n"
+        "        with local_write(conn):\n"
+        "            if not local_fetch(conn, ident):\n"
+        "                return {\n"
+        '                    "status": "failed",\n'
+        '                    "reason": "item-not-found",\n'
+        '                    "exitCode": 1,\n'
+        '                    "summary": "%s names no item here." % ident,\n'
+        "                }\n"
+        '            parent = request.get("parent")\n'
+        "            if parent and not local_fetch(conn, parent):\n"
+        "                return {\n"
+        '                    "status": "failed",\n'
+        '                    "reason": "item-not-found",\n'
+        '                    "exitCode": 1,\n'
+        '                    "summary": "%s names no item here." % parent,\n'
+        "                }\n"
+        "            if parent and (parent == ident or parent in early):\n",
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_parent_and_a_need_cannot_close_a_cycle_between_them",
+        ],
+    ),
+    (
+        "a close that says nothing completes its story",
+        "contracts/named-work-found-its-procedure.cesc.yaml",
+        "    predicates:\n"
+        "      - field: everyStepClosed\n"
+        "        op: equals\n"
+        "        value: true\n",
+        "    predicates:\n"
+        "      - field: everyStepClosed\n"
+        "        op: notEquals\n"
+        "        value: false\n",
+        ["poa", "antitrace.run-closed-by-an-older-witness"],
+    ),
+    (
+        "a close that says nothing is not closed early",
+        "contracts/named-work-found-its-procedure.cesc.yaml",
+        "    predicates:\n"
+        "      - field: everyStepClosed\n"
+        "        op: notEquals\n"
+        "        value: true\n",
+        "    predicates:\n"
+        "      - field: everyStepClosed\n"
+        "        op: equals\n"
+        "        value: false\n",
+        ["poa", "antitrace.run-closed-by-an-older-witness"],
+    ),
+    (
+        "an item opened again is kept without its parent and its run",
+        "dotdiw",
+        "            standing[ident] = dict(now[ident], status=status)\n",
+        '            standing[ident] = {"id": ident, "status": status}\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_what_a_close_closed_over_an_open_step_is_opened_again",
+        ],
+    ),
+    (
+        "a wait the tracker cannot show is taken for none",
+        "dotdiw",
+        '            if shown["status"] != "completed" and shown.get("reason") != "item-not-found":\n',
+        "            if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_wait_that_cannot_be_read_stops_the_need",
+        ],
+    ),
+    (
+        "a root the tracker cannot show is passed over",
+        "dotdiw",
+        '                if shown["status"] != "completed":\n'
+        '                    if shown.get("reason") != "item-not-found":\n',
+        '                if shown["status"] != "completed":\n                    if False:\n',
+        [
+            "test_dotdiw.py",
+            "ThePlacesAModuleIsFound.test_through_dotdiw_a_modules_root_closes_with_its_last_step",
+        ],
+    ),
+    (
+        "a command dotdiw cannot check is asked of the tracker",
+        "dotdiw",
+        '    if name in TRACKER_REFUSED:\n        return "refused:%s" % word\n',
+        "",
+        [
+            "test_dotdiw.py",
+            "WithoutTheBeadsBinary.test_a_command_dotdiw_cannot_check_is_refused_with_or_without_the_binary",
+        ],
+    ),
+    (
+        "a subcommand that closes runs",
+        "dotdiw",
+        "    if name in TRACKER_SUBCOMMANDS_AS_IT_IS and sub in TRACKER_SUBCOMMANDS_AS_IT_IS[name]:\n",
+        "    if name in TRACKER_SUBCOMMANDS_AS_IT_IS:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_command_dotdiw_cannot_check_is_refused_before_it_runs",
+        ],
+    ),
+    (
+        "an option that closes runs",
+        "dotdiw",
+        "    closing = [o for o in TRACKER_CLOSING_OPTIONS.get(name, ()) if options.get(o)]\n",
+        "    closing: list[str] = []\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_command_dotdiw_cannot_check_is_refused_before_it_runs",
+        ],
+    ),
+    (
+        "an update of what dotdiw keeps runs",
+        "dotdiw",
+        '        if kept:\n            return "refused:%s --%s" % (said, kept[0]), None, [], []\n',
+        "",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_command_dotdiw_cannot_check_is_refused_before_it_runs",
+        ],
+    ),
+    (
+        "an update to a status of the tracker's own runs",
+        "dotdiw",
+        '        if isinstance(status, str) and status not in TRACKER_OPEN_STATUSES + ("closed",):\n',
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_command_dotdiw_cannot_check_is_refused_before_it_runs",
+        ],
+    ),
+    (
+        "a file of needs runs",
+        "dotdiw",
+        '        if "file" in options:\n            return "refused:%s --file" % said, None, [], []\n',
+        "",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_command_dotdiw_cannot_check_is_refused_before_it_runs",
+        ],
+    ),
+    (
+        "a command the tracker knows runs unasked",
+        "dotdiw",
+        '    return "refused:%s" % said, None, [], []\n',
+        '    return "as-it-is", None, [], []\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_command_dotdiw_cannot_check_is_refused_before_it_runs",
+        ],
+    ),
+    (
+        "a word the tracker does not know is refused",
+        "dotdiw",
+        '        return "as-it-is", None, [], []  # a word the tracker knows by no command\n',
+        '        return "refused:it", None, [], []\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_command_dotdiw_cannot_check_is_refused_before_it_runs",
+        ],
+    ),
+    (
+        "a root the tracker closed during the close goes unlogged",
+        "dotdiw",
+        "        shut += [i for i in marked if i not in named and i in now and i in before]\n",
+        "        shut += []\n",
+        ["test_promise.py", "TheWitnessLog.test_a_real_run_is_a_story_the_contract_calls_valid"],
+    ),
+    (
+        "a close not read back passes without a word",
+        "dotdiw",
+        "        return [], notes + [unread(ident, why) for ident in named]\n",
+        "        return [], notes\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_root_closed_over_a_moved_step_opens_again_without_a_receipt",
+        ],
+    ),
+    (
+        "a close the tracker cannot list after passes without a word",
+        "dotdiw",
+        '        return [], [unread(ident, listed["summary"]) for ident in named]\n',
+        "        return [], []\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_what_a_close_closed_over_an_open_step_is_opened_again",
+        ],
+    ),
+    (
+        "the log takes another writer's close",
+        "dotdiw",
+        "        shut = [i for i in named if i in marked and i in now and i in before]\n",
+        '        shut = [i for i in named if (now.get(i) or {}).get("status") == "closed"]\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_another_writer_made_first_is_not_this_ones",
+        ],
+    ),
+    (
+        "a need of any type but blocks is let through",
+        "dotdiw",
+        "    if kind in TRACKER_EDGES_WITHOUT_A_WAIT:\n        return []\n",
+        '    if kind not in (None, "blocks"):\n        return []\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_no_edge_by_any_name_makes_a_root_wait_on_itself",
+        ],
+    ),
+    (
+        "an attached value is read as a switch",
+        "dotdiw",
+        '            beads_keep(options, long, arity, a[k + 2 :] if a[k + 1] == "=" else a[k + 1 :])\n',
+        "            options[long] = True\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "the first value of an option stands",
+        "dotdiw",
+        "        options[long] = value\n",
+        "        options.setdefault(long, value)\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "a switch given false is taken for true",
+        "dotdiw",
+        "            options[long] = BEADS_SWITCH[value] if eq else True\n",
+        "            options[long] = True\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "a close naming no id runs",
+        "dotdiw",
+        "        if not words:\n"
+        '            return "refused:%s with no id" % said, None, [], []\n'
+        '        return "checked", words, [], []\n',
+        '        return "checked", words, [], []\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "another store's close runs",
+        "dotdiw",
+        '    if elsewhere:\n        return "refused:%s --%s" % (said, elsewhere[0]), None, [], []\n',
+        "",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "an option the tracker does not take is passed over",
+        "dotdiw",
+        "        if entry is None:\n"
+        '            return "--%s is no option of the command." % name\n',
+        "        if entry is None:\n            return j + 1\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "the checkout is not held while a close or a wait is checked and written",
+        "dotdiw",
+        "                fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)\n",
+        "                pass\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_two_commands_at_once_cannot_each_pass_the_check",
+        ],
+    ),
+    (
+        "options before the verb hide a root's type",
+        "dotdiw",
+        "    if args and (\n"
+        '        request.get("mark") or args[0].startswith("-") or args[0] in ("update", "q", "label")\n'
+        "    ):\n",
+        '    if args and args[0] in ("update", "q", "label"):\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_only_a_pour_makes_a_root"],
+    ),
+    (
+        "any close is taken for this one's",
+        "dotdiw",
+        '        if row.get("status") == "closed" and row.get("closed_by_session") == session\n',
+        '        if row.get("status") == "closed"\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_another_writer_made_first_is_not_this_ones",
+        ],
+    ),
+    (
+        "a close another made first is taken for this one",
+        "dotdiw",
+        '        if row.get("status") == "closed" and row.get("closed_by_session") == session\n',
+        '        if row.get("status") == "closed"\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_another_writer_made_first_is_not_this_ones",
+        ],
+    ),
+    (
+        "the tracker's own close, opened again, fails the command",
+        "dotdiw",
+        "        own = ident in named or why is not None\n",
+        "        own = True\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_root_the_tracker_closes_over_a_moved_step_is_opened_again",
+        ],
+    ),
+    (
+        "a need named twice is checked as one",
+        "dotdiw",
+        "        if len(needs) > 1:\n"
+        '            return "refused:%s naming more than one need" % said, None, [], []\n',
+        "",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
+    ),
+    (
+        "a close's own session hides dotdiw's mark",
+        "dotdiw",
+        "    if args and (\n"
+        '        request.get("mark") or args[0].startswith("-") or args[0] in ("update", "q", "label")\n'
+        "    ):\n",
+        '    if args and (args[0].startswith("-") or args[0] in ("update", "q", "label")):\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_the_last_step_closes_the_root_of_its_run",
+        ],
+    ),
+    (
+        "a close checks a run by the id as given, not as bd reads it",
+        "dotdiw",
+        '    ident = str(found[0].get("id"))\n    listed = beads_list({"root": root, "scope": "all"})\n',
+        '    ident = request["id"]\n    listed = beads_list({"root": root, "scope": "all"})\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_named_by_its_short_id_is_held_as_by_its_full_one",
+        ],
+    ),
+    (
+        "a close not read back is taken for this one's",
+        "dotdiw",
+        "        marked = None if rows is None else beads_marked(rows, session)\n",
+        "        marked = [ident] if rows is None else beads_marked(rows, session)\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_close_not_read_back_is_not_named_this_ones"],
+    ),
+    (
+        "what a typed close closed against the rule is not held as its own close",
+        "dotdiw",
+        "        waiting = what_stands_open(ident, now[ident], standing, set())\n        if waiting:\n",
+        "        waiting = what_stands_open(ident, now[ident], standing, set())\n        if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_step_opened_again_as_its_root_closes_blocks_that_close",
+        ],
+    ),
+    (
+        "a root another closed that will not open again passes the close",
+        "dotdiw",
+        "    if errored or left_open or gone or marked is None or unopened:\n",
+        "    if errored or left_open or gone or marked is None:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_bd_closed_over_a_step_open_elsewhere_that_will_not_open_fails_the_close",
+        ],
+    ),
+    (
+        "a close not read back opens what it named again",
+        "dotdiw",
+        '        return [], [unread(ident, listed["summary"]) for ident in named]\n',
+        "        for ident in named:\n"
+        '            invoke_tracker("operation.update-item", dict(common, id=ident, status="open"))\n'
+        '        return [], [unread(ident, listed["summary"]) for ident in named]\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_another_writer_made_first_is_not_this_ones",
+        ],
+    ),
+    (
+        "the checkout is let go before the log has the close",
+        "dotdiw",
+        "            if held and scope is not None and scope.depth:\n",
+        "            if False:\n",
+        [
+            "test_promise.py",
+            "TheWitnessLogUnderLocal.test_two_closes_at_once_are_logged_in_the_order_they_closed",
+        ],
+    ),
+    (
+        "the run read before a close stands for the run after it",
+        "dotdiw",
+        '        now = {i["id"]: i for i in listed.get("items") or []}\n',
+        '        now = {\n            i["id"]: i if i["id"] == ident or i.get("kind") == "root" else every.get(i["id"], i)\n            for i in listed.get("items") or []\n        }\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_bd_closes_is_held_to_its_run_as_it_stands_after_the_close",
+        ],
+    ),
+    (
+        "a root closed over a step of its run stands where no receipt is read",
+        "dotdiw",
+        "    for up in touched:\n",
+        "    for up in []:\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_root_closed_over_a_moved_step_opens_again_without_a_receipt",
+        ],
+    ),
+    (
+        "a receipt that names nothing is taken for one that was read",
+        "dotdiw",
+        "    if any(beads_holds(i, root) is not False for i in dict.fromkeys(ids) if i not in rows):\n        return None\n",
+        "    if False:\n        return None\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_root_closed_over_a_moved_step_opens_again_without_a_receipt",
+        ],
+    ),
+    (
+        "a close run again of what is closed reads nothing back",
+        "dotdiw",
+        "            if ident not in closing:\n                closing.append(ident)\n",
+        "            if ident not in closing and ident in before:\n                closing.append(ident)\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_root_closed_over_a_moved_step_opens_again_without_a_receipt",
+        ],
+    ),
+    (
+        "a quick capture that cannot be read runs",
+        "dotdiw",
+        '        if reading["status"] != "completed" and reading.get("reason") not in TRACKER_CANNOT_ANSWER:\n',
+        "        if False:\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_only_a_pour_makes_a_root"],
+    ),
+    (
+        "every request shares one scope",
+        "dotdiw",
+        'SCOPE: contextvars.ContextVar[Scope | None] = contextvars.ContextVar("scope", default=None)\n',
+        'SCOPE: contextvars.ContextVar[Scope | None] = contextvars.ContextVar("scope", default=Scope())\n',
+        [
+            "test_dotdiw.py",
+            "TheLocalAdapter.test_a_request_lets_go_of_no_lock_another_request_holds",
+        ],
+    ),
+    (
+        "bd is told its store and session through the process",
+        "dotdiw",
+        "    env = dict(os.environ)\n",
+        "    env = os.environ\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_bd_is_given_its_store_and_session_by_each_run_never_by_the_process",
+        ],
+    ),
+    (
+        "a pinned root escapes the check before its close",
+        "dotdiw",
+        '            listed = invoke_tracker("operation.list-items", dict(common, scope="all"))\n',
+        '            listed = invoke_tracker("operation.list-items", dict(common, scope="open"))\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_is_held_to_every_item_and_logs_only_its_own",
+        ],
+    ),
+    (
+        "an item closed before the command is taken for its close",
+        "dotdiw",
+        "        shut = [i for i in named if i in marked and i in now and i in before]\n",
+        "        shut = [i for i in named if i in marked and i in now]\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_is_held_to_every_item_and_logs_only_its_own",
+        ],
+    ),
+    (
+        "a step named twice is logged twice",
+        "dotdiw",
+        "            if ident not in closing:\n                closing.append(ident)\n",
+        "            closing.append(ident)\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_is_held_to_every_item_and_logs_only_its_own",
+        ],
+    ),
+    (
+        "a step bd lists only when asked stands unseen",
+        "dotdiw",
+        'BEADS_EVERY_ROW = ("--include-ephemeral", "--include-infra", "--include-gates")\n',
+        "BEADS_EVERY_ROW: tuple[str, ...] = ()\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_step_bd_lists_only_when_asked_still_holds_its_root",
+        ],
+    ),
+    (
+        "bd's other name for the root's type passes",
+        "dotdiw",
+        'BEADS_ROOT_TYPES = ("molecule", "mol")\n',
+        'BEADS_ROOT_TYPES = ("molecule",)\n',
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_only_a_pour_makes_a_root"],
+    ),
+    (
+        "a short id names no children",
+        "dotdiw",
+        '        ["list", "--all", "--json", "--brief", "-n", "0", *BEADS_EVERY_ROW, "--parent", ident],\n',
+        '        ["list", "--all", "--json", "--brief", "-n", "0", *BEADS_EVERY_ROW, "--parent", request["id"]],\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_short_id_is_read_as_bd_reads_it_for_children_too",
+        ],
+    ),
+    (
+        "a check of a tracker runs beside other requests",
+        "dotdiw",
+        "    with GATE.by_itself(), registered:\n",
+        "    with registered:\n",
+        ["test_dotdiw.py", "TheLocalAdapter.test_a_check_of_a_tracker_runs_alone_in_its_process"],
+    ),
+    (
+        "a pass-through that reads no command is refused every command",
+        "dotdiw",
+        '    if "forward" in extras and "read" not in extras:\n',
+        "    if False:\n",
+        ["test_dotdiw.py", "WhatAModuleGetsWrong.test_a_forward_extra_is_held_to_the_same_rule"],
+    ),
+    (
+        "a root standing closed over open steps is left closed by a typed close",
+        "dotdiw",
+        "        if waiting:\n            opened(up, ",
+        "        if False:\n            opened(up, ",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_close_run_again_sets_right_what_the_first_left"],
+    ),
+    (
+        "a root another closed over open steps as a close ran stands closed",
+        "dotdiw",
+        "    touched += [i for i in before if i not in touched]\n",
+        "    touched += []\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_another_closes_over_open_steps_as_a_close_runs_is_opened_again",
+        ],
+    ),
+    (
+        "a typed close opened again is answered as made",
+        "dotdiw",
+        "    elif held:\n        # The item named, opened again: what it waits on blocks its close.\n",
+        "    elif False:\n        # The item named, opened again: what it waits on blocks its close.\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_step_opened_again_as_its_root_closes_blocks_that_close",
+        ],
+    ),
+    (
+        "what a close closed against the rule is opened as open, whatever it was",
+        "dotdiw",
+        '            opened(ident, before[ident]["status"], waiting, how)\n',
+        '            opened(ident, "open", waiting, how)\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_step_opened_again_as_its_root_closes_blocks_that_close",
+        ],
+    ),
+    (
+        "an answer of bd's that is no list is read as a listing of nothing",
+        "dotdiw",
+        '    if not isinstance(rows, list) or not all(isinstance(r, dict) and r.get("id") for r in rows):\n',
+        '    if not isinstance(rows, list):\n        return []\n    if not all(isinstance(r, dict) and r.get("id") for r in rows):\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_listing_that_is_no_list_of_rows_is_no_listing"],
+    ),
+    (
+        "a row of bd's that is no object is read as an issue",
+        "dotdiw",
+        '    if not isinstance(rows, list) or not all(isinstance(r, dict) and r.get("id") for r in rows):\n',
+        '    if not isinstance(rows, list) or not all(not isinstance(r, dict) or r.get("id") for r in rows):\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_listing_that_is_no_list_of_rows_is_no_listing"],
+    ),
+    (
+        "a row of bd's without an id is read as an issue",
+        "dotdiw",
+        '    if not isinstance(rows, list) or not all(isinstance(r, dict) and r.get("id") for r in rows):\n',
+        "    if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_listing_that_is_no_list_of_rows_is_no_listing"],
+    ),
+    (
+        "an answer of bd's that is no JSON is read as a listing of nothing",
+        "dotdiw",
+        "    except ValueError:\n        return None\n    if not isinstance(rows, list)",
+        "    except ValueError:\n        return []\n    if not isinstance(rows, list)",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_listing_that_is_no_list_of_rows_is_no_listing"],
+    ),
+    (
+        "a typed close runs on a listing that leaves out the item named",
+        "dotdiw",
+        "    if ident not in every:\n        return failed_as(\n            CloseItemResponse,",
+        "    if False:\n        return failed_as(\n            CloseItemResponse,",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_listing_that_leaves_out_the_item_named_closes_nothing",
+        ],
+    ),
+    (
+        "a typed close holds the run to a listing that leaves out what the tracker holds",
+        "dotdiw",
+        "            if beads_holds(absent, root) is not False:\n",
+        "            if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_listing_after_the_close_that_leaves_out_what_the_tracker_holds_is_no_listing",
+        ],
+    ),
+    (
+        "an item deleted as a typed close ran fails that close",
+        "dotdiw",
+        "            if beads_holds(absent, root) is not False:\n",
+        "            if True:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_item_another_deletes_as_the_close_runs_is_no_gap_in_the_listing",
+        ],
+    ),
+    (
+        "the item named, gone after its close, is taken for read back",
+        "dotdiw",
+        "    if errored or left_open or gone or marked is None or unopened:\n",
+        "    if errored or left_open or marked is None or unopened:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_the_item_named_gone_after_its_close_is_not_read_back",
+        ],
+    ),
+    (
+        "the pass-through runs a close on a listing that leaves out the item named",
+        "dotdiw",
+        "            if ident not in every:\n                out.append(",
+        "            if False:\n                out.append(",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_listing_that_leaves_out_what_a_close_names_is_no_listing",
+        ],
+    ),
+    (
+        "the pass-through holds the run to a listing that leaves out what the tracker holds",
+        "dotdiw",
+        '        if shown.get("reason") != "item-not-found":\n            why = "the tracker\'s list of every item leaves out %s, which it listed before." % absent\n',
+        '        if False:\n            why = "the tracker\'s list of every item leaves out %s, which it listed before." % absent\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_listing_after_a_close_that_leaves_out_an_open_step_is_no_listing",
+        ],
+    ),
+    (
+        "an item deleted as a close ran fails the command",
+        "dotdiw",
+        '        if shown.get("reason") != "item-not-found":\n            why = "the tracker\'s list of every item leaves out %s, which it listed before." % absent\n',
+        '        if True:\n            why = "the tracker\'s list of every item leaves out %s, which it listed before." % absent\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_an_item_another_deletes_as_a_close_runs_is_no_gap_in_the_listing",
+        ],
+    ),
+    (
+        "an error of bd's close that names no refusal is answered without a read",
+        "dotdiw",
+        '            if refused.get("reason"):\n                return refused\n',
+        "            if True:\n                return refused\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_close_bd_fails_after_making_still_holds_the_run",
+        ],
+    ),
+    (
+        "a close bd failed after making is answered as made",
+        "dotdiw",
+        "    if errored or left_open or gone or marked is None or unopened:\n",
+        "    if left_open or gone or marked is None or unopened:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_close_bd_fails_after_making_still_holds_the_run",
+        ],
+    ),
+    (
+        "a close that left the item open is answered as made",
+        "dotdiw",
+        "    if errored or left_open or gone or marked is None or unopened:\n",
+        "    if errored or gone or marked is None or unopened:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_close_bd_answers_and_does_not_make_is_no_close",
+        ],
+    ),
+    (
+        "a typed close not read back is answered as made",
+        "dotdiw",
+        "    if errored or left_open or gone or marked is None or unopened:\n",
+        "    if errored or left_open or gone or unopened:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_close_not_read_back_is_not_named_this_ones",
+        ],
+    ),
+    (
+        "the item of a close bd failed is given as it stood before",
+        "dotdiw",
+        "            item = beads_record(printed[0]) if printed and not left_open else now[ident]\n",
+        "            item = item if errored else now[ident]\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_close_bd_fails_after_making_still_holds_the_run",
+        ],
+    ),
+    (
+        "children that cannot be listed are shown as none",
+        "dotdiw",
+        "    children = beads_rows(listing)\n    if children is None:\n",
+        "    children = beads_rows(listing) or []\n    if children is None:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_what_is_no_listing_is_no_empty_one_for_children_or_the_ready",
+        ],
+    ),
+    (
+        "a ready set that cannot be read is given as empty",
+        "dotdiw",
+        "    rows = beads_rows(out)\n    if rows is None:\n        return failed_as(ReadyItemsResponse,",
+        "    rows = beads_rows(out) or []\n    if rows is None:\n        return failed_as(ReadyItemsResponse,",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_what_is_no_listing_is_no_empty_one_for_children_or_the_ready",
+        ],
+    ),
+    (
+        "a listing that cannot be read is given as empty",
+        "dotdiw",
+        "    rows = beads_rows(out)\n    if rows is None:\n        return failed_as(ListItemsResponse,",
+        "    rows = beads_rows(out) or []\n    if rows is None:\n        return failed_as(ListItemsResponse,",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_listing_that_is_no_list_of_rows_is_no_listing"],
+    ),
+    (
+        "an upgrade that reads no listing marks the workspace",
+        "dotdiw",
+        "    rows = beads_rows(out)\n    if rows is None:\n        return failed_as(dict,",
+        "    rows = beads_rows(out) or []\n    if rows is None:\n        return failed_as(dict,",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_upgrade_that_reads_no_listing_moves_nothing_and_leaves_the_workspace_unmarked",
+        ],
+    ),
+    (
+        "an upgrade reads a plain listing",
+        "dotdiw",
+        '    code, out, err = beads_quiet(["list", "--all", "--json", "-n", "0", *BEADS_EVERY_ROW], root)\n',
+        '    code, out, err = beads_quiet(["list", "--all", "--json", "-n", "0"], root)\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_upgrade_reads_the_issues_a_plain_listing_leaves_out",
+        ],
+    ),
+    (
+        "children are listed under a parent that could not be shown",
+        "dotdiw",
+        '            if unshown.get("reason") != "item-not-found":\n                return failed_as(ListItemsResponse, "adapter-failed", unshown["summary"])\n',
+        '            if False:\n                return failed_as(ListItemsResponse, "adapter-failed", unshown["summary"])\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_children_are_not_listed_under_a_parent_that_could_not_be_shown",
+        ],
+    ),
+    (
+        "a search page that holds no list of issues is read as an empty one",
+        "trackers/jira.py",
+        "        if not isinstance(issues, list):\n",
+        "        issues = issues or []\n        if not isinstance(issues, list):\n",
+        [
+            "test_jira.py",
+            "TheHostedAdapter.test_a_search_that_answers_no_list_of_issues_is_no_empty_one",
+        ],
+    ),
+    (
+        "a bound name runs its body outside a request",
+        "promise_bindings.py",
+        "        return dotdiw.invoke(asked, request)\n",
+        "        return getattr(dotdiw, name)(request)\n",
+        ["test_promise.py", "TheDoor.test_a_bound_name_is_a_request_of_its_own"],
+    ),
+    (
+        "a root deleted as a typed close ran, shown as its step, is taken for held",
+        "dotdiw",
+        "        return ident in shown\n",
+        "        return True\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_another_deletes_as_the_close_runs_is_no_gap_in_the_listing",
+        ],
+    ),
+    (
+        "an item bd finds no more is not said to be gone",
+        "dotdiw",
+        '    return False if gone.get("reason") == "item-not-found" else None\n',
+        "    return None\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_item_another_deletes_as_the_close_runs_is_no_gap_in_the_listing",
+        ],
+    ),
+    (
+        "an item bd will not show is taken for gone",
+        "dotdiw",
+        '    return False if gone.get("reason") == "item-not-found" else None\n',
+        "    return False\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_close_not_read_back_is_not_named_this_ones",
+        ],
+    ),
+    (
+        "an item bd holds and shows no row for is taken for gone",
+        "dotdiw",
+        "    if any(beads_holds(i, root) is not False for i in dict.fromkeys(ids) if i not in rows):\n",
+        "    if any(beads_holds(i, root) is None for i in dict.fromkeys(ids) if i not in rows):\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_show_that_leaves_out_an_item_bd_holds_is_no_reading_of_it",
+        ],
+    ),
+    (
+        "marks the pass-through could not read are taken for none",
+        "dotdiw",
+        '        answer["markedIds"] = None if shown is None else beads_marked(shown, session)\n',
+        '        answer["markedIds"] = [] if shown is None else beads_marked(shown, session)\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_root_closed_over_a_moved_step_opens_again_without_a_receipt",
+        ],
+    ),
+    (
+        "the item named, gone before it is read back, is taken for closed already",
+        "dotdiw",
+        "        gone = ident not in now or (rows is not None and ident not in rows)\n",
+        "        gone = ident not in now\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_the_item_named_gone_before_its_session_is_read_is_not_read_back",
+        ],
+    ),
+    (
+        "the item named, gone after its close, stays an item as they stand",
+        "dotdiw",
+        "            now = {i: o for i, o in now.items() if i != ident}\n",
+        "            now = dict(now)\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_named_gone_after_its_close_is_not_opened_again_in_its_steps_place",
+        ],
+    ),
+    (
+        "the item named, gone after its close, is answered as it stood before",
+        "dotdiw",
+        "            now = {i: o for i, o in now.items() if i != ident}\n            item = None\n",
+        "            now = {i: o for i, o in now.items() if i != ident}\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_the_item_named_gone_after_its_close_is_not_read_back",
+        ],
+    ),
+    (
+        "the item named, gone after its close, is not said to be held no more",
+        "dotdiw",
+        '        said.append("%s The tracker holds it no more." % unread)\n',
+        "        said.append(unread)\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_the_item_named_gone_after_its_close_is_not_read_back",
+        ],
+    ),
+    (
+        "a close of an item the tracker holds no more answers with an item",
+        "dotdiw",
+        '    if answer["status"] != "blocked" and item is not None:\n',
+        '    if answer["status"] != "blocked":\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_the_item_named_gone_after_its_close_is_not_read_back",
+        ],
+    ),
+    (
+        "an item shown under another id is taken for the one asked for",
+        "dotdiw",
+        '    if shown["status"] != "completed" or other == ident:\n',
+        "    if True:\n",
+        [
+            "test_dotdiw.py",
+            "AnIdTheTrackerGaveIsReadWhole.test_a_step_whose_root_is_gone_reads_no_run",
+        ],
+    ),
+    (
+        "an item shown under another id is a failure of the tracker",
+        "dotdiw",
+        '        "reason": "item-not-found",\n        "exitCode": 1,\n        "summary": "The tracker holds no item %s: asked for it, it shows %s." % (ident, other),\n',
+        '        "reason": "adapter-failed",\n        "exitCode": 1,\n        "summary": "The tracker holds no item %s: asked for it, it shows %s." % (ident, other),\n',
+        [
+            "test_dotdiw.py",
+            "AnIdTheTrackerGaveIsReadWhole.test_a_close_closes_no_other_item_in_a_gone_roots_place",
+        ],
+    ),
+    (
+        "a step's run is read from the item shown in its gone root's place",
+        "dotdiw",
+        '        shown = shown_by_its_id(\n            its_run, invoke_tracker("operation.show-item", dict(where, id=its_run))\n        )\n',
+        '        shown = invoke_tracker("operation.show-item", dict(where, id=its_run))\n',
+        [
+            "test_dotdiw.py",
+            "AnIdTheTrackerGaveIsReadWhole.test_a_step_whose_root_is_gone_reads_no_run",
+        ],
+    ),
+    (
+        "what an item waits on is read from the item shown in a gone one's place",
+        "dotdiw",
+        '            shown = shown_by_its_id(at, invoke_tracker("operation.show-item", dict(common, id=at)))\n',
+        '            shown = invoke_tracker("operation.show-item", dict(common, id=at))\n',
+        [
+            "test_dotdiw.py",
+            "AnIdTheTrackerGaveIsReadWhole.test_a_need_is_not_refused_for_what_another_item_waits_on",
+        ],
+    ),
+    (
+        "a close closes the item shown in a gone root's place",
+        "dotdiw",
+        '                shown = shown_by_its_id(\n                    up, invoke_tracker("operation.show-item", dict(common, id=up))\n                )\n',
+        '                shown = invoke_tracker("operation.show-item", dict(common, id=up))\n',
+        [
+            "test_dotdiw.py",
+            "AnIdTheTrackerGaveIsReadWhole.test_a_close_closes_no_other_item_in_a_gone_roots_place",
+        ],
+    ),
+    (
+        "a move copies the item shown in a listed one's place",
+        "dotdiw",
+        '        shown = shown_by_its_id(\n            item["id"],\n            invoke_tracker("operation.show-item", {"root": root, "tracker": src, "id": item["id"]}),\n        )\n',
+        '        shown = invoke_tracker("operation.show-item", {"root": root, "tracker": src, "id": item["id"]})\n',
+        [
+            "test_dotdiw.py",
+            "AnIdTheTrackerGaveIsReadWhole.test_a_move_copies_no_other_item_under_a_listed_id",
+        ],
+    ),
+    (
+        "a root deleted as a close ran, shown as its step, is a gap in the listing",
+        "dotdiw",
+        '        shown = shown_by_its_id(\n            absent, invoke_tracker("operation.show-item", dict(common, id=absent))\n        )\n',
+        '        shown = invoke_tracker("operation.show-item", dict(common, id=absent))\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_root_another_deletes_as_a_close_runs_is_no_gap_in_the_listing",
+        ],
+    ),
+    (
+        "a step named, gone after its close, is passed over",
+        "dotdiw",
+        '    notes += [\n        unread(ident, "the tracker holds it no more.")\n        for ident in named\n        if ident in before and ident not in now\n    ]\n',
+        "    notes += []\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_step_named_gone_after_its_close_is_not_read_back",
+        ],
+    ),
+    (
+        "a step closed before the command and gone after it is a close left unread",
+        "dotdiw",
+        "        if ident in before and ident not in now\n",
+        "        if ident not in now\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_step_closed_before_and_gone_after_is_no_close_unread",
+        ],
+    ),
+    (
+        "every step named that stood open is a close left unread",
+        "dotdiw",
+        "        if ident in before and ident not in now\n",
+        "        if ident in before\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_root_another_deletes_as_a_close_runs_is_no_gap_in_the_listing",
+        ],
+    ),
+    (
+        "a reopen under beads reads a deleted root's id as its step's",
+        "dotdiw",
+        '    return beads_batch([["update", ident, "status=" + status]], root)\n',
+        '    return beads_quiet(["update", ident, "--json", "-s", status], root)\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_deleted_before_it_is_opened_again_opens_no_other_item",
+        ],
+    ),
+    (
+        "bd's word on stderr is read as its first line",
+        "dotdiw",
+        '    if not said and (err or "").lstrip().startswith("{"):\n',
+        "    if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_root_deleted_before_it_is_opened_again_opens_no_other_item",
+        ],
+    ),
+    (
+        "a listing under beads that leaves out a step of a run is every item",
+        "dotdiw",
+        "        left_out = beads_left_out(rows, root)\n",
+        "        left_out = None\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_step_left_out_of_every_listing_keeps_its_root_open",
+        ],
+    ),
+    (
+        "a pour under beads gives its steps no run label",
+        "dotdiw",
+        '        argv += ["--metadata=" + json.dumps({BEADS_KEY: poured}, ensure_ascii=False)]\n        argv += ["--labels=" + BEADS_RUN_LABEL]\n',
+        '        argv += ["--metadata=" + json.dumps({BEADS_KEY: poured}, ensure_ascii=False)]\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_no_command_takes_the_run_label_off_a_step",
+        ],
+    ),
+    (
+        "the tracker door begins no request of its own",
+        "dotdiw",
+        "    with a_request():\n        return asked_of_the_tracker(operation, request)\n",
+        "    return asked_of_the_tracker(operation, request)\n",
+        [
+            "test_dotdiw.py",
+            "ABoundWriteWaitsWhileACheckRuns.test_a_bound_write_asked_during_a_check_lands_in_its_own_checkout",
+        ],
+    ),
+    (
+        "the pass-through takes a close that closed nothing for a close",
+        "dotdiw",
+        "    if not errored:\n        notes += [\n",
+        "    if False:\n        notes += [\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_close_the_tracker_answers_without_closing_fails",
+        ],
+    ),
+    (
+        "a batch line under beads carries a second write in an id",
+        "dotdiw",
+        "            if not re.fullmatch(r'[^\\s\"\\\\#][^\\s\"\\\\]*', word):\n",
+        '            if not re.fullmatch(r"(?s).+", word):\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_id_that_would_be_two_writes_in_a_batch_writes_nothing",
+        ],
+    ),
+    (
+        "an update bd wrote to another item in its place completes",
+        "dotdiw",
+        "            if wrote and ident not in wrote:\n                return failed_as(\n                    UpdateItemResponse,\n",
+        "            if False:\n                return failed_as(\n                    UpdateItemResponse,\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_update_of_an_item_held_no_more_names_the_one_written",
+        ],
+    ),
+    (
+        "an update of an id bd reads as another's writes that other",
+        "dotdiw",
+        '        if whole["status"] != "completed":\n            return failed_as(UpdateItemResponse, "item-not-found", whole["summary"])\n',
+        '        if False:\n            return failed_as(UpdateItemResponse, "item-not-found", whole["summary"])\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_an_update_of_an_item_held_no_more_names_the_one_written",
+        ],
+    ),
+    (
+        "a priority outside 0 to 4 is kept",
+        "dotdiw",
+        "    if priority is not None and not 0 <= priority <= 4:\n",
+        "    if False:\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_priority_outside_0_to_4_is_refused"],
+    ),
+    (
+        "a close reads a deleted root's id as its step's",
+        "dotdiw",
+        '    if whole["status"] != "completed":\n        return failed_as(CloseItemResponse, "item-not-found", whole["summary"])\n',
+        '    if False:\n        return failed_as(CloseItemResponse, "item-not-found", whole["summary"])\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_close_of_a_root_held_no_more_closes_no_other"],
+    ),
+    (
+        "a deleted root's short id is read as its step's",
+        "dotdiw",
+        '        or not (other.startswith(word) or "-" + word in other)\n',
+        "        or not other.startswith(word)\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_close_of_a_root_held_no_more_closes_no_other"],
+    ),
+    (
+        "a word bd reads as another item's names that item",
+        "dotdiw",
+        '        or not (other.startswith(word) or "-" + word in other)\n',
+        "        or True\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_an_update_of_a_root_held_no_more_writes_no_other",
+        ],
+    ),
+    (
+        "the ids an update writes are not read before it runs",
+        "dotdiw",
+        '        return "checked", words if status == "closed" else None, edges, words\n',
+        '        return "checked", words if status == "closed" else None, edges, []\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_an_update_of_a_root_held_no_more_writes_no_other",
+        ],
+    ),
+    (
+        "a claim writes by the word given, not the id it names",
+        "dotdiw",
+        '        "operation.record-values", dict(where, id=str(item["id"]), values=values)\n',
+        '        "operation.record-values", dict(where, id=request["id"], values=values)\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_claim_is_declined_and_nothing_is_written",
+        ],
+    ),
+    (
+        "a claim reads a deleted root's short id as its step's",
+        "dotdiw",
+        "    shown = shown_for_a_word(\n",
+        "    shown = (lambda word, shown: shown)(\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_a_claim_is_declined_and_nothing_is_written",
+        ],
+    ),
+    (
+        "a step of a run is found by its label alone",
+        "dotdiw",
+        '            BEADS_RUN_LABEL in (row.get("labels") or [])\n            or isinstance((beads_own(row) or {}).get("run"), str)\n            or ident in runs\n            or any(ident.startswith(n + ".") for n in runs)\n',
+        '            BEADS_RUN_LABEL in (row.get("labels") or [])\n            or ident in runs\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_step_of_a_run_without_its_label_is_still_found_by_its_id",
+        ],
+    ),
+    (
+        "a command takes the run label off a step",
+        "dotdiw",
+        "    unlabelled = beads_label_kept(reading, root)\n",
+        "    unlabelled = None\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_no_command_takes_the_run_label_off_a_step",
+        ],
+    ),
+    (
+        "labels given together are read as one",
+        "dotdiw",
+        "                out += [x.strip() for x in next(csv.reader([value]), [])]\n",
+        "                out += [value]\n",
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_no_command_takes_the_run_label_off_a_step",
+        ],
+    ),
+    (
+        "a label remove of the run label runs",
+        "dotdiw",
+        ' or args[0] in ("update", "q", "label")\n',
+        ' or args[0] in ("update", "q")\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_under_beads_no_command_takes_the_run_label_off_a_step",
+        ],
+    ),
+    (
+        "a run made in a move waits on a write after the create",
+        "dotdiw",
+        '    if moved.get("run"):\n        argv += ["--labels=" + BEADS_RUN_LABEL]\n',
+        '    if moved.get("run"):\n        code, out, err = beads_quiet(["update", str(moved["run"]), "--json"], root)\n        if code != 0:\n            return beads_failed(CreateItemResponse, out, err, [])\n        argv += ["--labels=" + BEADS_RUN_LABEL]\n',
+        [
+            "test_dotdiw.py",
+            "TheClaimCommand.test_a_closed_run_moves_into_beads_whole_though_bd_refuses_its_updates",
+        ],
+    ),
+    (
+        "a need under beads is given by bd's own reading of an id",
+        "dotdiw",
+        '    code, out, err = beads_batch([["dep", "add", request["id"], request["needs"]]], root)\n',
+        '    code, out, err = beads_quiet(["dep", "add", request["id"], request["needs"]], root)\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_need_of_an_item_held_no_more_is_given_to_no_other",
+        ],
+    ),
+    (
+        "a step of a run is found by its label or its id alone",
+        "dotdiw",
+        '            or isinstance((beads_own(row) or {}).get("run"), str)\n            or ident in runs\n',
+        "            or ident in runs\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_step_made_under_another_item_without_its_label_is_found_by_its_run",
+        ],
+    ),
+    (
+        "a close is named this one's whoever made it",
+        "dotdiw",
+        '        if row.get("status") == "closed" and row.get("closed_by_session") == session\n',
+        '        if row.get("status") == "closed"\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_close_another_made_first_is_named_closed_already",
+        ],
+    ),
+    (
+        "an item bd closed in the place of the one named goes unnamed",
+        "dotdiw",
+        "                    + [i for i in instead if i in now and i in before]\n",
+        "                    + []\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_close_of_a_step_deleted_as_it_closes_names_the_sibling_bd_closed",
+        ],
+    ),
+    (
+        "bd's close is forced past its rule",
+        "dotdiw",
+        '        argv = ["close", ident, "--json"]\n        reason = request.get("closeReason")\n',
+        '        argv = ["close", ident, "--json", "--force"]\n        reason = request.get("closeReason")\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_close_bds_rule_refuses_writes_nothing"],
+    ),
+    (
+        "a molecule bd closed with its last step goes unnamed",
+        "dotdiw",
+        '                        and o.get("kind") == "root"\n                        and i in now\n                        and now[i].get("status") == "closed"\n',
+        "                        and False\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_molecule_bd_closes_with_its_last_step_is_named_after_it",
+        ],
+    ),
+    (
+        "the item is given as bd printed it, though it stands open",
+        "dotdiw",
+        "            item = beads_record(printed[0]) if printed and not left_open else now[ident]\n",
+        "            item = beads_record(printed[0]) if printed else now[ident]\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_close_bd_answers_and_does_not_make_is_no_close"],
+    ),
+    (
+        "a claim's values under beads fail as the adapter's fault",
+        "dotdiw",
+        '        RecordValuesResponse,\n        "unsupported",\n',
+        '        RecordValuesResponse,\n        "adapter-failed",\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_claims_values_are_declined_and_nothing_is_written",
+        ],
+    ),
+    (
+        "a claim the tracker declines is reported as its failure",
+        "dotdiw",
+        '            if recorded.get("reason") in ("item-not-found", "unsupported")\n',
+        '            if recorded.get("reason") in ("item-not-found",)\n',
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_claims_values_are_declined_and_nothing_is_written",
+        ],
+    ),
 ]
 
 
+POA = os.path.expanduser("~/poa")
+CONTRACT = os.path.join("contracts", "named-work-found-its-procedure.cesc.yaml")
+
+
+def run_check(copy, suite, test):
+    """One test of a suite run on the copy; or, where the suite is poa, the
+    copy's witness contract replaying one of its traces, passing where poa
+    says the trace replays as the contract expects."""
+    if suite == "poa":
+        p = subprocess.run(
+            [POA, "replay", "trace", "--contract", os.path.join(copy, CONTRACT), "--trace", test],
+            capture_output=True,
+            text=True,
+        )
+        p.returncode = 0 if p.returncode == 0 and "status: pass" in p.stdout else 1
+        return p
+    return subprocess.run(
+        [sys.executable, "-I", suite, test], cwd=copy, capture_output=True, text=True
+    )
+
+
 def copy_of_repo():
-    """The tracked files, in a temporary directory, with the release tag's
-    history kept for the byte test."""
+    """The working tree as it stands -- the tracked files, and the untracked
+    ones git does not ignore, such as a trace not yet committed -- in a
+    temporary directory, with the release tag's history kept for the byte
+    test."""
     out = tempfile.mkdtemp(prefix="dotdiw-mutate-")
-    subprocess.run(["git", "clone", "-q", ROOT, out], check=True)
+    subprocess.run(["git", "-c", "advice.detachedHead=false", "clone", "-q", ROOT, out], check=True)
     files = subprocess.run(
-        ["git", "-C", ROOT, "ls-files"], capture_output=True, text=True, check=True
+        ["git", "-C", ROOT, "ls-files", "--cached", "--others", "--exclude-standard"],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.split("\n")
     for rel in files:
         if not rel:
@@ -2577,13 +4909,45 @@ def copy_of_repo():
     return out
 
 
+def the_suites():
+    """suites.py, read from the tree: the RAM disk its runs keep their temp
+    directories on is the one this run keeps its copy on."""
+    spec = importlib.util.spec_from_file_location(
+        "suites_for_breaks", os.path.join(ROOT, "suites.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def main(argv):
+    # A run stopped by SIGTERM takes its RAM disk away too, as one stopped by ^C.
+    signal.signal(signal.SIGTERM, signal.default_int_handler)
+    with the_suites().on_a_ram_disk() as place:
+        sys.stderr.write(
+            "temp directories %s\n"
+            % ("on a RAM disk, %s" % place.path if place.ram else "on the disk: %s" % place.why)
+        )
+        return run(argv)
+
+
+def run(argv):
     only = argv[argv.index("-k") + 1] if "-k" in argv else ""
     copy = copy_of_repo()
     bites, misses = [], []
+    unbroken = {}  # each test's exit on the copy as it stands, run once
     try:
         for name, rel, old, new, (suite, test) in MUTATIONS:
             if only and only not in name:
+                continue
+            # A test that fails before anything is broken catches nothing:
+            # its failure is the copy's, not the mutation's.
+            if (suite, test) not in unbroken:
+                unbroken[(suite, test)] = run_check(copy, suite, test)
+            if unbroken[(suite, test)].returncode != 0:
+                misses.append(name)
+                tail = (unbroken[(suite, test)].stdout + unbroken[(suite, test)].stderr)[-300:]
+                print("BASE   %-58s %s %s fails unbroken: %s" % (name, suite, test, tail))
                 continue
             path = os.path.join(copy, rel)
             with open(path, encoding="utf-8") as fh:
@@ -2595,9 +4959,7 @@ def main(argv):
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(text.replace(old, new))
             started = time.perf_counter()
-            p = subprocess.run(
-                [sys.executable, "-I", suite, test], cwd=copy, capture_output=True, text=True
-            )
+            p = run_check(copy, suite, test)
             took = time.perf_counter() - started
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(text)

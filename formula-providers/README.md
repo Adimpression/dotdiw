@@ -46,12 +46,23 @@ answers an empty list for a store that is gone.
   answer is held to that shape before any of it is taken.
 - `show` takes `id` as well, and answers the formula as data, however the
   provider keeps it: `{"formula": {"description": ..., "verifyUsing": [...],
-  "steps": [{"id": ..., "title": ..., "needs": [...]}, ...]}}`. For an id it
-  does not hold, it answers `{}`. dotdiw holds the answer to that shape -- a
-  description that is text, each means to prove one line in a form `check`
-  reads, each step an id and a title, once, with needs that name step ids --
-  and refuses one outside it. Only `verifyUsing` and a step's `needs` may be
-  left out; nothing given is replaced by a default.
+  "steps": [{"id": ..., "title": ..., "needs": [...], "claim": {"statement":
+  ..., "slots": [...]}}, ...]}}`. For an id it does not hold, it answers `{}`.
+  dotdiw holds the answer to that shape -- a description that is text, each
+  means to prove one line in a form `check` reads, each step an id and a
+  title, once, with needs that name step ids, and a step's claim a statement
+  with its slots' labels in lowercase kebab-case, each once, every `{{ label }}`
+  placeholder naming one -- and refuses one outside it. Only `verifyUsing`, a
+  step's `needs` and its `claim` may be left out; nothing given is replaced by
+  a default. A provider with title and description fields alone may keep what
+  it left out in its descriptions instead: the means under a `Verify using:`
+  heading that ends the formula's description, one `- ` line each, and in a
+  step's description its id on a `Step ID:` line, its needs on a `Needs:`
+  line, comma separated, and its claim under a `Claim:` heading -- the
+  statement, then a line for each slot, its label and a colon. dotdiw reads
+  them into the same model as a file's. `dotdiw formula show` prints a
+  provider's formula in the form a file takes, so what it prints pours with
+  its claims.
 
 ## How dotdiw holds a provider
 

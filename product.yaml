@@ -484,6 +484,69 @@ promiseChanges:
     rationale: >
       show answered a file's text, which dotdiw rewrote and cached as a file.
       An interface carries data.
+  - changeId: change.a-step-declares-a-claim
+    summary: >
+      From 4.0.0, a formula step may declare one claim: a statement with a
+      {{ label }} placeholder for each slot, and its slots, each a lowercase
+      kebab-case label followed by a colon. dotdiw reads it with the formula
+      and carries it on the step; check names a claim it cannot read, and a
+      means placeholder that names no claimed slot. A formula management
+      provider's answer carries it the same way, or, for a provider with
+      title and description fields alone, in the step's description under a
+      Claim: heading, beside Step ID: and Needs: lines; formula show prints
+      it in the form a file takes.
+    compatibility: additive
+    rationale: >
+      A run should say what its steps found in the drafter's terms, so that
+      the means to prove it can be filled from what was recorded.
+  - changeId: change.tracker-interface-4-carries-step-claims
+    summary: >
+      From 4.0.0, the tracker interface is number 4: the item poured for a
+      step keeps the step's id, its claim and its run, list-items answers the
+      items poured in a run wherever each stands, record-values sets the
+      claim's values without touching a label it was not given, each write
+      whole or not at all so that no read finds old values beside new ones,
+      close-item refuses a root while a step poured in its run is open;
+      through dotdiw, under every adapter, a run's last step closes its root
+      too, wherever the step stands; under a pass-through, dotdiw runs only
+      the tracker's commands whose closes and waits it can check first and
+      refuses the rest by name, reads what it checks as the tracker reads
+      it, refuses a close the rules refuse before the tracker runs, by any
+      name, spelling or id, takes for its close only what the tracker kept
+      its mark on, and opens again what came out against the rules; a
+      command that closes or makes wait holds the workspace's lock from its
+      check through its write; under any tracker, dotdiw refuses a parent or a
+      need, of any type that waits, that would leave a run unable to
+      close, which the local adapter checks again under its write lock;
+      show-item and list-items answer them, create-item takes them, tracker
+      migrate hands them over with each run's root before its steps and every
+      parent kept, and tracker check proves all four. A module written for interface 3 is refused in one
+      line.
+    compatibility: breaking
+    rationale: >
+      The tracker that keeps the work keeps what was found by doing it.
+  - changeId: change.a-run-records-what-its-steps-found
+    summary: >
+      From 4.0.0, a worker records a claimed step's values with dotdiw claim,
+      and dotdiw claim reads a run back from the steps it poured alone,
+      wherever each stands now: each
+      claim filled from its values, the root's verify-using filled from simple
+      ones, and every placeholder it cannot fill named open; --json answers it
+      as data. A pour prints, for each claimed step it made, the dotdiw claim
+      command that records it.
+    compatibility: additive
+    rationale: >
+      A run says what its steps found, so the means to prove it are filled
+      from what was recorded.
+  - changeId: change.help-for-dotdiws-own-commands
+    summary: >
+      From 4.0.0, --help or -h on a command dotdiw parses itself -- create,
+      claim, formula pour, init and check -- prints its usage and what it
+      does, and exits 0; every other command's help is the tracker's.
+    compatibility: additive
+    rationale: >
+      In the trial of step claims, agents asked claim and pour for --help
+      and were refused.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

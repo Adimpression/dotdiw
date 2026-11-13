@@ -5,9 +5,11 @@
 POA resolves an implementation binding with importlib: `promise_bindings::
 NameTheWork` is this module's attribute of that name, and must be a callable
 taking one argument called `request`. Every body is in `dotdiw`, under the IDL's
-own name; the tracker interface's operations are answered by an adapter in
-dotdiw's registry, reached through the tracker door; this module defines
-nothing but those names.
+own name, and a name here asks dotdiw's door for the operation that body
+answers, as a command does: the door begins the request a body runs in, so a
+body called past it has none. The tracker interface's operations are answered
+by an adapter in dotdiw's registry, reached through the tracker door; this
+module defines nothing but those names.
 
 Two facts shape it. `dotdiw` is a file without a .py suffix, so it is loaded
 by path under the module name `dotdiw`. And `poa conform grpc-signatures`
@@ -45,6 +47,7 @@ INTERFACE = {
     "ListItems": "operation.list-items",
     "UpdateItem": "operation.update-item",
     "ReadyItems": "operation.ready-items",
+    "RecordValues": "operation.record-values",
 }
 ADAPTERS = ("beads", "local")
 
@@ -90,6 +93,7 @@ BINDINGS = (
     "ListItems",
     "UpdateItem",
     "ReadyItems",
+    "RecordValues",
     "ListTrackers",
     "UseTracker",
     "CheckTracker",
@@ -102,6 +106,9 @@ BINDINGS = (
     "ListProviderFormulas",
     "ShowProviderFormula",
     "RemoveProvider",
+    "RecordWhatAStepFound",
+    "RecordClaim",
+    "ReadRun",
 )
 
 
@@ -132,10 +139,12 @@ def load_dotdiw(path: str = SCRIPT) -> ModuleType:
 
 def _bind(name: str) -> Binding:
     def operation(request: Any) -> Any:
-        return getattr(load_dotdiw(), name)(request)
+        dotdiw = load_dotdiw()
+        asked = next(op for op, spec in dotdiw.DOOR.items() if spec["body"] == name)
+        return dotdiw.invoke(asked, request)
 
     operation.__name__ = operation.__qualname__ = name
-    operation.__doc__ = "%s: the body of that name in dotdiw." % name
+    operation.__doc__ = "%s: the operation that body answers, through dotdiw's door." % name
     bound = cast(Binding, operation)
     bound.body = name
     return bound
@@ -154,7 +163,7 @@ def _bind_interface(name: str, operation_id: str) -> Binding:
 
 def _bind_adapter(adapter: str, name: str, operation_id: str) -> Binding:
     def operation(request: Any) -> Any:
-        return load_dotdiw().TRACKERS[adapter]["operations"][operation_id](request)
+        return load_dotdiw().invoke_adapter(adapter, operation_id, request)
 
     operation.__name__ = operation.__qualname__ = adapter.capitalize() + name
     operation.__doc__ = "%s: the %s adapter's callable for %s." % (

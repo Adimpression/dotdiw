@@ -95,16 +95,19 @@ def readme_checkout(home):
 
 
 def rankings(module, root, titles):
-    """What each title surfaces, in order, and the examples the self-test names."""
+    """What each title surfaces, in order, and the examples the self-test names,
+    each asked through the version's door, as every version since 0.5.0 has
+    one: a request holds the index its steps share, and a body asked outside
+    the door has none."""
     surfaced = {}
     for title in titles:
-        answer = module.MatchFormulas({"root": root, "title": title})
+        answer = module.invoke("operation.match-formulas", {"root": root, "title": title})
         ids = [f.get("formulaRef") for f in answer.get("surfaced") or []]
         if not all(isinstance(i, str) and i for i in ids):
             # A ranking of nothing compares equal to any other: refuse it.
             raise SystemExit("%s surfaced a formula with no formulaRef for %r" % (root, title))
         surfaced[title] = ids
-    checked = module.DescribeAndCheck({"root": root})
+    checked = module.invoke("operation.describe-and-check", {"root": root})
     missed = sorted(
         "%s %s" % (p["where"], p["what"])
         for p in checked.get("problems") or []

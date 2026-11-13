@@ -53,9 +53,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import tomllib
 import unittest
 from typing import Any
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "dotdiw")
@@ -69,16 +72,30 @@ POA = os.path.expanduser("~/poa")
 # Shared by any body and deciding nothing about the product: how to run git,
 # resolving the checkout's workspace under the home and the adapter it chose,
 # tokenising, the FTS storage, file parsing, and the witness log's append and
-# read.
+# read. And the one rule a close is held to wherever it runs -- what stands
+# open before an item, and a tracker set right after a close -- which the
+# pass-through and an adapter whose tracker knows no run hold alike; and how
+# an item shown is held to the id it was asked by, one held whole or a word a
+# person gave, which the bodies, the pass-through and an adapter share.
 INFRASTRUCTURE = {
     "verify_unread",
+    "read_claim",
+    "step_told",
+    "held_claim",
     "keep_verify_using",
     "read_verify_using",
     "repository_of",
     "checkout_remotes",
     "failed_as",
     "shared_step_id",
+    "tracker_step",
+    "merged_values",
+    "filled",
     "steps_in_order",
+    "what_stands_open",
+    "shown_by_its_id",
+    "shown_for_a_word",
+    "held_to_the_run",
     "git",
     "repo_root",
     "workspace",
@@ -90,11 +107,15 @@ INFRASTRUCTURE = {
     "load_formula",
     "no_fts5",
     "Index",
+    "Scope",
+    "Gate",
+    "a_request",
     "hold_index",
     "held_index",
     "held_formula",
     "witness_on",
     "witness",
+    "release_held",
     "witnessed",
     "formula_files",
     "package_dirs",
@@ -124,10 +145,11 @@ PROVIDERS = {
 DOOR = {"DoorError", "DoorSpec", "invoke", "witness_from"}
 
 # The tracker door: the one way an operation of the tracker interface is
-# invoked, and the one way an adapter's extra is. The registry holds adapters
-# to the interface's shape, the loader brings one in from the home by name,
-# resolve_tracker says which one answers a request, and invoke_tracker holds
-# both sides to their types.
+# invoked, and the one way an adapter's extra or an adapter's own callable is,
+# each beginning a request where none runs (a_request). The registry holds
+# adapters to the interface's shape, the loader brings one in from the home by
+# name, resolve_tracker says which one answers a request, and invoke_tracker
+# holds both sides to their types.
 TRACKER = {
     "TrackerDoorSpec",
     "TrackerTable",
@@ -144,9 +166,12 @@ TRACKER = {
     "is_loaded",
     "adapter_failed",
     "invoke_tracker",
+    "asked_of_the_tracker",
     "hold_tracker_response",
     "settle_exit_code",
     "invoke_extra",
+    "asked_of_an_extra",
+    "invoke_adapter",
 }
 
 # The adapters that ship inside dotdiw: name -> its definitions. The beads
@@ -155,6 +180,16 @@ TRACKER = {
 ADAPTERS = {
     "beads": {
         "beads_find",
+        "beads_command",
+        "beads_options",
+        "beads_keep",
+        "beads_take",
+        "beads_read",
+        "beads_session",
+        "beads_environment",
+        "beads_holds",
+        "beads_shown",
+        "beads_marked",
         "beads_metadata",
         "beads_own",
         "beads_left_as_given",
@@ -164,14 +199,18 @@ ADAPTERS = {
         "beads_store",
         "beads_env",
         "beads_quiet",
+        "beads_batch",
+        "beads_left_out",
         "beads_partial",
         "beads_terminal",
         "beads_run",
         "beads_json",
+        "beads_rows",
         "beads_record",
         "beads_failed",
         "beads_actor",
         "beads_typed",
+        "beads_label_kept",
         "beads_open",
         "beads_describe",
         "beads_create",
@@ -180,8 +219,11 @@ ADAPTERS = {
         "beads_close",
         "beads_show",
         "beads_list",
+        "beads_to_status",
         "beads_update",
         "beads_ready",
+        "beads_record_values",
+        "beads_values",
         "beads_forward",
         "beads_metrics_off",
     },
@@ -197,7 +239,7 @@ ADAPTERS = {
         "local_fetch",
         "local_record",
         "local_blockers",
-        "local_reaches",
+        "local_waiting",
         "local_closing",
         "local_open",
         "local_describe",
@@ -209,6 +251,7 @@ ADAPTERS = {
         "local_list",
         "local_update",
         "local_ready",
+        "local_record_values",
     },
 }
 
@@ -216,6 +259,7 @@ ADAPTERS = {
 # the operation its tracker commands are declared on.
 EXTRAS = {
     "forward": "operation.forward-to-the-tracker",
+    "read": "operation.forward-to-the-tracker",
     "metrics-off": "operation.turn-metrics-off",
     "upgrade": "operation.undo-earlier-adoption",
 }
@@ -251,6 +295,7 @@ INTERFACE = {
     "show_migrate",
     "show_new_tracker",
     "show_providers",
+    "show_claim",
 }
 
 # Module-level definitions that are part of exactly one operation's body.
@@ -258,6 +303,20 @@ HELPERS = {
     "WriteFormula": {"Titles", "slug", "past_titles", "steps_from"},
     "CheckTracker": {"conformance_scenario", "candidate_registered"},
     "ShowProviderFormula": {"formula_body"},
+    "ForwardToTheTracker": {
+        "answered",
+        "refusal",
+        "command_words",
+        "held_for_writing",
+        "held_at_the_command_line",
+        "closes_that_follow",
+        "through_the_pass_through",
+        "tracker_command_at_sight",
+        "what_the_command_asks",
+        "edge_pairs",
+        "what_the_close_closed",
+        "forwarded",
+    },
 }
 
 # What runs a tracker or git command, and the dependency it crosses into.
@@ -449,10 +508,13 @@ def commands_within(source, parts):
     and door functions they reach; an adapter's parts reach each other too."""
     parts = set(parts)
     adapters = set().union(*ADAPTERS.values())
-    for _ in range(3):
-        for part in list(parts):
-            reach = (INFRASTRUCTURE | TRACKER | adapters) - set(RUNNERS)
-            parts |= source.names_called(part) & reach
+    reach = (INFRASTRUCTURE | TRACKER | adapters) - set(RUNNERS)
+    todo = list(parts)
+    while todo:  # to any depth: the door begins a request, then answers within it
+        for called in source.names_called(todo.pop()) & reach:
+            if called not in parts:
+                parts.add(called)
+                todo.append(called)
     out = []
     for part in parts:
         out.extend(source.commands(part))
@@ -468,7 +530,7 @@ def adapter_parts(module, source, name):
     for op, fn in table["operations"].items():
         out[op] = {fn.__name__}
     for extra, fn in (table.get("extras") or {}).items():
-        out[EXTRAS[extra]] = {fn.__name__}
+        out.setdefault(EXTRAS[extra], set()).add(fn.__name__)
     return out
 
 
@@ -702,8 +764,15 @@ class TheSort(unittest.TestCase):
                     for name in self.source.defs
                     if helper in self.source.names_called(name) and name != helper
                 }
+                parts = users & helpers
                 users -= helpers  # a body's parts may call each other
-                self.assertEqual(users, {owner}, "%s is used by %s" % (helper, users))
+                # A part the body reaches only through its other parts is its
+                # own all the same; no other definition may use it.
+                self.assertEqual(
+                    users or ({owner} if parts else set()),
+                    {owner},
+                    "%s is used by %s" % (helper, users),
+                )
 
     def test_the_interface_decides_nothing(self):
         """The command line calls infrastructure, itself, and the doors."""
@@ -1012,7 +1081,8 @@ class TheDoor(unittest.TestCase):
 
     def test_a_body_is_reached_only_through_the_door(self):
         """No definition names a body. The door reaches one by the name in its
-        table, a string; promise_bindings.py by the same name, from the IDL."""
+        table, a string; promise_bindings.py asks the door for the operation
+        whose body the table names so (test_a_bound_name_asks_the_door)."""
         bodies = set(self.operations)
         named = [
             (node.lineno, node.id)
@@ -1042,6 +1112,69 @@ class TheDoor(unittest.TestCase):
             if isinstance(n, ast.Constant) and n.value in bodies
         ]
         self.assertEqual(elsewhere, [], "a body's name is written outside the table")
+
+    def test_a_bound_name_asks_the_door(self):
+        """promise_bindings.py reaches a body the way main() does: through the
+        door, by the operation's id, with the request as it was given; it
+        calls no body itself."""
+        bindings = load_module("promise_bindings_for_the_door", BINDINGS)
+        module = bindings.load_dotdiw()
+        asked = []
+
+        def door(operation, request):
+            asked.append((operation, request))
+            return {"status": "completed", "summary": operation}
+
+        def body(request):
+            raise AssertionError("a body was called from outside the door")
+
+        bodies: dict[str, Any] = {spec["body"]: body for spec in module.DOOR.values()}
+        with mock.patch.object(module, "invoke", door), mock.patch.multiple(module, **bodies):
+            for operation, spec in module.DOOR.items():
+                request = {"root": HERE}
+                out = getattr(bindings, spec["body"])(request)
+                self.assertEqual([o for o, _ in asked[-1:]], [operation], spec["body"])
+                self.assertIs(asked[-1][1], request)
+                self.assertEqual(out, {"status": "completed", "summary": operation})
+        self.assertEqual(len(asked), len(module.DOOR))
+
+    def test_a_bound_name_is_a_request_of_its_own(self):
+        """Each bound name begins a request as a command does, so the ones
+        that read the project's index answer; none is left asking for an
+        index no request built."""
+        bindings = load_module("promise_bindings_for_a_request", BINDINGS)
+        root = tempfile.mkdtemp(prefix="dotdiw-bound-")
+        self.addCleanup(shutil.rmtree, root, True)
+        home = tempfile.mkdtemp(prefix="dotdiw-home-")
+        self.addCleanup(shutil.rmtree, home, True)
+        saved = os.environ.get("HOME")
+        os.environ["HOME"] = home
+        self.addCleanup(os.environ.__setitem__, "HOME", saved or "")
+        for args in (
+            ["init", "-q", "."],
+            ["config", "user.email", "t@example.invalid"],
+            ["config", "user.name", "Test"],
+        ):
+            subprocess.run(["git"] + args, cwd=root, capture_output=True, check=True)
+        with open(
+            os.path.join(root, "release-through-tap.formula.toml"), "w", encoding="utf-8"
+        ) as fh:
+            fh.write(FORMULA)
+        subprocess.run(["git", "add", "-A"], cwd=root, capture_output=True, check=True)
+        subprocess.run(["git", "commit", "-qm", "a formula"], cwd=root, capture_output=True)
+        ref = "mol-release-through-tap"
+        built = bindings.IndexTheProject({"root": root})
+        self.assertEqual((built["status"], built["summary"]), ("completed", "1 formula."))
+        listed = bindings.ListFormulas({"root": root})
+        self.assertEqual(listed["status"], "completed", listed)
+        self.assertEqual([f["formulaRef"] for f in listed["formulas"]], [ref])
+        matched = bindings.MatchFormulas({"root": root, "title": "Release v0.2.1 through the tap"})
+        self.assertEqual(matched["status"], "completed", matched)
+        self.assertEqual([f["formulaRef"] for f in matched["surfaced"]], [ref])
+        checked = bindings.DescribeAndCheck({"root": root})
+        self.assertEqual(checked["status"], "completed", checked)
+        found = bindings.ResolveFormula({"root": root, "ident": ref})
+        self.assertEqual((found["status"], found["formulaRef"]), ("completed", ref))
 
     def test_main_calls_only_infrastructure_and_the_door(self):
         """Routing is hand-written, reaches an operation only by its id through
@@ -1158,6 +1291,7 @@ def fake_adapter(module, name="fake", answers=None):
         "operation.list-items": {"items": []},
         "operation.update-item": {"item": item},
         "operation.ready-items": {"items": []},
+        "operation.record-values": {"item": item},
     }
 
     def callable_for(operation):
@@ -1170,7 +1304,7 @@ def fake_adapter(module, name="fake", answers=None):
         return operation_
 
     return {
-        "info": {"name": name, "version": "0", "interface": 3, "origin": "shipped"},
+        "info": {"name": name, "version": "0", "interface": 4, "origin": "shipped"},
         "operations": {op: callable_for(op) for op in module.TRACKER_DOOR},
     }
 
@@ -1187,6 +1321,365 @@ POUR_TWICE = (
     'formula = "mol-twice"\ndescription = "Twice. Use when testing."\n'
     '[[steps]]\nid = "one"\ntitle = "One"\n[[steps]]\nid = "one"\ntitle = "Again"\n'
 )
+
+
+CLAIMED = (
+    'formula = "mol-staffing"\ndescription = "Confirm a shift is staffed. Use when testing."\n'
+    '[[steps]]\nid = "staffing"\ntitle = "Check the roster"\n'
+    '[steps.claim]\nstatement = "Roster {{ roster-id }} covers {{capacity}} people."\n'
+    '"roster-id:" = {}\n"capacity:" = {}\n"shift-date:" = {}\n'
+    '[[steps]]\nid = "dispatch"\ntitle = "Dispatch it"\nneeds = ["staffing"]\n'
+)
+CLAIMED_JSON = json.dumps(
+    {
+        "formula": "mol-staffing",
+        "description": "Confirm a shift is staffed. Use when testing.",
+        "steps": [
+            {
+                "id": "staffing",
+                "title": "Check the roster",
+                "claim": {
+                    "statement": "Roster {{ roster-id }} covers {{capacity}} people.",
+                    "roster-id:": {},
+                    "capacity:": {},
+                    "shift-date:": {},
+                },
+            },
+            {"id": "dispatch", "title": "Dispatch it", "needs": ["staffing"]},
+        ],
+    }
+)
+CLAIM_READ = {
+    "statement": "Roster {{ roster-id }} covers {{capacity}} people.",
+    "slots": ["roster-id", "capacity", "shift-date"],
+}
+
+
+class AStepsClaim(unittest.TestCase):
+    """A step's claim: read with its formula, in TOML and in JSON, and carried
+    on its step in the formula record, its slots in the formula's order and a
+    slot its statement does not name kept too; one that cannot be read is left
+    off the step and named by check."""
+
+    def setUp(self):
+        self.module = load_module("dotdiw_step_claims", SCRIPT)
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        subprocess.run(["git", "init", "-q", self.root], check=True)
+        home = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, home, True)
+        saved = os.environ.get("HOME")
+        os.environ["HOME"] = home
+        self.addCleanup(os.environ.__setitem__, "HOME", saved or "")
+
+    def steps(self, name, text):
+        with open(os.path.join(self.root, name), "w", encoding="utf-8") as fh:
+            fh.write(text)
+        found = self.module.invoke(
+            "operation.resolve-formula", {"root": self.root, "ident": "mol-staffing"}
+        )
+        self.assertEqual(found["status"], "completed", found)
+        return {s["id"]: s for s in found["formula"]["steps"]}
+
+    def test_a_claim_is_read_onto_its_step_in_the_formula_record(self):
+        steps = self.steps("staffing.formula.toml", CLAIMED)
+        self.assertEqual(steps["staffing"]["claim"], CLAIM_READ)
+        self.assertNotIn("claim", steps["dispatch"])
+
+    def test_a_json_formula_declares_a_claim_the_same_way(self):
+        steps = self.steps("staffing.formula.json", CLAIMED_JSON)
+        self.assertEqual(steps["staffing"]["claim"], CLAIM_READ)
+
+    def test_a_claim_that_cannot_be_read_is_left_off_and_named(self):
+        head = CLAIMED.split("[steps.claim]")[0]
+        tail = '[[steps]]\nid = "dispatch"\ntitle = "Dispatch it"\nneeds = ["staffing"]\n'
+        for claim, said in (
+            ('claim = "Roster 42"\n', "the claim of step staffing is not a table"),
+            ('[steps.claim]\n"roster-id:" = {}\n', "the claim of step staffing has no statement"),
+            ("[steps.claim]\nstatement = 3\n", "the claim of step staffing has no statement"),
+            (
+                '[steps.claim]\nstatement = "Roster {{ roster-id }}."\n"roster-id" = {}\n',
+                'holds "roster-id", which is neither its statement nor a slot',
+            ),
+            (
+                '[steps.claim]\nstatement = "Roster {{ roster-id }}."\n'
+                '"Roster_ID:" = {}\n"roster-id:" = {}\n',
+                'holds "Roster_ID:", which is neither its statement nor a slot',
+            ),
+            (
+                '[steps.claim]\nstatement = "Roster {{ roster-id }}."\n"roster-id:" = "42"\n',
+                'gives its slot "roster-id:" a value',
+            ),
+            (
+                '[steps.claim]\nstatement = "Roster {{ roster }}."\n"roster-id:" = {}\n',
+                'has the placeholder "{{ roster }}", which names none of its slots',
+            ),
+        ):
+            with self.subTest(claim=claim):
+                steps = self.steps("staffing.formula.toml", head + claim + tail)
+                self.assertNotIn("claim", steps["staffing"])
+                checked = self.module.invoke(
+                    "operation.describe-and-check", {"root": self.root, "mode": "check"}
+                )
+                named = [
+                    p["what"]
+                    for p in checked.get("problems") or []
+                    if p["where"] == "staffing.formula.toml"
+                ]
+                self.assertTrue(any(said in w for w in named), (said, named))
+
+    def body(self, claim):
+        return {
+            "formula": {
+                "description": "Confirm a shift.",
+                "steps": [{"id": "staffing", "title": "Check the roster", "claim": claim}],
+            }
+        }
+
+    def test_a_providers_descriptions_are_read_into_the_same_model(self):
+        held = self.module.formula_body(
+            {
+                "formula": {
+                    "description": "Ship it.\n\nVerify using:\n- run:make {{ count.n }}\n",
+                    "steps": [
+                        {
+                            "title": "Count",
+                            "description": "Step ID: count\n\nClaim:\nCounted {{ n }}.\nn:\n",
+                        },
+                        {"title": "File it", "description": "Step ID: file\nNeeds: count\n"},
+                    ],
+                }
+            }
+        )
+        self.assertEqual(held["description"], "Ship it.")
+        self.assertEqual(held["verifyUsing"], ["run:make {{ count.n }}"])
+        self.assertEqual(
+            held["steps"],
+            [
+                {
+                    "id": "count",
+                    "title": "Count",
+                    "needs": [],
+                    "claim": {"statement": "Counted {{ n }}.", "slots": ["n"]},
+                },
+                {"id": "file", "title": "File it", "needs": ["count"]},
+            ],
+        )
+
+    def test_check_names_a_means_placeholder_that_names_no_claimed_slot(self):
+        text = CLAIMED.replace(
+            '[[steps]]\nid = "staffing"',
+            'verify-using = ["run:check {{ staffing.roster-id }} {{ dispatch.x }} {{ gone }}"]\n'
+            '[[steps]]\nid = "staffing"',
+        )
+        self.steps("staffing.formula.toml", text)
+        checked = self.module.invoke(
+            "operation.describe-and-check", {"root": self.root, "mode": "check"}
+        )
+        named = [p["what"] for p in checked.get("problems") or []]
+        for inner in ("dispatch.x", "gone"):
+            self.assertTrue(
+                any('"{{ %s }}", which names no slot' % inner in w for w in named), (inner, named)
+            )
+        self.assertFalse(any('staffing.roster-id }}", which' in w for w in named), named)
+
+    def test_a_providers_answer_carries_a_steps_claim(self):
+        held = self.module.formula_body(self.body(CLAIM_READ))
+        self.assertEqual(held["steps"][0]["claim"], CLAIM_READ)
+        self.assertNotIn("claim", self.module.formula_body(self.body(None))["steps"][0])
+
+    def test_a_providers_claim_outside_its_shape_refuses_the_formula(self):
+        for claim, said in (
+            ("Roster 42", "is not a statement and its slots"),
+            (dict(CLAIM_READ, extra=1), "is not a statement and its slots"),
+            ({"slots": ["roster-id"]}, "has no statement"),
+            ({"statement": "Roster {{ roster-id }}.", "slots": "roster-id"}, "are not labels"),
+            ({"statement": "Roster {{ roster-id }}.", "slots": ["Roster_ID"]}, "are not labels"),
+            (
+                {"statement": "Roster {{ roster-id }}.", "slots": ["roster-id", "roster-id"]},
+                "names a slot twice",
+            ),
+            (
+                {"statement": "Roster {{ roster }}.", "slots": ["roster-id"]},
+                "names none of its slots",
+            ),
+        ):
+            with self.subTest(claim=claim):
+                with self.assertRaises(ValueError) as caught:
+                    self.module.formula_body(self.body(claim))
+                self.assertIn(said, str(caught.exception))
+
+    def test_the_directory_provider_answers_a_steps_claim(self):
+        store = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, store, True)
+        with open(os.path.join(store, "staffing.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(CLAIMED)
+        done = self.module.invoke(
+            "operation.register-provider",
+            {"root": self.root, "name": "acme", "module": "directory", "location": store},
+        )
+        self.assertEqual(done["status"], "completed", done)
+        found = self.module.invoke(
+            "operation.resolve-formula", {"root": self.root, "ident": "mol-staffing-acme"}
+        )
+        self.assertEqual(found["status"], "completed", found)
+        steps = {s["id"]: s for s in found["formula"]["steps"]}
+        self.assertEqual(steps["staffing"]["claim"], CLAIM_READ)
+
+
+class AStepsRun(unittest.TestCase):
+    """A run's claims through the door, against an adapter in memory: values
+    recorded on an open claimed step and refused anywhere else, and the run
+    read back from a step or its root, from the steps poured in it wherever
+    each stands, each claim filled from its own values and the root's means
+    filled by step id from simple ones."""
+
+    def setUp(self):
+        m = self.module = load_module("dotdiw_step_runs", SCRIPT)
+        self.addCleanup(m.TRACKERS.clear)
+        m.TRACKERS.clear()
+        claim = {
+            "statement": "Roster {{ roster-id }} covers {{ capacity }}.",
+            "slots": ["roster-id", "capacity"],
+        }
+        self.items: dict[str, dict[str, Any]] = {
+            "r": {
+                "id": "r",
+                "title": "mol-staffing",
+                "status": "open",
+                "kind": "root",
+                "verifyUsing": [
+                    "run:check {{ staffing.roster-id }} {{ staffing.capacity }} {{ gone.x }}"
+                ],
+            },
+            "r.1": {
+                "id": "r.1",
+                "title": "Staffing",
+                "status": "open",
+                "parent": "r",
+                "step": "staffing",
+                "claim": claim,
+                "run": "r",
+            },
+            "r.2": {
+                "id": "r.2",
+                "title": "Dispatch",
+                "status": "open",
+                "parent": "r",
+                "step": "dispatch",
+                "run": "r",
+            },
+        }
+        adapter = fake_adapter(m, "mem")
+
+        def show(request):
+            item = self.items.get(request["id"])
+            if item is None:
+                return {
+                    "status": "failed",
+                    "reason": "item-not-found",
+                    "exitCode": 1,
+                    "summary": "no",
+                }
+            kids = [i for i in self.items.values() if i.get("parent") == item["id"]]
+            return {
+                "status": "completed",
+                "summary": "x",
+                "item": item,
+                "children": kids,
+                "exitCode": 0,
+            }
+
+        def listing(request):
+            kept = [i for i in self.items.values() if i.get("run") == request.get("run")]
+            return {"status": "completed", "summary": "x", "items": kept, "exitCode": 0}
+
+        def record(request):
+            item = self.items[request["id"]]
+            item["values"] = m.merged_values(list(item.get("values") or []), request["values"])
+            return {"status": "completed", "summary": "recorded", "item": item, "exitCode": 0}
+
+        adapter["operations"]["operation.show-item"] = show
+        adapter["operations"]["operation.list-items"] = listing
+        adapter["operations"]["operation.record-values"] = record
+        m.register_tracker("mem", adapter)
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root, True)
+
+    def ask(self, ident, *lines):
+        values = [
+            {"label": a.strip(), "text": b.strip()} for a, b in (x.split(":", 1) for x in lines)
+        ]
+        return self.module.invoke(
+            "operation.record-what-a-step-found",
+            {"root": self.root, "tracker": "mem", "id": ident, "values": values},
+        )
+
+    def test_values_are_recorded_and_the_run_read_back(self):
+        out = self.ask("r.1", "roster-id: 42", "capacity: 80")
+        self.assertEqual(out["status"], "completed", out)
+        run = out["run"]
+        self.assertEqual((run["root"], run["formula"]), ("r", "mol-staffing"))
+        self.assertEqual([s["step"] for s in run["steps"]], ["staffing"])
+        self.assertEqual(run["steps"][0]["claim"], "Roster 42 covers 80.")
+        self.assertEqual(run["steps"][0]["open"], [])
+        self.assertEqual(run["verifyUsing"], ["run:check 42 80 {{ gone.x }}"])
+        self.assertEqual(run["open"], ["{{ gone.x }}"])
+
+    def test_a_value_that_is_not_simple_fills_the_claim_and_not_the_means(self):
+        run = self.ask("r.1", "roster-id: 4 2")["run"]
+        self.assertEqual(run["steps"][0]["claim"], "Roster 4 2 covers {{ capacity }}.")
+        self.assertEqual(run["steps"][0]["open"], ["{{ capacity }}"])
+        self.assertEqual(
+            run["open"], ["{{ staffing.roster-id }}", "{{ staffing.capacity }}", "{{ gone.x }}"]
+        )
+
+    def test_the_root_reads_the_same_run_and_no_lines_record_nothing(self):
+        self.ask("r.1", "roster-id: 42")
+        from_root = self.ask("r")["run"]
+        self.assertEqual(from_root, self.ask("r.1")["run"])
+        self.assertEqual(self.items["r.1"]["values"], [{"label": "roster-id", "text": "42"}])
+
+    def test_a_step_id_with_a_dot_names_its_step_in_the_means(self):
+        self.items["r.1"]["step"] = "overnight.staffing"
+        self.items["r"]["verifyUsing"] = [
+            "run:check {{ overnight.staffing.roster-id }} {{ overnight.staffing.capacity }}"
+        ]
+        run = self.ask("r.1", "roster-id: 42")["run"]
+        self.assertEqual(run["verifyUsing"], ["run:check 42 {{ overnight.staffing.capacity }}"])
+        self.assertEqual(run["open"], ["{{ overnight.staffing.capacity }}"])
+
+    def test_a_step_moved_away_is_read_in_the_run_it_was_poured_in(self):
+        self.ask("r.1", "roster-id: 42", "capacity: 80")
+        self.items["r.1"]["parent"] = "elsewhere"
+        for named in ("r", "r.1"):
+            run = self.ask(named)["run"]
+            self.assertEqual((run["root"], [s["item"] for s in run["steps"]]), ("r", ["r.1"]))
+            self.assertEqual(run["verifyUsing"], ["run:check 42 80 {{ gone.x }}"])
+
+    def test_a_step_moved_in_from_another_run_is_left_out(self):
+        self.items["r.4"] = dict(
+            self.items["r.1"],
+            id="r.4",
+            run="elsewhere",
+            values=[{"label": "roster-id", "text": "7"}],
+        )
+        run = self.ask("r")["run"]
+        self.assertEqual([s["item"] for s in run["steps"]], ["r.1"])
+        self.assertIn("{{ staffing.roster-id }}", run["open"])
+
+    def test_nothing_is_recorded_where_it_should_not_be(self):
+        self.items["r.3"] = dict(self.items["r.1"], id="r.3", status="closed")
+        for ident, line, reason in (
+            ("r.1", "Roster: 1", "bad-label"),
+            ("r.2", "x: 1", "no-claim"),
+            ("r.3", "roster-id: 1", "step-closed"),
+            ("nope", "x: 1", "item-not-found"),
+        ):
+            with self.subTest(reason=reason):
+                out = self.ask(ident, line)
+                self.assertEqual((out["status"], out.get("reason")), ("failed", reason), out)
+                self.assertNotIn("values", self.items.get(ident, {}))
 
 
 class TheTrackerDoor(unittest.TestCase):
@@ -1288,6 +1781,35 @@ class TheTrackerDoor(unittest.TestCase):
             [(["one"], ["run:make one"]), (["two"], ["run:make two"]), ([], [])],
         )
 
+    def test_a_pour_hands_the_tracker_each_steps_claim(self):
+        handed = self.kept_pours()
+        self.formula_file(CLAIMED)
+        out = self.poured("mol-staffing")
+        self.assertEqual(out["status"], "completed", out)
+        steps = {s["id"]: s for s in handed[0]["steps"]}
+        self.assertEqual(steps["staffing"]["claim"], CLAIM_READ)
+        self.assertNotIn("claim", steps["dispatch"])
+
+    def test_a_pour_names_each_claimed_step_it_made(self):
+        self.kept_pours()
+        self.formula_file(CLAIMED)
+        out = self.poured("mol-staffing")
+        self.assertEqual(
+            out["claims"],
+            [
+                {
+                    "item": "s",
+                    "step": "staffing",
+                    "status": "open",
+                    "statement": CLAIM_READ["statement"],
+                    "slots": CLAIM_READ["slots"],
+                    "values": [],
+                    "claim": CLAIM_READ["statement"],
+                    "open": ["{{ roster-id }}", "{{capacity}}"],
+                }
+            ],
+        )
+
     def test_a_formula_whose_steps_share_an_id_never_reaches_the_tracker(self):
         handed = self.kept_pours()
         self.formula_file(POUR_TWICE)
@@ -1316,7 +1838,7 @@ class TheTrackerDoor(unittest.TestCase):
             m.register_tracker("wrong", wrong)
         self.assertIn(gone, str(held.exception))
         nameless = {
-            "info": {"version": "0", "interface": 3, "origin": "shipped"},
+            "info": {"version": "0", "interface": 4, "origin": "shipped"},
             "operations": whole["operations"],
         }
         with self.assertRaises(m.DoorError) as held:
@@ -1573,6 +2095,42 @@ class TheTrackerDoor(unittest.TestCase):
         ("operation.create-item", {"title": "T"}, {"item": None}, 'carries "item"'),
     )
 
+    REQUESTS_OUTSIDE_THEIR_TYPE: tuple[Any, ...] = (
+        ("operation.list-items", {"run": 0}, '"run" is not a string'),
+        ("operation.list-items", {"limit": "3"}, '"limit" is not an integer'),
+        ("operation.list-items", {"scope": 1}, '"scope" is not text'),
+        (
+            "operation.record-values",
+            {"id": "x", "values": [{"label": "n"}]},
+            '"values[0].text" is required',
+        ),
+    )
+
+    def test_a_request_value_outside_its_type_raises_before_an_adapter_answers(self):
+        """A filter of the wrong type is never dropped and answered unfiltered:
+        the door refuses the request, naming the operation and the field."""
+        m = self.module
+        asked: list[Any] = []
+        adapter = fake_adapter(m, "fake")
+
+        def told(answer):
+            def operation_(request):
+                asked.append(request)
+                return answer(request)
+
+            return operation_
+
+        for operation in m.TRACKER_DOOR:
+            adapter["operations"][operation] = told(adapter["operations"][operation])
+        m.register_tracker("fake", adapter)
+        for operation, request, words in self.REQUESTS_OUTSIDE_THEIR_TYPE:
+            with self.subTest(request=request):
+                with self.assertRaises(m.DoorError) as held:
+                    m.invoke_tracker(operation, dict(request, root=self.root, tracker="fake"))
+                self.assertIn(operation, str(held.exception))
+                self.assertIn(words, str(held.exception))
+        self.assertEqual(asked, [])
+
     def test_a_value_outside_its_type_raises_from_a_shipped_adapter(self):
         m = self.module
         for operation, request, answer, words in self.VALUES_OUTSIDE_THEIR_TYPE:
@@ -1692,7 +2250,7 @@ class TheTrackerDoor(unittest.TestCase):
                 "        out = {'status': 'completed', 'summary': operation, 'exitCode': 0}\n"
                 "        return dict(out, items=[])\n"
                 "    return operation_\n"
-                "TRACKER = {'info': {'name': 'mine', 'version': '1', 'interface': 3},\n"
+                "TRACKER = {'info': {'name': 'mine', 'version': '1', 'interface': 4},\n"
                 "           'operations': {op: _answer(op) for op in OPERATIONS}}\n"
             )
         self.assertFalse(m.load_tracker("../mine"))
@@ -1705,9 +2263,10 @@ class TheTrackerDoor(unittest.TestCase):
 
     def test_a_module_says_which_interface_it_was_written_for(self):
         """Absent means 1, the number every module written before 1.0.0 was
-        written for, and this tool speaks 3: a module that says nothing, says 1
-        or says 2 is refused by name when it loads, as is any other number this
-        tool does not speak, and never halfway through an operation."""
+        written for: a module that says nothing, says 1, says the interface
+        before the one this tool speaks, or any other number it does not speak,
+        is refused by name when it loads, and never halfway through an
+        operation."""
         m = self.module
         home = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, home, True)
@@ -1853,7 +2412,7 @@ class TheTrackerDoor(unittest.TestCase):
                 "    return operation_\n"
                 "def forward(request):\n"
                 "    raise ValueError('no')\n"
-                "TRACKER = {'info': {'name': 'boom', 'version': '1', 'interface': 3},\n"
+                "TRACKER = {'info': {'name': 'boom', 'version': '1', 'interface': 4},\n"
                 "           'operations': {op: _answer(op) for op in OPERATIONS},\n"
                 "           'extras': {'forward': forward}}\n"
             )
@@ -1895,6 +2454,17 @@ def have_bd():
     return shutil.which("bd") is not None
 
 
+def uses(*binaries):
+    """Mark a test class or a test with the binaries it runs beyond Python and
+    git -- "bd", "poa" -- which say the suite it is in (suites.py)."""
+
+    def mark(obj):
+        obj.uses = frozenset(binaries)
+        return obj
+
+    return mark
+
+
 FORMULA = """formula = "mol-release-through-tap"
 description = "Release a tagged version of the tool through the Homebrew tap: bump the formula, check the sha, install cleanly, and announce. Use when shipping a version to users."
 examples = ["Release v0.2.1 through the tap", "Ship the next version through brew", "Cut a release and update the tap"]
@@ -1917,6 +2487,7 @@ needs = ["install"]
 """
 
 
+@uses("bd")
 @unittest.skipUnless(have_bd(), "bd is not installed")
 class TheName(unittest.TestCase):
     """bd's name is in nothing dotdiw says (invariant.one-name-for-all-four).
@@ -1961,6 +2532,7 @@ class TheName(unittest.TestCase):
         self.assertEqual(said, [], "\n".join(["dotdiw names bd where a worker reads it:"] + said))
 
 
+@uses("bd", "poa")
 class TheWitnessLog(unittest.TestCase):
     """The events the contract watches come from a real run, and only when
     asked; under beads here, and under local below, where no tracker binary
@@ -1996,19 +2568,69 @@ class TheWitnessLog(unittest.TestCase):
             ["git", "commit", "-qm", "the project as it stands"], cwd=self.root, capture_output=True
         )
 
-    def dotdiw(self, *args, witness=False):
+    def env_for(self, witness=False):
         env = dict(self.env, DOTDIW_WITNESS="1") if witness else self.env
         env = dict(env, DOTDIW_TRACKER=self.TRACKER)
         if self.PATH:
             env["PATH"] = self.PATH
+        return env
+
+    def dotdiw(self, *args, witness=False):
         p = subprocess.run(
             [sys.executable, "-I", SCRIPT] + list(args),
             cwd=self.root,
-            env=env,
+            env=self.env_for(witness),
             capture_output=True,
             text=True,
         )
         return p.returncode, p.stdout + p.stderr
+
+    def steps_in_order(self, poured):
+        """The steps of a pour in an order their needs allow. The tracker's
+        own JSON under beads, the interface's records under local: the needs
+        are read from whichever came."""
+        code, listing = self.dotdiw("list", "--all", "--json", witness=True)
+        self.assertEqual(code, 0, listing)
+        needs = {
+            r["id"]: r.get("needs")
+            if "needs" in r
+            else [
+                d["depends_on_id"]
+                for d in (r.get("dependencies") or [])
+                if d.get("type") == "blocks"
+            ]
+            for r in json.loads(listing)
+            if r["id"] in poured["stepIds"]
+        }
+        order, left = [], list(poured["stepIds"])
+        while left:
+            ready = [s for s in left if all(d in order for d in needs[s])]
+            self.assertTrue(ready, "the poured steps have a cycle")
+            order.extend(ready)
+            left = [s for s in left if s not in ready]
+        return order
+
+    def stories(self):
+        """POA's reading of the log against the contract: the report, whose
+        matches carry each story's status."""
+        p = subprocess.run(
+            [
+                POA,
+                "match",
+                "cesc",
+                "--contract",
+                CONTRACT,
+                "--events",
+                self.log_path(),
+                "--watermarks",
+                WATERMARKS,
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        return json.loads(p.stdout)
 
     def log_path(self):
         key = subprocess.run(
@@ -2062,33 +2684,11 @@ class TheWitnessLog(unittest.TestCase):
         self.assertEqual(len(poured), 1)
         self.assertEqual(poured[0]["formulaId"], "mol-release-through-tap")
         self.assertEqual(poured[0]["workId"], self.log()[0]["workId"])
-        steps = poured[0]["stepIds"]
-        self.assertEqual(len(steps), 3)
+        self.assertEqual(len(poured[0]["stepIds"]), 3)
 
         # Close the steps in the order their needs allow, then the root --
         # through dotdiw, which is the only place that sees it happen.
-        code, listing = self.dotdiw("list", "--all", "--json", witness=True)
-        rows = json.loads(listing)
-        # The tracker's own JSON under beads, the interface's records under
-        # local: the needs are read from whichever came.
-        needs = {
-            r["id"]: r.get("needs")
-            if "needs" in r
-            else [
-                d["depends_on_id"]
-                for d in (r.get("dependencies") or [])
-                if d.get("type") == "blocks"
-            ]
-            for r in rows
-            if r["id"] in steps
-        }
-        order, left = [], list(steps)
-        while left:
-            ready = [s for s in left if all(d in order for d in needs[s])]
-            self.assertTrue(ready, "the poured steps have a cycle")
-            order.extend(ready)
-            left = [s for s in left if s not in ready]
-        for step in order:
+        for step in self.steps_in_order(poured[0]):
             code, out = self.dotdiw("close", step, witness=True)
             self.assertEqual(code, 0, out)
         code, out = self.dotdiw("close", poured[0]["moleculeId"], witness=True)
@@ -2127,25 +2727,37 @@ class TheWitnessLog(unittest.TestCase):
             self.skipTest(
                 "POA is not on this machine; the log was checked against the bindings only"
             )
-        p = subprocess.run(
-            [
-                POA,
-                "match",
-                "cesc",
-                "--contract",
-                CONTRACT,
-                "--events",
-                self.log_path(),
-                "--watermarks",
-                WATERMARKS,
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        report = json.loads(p.stdout)
+        report = self.stories()
         self.assertEqual([m["storyStatus"] for m in report["matches"]], ["valid"], report)
+
+    def test_a_root_closed_before_the_log_saw_every_step_is_no_valid_story(self):
+        """A step closed where the log cannot see it leaves the root's close
+        one the log cannot vouch for: recorded as such, and the story is
+        incomplete, not valid."""
+        code, out = self.dotdiw("init", "--prefix", "w", witness=True)
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("create", "Release v0.3.0 through the tap", witness=True)
+        self.assertEqual(code, 0, out)
+        code, out = self.dotdiw("mol", "pour", "mol-release-through-tap", witness=True)
+        self.assertEqual(code, 0, out)
+        poured = [e for e in self.log() if e["label"] == "procedure_poured"][0]
+        order = self.steps_in_order(poured)
+        # The first step closes while the log is away, as a close in the
+        # tracker itself would; the rest, and the root, through dotdiw.
+        path = self.log_path()
+        os.rename(path, path + ".away")
+        code, out = self.dotdiw("close", order[0])
+        os.rename(path + ".away", path)
+        self.assertEqual(code, 0, out)
+        for step in order[1:] + [poured["moleculeId"]]:
+            code, out = self.dotdiw("close", step, witness=True)
+            self.assertEqual(code, 0, out)
+        closes = [e for e in self.log() if e["label"] == "molecule_closed"]
+        self.assertEqual([e.get("everyStepClosed") for e in closes], [False])
+        if not os.path.exists(POA):
+            self.skipTest("POA is not on this machine")
+        report = self.stories()
+        self.assertEqual([m["storyStatus"] for m in report["matches"]], ["incomplete"], report)
 
     def test_a_pour_of_what_never_surfaced_is_not_a_valid_story(self):
         with open(os.path.join(self.root, "other.formula.toml"), "w", encoding="utf-8") as fh:
@@ -2195,12 +2807,97 @@ class TheWitnessLog(unittest.TestCase):
         self.assertNotEqual([m["storyStatus"] for m in report["matches"]], ["valid"], report)
 
 
+@uses("poa")
 class TheWitnessLogUnderLocal(TheWitnessLog):
     """The same story, valid under the local adapter with no tracker binary
     on PATH: the contract does not care which adapter answered."""
 
     TRACKER = "local"
     PATH = "/usr/bin:/bin"
+
+    def test_two_closes_at_once_are_logged_in_the_order_they_closed(self):
+        """One close pauses after the tracker closed its step, before the log
+        has it; the close of the run's last step, run meanwhile, waits for
+        it, since the checkout's lock is held until the log has what was
+        written: the log has the steps before the root, and the story is
+        valid. Here alone, as the local adapter answers at once, so that a
+        close not held would finish in the time given; the lock is the
+        door's, under every adapter."""
+        for args in (
+            ("init", "--prefix", "w"),
+            ("create", "Release v0.3.0 through the tap"),
+            ("mol", "pour", "mol-release-through-tap"),
+        ):
+            code, out = self.dotdiw(*args, witness=True)
+            self.assertEqual(code, 0, out)
+        poured = [e for e in self.log() if e["label"] == "procedure_poured"][0]
+        *before, first, last = self.steps_in_order(poured)
+        for step in before:
+            code, out = self.dotdiw("close", step, witness=True)
+            self.assertEqual(code, 0, out)
+        tool = load_module("dotdiw_closes_at_once", SCRIPT)
+        paused, go = threading.Event(), threading.Event()
+        real = tool.witness
+
+        def witness(ws, source, label, **fields):
+            if label == "step_closed" and fields.get("stepId") == first:
+                paused.set()
+                go.wait(60)
+            real(ws, source, label, **fields)
+
+        tool.witness = witness
+        answers = []
+        with mock.patch.dict(os.environ, {"HOME": self.home, "DOTDIW_WITNESS": "1"}):
+            closing = threading.Thread(
+                target=lambda: answers.append(
+                    tool.invoke(
+                        "operation.forward-to-the-tracker",
+                        {"root": self.root, "tracker": self.TRACKER, "arguments": ["close", first]},
+                    )
+                )
+            )
+            closing.start()
+            try:
+                self.assertTrue(paused.wait(60), "the first close reached its log")
+                second = subprocess.Popen(
+                    [sys.executable, "-I", SCRIPT, "close", last],
+                    cwd=self.root,
+                    env=self.env_for(witness=True),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                # Long enough for the second close to check, close and log,
+                # were it not held.
+                for _ in range(30):
+                    if second.poll() is not None:
+                        break
+                    time.sleep(0.1)
+                waited = second.poll() is None
+            finally:
+                go.set()
+                closing.join(60)
+        out, err = second.communicate(timeout=120)
+        self.assertTrue(waited, "the second close waits while the first is not logged")
+        self.assertEqual(second.returncode, 0, out + err)
+        self.assertEqual([a.get("exitCode") for a in answers], [0], answers)
+        closes = [
+            (e["label"], e.get("stepId") or e["moleculeId"], e.get("everyStepClosed"))
+            for e in self.log()
+            if e["label"] in ("step_closed", "molecule_closed")
+        ]
+        self.assertEqual(
+            closes[-3:],
+            [
+                ("step_closed", first, None),
+                ("step_closed", last, None),
+                ("molecule_closed", poured["moleculeId"], True),
+            ],
+        )
+        if not os.path.exists(POA):
+            self.skipTest("POA is not on this machine; the order of the log was checked")
+        report = self.stories()
+        self.assertEqual([m["storyStatus"] for m in report["matches"]], ["valid"], report)
 
 
 class TheProject(unittest.TestCase):
@@ -2213,6 +2910,29 @@ class TheProject(unittest.TestCase):
         module = load_module("dotdiw_version", SCRIPT)
         self.assertEqual(project["version"], module.VERSION)
         self.assertEqual(project["requires-python"], ">=3.11")
+
+    def test_every_file_the_suites_and_the_contract_read_is_in_the_change(self):
+        """The suite runner, and each trace the witness contract replays, are
+        known to git -- tracked, or added to go in -- so that a commit of the
+        tree runs and replays as the tree does. One git knows nothing of is
+        left out of every commit, and the replay of a clone fails on it."""
+        if subprocess.run(["git", "-C", HERE, "rev-parse"], capture_output=True).returncode:
+            self.skipTest("not a git checkout")
+        with open(CONTRACT, encoding="utf-8") as fh:
+            fixtures = re.findall(r"(?m)^\s*fixtureUri:\s*(\S+)\s*$", fh.read())
+        self.assertTrue(fixtures, "the contract names its traces")
+        wanted = ["suites.py"] + [
+            os.path.relpath(os.path.normpath(os.path.join(os.path.dirname(CONTRACT), f)), HERE)
+            for f in fixtures
+        ]
+        for rel in wanted:
+            with self.subTest(file=rel):
+                self.assertTrue(os.path.exists(os.path.join(HERE, rel)), "%s is missing" % rel)
+                known = subprocess.run(
+                    ["git", "-C", HERE, "ls-files", "--error-unmatch", "--", rel],
+                    capture_output=True,
+                )
+                self.assertEqual(known.returncode, 0, "%s is not in the change: git add it" % rel)
 
 
 class TheRankingBenchmark(unittest.TestCase):
@@ -2232,11 +2952,9 @@ class TheRankingBenchmark(unittest.TestCase):
 
         class Nameless:
             @staticmethod
-            def MatchFormulas(request):
-                return {"surfaced": [{"formula": "mol-anything"}]}
-
-            @staticmethod
-            def DescribeAndCheck(request):
+            def invoke(operation, request):
+                if operation == "operation.match-formulas":
+                    return {"surfaced": [{"formula": "mol-anything"}]}
                 return {"problems": [], "formulaCount": 1}
 
         with self.assertRaises(SystemExit):

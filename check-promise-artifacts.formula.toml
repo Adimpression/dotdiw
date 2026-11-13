@@ -1,5 +1,5 @@
 formula = "mol-check-promise-artifacts"
-description = "Re-derive and check the files that write dotdiw's promise down and bind the program to them: validate the thin Product with pd, the Praxis against its schema, and the POA source model; derive operation-idl.json and complete it from the governed source with poa/complete-idl.py, which writes the doors and the record types into dotdiw; validate and check the IDL; check the witness contract and replay its golden and anti-golden traces; sweep the journeys; format, lint and type-check the tree with ruff and mypy through uv; run the promise tests and the adoption tests; run the gRPC conformance harness with Buf. Use when product.yaml, praxis.yaml, poa/product-model.yaml, a binding manifest, the contract's bindings, a contract, a fixture or dotdiw itself changes, when a release changes what dotdiw does or promises, or when poa check, a replay, the sweep, conform or a test fails."
+description = "Re-derive and check the files that write dotdiw's promise down and bind the program to them: validate the thin Product with pd, the Praxis against its schema, and the POA source model; derive operation-idl.json and complete it from the governed source with poa/complete-idl.py, which writes the doors and the record types into dotdiw; validate and check the IDL; check the witness contract and replay its golden and anti-golden traces; sweep the journeys; format, lint and type-check the tree with ruff and mypy through uv; run the test suites, fast and poa, and all of them when a pull request is raised; run the gRPC conformance harness with Buf. Use when product.yaml, praxis.yaml, poa/product-model.yaml, a binding manifest, the contract's bindings, a contract, a fixture or dotdiw itself changes, when a release changes what dotdiw does or promises, or when poa check, a replay, the sweep, conform or a test fails."
 examples = [
   "Re-derive the operation IDL",
   "Check the promise artifacts",
@@ -16,7 +16,7 @@ verify-using = [
   "run:~/poa sweep --product-model poa/product-model.yaml --idl operation-idl.json --include-cesc --cesc contracts/named-work-found-its-procedure.cesc.yaml --source poa/product-model.yaml",
   "run:python3 -I test_promise.py",
 ]
-version = 6
+version = 7
 type = "workflow"
 
 # Written after running this sequence twice by hand on 2026-11-01, and again
@@ -55,6 +55,10 @@ type = "workflow"
 # idlRecord -- and in the files POA keeps beside the IDL: the command-line and
 # implementation bindings, and the witness contract's sections. The model is
 # YAML, so the completing step runs through uv, with PyYAML from the dev group.
+#
+# Version 7: the tests run in suites, by what they run beyond Python and git
+# (suites.py): fast, bd and poa. This sequence runs fast and poa; raising a
+# pull request runs all three, and a review runs only those its fixes touch.
 
 [[steps]]
 id = "product"
@@ -110,7 +114,7 @@ needs = ["complete"]
 
 [[steps]]
 id = "promise"
-title = "Hold the program to the IDL: `python3 -I test_promise.py` (the sort of every definition, the calls and external calls against the bodies, the bindings, and a real run with the witness log on that the contract calls valid), then `python3 -I test_dotdiw.py` (adoption under the home, the repair, the upgrade of earlier adoptions, and metrics)"
+title = "Hold the program to the IDL: `python3 -I suites.py fast` (among them the sort of every definition, the calls and external calls against the bodies, and the bindings), then `python3 -I suites.py poa` (a real run with the witness log on that the contract calls valid); when a pull request is raised, `python3 -I suites.py all`"
 needs = ["idl"]
 
 [[steps]]

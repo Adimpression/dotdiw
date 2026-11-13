@@ -85,7 +85,9 @@ minimumReview:
       statement: >
         Before closing poured work, prove the run with the means its formula
         names under `verify-using`: run the command, read the file, open the
-        link.
+        link. Where a step declares a claim, record what you found with
+        `dotdiw claim` before closing it, so that the means are filled from
+        what was recorded.
       whyItMatters: >
         Steps closed in order show that the order was kept. The means the
         formula names prove that the run did what it claims.
