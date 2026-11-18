@@ -92,7 +92,13 @@ INFRASTRUCTURE = {
     "merged_values",
     "filled",
     "steps_in_order",
+    "step_named",
+    "step_key",
     "what_stands_open",
+    "stands_under",
+    "pours_held",
+    "closes_held",
+    "known_whole",
     "shown_by_its_id",
     "shown_for_a_word",
     "held_to_the_run",
@@ -229,6 +235,7 @@ ADAPTERS = {
         "beads_create",
         "beads_need",
         "beads_pour",
+        "beads_pour_guarded",
         "beads_close",
         "beads_show",
         "beads_list",
@@ -237,6 +244,8 @@ ADAPTERS = {
         "beads_ready",
         "beads_record_values",
         "beads_values",
+        "beads_value_key",
+        "beads_value_held",
         "beads_forward",
         "beads_metrics_off",
     },
@@ -251,6 +260,9 @@ ADAPTERS = {
         "local_new_id",
         "local_fetch",
         "local_record",
+        "local_calls",
+        "local_hold_calls",
+        "local_under",
         "local_blockers",
         "local_waiting",
         "local_closing",
@@ -326,6 +338,14 @@ HELPERS = {
     "WriteFormula": {"Titles", "slug", "past_titles", "steps_from"},
     "CheckTracker": {"conformance_scenario", "candidate_registered"},
     "ShowProviderFormula": {"formula_body"},
+    "NameTheWork": {"parent_a_guard"},
+    "PourProcedure": {
+        "formula_identity",
+        "planned_calls",
+        "planned_steps",
+        "poured_within",
+        "claimed_steps",
+    },
     "ForwardToTheTracker": {
         "answered",
         "refusal",
@@ -341,6 +361,8 @@ HELPERS = {
         "edge_pairs",
         "what_the_close_closed",
         "forwarded",
+        "named_in",
+        "ready_the_tracker_may_give",
     },
 }
 
@@ -1561,6 +1583,95 @@ class AStepsClaim(unittest.TestCase):
         self.assertEqual(steps["staffing"]["claim"], CLAIM_READ)
 
 
+class AStepsCall(unittest.TestCase):
+    """A step's call of a formula: read with its formula from a file, held to
+    text, and carried on its step in the formula record; a provider's answer
+    carries it the same way, on the step or on a Formula: line of its
+    description, and formula show prints it."""
+
+    def setUp(self):
+        self.module = load_module("dotdiw_step_calls", SCRIPT)
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        subprocess.run(["git", "init", "-q", self.root], check=True)
+        home = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, home, True)
+        saved = os.environ.get("HOME")
+        os.environ["HOME"] = home
+        self.addCleanup(os.environ.__setitem__, "HOME", saved or "")
+
+    CALLING = (
+        'formula = "mol-campaign"\ndescription = "Publish a campaign. Use when testing."\n'
+        '[[steps]]\nid = "rights"\ntitle = "Clear the image"\nformula = "clear-image"\n'
+        '[[steps]]\nid = "publish"\ntitle = "Publish it"\nneeds = ["rights"]\n'
+    )
+
+    def test_a_steps_call_is_read_onto_its_step_in_the_formula_record(self):
+        with open(os.path.join(self.root, "campaign.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(self.CALLING)
+        found = self.module.invoke(
+            "operation.resolve-formula", {"root": self.root, "ident": "mol-campaign"}
+        )
+        self.assertEqual(found["status"], "completed", found)
+        steps = {s["id"]: s for s in found["formula"]["steps"]}
+        self.assertEqual(steps["rights"]["formula"], "clear-image")
+        self.assertNotIn("formula", steps["publish"])
+
+    def body(self, step):
+        return {"formula": {"description": "Publish a campaign.", "steps": [step]}}
+
+    def test_a_providers_answer_carries_a_steps_call(self):
+        held = self.module.formula_body(
+            self.body({"id": "rights", "title": "Clear it", "formula": " clear-image "})
+        )
+        self.assertEqual(held["steps"][0]["formula"], "clear-image")
+        told = self.module.formula_body(
+            self.body(
+                {"title": "Clear it", "description": "Step ID: rights\nFormula: clear-image\n"}
+            )
+        )
+        self.assertEqual(
+            (told["steps"][0]["id"], told["steps"][0]["formula"]), ("rights", "clear-image")
+        )
+        plain = self.module.formula_body(self.body({"id": "rights", "title": "Clear it"}))
+        self.assertNotIn("formula", plain["steps"][0])
+
+    def test_a_providers_call_that_is_not_text_refuses_the_formula(self):
+        for called in (7, "", "  ", ["clear-image"]):
+            with self.subTest(called=called):
+                with self.assertRaises(ValueError) as caught:
+                    self.module.formula_body(
+                        self.body({"id": "rights", "title": "Clear it", "formula": called})
+                    )
+                self.assertIn(
+                    "the formula rights calls is not text naming one", str(caught.exception)
+                )
+
+    def test_the_directory_provider_answers_a_steps_call_and_show_prints_it(self):
+        store = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, store, True)
+        with open(os.path.join(store, "campaign.formula.toml"), "w", encoding="utf-8") as fh:
+            fh.write(self.CALLING)
+        done = self.module.invoke(
+            "operation.register-provider",
+            {"root": self.root, "name": "acme", "module": "directory", "location": store},
+        )
+        self.assertEqual(done["status"], "completed", done)
+        found = self.module.invoke(
+            "operation.resolve-formula", {"root": self.root, "ident": "mol-campaign-acme"}
+        )
+        self.assertEqual(found["status"], "completed", found)
+        steps = {s["id"]: s for s in found["formula"]["steps"]}
+        self.assertEqual(steps["rights"]["formula"], "clear-image")
+        shown = self.module.invoke(
+            "operation.show-formula", {"root": self.root, "ident": "mol-campaign-acme"}
+        )
+        self.assertEqual(shown["status"], "completed", shown)
+        printed = {s["id"]: s for s in json.loads(shown["text"])["steps"]}
+        self.assertEqual(printed["rights"]["formula"], "clear-image")
+        self.assertNotIn("formula", printed["publish"])
+
+
 class AStepsRun(unittest.TestCase):
     """A run's claims through the door, against an adapter in memory: values
     recorded on an open claimed step and refused anywhere else, and the run
@@ -1637,6 +1748,7 @@ class AStepsRun(unittest.TestCase):
         adapter["operations"]["operation.list-items"] = listing
         adapter["operations"]["operation.record-values"] = record
         m.register_tracker("mem", adapter)
+        self.adapter = adapter
         self.root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.root, True)
 
@@ -1648,6 +1760,23 @@ class AStepsRun(unittest.TestCase):
             "operation.record-what-a-step-found",
             {"root": self.root, "tracker": "mem", "id": ident, "values": values},
         )
+
+    def test_a_tracker_that_records_no_values_says_so(self):
+        """A tracker that cannot hold a write of values to the item named
+        declines every record-values as unsupported: the claim says so, in
+        the tracker's words, and nothing is recorded."""
+        said = "This tracker records no claim's values."
+        self.adapter["operations"]["operation.record-values"] = lambda request: {
+            "status": "failed",
+            "reason": "unsupported",
+            "exitCode": 1,
+            "summary": said,
+        }
+        self.module.register_tracker("mem", self.adapter)
+        out = self.ask("r.1", "roster-id: 42")
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "unsupported"), out)
+        self.assertEqual(out["summary"], said)
+        self.assertNotIn("values", self.items["r.1"])
 
     def test_values_are_recorded_and_the_run_read_back(self):
         out = self.ask("r.1", "roster-id: 42", "capacity: 80")
@@ -3042,6 +3171,25 @@ class TheGrpcProjection(unittest.TestCase):
             pb = importlib.import_module("google.protobuf.descriptor_pb2")
             methods = self.module.grpc_descriptor(pb).service[0].method
             self.assertEqual({m.name for m in methods}, self.served())
+
+    @unittest.skipUnless(have_protobuf(), "protobuf is not installed")
+    def test_every_field_released_keeps_its_number(self):
+        """A client built against a release reads each field by its number:
+        each message served at the release recorded in
+        poa/grpc-fields-released.json keeps every field it held at the
+        number it had, and a field added comes after the last, so that it
+        shifts none. The record is made again at each release."""
+        with open(os.path.join(HERE, "poa", "grpc-fields-released.json"), encoding="utf-8") as fh:
+            released = json.load(fh)
+        pb = importlib.import_module("google.protobuf.descriptor_pb2")
+        now = {
+            m.name: [f.name for f in sorted(m.field, key=lambda f: f.number)]
+            for m in self.module.grpc_descriptor(pb).message_type
+        }
+        for message, fields in sorted(released["messages"].items()):
+            with self.subTest(message=message):
+                self.assertIn(message, now, "a message %s served is served no more" % message)
+                self.assertEqual(now[message][: len(fields)], fields)
 
     @uses("poa")
     @unittest.skipUnless(os.path.exists(POA), "POA is not at ~/poa")

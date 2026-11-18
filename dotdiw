@@ -172,6 +172,22 @@ class ClaimedStep(TypedDict, total=False):
     claim: Required[str]
     open: Required[list[str]]
     etag: str | None
+    within: str | None
+
+
+class RunCall(TypedDict, total=False):
+    """One call of a run, read back: its calling step, the formula it calls, the calling step it
+    stands within, its claimed steps, and its means to prove filled from what the steps poured
+    within it recorded.
+    """
+    item: Required[str]
+    step: Required[str]
+    within: str | None
+    formula: str | None
+    status: Literal["open", "in_progress", "blocked", "closed"] | None
+    steps: Required[list[ClaimedStep]]
+    verifyUsing: Required[list[str]]
+    open: Required[list[str]]
 
 
 class ClaimRun(TypedDict, total=False):
@@ -184,6 +200,7 @@ class ClaimRun(TypedDict, total=False):
     verifyUsing: Required[list[str]]
     open: Required[list[str]]
     etag: str | None
+    calls: list[RunCall] | None
 
 
 class TrackerItem(TypedDict, total=False):
@@ -192,7 +209,7 @@ class TrackerItem(TypedDict, total=False):
     """
     id: Required[str]
     title: Required[str]
-    kind: Literal["root", "task"] | None
+    kind: Literal["root", "task", "guard"] | None
     status: Required[Literal["open", "in_progress", "blocked", "closed"]]
     priority: int | None
     parent: str | None
@@ -208,6 +225,10 @@ class TrackerItem(TypedDict, total=False):
     run: str | None
     values: list[ClaimValue] | None
     etag: str | None
+    within: str | None
+    calls: str | None
+    guard: str | None
+    whole: bool | None
 
 
 class TrackerEdge(TypedDict, total=False):
@@ -218,23 +239,42 @@ class TrackerEdge(TypedDict, total=False):
 
 class TrackerStep(TypedDict, total=False):
     """One step of a formula as handed to the tracker to pour: its id within the formula, its title
-    and the step ids it needs.
+    and the step ids it needs; in a pour that calls a formula, its key, the calling step it
+    stands within, and what a calling step calls.
     """
     id: Required[str]
     title: Required[str]
     needs: list[str] | None
     claim: StepClaim | None
+    key: str | None
+    within: str | None
+    calls: str | None
+    description: str | None
+    verifyUsing: list[str] | None
 
 
 class FormulaStep(TypedDict, total=False):
     """One step of a formula as data: its id within the formula, its title, the step ids it needs,
-    and its claim when it declares one.
+    its claim when it declares one, and the formula it calls when it calls one.
     """
     id: Required[str]
     title: Required[str]
     needs: list[str] | None
     claim: StepClaim | None
     description: str | None
+    formula: str | None
+
+
+class PouredCall(TypedDict, total=False):
+    """A call a pour made: the calling step, the formula it calls, the calling step it stands
+    within, and the items poured within it, which the calling step waits on.
+    """
+    step: Required[str]
+    stepRef: Required[str]
+    within: str | None
+    formulaRef: Required[str]
+    stepRefs: list[str] | None
+    verifyUsing: list[str] | None
 
 
 class FormulaBody(TypedDict, total=False):
@@ -258,6 +298,7 @@ class TrackerInfo(TypedDict, total=False):
     nativeNeeds: bool | None
     checkTarget: str | None
     extras: list[str] | None
+    nests: bool | None
 
 
 class TrackerActor(TypedDict, total=False):
@@ -358,10 +399,13 @@ class PourProcedureResponse(TypedDict, total=False):
     reason: Literal[
         "not-installed", "no-workspace", "tracker-unknown", "adapter-failed", "no-steps",
         "step-not-found", "cycle", "ambiguous", "provider-formula-unserved",
-        "provider-failed", "duplicate-step",
+        "provider-failed", "duplicate-step", "call-not-found", "call-cycle",
+        "call-with-claim", "call-unsupported",
     ] | None
     tracker: str | None
     verifyUsing: list[str] | None
+    calls: list[PouredCall] | None
+    guardRef: str | None
 
 
 class NoticeHandmadeProceduresRequest(TypedDict, total=False):
@@ -813,6 +857,8 @@ class CreateItemRequest(TypedDict, total=False):
     run: str | None
     values: list[ClaimValue] | None
     id: str | None
+    within: str | None
+    calls: str | None
 
 
 class CreateItemResponse(TypedDict, total=False):
@@ -887,6 +933,7 @@ class PourStepsResponse(TypedDict, total=False):
     ] | None
     exitCode: int | None
     tracker: str | None
+    guardId: str | None
 
 
 class CloseItemRequest(TypedDict, total=False):
@@ -1715,7 +1762,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "4.1.0"
+VERSION = "4.2.0"
 
 TOP_N = 3
 
@@ -2021,6 +2068,20 @@ tracker's own name.
    prints the run: each claim filled in, and verify-using filled from the
    values, where {{ tag.name }} reads the tag step's name.
 
+   A step may call another formula instead of repeating its steps -- a
+   procedure another team keeps, by its id, path or name:
+
+     [[steps]]
+     id = "clear-rights"
+     title = "Clear the image for paid social"
+     formula = "clear-image-for-paid-social"
+
+   The pour pours that formula's steps within this step, in the same run:
+   they wait on what this step needs, this step waits on them and closes
+   itself once they are done, and a step that needs it waits on all of it.
+   Each call keeps its own claims and verify-using. A step that calls a
+   formula declares no claim; a step after it claims what the call found.
+
    You do not type that out. The moment you notice you are repeating yourself:
 
      %(p)s formula new "Cut the 2.4 release"
@@ -2288,6 +2349,8 @@ def load_formula(root: str, rel: str) -> dict[str, Any] | None:
     steps = []
     # A step's claim: read with it, and named for check where it cannot be.
     claims_unread: list[str] = []
+    # A step's call of a formula, and what check names of one a pour refuses.
+    calls_unread: list[str] = []
     for s in data.get("steps") or []:
         if isinstance(s, dict) and s.get("id"):
             step: dict[str, Any] = {
@@ -2301,6 +2364,26 @@ def load_formula(root: str, rel: str) -> dict[str, Any] | None:
                     step["claim"] = claim
                 else:
                     claims_unread.append(str(why))
+                    if "formula" in s:
+                        # A calling step declares no claim, read or not: kept
+                        # as one with nothing in it, so that a pour refuses
+                        # the call as it refuses a claim it can read.
+                        step["claim"] = {"statement": "", "slots": []}
+            if "formula" in s:
+                # Kept empty where it is not text naming one, so that a pour
+                # refuses the call rather than pour the step as one of its own.
+                called = s["formula"]
+                step["formula"] = called.strip() if isinstance(called, str) else ""
+                if not step["formula"]:
+                    calls_unread.append(
+                        "step %s calls no formula: its formula is not text naming one" % step["id"]
+                    )
+                elif "claim" in s:
+                    calls_unread.append(
+                        "step %s calls %s and declares a claim -- a step that calls a formula "
+                        "claims nothing; what its call found is claimed by a step that needs it"
+                        % (step["id"], step["formula"])
+                    )
             steps.append(step)
     claimed = {s["id"]: s["claim"]["slots"] for s in steps if s.get("claim")}
     for value in means:
@@ -2323,18 +2406,26 @@ def load_formula(root: str, rel: str) -> dict[str, Any] | None:
         "verifyUsing": means,
         "verifyUnread": unread,
         "claimUnread": claims_unread,
+        "callUnread": calls_unread,
     }
 
 
 def shared_step_id(steps: list[Any]) -> str | None:
-    """The first step id two steps share, or None: a pour answers one id per
-    step, so a formula that gives two steps one id pours nothing."""
+    """The first step id two steps share -- or key, where steps have keys --
+    or None: a pour answers one id per step, so a formula that gives two
+    steps one id pours nothing."""
     seen: set[str] = set()
     for s in steps:
-        if s["id"] in seen:
-            return str(s["id"])
-        seen.add(s["id"])
+        key = step_named(s)
+        if key in seen:
+            return key
+        seen.add(key)
     return None
+
+
+def step_named(step: Mapping[str, Any]) -> str:
+    """The name a step has in a pour: its key, or its id where it has none."""
+    return str(step.get("key") or step["id"])
 
 
 def tracker_step(step: FormulaStep) -> TrackerStep:
@@ -2397,23 +2488,44 @@ def run_etag(root: Mapping[str, Any], items: Iterable[Mapping[str, Any]]) -> str
 
 def steps_in_order(steps: list[Any]) -> list[Any]:
     """The steps a tracker makes one at a time, each after those it needs and
-    otherwise as declared: declaration order is no part of a formula. A need
-    naming no step raises LookupError, and a cycle ValueError."""
-    known = {s["id"] for s in steps}
+    the calling step it stands within, and otherwise as declared:
+    declaration order is no part of a formula. Steps are named by key where
+    they have one (step_named). A need naming no step raises LookupError,
+    and a cycle ValueError."""
+
+    def waits(s: Mapping[str, Any]) -> list[str]:
+        return [str(n) for n in s.get("needs") or []] + (
+            [str(s["within"])] if s.get("within") else []
+        )
+
+    known = {step_named(s) for s in steps}
     for s in steps:
-        for need in s.get("needs") or []:
+        for need in waits(s):
             if need not in known:
-                raise LookupError("%s needs %s, which is not a step." % (s["id"], need))
+                raise LookupError("%s needs %s, which is not a step." % (step_named(s), need))
+    if any(s.get("key") for s in steps):
+        # A pour's steps under keys are made in the order given where each
+        # follows what it waits on, so that those a pour cut short made are
+        # the first ones given.
+        seen: set[str] = set()
+        for s in steps:
+            if not all(n in seen for n in waits(s)):
+                break
+            seen.add(step_named(s))
+        else:
+            return list(steps)
     order: list[Any] = []
     placed: set[str] = set()
     left = list(steps)
     while left:
-        ready = [s for s in left if all(n in placed for n in s.get("needs") or [])]
+        ready = [s for s in left if all(n in placed for n in waits(s))]
         if not ready:
-            raise ValueError("A cycle among the steps: %s." % ", ".join(s["id"] for s in left))
+            raise ValueError(
+                "A cycle among the steps: %s." % ", ".join(step_named(s) for s in left)
+            )
         order.extend(ready)
-        placed.update(s["id"] for s in ready)
-        left = [s for s in left if s["id"] not in placed]
+        placed.update(step_named(s) for s in ready)
+        left = [s for s in left if step_named(s) not in placed]
     return order
 
 
@@ -2422,17 +2534,160 @@ def what_stands_open(
     item: Mapping[str, Any],
     standing: Mapping[str, Mapping[str, Any]],
     earlier: set[str],
+    held: Mapping[str, str] | None = None,
 ) -> list[str]:
     """What keeps an item from closing, of what stands open: its needs, then
-    its children, then the items poured in its run, wherever they stand;
-    none closed earlier in the same command."""
+    its children, the items poured in its run and those poured within it,
+    wherever they stand, then the guard it is held on -- one standing open
+    that reads as a guard, and the guard of a pour not known to be whole
+    that holds it (held, by item: closes_held), whatever that guard reads
+    as, or whether it is read at all; none closed earlier in the same
+    command."""
     needs = [n for n in item.get("needs") or [] if n in standing and n not in earlier]
     under = [
         i
         for i, o in standing.items()
-        if i != ident and i not in earlier and ident in (o.get("parent"), o.get("run"))
+        if i != ident and i not in earlier and ident in stands_under(o)
     ]
-    return needs + [i for i in under if i not in needs]
+    guard = item.get("guard")
+    guards = (
+        [str(guard)]
+        if guard
+        and guard in standing
+        and guard not in earlier
+        and standing[guard].get("kind") == "guard"
+        else []
+    )
+    by_pour = (held or {}).get(ident)
+    if by_pour and by_pour not in earlier and by_pour not in guards:
+        guards.append(by_pour)
+    out = needs + [i for i in under if i not in needs]
+    return out + [g for g in guards if g not in out]
+
+
+def stands_under(item: Mapping[str, Any]) -> tuple[Any, Any, Any]:
+    """What an item keeps from closing by standing open: its parent, the root
+    of the run it was poured in, and the calling step it was poured within."""
+    return (item.get("parent"), item.get("run"), item.get("within"))
+
+
+def pours_held(
+    every: Mapping[str, Mapping[str, Any]], read: Callable[[str], Mapping[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """Each pour not known to be whole, by its guard: every item listed
+    (every, by id, closed ones too), and the way to show one by its id.
+
+    A guard is an item that reads as one, or an id an item names as its
+    guard. Its pour's roots are each namer's run, or the namer itself where
+    it names none, and the guard's own run. A guard that stands open and
+    reads as one holds its run whatever its roots read, as the tracker's own
+    edges to it do, until dotdiw closes it (known_whole). Otherwise a root
+    that reads whole -- the pour marked it so once it had made every item
+    and edge -- holds nothing, whatever became of its guard: housekeeping
+    deletes a guard once it closed, and may give its id to another item.
+    Nor does a root the tracker no longer lists: a pour cut short keeps its
+    guard open, which housekeeping leaves, and a root deleted with its guard
+    is the way out of one. With a
+    root listed that does not read whole, the pour holds unless its guard
+    is read as closed: listed closed, or, where no listing has it, shown so
+    by its id -- read then and only then. One shown as no item holds; one
+    the tracker could not show holds, and the read's summary is kept
+    (unread).
+
+    What a pour holds: from ready, the guard, every namer, and every item
+    of its roots' runs, the roots themselves; from closing (closes_held),
+    every namer, every root, and every calling step of those runs."""
+    named: dict[str, list[str]] = {}
+    for i, o in every.items():
+        g = o.get("guard")
+        if isinstance(g, str) and g:
+            named.setdefault(g, []).append(i)
+    guards = sorted({i for i, o in every.items() if o.get("kind") == "guard"} | set(named))
+    out: dict[str, dict[str, Any]] = {}
+    for g in guards:
+        namers = sorted(named.get(g, []))
+        listed = every.get(g)
+        roots = {str(every[n].get("run") or n) for n in namers}
+        if listed is not None and isinstance(listed.get("run"), str) and listed["run"]:
+            roots.add(str(listed["run"]))
+        standing = (
+            listed is not None
+            and listed.get("kind") == "guard"
+            and listed.get("status") != "closed"
+        )
+        live = [r for r in roots if r in every and every[r].get("whole") is not True]
+        if not live and not (standing and roots):
+            continue
+        unread: str | None = None
+        if listed is not None:
+            if listed.get("status") == "closed":
+                continue
+        else:
+            shown = shown_by_its_id(g, dict(read(g)))
+            if shown["status"] == "completed":
+                if (shown.get("item") or {}).get("status") == "closed":
+                    continue
+            elif shown.get("reason") != "item-not-found":
+                unread = str(shown.get("summary") or "the tracker could not show %s" % g)
+        runs = [i for i, o in every.items() if i in roots or o.get("run") in roots]
+        out[g] = {
+            "guard": g,
+            "listed": listed is not None,
+            "roots": sorted(roots),
+            "namers": namers,
+            "holds": sorted({g, *namers, *runs}),
+            "closes": sorted(
+                {*namers, *[i for i in runs if i in roots or every[i].get("calls")]} - {g}
+            ),
+            "unread": unread,
+        }
+    return out
+
+
+def closes_held(pours: Mapping[str, Mapping[str, Any]]) -> dict[str, str]:
+    """Each item a pour not known to be whole holds from closing, by its id,
+    and that pour's guard (pours_held)."""
+    return {i: g for g, p in sorted(pours.items()) for i in p["closes"]}
+
+
+def known_whole(guard: str, every: Mapping[str, Mapping[str, Any]]) -> bool:
+    """Whether a guard's pour is known to be whole, of every item listed: it
+    has a root -- each item naming the guard has its run, or is one, and the
+    guard has its own run -- and every root of it is listed, reading whole.
+    Only then does dotdiw close the guard: the pour's own last write again.
+    A guard no root of which is known holds nothing, and is not closed."""
+    roots = {str(o.get("run") or i) for i, o in every.items() if o.get("guard") == guard}
+    run = (every.get(guard) or {}).get("run")
+    if isinstance(run, str) and run:
+        roots.add(run)
+    return bool(roots) and all((every.get(r) or {}).get("whole") is True for r in roots)
+
+
+# A guard is closed by the pour that made it, once all of it is made, and
+# written by nothing else: a close, an update or a reopen of one is refused,
+# and so is taking off an edge to one, and no close follows to it.
+GUARD_HELD = (
+    "%s is a pour's guard: only the pour that made it closes it, and nothing else writes it."
+)
+
+# The way out of a pour not known to be whole, said with what it holds: the
+# item held, the guard, and that guard's close or the removal of the pour.
+POUR_HELD_WHOLE = (
+    "%s waits on %s, the guard of a pour that made every item and marked its root whole: "
+    "%s close %s finishes it."
+)
+POUR_HELD = (
+    "%s waits on %s, the guard of a pour not known to be whole, which no close but its pour's "
+    "closes. To finish with that pour, remove its root, its steps and %s, which stands under "
+    "no parent, outside dotdiw."
+)
+
+# A calling step needs every item poured within it, and no write takes that
+# need off: what it waits on is what is given ready and what holds its close.
+CALL_NEED_HELD = (
+    "%s needs %s, which was poured within it: a calling step needs every item of its "
+    "call, and that need is not taken off."
+)
 
 
 def shown_by_its_id(ident: str, shown: Response) -> Response:
@@ -2490,6 +2745,7 @@ def held_to_the_run(
     now: Mapping[str, Mapping[str, Any]],
     reopen: Callable[[str, str], str | None],
     keep: Iterable[str] = (),
+    held: Mapping[str, str] | None = None,
 ) -> tuple[list[str], list[Response], dict[str, Any]]:
     """The run rule, held of a tracker as it stands after a close that ran in
     a tracker knowing no run -- one rule, whichever way the close was asked.
@@ -2509,7 +2765,10 @@ def held_to_the_run(
     says which root to hold, and a close run again sets right what an
     earlier one left. And one to keep open (keep) -- which a move into the
     tracker made and has not finished, so that nothing but the move closes
-    it -- that the tracker closed of its own accord is opened again.
+    it -- that the tracker closed of its own accord is opened again. And so is
+    one a pour not known to be whole holds from closing (held, by item:
+    closes_held, of the items as listed after the close), whatever it reads
+    as -- a root its type was changed on among them.
 
     The ids the close closed that still stand closed; an answer for each one
     opened again or left closed against the rule, blocked where the close
@@ -2519,6 +2778,20 @@ def held_to_the_run(
     left = list(shut)
     notes: list[Response] = []
     tried: set[str] = set()
+
+    def held_while(waiting: list[str]) -> str:
+        """While what it waits on stood open, or, for the guard of a pour
+        not known to be whole that no listing shows open, was not read as
+        closed."""
+        shown = [w for w in waiting if w in standing]
+        unread = [w for w in waiting if w not in standing]
+        said = ["while %s stood open" % ", ".join(shown)] if shown else []
+        if unread:
+            said.append(
+                "while %s, the guard of a pour not known to be whole, was not read as closed"
+                % ", ".join(unread)
+            )
+        return " and ".join(said)
 
     def opened(
         ident: str, status: str, waiting: list[str], how: str, though: str | None = None
@@ -2543,20 +2816,19 @@ def held_to_the_run(
                 "reason": "blocked",
                 "blockedBy": waiting,
                 "exitCode": 1 if own else 0,
-                "summary": "%s %s %s, %s."
-                % (ident, how, though or "while %s stood open" % ", ".join(waiting), said),
+                "summary": "%s %s %s, %s." % (ident, how, though or held_while(waiting), said),
             }
         )
 
     # In order, so that one opened again is open for those after it.
     for ident in shut:
-        waiting = what_stands_open(ident, now[ident], standing, set())
+        waiting = what_stands_open(ident, now[ident], standing, set(), held)
         if waiting:
             how = "closed" if ident in named else "closed of the tracker's own accord"
             opened(ident, before[ident]["status"], waiting, how)
-    held = set(keep)
+    kept = set(keep)
     for ident in shut:
-        if ident in held and ident not in named and ident not in tried:
+        if ident in kept and ident not in named and ident not in tried:
             opened(
                 ident,
                 before[ident]["status"],
@@ -2567,15 +2839,33 @@ def held_to_the_run(
     touched: list[str] = []
     for ident in named:
         item = now.get(ident) or {}
-        for up in (ident, item.get("parent"), item.get("run")):
+        for up in (ident, *stands_under(item)):
             if up and str(up) not in touched:
                 touched.append(str(up))
     touched += [i for i in before if i not in touched]
     for up in touched:
         record = now.get(up)
-        if record is None or record.get("kind") != "root" or up in standing or up in tried:
+        if record is None or up in standing or up in tried:
             continue
-        waiting = sorted(i for i, o in standing.items() if o.get("run") == up)
+        pour = (held or {}).get(up)
+        if record.get("kind") == "root":
+            waiting = sorted(i for i, o in standing.items() if o.get("run") == up)
+        elif record.get("calls"):
+            waiting = sorted(i for i, o in standing.items() if o.get("within") == up)
+        elif pour:
+            waiting = []
+        else:
+            continue
+        guard = record.get("guard")
+        if (
+            guard
+            and guard in standing
+            and standing[guard].get("kind") == "guard"
+            and guard not in waiting
+        ):
+            waiting.append(str(guard))
+        if pour and pour not in waiting:
+            waiting.append(pour)
         if waiting:
             opened(up, before[up]["status"] if up in before else "open", waiting, "stood closed")
     return left, notes, standing
@@ -3332,6 +3622,8 @@ def ShowFormula(request: ShowFormulaRequest) -> ShowFormulaResponse:
                 claim: dict[str, Any] = {"statement": s["claim"]["statement"]}
                 claim.update({"%s:" % label: {} for label in s["claim"]["slots"]})
                 step["claim"] = claim
+            if s.get("formula"):
+                step["formula"] = s["formula"]
             steps.append(step)
         shown = {
             "formula": r["formulaRef"],
@@ -3608,9 +3900,10 @@ def ListProviderFormulas(request: ListProviderFormulasRequest) -> ListProviderFo
 def step_told(text: Any) -> dict[str, Any]:
     """What a step's description tells, as a provider with title and
     description fields keeps a step: its id on a Step ID: line, its needs on a
-    Needs: line, comma separated, and its claim under a Claim: heading -- the
+    Needs: line, comma separated, its claim under a Claim: heading -- the
     statement, then a line for each slot, its label and a colon -- up to the
-    next blank line. ValueError when the description is not text."""
+    next blank line, and the formula it calls on a Formula: line. ValueError
+    when the description is not text."""
     if text is None:
         return {}
     if not isinstance(text, str):
@@ -3625,6 +3918,8 @@ def step_told(text: Any) -> dict[str, Any]:
             told["id"] = line[len("Step ID:") :].strip()
         elif line.startswith("Needs:"):
             told["needs"] = [n.strip() for n in line[len("Needs:") :].split(",") if n.strip()]
+        elif line.startswith("Formula:"):
+            told["formula"] = line[len("Formula:") :].strip()
         elif line == "Claim:":
             while i < len(lines) and not lines[i]:
                 i += 1
@@ -3646,8 +3941,8 @@ def step_told(text: Any) -> dict[str, Any]:
 def formula_body(said: Any) -> FormulaBody:
     """ShowProviderFormula's: a provider's answer to show held to its shape --
     a formula with a description, its means to prove, and steps each with an
-    id, a title and the step ids it needs -- or ValueError naming what is
-    outside it."""
+    id, a title and the step ids it needs, and a step's formula text naming
+    the one it calls -- or ValueError naming what is outside it."""
     body = said.get("formula") if isinstance(said, dict) else None
     if not isinstance(body, dict):
         raise ValueError("its show answered no formula")
@@ -3686,6 +3981,11 @@ def formula_body(said: Any) -> FormulaBody:
         claim = s.get("claim", told.get("claim"))
         if claim is not None:
             step["claim"] = held_claim(ident, claim)
+        called = s.get("formula", told.get("formula"))
+        if called is not None:
+            if not isinstance(called, str) or not called.strip():
+                raise ValueError("the formula %s calls is not text naming one" % ident)
+            step["formula"] = called.strip()
         held.append(step)
     answer: FormulaBody = {"description": description, "verifyUsing": list(means), "steps": held}
     return answer
@@ -4010,49 +4310,83 @@ def ReadRun(request: ReadRunRequest) -> ReadRunResponse:
             "exitCode": 1,
             "summary": listed["summary"],
         }
-    steps: list[ClaimedStep] = []
-    found: dict[str, dict[str, str]] = {}
+    # Each claim and each value is bound to the call it was poured within --
+    # the calling step's item, none at the top level -- and its step id, so
+    # that two calls of one formula fill each its own.
+    steps: dict[str | None, list[ClaimedStep]] = {}
+    found: dict[str | None, dict[str, dict[str, str]]] = {}
+    callers: list[TrackerItem] = []
     for kid in listed.get("items") or []:
+        if kid.get("kind") == "guard":
+            continue
+        if kid.get("calls"):
+            callers.append(kid)
+        within = kid.get("within") or None
         values = list(kid.get("values") or [])
         own = {v["label"]: v["text"] for v in values}
         if kid.get("step"):
-            found[kid["step"]] = own
+            found.setdefault(within, {})[kid["step"]] = own
         claim = kid.get("claim")
         if not claim:
             continue
         text, left = filled(claim["statement"], CLAIM_PLACEHOLDER, own.get)
-        steps.append(
-            {
-                "item": kid["id"],
-                "step": kid.get("step") or "",
-                "status": kid.get("status"),
-                "statement": claim["statement"],
-                "slots": list(claim["slots"]),
-                "values": values,
-                "claim": text,
-                "open": left,
-                "etag": item_etag(kid),
-            }
-        )
+        claimed: ClaimedStep = {
+            "item": kid["id"],
+            "step": kid.get("step") or "",
+            "status": kid.get("status"),
+            "statement": claim["statement"],
+            "slots": list(claim["slots"]),
+            "values": values,
+            "claim": text,
+            "open": left,
+            "etag": item_etag(kid),
+        }
+        if within is not None:
+            claimed["within"] = within
+        steps.setdefault(within, []).append(claimed)
 
-    def simple(inner: str) -> str | None:
-        step, dot, label = inner.rpartition(".")
-        value = found.get(step, {}).get(label) if dot and CLAIM_LABEL.match(label) else None
-        return value if value is not None and CLAIM_SIMPLE.match(value) else None
+    def proven(lines: list[str], within: str | None) -> tuple[list[str], list[str]]:
+        """The means to prove a call, or the run's top level, filled from the
+        simple values of its own steps."""
+        by_step = found.get(within, {})
 
-    means, opened = [], []
-    for m in top.get("verifyUsing") or []:
-        text, left = filled(m, CLAIM_PLACEHOLDER, simple)
-        means.append(text)
-        opened += [x for x in left if x not in opened]
+        def simple(inner: str) -> str | None:
+            step, dot, label = inner.rpartition(".")
+            value = by_step.get(step, {}).get(label) if dot and CLAIM_LABEL.match(label) else None
+            return value if value is not None and CLAIM_SIMPLE.match(value) else None
+
+        means, opened = [], []
+        for m in lines:
+            text, left = filled(m, CLAIM_PLACEHOLDER, simple)
+            means.append(text)
+            opened += [x for x in left if x not in opened]
+        return means, opened
+
+    means, opened = proven(list(top.get("verifyUsing") or []), None)
     run: ClaimRun = {
         "root": top["id"],
         "formula": top.get("title"),
-        "steps": steps,
+        "steps": steps.get(None, []),
         "verifyUsing": means,
         "open": opened,
         "etag": run_etag(top, listed.get("items") or []),
     }
+    if callers:
+        run["calls"] = called_in = []
+        for c in callers:
+            means, opened = proven(list(c.get("verifyUsing") or []), c["id"])
+            call: RunCall = {
+                "item": c["id"],
+                "step": c.get("step") or "",
+                "formula": c.get("calls"),
+                "status": c.get("status"),
+                "steps": steps.get(c["id"], []),
+                "verifyUsing": means,
+                "open": opened,
+            }
+            if c.get("within"):
+                call["within"] = c["within"]
+            called_in.append(call)
     return {
         "status": "completed",
         "summary": "Read the run under %s." % top["id"],
@@ -4586,6 +4920,8 @@ def DescribeAndCheck(request: DescribeAndCheckRequest) -> DescribeAndCheckRespon
             probs.append(("formula", f["rel"], what))
         for what in f.get("claimUnread") or []:
             probs.append(("formula", f["rel"], what))
+        for what in f.get("callUnread") or []:
+            probs.append(("formula", f["rel"], what))
         for value in f.get("verifyUsing") or []:
             if not value.startswith(VERIFY_FILES):
                 continue
@@ -5007,6 +5343,136 @@ def refusal(operation: str | None, refused: list[Response]) -> ForwardToTheTrack
     }
 
 
+def named_in(answer: Any) -> set[str]:
+    """Every item a tracker's JSON answer names: of a list of items, each
+    one's id, and that of any item it holds within it; of any other answer
+    -- bd's ready of one molecule, say, whose steps it names by id alone --
+    every text in it."""
+    out: set[str] = set()
+
+    def ids(x: Any) -> None:
+        if isinstance(x, dict):
+            if isinstance(x.get("id"), str):
+                out.add(x["id"])
+            for v in x.values():
+                ids(v)
+        elif isinstance(x, list):
+            for v in x:
+                ids(v)
+
+    def texts(x: Any) -> None:
+        if isinstance(x, str):
+            out.add(x)
+        elif isinstance(x, dict):
+            for k, v in x.items():
+                out.add(str(k))
+                texts(v)
+        elif isinstance(x, list):
+            for v in x:
+                texts(v)
+
+    if isinstance(answer, list):
+        ids(answer)
+    else:
+        texts(answer)
+    return out
+
+
+def ready_the_tracker_may_give(common: Request, argv: list[str]) -> Response | None:
+    """The tracker's own ready, as argv spells it, while a pour is held
+    (pours_held): a refusal to answer in its place, or the answer to give,
+    which is the pass-through's own; None while no pour is held, where it
+    runs as the tracker's own.
+
+    While one is, what it would give is not told from how it is spelled,
+    and what is given is the very answer that was checked, so that nothing
+    comes between the two -- a held item whose time to wake passes, say.
+    Asked as JSON, the command itself is run once, quietly, every option as
+    given -- a molecule, an option terminator, what widens it and what
+    narrows it all read by the tracker itself -- and its answer is given as
+    it stands where it names nothing a held pour holds (named_in). Asked
+    as text, it is run first for its answer as JSON, which is held to the
+    same; then run once more, quietly, and what that printed is given only
+    where no word of it is an item a held pour holds.
+
+    It is read first as the tracker will read it, and runs not where it
+    cannot be, where it carries an option this dotdiw does not know to only
+    read (READY_READ) -- one that writes, as bd's --claim does, or keeps
+    running, as list's --watch does, among them -- or where an answer
+    cannot be read."""
+    listed = invoke_tracker("operation.list-items", dict(common, scope="all"))
+    if listed["status"] != "completed":
+        if listed.get("reason") in TRACKER_CANNOT_ANSWER:
+            return None
+        failed = dict(listed)
+        failed["summary"] = (
+            "Nothing ran: what the tracker holds could not be read, so whether %s would give "
+            "what a pour not known to be whole made could not be told. %s"
+            % (" ".join(argv), listed["summary"])
+        )
+        return failed
+    every = {i["id"]: i for i in listed.get("items") or []}
+    pours = pours_held(every, lambda g: invoke_tracker("operation.show-item", dict(common, id=g)))
+    if not pours:
+        return None
+    said = " ".join(argv)
+
+    def refused(why: str) -> Response:
+        return {
+            "status": "failed",
+            "reason": "unsupported-command",
+            "exitCode": 1,
+            "summary": why,
+        }
+
+    reading = invoke_extra("read", dict(common, arguments=argv))
+    if reading.get("status") != "completed":
+        if reading.get("reason") in TRACKER_CANNOT_ANSWER:
+            return None
+        return refused(READY_POUR_UNTOLD % (said, reading.get("summary") or "it could not be read"))
+    options: Mapping[str, Any] = reading.get("options") or {}
+    named = str((reading.get("command") or [""])[0])
+    if options.get("help") is True or (named == "list" and options.get("ready") is not True):
+        return None  # help, or a listing that is no ready
+    unknown = sorted(o for o in options if o not in READY_READ.get(named, ()))
+    if unknown:
+        return refused(READY_POUR_OPTION % (said, unknown[0], PROG))
+    held = sorted({i for p in pours.values() for i in p["holds"]})
+
+    def quietly(words: list[str]) -> Response:
+        return invoke_extra("forward", dict(common, arguments=words, terminal=False))
+
+    def as_json(ran: Response) -> Any:
+        """A quiet run's answer as JSON: a list or an object, or None."""
+        try:
+            answer = json.loads(ran.get("output") or "") if ran.get("exitCode") == 0 else None
+        except ValueError:
+            return None
+        return answer if isinstance(answer, (list, dict)) else None
+
+    def gives(names: set[str]) -> Response | None:
+        hit = [i for i in held if i in names or _BD_WORD.sub(PROG, i) in names]
+        return refused(READY_POUR_UNHELD % (said, hit[0], PROG)) if hit else None
+
+    unread = READY_POUR_UNTOLD % (said, "run for its answer, it gave none that could be read")
+    asked_as_json = options.get("json") is True
+    ran = quietly(argv if asked_as_json else ["--json", *argv])
+    answer = as_json(ran)
+    if answer is None:
+        return refused(unread)
+    given = gives(named_in(answer))
+    if given is not None or asked_as_json:
+        return given or dict(ran, printed=False)
+    # As text: run once more, and what it printed is what is given.
+    ran = quietly(argv)
+    if ran.get("exitCode") != 0:
+        return refused(unread)
+    text = str(ran.get("output") or "")
+    words = set(re.findall(r"[A-Za-z0-9][A-Za-z0-9_.-]*", text))
+    given = gives(words | {w.rstrip(".") for w in words})
+    return given or dict(ran, output=_BD_WORD.sub(PROG, text), printed=False)
+
+
 def through_the_pass_through(
     common: Request, argv: list[str], etags: list[str], terminal: bool
 ) -> ForwardToTheTrackerResponse:
@@ -5044,6 +5510,7 @@ def through_the_pass_through(
     closing_words: list[str] | None = None
     edges: list[tuple[str, str, str]] = []
     writes: list[str] = []
+    reading: Response | None = None
     if asks == "read":
         reading = invoke_extra("read", dict(common, arguments=argv))
         if reading["status"] == "completed":
@@ -5073,6 +5540,34 @@ def through_the_pass_through(
                 }
             ],
         )
+    # Of what runs as it is, a reopen and a need taken off are read first, as
+    # the tracker reads them, for what no command writes: a pour's guard, and
+    # a calling step's need of an item poured within it.
+    reopened: list[str] = []
+    dropped: list[tuple[str, str]] = []
+    if asks == "as-it-is" and named in ("reopen", "dep", "q"):
+        if reading is None:
+            reading = invoke_extra("read", dict(common, arguments=argv))
+        if reading.get("status") == "completed":
+            path = [str(p) for p in reading.get("command") or []]
+            words = [str(w) for w in reading.get("words") or []]
+            if path == ["reopen"]:
+                reopened = words
+            elif path == ["dep", "remove"] and len(words) == 2:
+                dropped = [(words[0], words[1])]
+            elif path == ["q"] and isinstance((reading.get("options") or {}).get("parent"), str):
+                # What it makes stands under its parent: a write of that.
+                reopened = [str(reading["options"]["parent"])]
+        elif named != "q" and reading.get("reason") not in TRACKER_CANNOT_ANSWER:
+            # Unread, it might write what nothing may: it runs not. A quick
+            # capture the pass-through itself reads, and refuses unread.
+            failed = dict(reading)
+            failed["summary"] = (
+                "dotdiw does not run this: it cannot read the command as the tracker would, so "
+                "it cannot check what %s writes. %s"
+                % (" ".join(argv), reading.get("summary") or "")
+            )
+            return refusal(None, [failed])
     if asks == "as-it-is":
         # The tracker's own ready would list what a stopped move made, which
         # nothing closes until the move finishes it: dotdiw's ready answers in
@@ -5088,7 +5583,7 @@ def through_the_pass_through(
         )
         with (
             held_for_writing(common.get("root"), common.get("tracker"))
-            if etags or ready or named in TRACKER_HELD_AS_IT_IS
+            if etags or ready or named in TRACKER_HELD_AS_IT_IS or dropped
             else contextlib.nullcontext(True) as held
         ):
             if not held:
@@ -5097,7 +5592,40 @@ def through_the_pass_through(
                 compared = invoke("operation.compare-what-was-read", dict(common, etags=etags))
                 if compared["status"] != "completed":
                     return refusal(None, [compared])
+            if reopened or dropped:
+                # Every item, so that a guard is known whatever it reads as.
+                every_now = invoke_tracker("operation.list-items", dict(common, scope="all"))
+                if every_now["status"] == "completed":
+                    listed_now: dict[str, TrackerItem] | None = {
+                        i["id"]: i for i in every_now.get("items") or []
+                    }
+                elif every_now.get("reason") in TRACKER_CANNOT_ANSWER:
+                    listed_now = None
+                else:
+                    failed = dict(every_now)
+                    failed["summary"] = (
+                        "Nothing ran: what the tracker holds could not be read. %s"
+                        % every_now["summary"]
+                    )
+                    return refusal(None, [failed])
+                refused, _ = held_at_the_command_line(
+                    common, None, [], listed_now, reopened, [], dropped
+                )
+                if refused:
+                    return refusal(None, refused)
             stopped = stopped_here(common) if ready else {}
+            if ready and not stopped:
+                # A pour not known to be whole, which the tracker's own ready
+                # may give: dotdiw's ready answers where it reads the
+                # spelling, and given any other, nothing runs.
+                given = ready_the_tracker_may_give(common, argv)
+                if given is not None:
+                    if given["status"] == "completed":
+                        # The very answer that was checked, and no other.
+                        return forwarded(argv, given, [], [])
+                    if given.get("reason") == "unsupported-command" and read_in_records(argv):
+                        return ready_in_records(common, locked=True)
+                    return refusal(None, [given])
             if stopped and read_in_records(argv):
                 return ready_in_records(common, locked=True)
             if stopped:
@@ -5130,11 +5658,13 @@ def through_the_pass_through(
         if not held:
             return refusal(operation, [TRACKER_BUSY])
         # A close that goes on to claim, or name, the next ready item -- bd's
-        # --claim-next, --continue, --suggest-next -- would take one a stopped
-        # move made for ready: run not, while one stands unfinished.
-        if closing_words is not None and any(
+        # --claim-next, --continue, --suggest-next, wherever the words hold
+        # one -- would take one a stopped move made for ready: run not, while
+        # one stands unfinished.
+        takes_the_next = closing_words is not None and any(
             a.partition("=")[0] in CLOSE_TAKES_THE_NEXT for a in argv
-        ):
+        )
+        if takes_the_next:
             stopped = stopped_here(common)
             if stopped:
                 source, target, again = stopped[sorted(stopped)[0]]
@@ -5168,6 +5698,28 @@ def through_the_pass_through(
                     "could be held to the steps it waits on. %s" % listed["summary"]
                 )
                 return refusal(operation, [failed])
+        if takes_the_next and every is not None:
+            # What the tracker takes next it takes once the close has run,
+            # and the close may be what frees an item a held pour made -- one
+            # that waited on what closes -- so nothing read before it says
+            # the next is none of a pour's: while any pour is held, no close
+            # takes the next.
+            pours = pours_held(
+                every, lambda g: invoke_tracker("operation.show-item", dict(common, id=g))
+            )
+            if pours:
+                return refusal(
+                    operation,
+                    [
+                        {
+                            "status": "failed",
+                            "reason": "unsupported-command",
+                            "exitCode": 1,
+                            "summary": CLOSE_NEXT_POUR_HELD
+                            % (" ".join(argv), sorted(pours)[0], PROG),
+                        }
+                    ],
+                )
         holds: list[str] = []
         refused, closing = held_at_the_command_line(
             common, closing_words, edges, every, writes, holds
@@ -5268,7 +5820,6 @@ TRACKER_AS_IT_IS = (
     "help",
     "history",
     "hooks",
-    "human",
     "info",
     "init",
     "init-safety",
@@ -5328,6 +5879,8 @@ TRACKER_HELD_AS_IT_IS = ("q", "reopen")
 TRACKER_SUBCOMMANDS_AS_IT_IS = {
     "backup": ("", "init", "remove", "status", "sync"),
     "dep": ("cycles", "list", "relate", "remove", "tree", "unrelate"),
+    # respond and dismiss close the item they name, whatever it waits on.
+    "human": ("", "list", "stats"),
     "dolt": (
         "",
         "clean-databases",
@@ -5444,6 +5997,20 @@ MOVE_UNFINISHED = (
 )
 # What a move answers whose source holds what a stopped move into it made: it
 # would read those half made, and settle them so.
+# What a move answers where the source holds a pour that did not finish.
+MOVE_POUR_UNFINISHED = (
+    "Nothing was moved: a pour into %s is not known to have finished: its guard %s, which "
+    "holds %s open until it does, is not read as closed, and no move can make that pour "
+    "whole. Remove what that pour made from %s -- its root, its steps and its guard, which "
+    "stands under no parent -- and pour it again once the move is done."
+)
+
+# What a move answers where the target keeps no calls.
+MOVE_NO_CALLS = (
+    "Nothing was moved: %s holds items poured within a call, %s among them, and %s does "
+    "not say it keeps calls."
+)
+
 MOVE_FROM_UNFINISHED = (
     "Nothing was moved: %s holds what the move from %s to %s made and has not finished, "
     "%s, which a move from %s would read half made. Run %s tracker migrate %s %s again%s, "
@@ -5547,8 +6114,8 @@ STORE_UNNAMED = "a store it does not name"
 # run an item is in only its make writes, so those must be made again too.
 MOVE_DELETED_HELD = (
     "Nothing more was written: %s holds no %s, as the run was told, and what the move made "
-    "in its run stands there: %s, whose run only a make writes. Delete those in %s too and "
-    "run %s, and the move makes them all again."
+    "in its run, or within it, stands there: %s, whose run and call only a make writes. "
+    "Delete those in %s too and run %s, and the move makes them all again."
 )
 # What of an item only its make writes -- no update sets them -- and show gives
 # back exactly as given: what a run of a move reads back of an item an earlier
@@ -5597,6 +6164,149 @@ READY_UNFINISHED = (
     "dotdiw does not run %s while the move from %s to %s is unfinished: it would list as "
     "ready what the move made and has not finished. %s ready leaves those out; or run %s "
     "tracker migrate %s %s again%s."
+)
+# What a ready the tracker answers itself answers where it would give what a
+# held pour holds (ready_the_tracker_may_give): the command, the item, and
+# dotdiw's name.
+READY_POUR_UNHELD = (
+    "dotdiw does not run %s while it would give %s, which a pour not known to be whole "
+    "made. %s ready leaves that out. To finish with that pour, remove its root, its steps "
+    "and its guard, which stands under no parent, outside dotdiw."
+)
+# The options of the tracker's own ready -- bd's ready, and its list --ready
+# -- that this dotdiw knows to only read, by their long names, the ones bd
+# takes on any command among them: a ready that carries only these is run
+# quietly for its answer while a pour is held. Any other -- one that writes,
+# as --claim does, or a profile's, one that keeps running, as --watch does,
+# one that prints an item without its id, as list's --format may, one that
+# reads another store, or one a later bd adds -- is not.
+READY_GLOBAL_OPTIONS = (
+    "actor",
+    "dolt-auto-commit",
+    "help",
+    "ignore-schema-skew",
+    "json",
+    "no-color",
+    "quiet",
+    "readonly",
+    "sandbox",
+    "verbose",
+)
+READY_READ = {
+    "ready": READY_GLOBAL_OPTIONS
+    + (
+        "assignee",
+        "brief",
+        "exclude-label",
+        "exclude-type",
+        "explain",
+        "gated",
+        "has-metadata-key",
+        "include-deferred",
+        "include-ephemeral",
+        "label",
+        "label-any",
+        "label-pattern",
+        "label-regex",
+        "limit",
+        "max-rows",
+        "metadata-field",
+        "mol",
+        "mol-type",
+        "offset",
+        "parent",
+        "plain",
+        "pretty",
+        "priority",
+        "sort",
+        "type",
+        "unassigned",
+    ),
+    "list": READY_GLOBAL_OPTIONS
+    + (
+        "all",
+        "assignee",
+        "brief",
+        "closed-after",
+        "closed-before",
+        "created-after",
+        "created-before",
+        "defer-after",
+        "defer-before",
+        "deferred",
+        "deps",
+        "desc-contains",
+        "due-after",
+        "due-before",
+        "empty-description",
+        "exclude-label",
+        "exclude-type",
+        "external-contains",
+        "external-ref",
+        "flat",
+        "has-metadata-key",
+        "id",
+        "include-ephemeral",
+        "include-gates",
+        "include-infra",
+        "include-templates",
+        "label",
+        "label-any",
+        "label-pattern",
+        "label-regex",
+        "limit",
+        "long",
+        "max-rows",
+        "metadata-field",
+        "mol-type",
+        "no-assignee",
+        "no-labels",
+        "no-pager",
+        "no-parent",
+        "no-pinned",
+        "notes-contains",
+        "offset",
+        "overdue",
+        "parent",
+        "pinned",
+        "pretty",
+        "priority",
+        "priority-max",
+        "priority-min",
+        "ready",
+        "reverse",
+        "skip-labels",
+        "sort",
+        "spec",
+        "status",
+        "title",
+        "title-contains",
+        "tree",
+        "type",
+        "updated-after",
+        "updated-before",
+        "wisp-type",
+    ),
+}
+# What a ready the tracker answers itself answers while a pour is held and it
+# carries an option dotdiw does not know to only read: the command, the
+# option, dotdiw.
+READY_POUR_OPTION = (
+    "dotdiw does not run %s while a pour is not known to be whole: it cannot tell what "
+    "--%s would give of what that pour made without running it. %s ready leaves that out."
+)
+# The same, where what the command would give could not be told: the command,
+# and why.
+READY_POUR_UNTOLD = (
+    "dotdiw does not run %s while a pour is not known to be whole: what it would give of "
+    "what that pour made could not be told -- %s."
+)
+# What a close that goes on to take the next ready item answers while a pour
+# is held: the command, the pour's guard, dotdiw.
+CLOSE_NEXT_POUR_HELD = (
+    "dotdiw does not run %s while a pour is not known to be whole: once the close has run, "
+    "the next ready item the tracker takes may be one the pour held on %s made. Close "
+    "without it, and take the next from %s ready."
 )
 # What an adoption answers, and a move about to open its target, when another
 # command held the checkout's adoption lock (adoption_lock) as long as
@@ -5959,6 +6669,7 @@ def held_at_the_command_line(
     every: dict[str, TrackerItem] | None,
     asked: Iterable[str] = (),
     holds: list[str] | None = None,
+    dropped: Iterable[tuple[str, str]] = (),
 ) -> tuple[list[Response], list[str]]:
     """What dotdiw refuses at the command line, whichever tracker answers,
     as answers the presenter shows: under a pass-through, which runs the
@@ -5984,10 +6695,17 @@ def held_at_the_command_line(
     the interface cannot reach is left to answer the command itself; one
     that fails otherwise refuses it. With the refusals come the ids a close
     names, as the tracker reads them, each once, in the order first named,
-    whether they stand open or closed."""
+    whether they stand open or closed.
+
+    And under any: a write of a pour's guard -- an item the command writes
+    (asked) that is one, or a need taken off (dropped, each the pair of the
+    item that waits and its need) that names one -- since only the pour
+    writes it (GUARD_HELD); and a need taken off a calling step on an item
+    poured within it, which no write takes off (CALL_NEED_HELD)."""
     out: list[Response] = []
     closing: list[str] = []
     read: dict[str, str | None] = {}
+    records: dict[str, Mapping[str, Any]] = dict(every or {})
 
     def named(word: str) -> str | None:
         """The id a word names, as the tracker reads it; None where it names
@@ -6004,6 +6722,7 @@ def held_at_the_command_line(
             return None
         if shown["status"] == "completed":
             read[word] = str((shown.get("item") or {}).get("id") or word)
+            records[read[word] or word] = shown.get("item") or {}
             return read[word]
         if shown.get("reason") not in ("item-not-found",) + TRACKER_CANNOT_ANSWER:
             failed = dict(shown)
@@ -6014,12 +6733,63 @@ def held_at_the_command_line(
             out.append(failed)
         return None
 
+    # The pours not known to be whole, of every item listed: their guards
+    # are written by nothing but the pour, and what each holds from closing
+    # waits on its guard, whatever that reads as (pours_held). Each guard is
+    # read once.
+    reads: dict[str, Response] = {}
+
+    def show(ident: str) -> Response:
+        if ident not in reads:
+            reads[ident] = invoke_tracker("operation.show-item", dict(common, id=ident))
+        return reads[ident]
+
+    pours: dict[str, dict[str, Any]] = pours_held(every, show) if every is not None else {}
+
+    def a_guard(ident: str) -> bool:
+        """A pour's guard: an item that reads as one, or the guard of a pour
+        not known to be whole, whatever it reads as."""
+        return (records.get(ident) or {}).get("kind") == "guard" or ident in pours
+
     for word in asked:
-        named(word)
+        ident = named(word)
+        if ident is not None and a_guard(ident):
+            out.append(
+                {
+                    "status": "blocked",
+                    "reason": "blocked",
+                    "exitCode": 1,
+                    "summary": GUARD_HELD % ident,
+                }
+            )
+    for waiter_word, need_word in dropped:
+        waiter, need = named(waiter_word), named(need_word)
+        if waiter is None or need is None:
+            continue  # the tracker names it no item, and says so
+        for ident in (waiter, need):
+            if a_guard(ident):
+                out.append(
+                    {
+                        "status": "blocked",
+                        "reason": "blocked",
+                        "exitCode": 1,
+                        "summary": GUARD_HELD % ident,
+                    }
+                )
+        if (records.get(need) or {}).get("within") == waiter:
+            out.append(
+                {
+                    "status": "blocked",
+                    "reason": "blocked",
+                    "exitCode": 1,
+                    "summary": CALL_NEED_HELD % (waiter, need),
+                }
+            )
     if out:
         return out, closing
     if closing_words is not None and every is not None:
         before = {i: o for i, o in every.items() if o.get("status") != "closed"}
+        held = closes_held(pours)
         earlier: set[str] = set()
         for word in closing_words:
             ident = named(word)
@@ -6037,8 +6807,42 @@ def held_at_the_command_line(
                     }
                 )
                 continue
+            # A guard closes only where it stands open and its pour is known
+            # to be whole: the pour's own last write again, the way out of a
+            # pour cut short at its guard's close.
+            if a_guard(ident) and (
+                every[ident].get("status") == "closed" or not known_whole(ident, every)
+            ):
+                out.append(
+                    {
+                        "status": "blocked",
+                        "reason": "blocked",
+                        "exitCode": 1,
+                        "summary": GUARD_HELD % ident
+                        + (
+                            ""
+                            if every[ident].get("status") == "closed"
+                            else " Its pour is not known to be whole: to finish with it, remove "
+                            "its root, its steps and %s outside dotdiw." % ident
+                        ),
+                    }
+                )
+                continue
+            pour = pours.get(held.get(ident) or "") or {}
+            if pour.get("unread") and ident in before:
+                out.append(
+                    {
+                        "status": "failed",
+                        "reason": "adapter-failed",
+                        "exitCode": 1,
+                        "summary": "Nothing ran: %s is held on %s, the guard of a pour not known "
+                        "to be whole, which could not be read: %s"
+                        % (ident, pour["guard"], pour["unread"]),
+                    }
+                )
+                continue
             if ident in before:
-                standing = what_stands_open(ident, before[ident], before, earlier)
+                standing = what_stands_open(ident, before[ident], before, earlier, held)
                 if standing:
                     out.append(
                         {
@@ -6049,6 +6853,19 @@ def held_at_the_command_line(
                             "summary": "%s is blocked by %s." % (ident, ", ".join(standing)),
                         }
                     )
+                    guard = held.get(ident) or ""
+                    if guard in standing:
+                        # The way out, said: its guard's close, or the
+                        # pour's removal.
+                        out.append(
+                            {
+                                "status": "blocked",
+                                "exitCode": 1,
+                                "summary": POUR_HELD_WHOLE % (ident, guard, PROG, guard)
+                                if known_whole(guard, every)
+                                else POUR_HELD % (ident, guard, guard),
+                            }
+                        )
                 earlier.add(ident)
             if ident not in closing:
                 closing.append(ident)
@@ -6075,22 +6892,31 @@ def held_at_the_command_line(
         if out:
             return out, closing
 
+    # Every item, listed once for the edges: what waits on what, and which
+    # ids are a pour's guards, which no edge is written to or from.
+    listing: list[Any] | None = None
+    if edges:
+        listed = invoke_tracker("operation.list-items", dict(common, scope="all"))
+        if listed["status"] == "completed":
+            listing = list(listed.get("items") or [])
+            if every is None:
+                pours.update(pours_held({i["id"]: i for i in listing}, show))
+        elif listed.get("reason") not in TRACKER_CANNOT_ANSWER:
+            failed = dict(listed)
+            failed["summary"] = (
+                "Nothing ran: what waits on what could not be read. %s" % (listed["summary"])
+            )
+            return [failed], closing
+
     def waited_on(start: str) -> set[str] | None:
         """Every item the one named waits on before it can close, to any
-        depth: its needs, its children and the items poured in its run;
-        None where the tracker cannot say."""
-        listed = invoke_tracker("operation.list-items", dict(common, scope="all"))
-        if listed["status"] != "completed":
-            if listed.get("reason") not in TRACKER_CANNOT_ANSWER:
-                failed = dict(listed)
-                failed["summary"] = (
-                    "Nothing ran: what waits on what could not be read. %s" % (listed["summary"])
-                )
-                out.append(failed)
+        depth: its needs, its children, the items poured in its run and
+        within it, and its guard; None where the tracker cannot say."""
+        if listing is None:
             return None
         under: dict[str, list[str]] = {}
-        for i in listed.get("items") or []:
-            for above in (i.get("parent"), i.get("run")):
+        for i in listing:
+            for above in stands_under(i):
                 if above:
                     under.setdefault(above, []).append(i["id"])
         seen: set[str] = set()
@@ -6108,7 +6934,8 @@ def held_at_the_command_line(
                     out.append(failed)
                 return None
             item = shown.get("item") or {} if shown["status"] == "completed" else {}
-            for nxt in list(item.get("needs") or []) + under.get(at, []):
+            held = [item["guard"]] if item.get("guard") else []
+            for nxt in list(item.get("needs") or []) + under.get(at, []) + held:
                 if nxt not in seen:
                     seen.add(nxt)
                     todo.append(nxt)
@@ -6120,6 +6947,17 @@ def held_at_the_command_line(
             return out, closing
         if waiter is None or item is None:
             continue  # the tracker names it no item, and says so
+        guarded = [i for i in (waiter, item) if a_guard(i)]
+        if guarded:
+            out.append(
+                {
+                    "status": "blocked",
+                    "reason": "blocked",
+                    "exitCode": 1,
+                    "summary": GUARD_HELD % guarded[0],
+                }
+            )
+            return out, closing
         waits = waited_on(item)
         if out:
             return out, closing
@@ -6143,32 +6981,54 @@ def closes_that_follow(
     records: Mapping[str, Mapping[str, Any]],
     standing: dict[str, Any] | None,
     keep: Iterable[str] = (),
+    held: Mapping[str, str] | None = None,
 ) -> list[Response]:
-    """The closes an item's close leaves due: its poured root, and the root
-    of the run it was poured in, wherever it stands, each closed once
-    nothing of it is open -- the answers of those closes, one level up, as
-    a close inside the local adapter makes them. Where the adapter closed
-    the root itself it is among those closed and is left. With standing,
-    what stands open now, no root still waiting on an item is asked; the
-    adapter refuses the rest itself. A root to keep open (keep) -- one a
-    move into the tracker made and has not finished, which nothing but the
-    move closes -- is left as it is."""
+    """The closes an item's close leaves due: its poured root, the root of
+    the run it was poured in, wherever it stands, and the calling step it
+    was poured within, each closed once nothing of it is open, and so on up
+    from each of those -- the answers of those closes, as a close inside the
+    local adapter makes them. Where the adapter closed one itself it is
+    among those closed and is left. With standing, what stands open now, no
+    root or calling step still waiting on an item is asked; the adapter
+    refuses the rest itself. A root to keep open (keep) -- one a move into
+    the tracker made and has not finished, which nothing but the move
+    closes -- is left as it is. And so is one a pour not known to be whole
+    holds from closing (held, by item: closes_held), while its guard has
+    not closed in the same command."""
     answers: list[Response] = []
     done = set(closed)
-    for ident in list(closed):
-        item = records.get(ident) or {}
-        above: list[tuple[str, bool]] = []
-        if item.get("parent"):
-            above.append((str(item["parent"]), True))
-        if item.get("run") and item.get("run") != item.get("parent"):
-            above.append((str(item["run"]), False))
+    known: dict[str, Mapping[str, Any]] = dict(records)
+    todo = list(closed)
+    while todo:
+        ident = todo.pop(0)
+        item = known.get(ident)
+        if item is None:
+            # One the adapter closed in the wake of a close asked here, read
+            # for what stands above it.
+            shown = shown_by_its_id(
+                ident, invoke_tracker("operation.show-item", dict(common, id=ident))
+            )
+            item = shown.get("item") or {} if shown["status"] == "completed" else {}
+        # Above it: its parent, where that is a poured root; the root of its
+        # run; the calling step it was poured within; and, of what is read
+        # standing, each calling step that needs it, whose last need it may
+        # have been. Each once, and taken for a calling step or a run's root
+        # where it is one of those as well as the parent.
+        reached: dict[str, bool] = {}
+        for up, must_be_root in zip(stands_under(item), (True, False, False), strict=True):
+            if up:
+                reached[str(up)] = reached.get(str(up), True) and must_be_root
+        for i, o in (standing or {}).items():
+            if o.get("calls") and ident in (o.get("needs") or []):
+                reached[i] = False
+        above = list(reached.items())
         for up, must_be_root in above:
             if up in done or up in keep:
                 continue
             record: Mapping[str, Any] | None
             if standing is not None:
                 record = standing.get(up)
-                if record is None or what_stands_open(up, record, standing, done):
+                if record is None or what_stands_open(up, record, standing, done, held):
                     continue
             else:
                 shown = shown_by_its_id(
@@ -6189,6 +7049,9 @@ def closes_that_follow(
                     continue
             if must_be_root and record.get("kind") != "root":
                 continue
+            if record.get("kind") == "guard":
+                continue
+            known[up] = record
             shut = invoke_tracker(
                 "operation.close-item", dict(common, id=up, closeReason="every step closed")
             )
@@ -6204,7 +7067,11 @@ def closes_that_follow(
                 )
             answers.append(shut)
             for c in shut.get("closedIds") or []:
-                done.add(c)
+                if standing is not None and c in standing:
+                    known.setdefault(c, standing[c])
+                if c not in done:
+                    done.add(c)
+                    todo.append(c)
                 if standing is not None:
                     standing.pop(c, None)
     return answers
@@ -6280,7 +7147,10 @@ def what_the_close_closed(
         back = invoke_tracker("operation.update-item", dict(common, id=ident, status=status))
         return None if back["status"] == "completed" else str(back["summary"])
 
-    shut, notes, standing = held_to_the_run(named, shut, before, now, reopen, keep)
+    # The pours not known to be whole, as the items stand after the close.
+    pours = pours_held(now, lambda g: invoke_tracker("operation.show-item", dict(common, id=g)))
+    held = closes_held(pours)
+    shut, notes, standing = held_to_the_run(named, shut, before, now, reopen, keep, held)
     if not isinstance(marked, list):
         why = "the tracker did not say which closes were this command's."
         return [], notes + [unread(ident, why) for ident in named]
@@ -6301,7 +7171,7 @@ def what_the_close_closed(
             for ident in named
             if ident in before and ident in now and now[ident].get("status") != "closed"
         ]
-    follows = closes_that_follow(common, shut, {**before, **now}, standing, keep)
+    follows = closes_that_follow(common, shut, {**before, **now}, standing, keep, held)
     closed = list(shut)
     for answer in follows:
         if answer["status"] == "completed":
@@ -6362,6 +7232,62 @@ def RunATrackerCommand(request: RunATrackerCommandRequest) -> RunATrackerCommand
 # --------------------------------- duty.surface-procedures-when-work-starts
 
 
+def parent_a_guard(
+    root: str, tracker: str | None, parent: str | None
+) -> NameTheWorkResponse | None:
+    """Why no item is made under the parent given, or None where it may be:
+    a pour's guard -- one that reads as one, or the guard of a pour not
+    known to be whole, whatever it reads as (pours_held) -- is written by
+    nothing but its pour, and an item made under it would be written onto
+    it. Every item is listed for it, and the parent read as the tracker
+    reads it; what the tracker cannot give for want of itself leaves the
+    create to answer."""
+    if not parent:
+        return None
+    common = {"root": root, "tracker": tracker}
+    listed = invoke_tracker("operation.list-items", dict(common, scope="all"))
+    if listed["status"] != "completed":
+        if listed.get("reason") in TRACKER_CANNOT_ANSWER:
+            return None
+        return {
+            "status": "failed",
+            "summary": "Nothing was made: what the tracker holds could not be read, so whether "
+            "%s is a pour's guard could not be told. %s" % (parent, listed["summary"]),
+            "reason": "adapter-failed",
+            "exitCode": 1,
+        }
+    every = {i["id"]: i for i in listed.get("items") or []}
+    pours = pours_held(every, lambda g: invoke_tracker("operation.show-item", dict(common, id=g)))
+
+    def guarded(ident: str, item: Mapping[str, Any] | None) -> bool:
+        return (item or {}).get("kind") == "guard" or ident in pours
+
+    ident = parent
+    if not (parent in every and guarded(parent, every[parent])):
+        shown = shown_for_a_word(
+            parent, invoke_tracker("operation.show-item", dict(common, id=parent))
+        )
+        if shown["status"] != "completed":
+            if shown.get("reason") in ("item-not-found",) + TRACKER_CANNOT_ANSWER:
+                return None  # the create names it no item, and says so
+            return {
+                "status": "failed",
+                "summary": "Nothing was made: what %s names could not be read, so whether it "
+                "is a pour's guard could not be told. %s" % (parent, shown["summary"]),
+                "reason": "adapter-failed",
+                "exitCode": 1,
+            }
+        ident = str((shown.get("item") or {}).get("id") or parent)
+        if not guarded(ident, shown.get("item")):
+            return None
+    return {
+        "status": "failed",
+        "summary": "Nothing was made: %s" % (GUARD_HELD % ident),
+        "reason": None,
+        "exitCode": 1,
+    }
+
+
 def NameTheWork(request: NameTheWorkRequest) -> NameTheWorkResponse:
     """step.name-the-work: the work item, created under the title given.
 
@@ -6401,6 +7327,9 @@ def NameTheWork(request: NameTheWorkRequest) -> NameTheWorkResponse:
                     "reason": compared.get("reason") or "adapter-failed",
                     "exitCode": compared.get("exitCode") or 1,
                 }
+        guarded = parent_a_guard(root, request.get("tracker"), request.get("parent"))
+        if guarded is not None:
+            return guarded
         made = invoke_tracker(
             "operation.create-item",
             {
@@ -6432,6 +7361,12 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
     steps handed to the tracker with their needs: the file is the formula,
     so a formula edited in place pours as it reads now, not as a copy the
     tracker happened to hold. Every adapter pours the steps it is given.
+
+    A step that calls a formula has that formula's steps poured within it,
+    in the same run: every call is read, and refused where it cannot be
+    poured, before anything is written (planned_calls), and the tracker is
+    handed the whole job at once, each step under a key, as read
+    (planned_steps), where it says it pours calls.
     """
     root = request["root"]
     r = invoke("operation.resolve-formula", {"root": root, "ident": request.get("ident")})
@@ -6468,7 +7403,8 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
     )
     ident = request.get("ident") or ""
     ref = formula.get("id")
-    shared = shared_step_id(formula.get("steps") or [])
+    top = list(formula.get("steps") or [])
+    shared = shared_step_id(top)
     if shared is not None:
         return {
             "status": "failed",
@@ -6477,11 +7413,67 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
             "reason": "duplicate-step",
             "exitCode": 1,
         }
-    # The steps are made one after another under their root, under the lock a
-    # close holds from checking that nothing under the item it closes stands
-    # open through closing it: a step closed while the pour runs, the root's
-    # only one so far, would close the root, and the steps made after would
-    # stand open under it.
+    # Every formula a step calls, and every one those call, read and held to
+    # the rules of a call before anything is written, so that a call refused
+    # leaves the tracker as it was; what was read is what is poured.
+    calls, refused = planned_calls(
+        root, ref or ident, top, [(formula_identity(r), ref)] if ref else []
+    )
+    if refused is not None:
+        return {
+            "status": "failed",
+            "summary": refused[1],
+            "formulaRef": ref,
+            "reason": refused[0],
+            "exitCode": 1,
+        }
+    where: dict[str, Any] = {"root": root, "tracker": request.get("tracker")}
+    plan: list[TrackerStep] | None = None
+    if calls:
+        try:
+            plan = planned_steps(top, calls)
+        except LookupError as e:
+            return {
+                "status": "failed",
+                "summary": "%s Nothing was poured." % e,
+                "formulaRef": ref,
+                "reason": "step-not-found",
+                "exitCode": 1,
+            }
+        except ValueError as e:
+            return {
+                "status": "failed",
+                "summary": "%s Nothing was poured." % e,
+                "formulaRef": ref,
+                "reason": "cycle",
+                "exitCode": 1,
+            }
+        described = invoke_tracker("operation.describe-tracker", dict(where))
+        info = (described.get("info") or {}) if described["status"] == "completed" else {}
+        if not info.get("nests"):
+            first = calls[0]
+            return {
+                "status": "failed",
+                "summary": "Step %s of %s calls %s, and %s does not pour a step that calls a "
+                "formula%s. Nothing was poured."
+                % (
+                    first["step"],
+                    ref,
+                    first["ref"],
+                    "the tracker %s" % info["name"] if info.get("name") else "the tracker",
+                    "" if described["status"] == "completed" else ": %s" % described["summary"],
+                ),
+                "formulaRef": ref,
+                "reason": "call-unsupported",
+                "tracker": described.get("tracker"),
+                "exitCode": 1,
+            }
+    # The steps are made under their root under the lock a close holds from
+    # checking that nothing under the item it closes stands open through
+    # closing it: a step closed while the pour runs, the root's only one so
+    # far, would close the root, and the steps made after would stand open
+    # under it. A ready read through dotdiw takes it too, so that no reader
+    # sees a job half made.
     with held_for_writing(root, request.get("tracker")) as held:
         if not held:
             return {
@@ -6493,29 +7485,316 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
             }
         poured = invoke_tracker(
             "operation.pour-steps",
-            {
-                "root": root,
-                "tracker": request.get("tracker"),
-                "formulaRef": ref or ident,
-                "title": ref or ident,
-                "steps": [tracker_step(s) for s in formula.get("steps") or []],
-                "description": formula.get("desc") or None,
-                "verifyUsing": list(formula.get("verifyUsing") or []),
-            },
+            dict(
+                where,
+                formulaRef=ref or ident,
+                title=ref or ident,
+                steps=plan if plan is not None else [tracker_step(s) for s in top],
+                description=formula.get("desc") or None,
+                verifyUsing=list(formula.get("verifyUsing") or []),
+            ),
         )
     code = poured.get("exitCode", 0 if poured["status"] == "completed" else 1)
-    # Each claimed step the pour made, so that whoever does it knows what to
-    # record: its statement and slots, every placeholder still open.
+    ids = [str(i) for i in poured.get("stepIds") or []]
     claims: list[ClaimedStep] = []
-    # A pour cut short answers fewer ids than there are steps.
-    made = dict(
-        zip(
-            [s["id"] for s in formula.get("steps") or []],
-            poured.get("stepIds") or [],
-            strict=False,
+    called: list[PouredCall] = []
+    if plan is None:
+        # A pour cut short answers fewer ids than there are steps.
+        made = dict(zip([s["id"] for s in top], ids, strict=False))
+        if code == 0:
+            claims = claimed_steps(top, made)
+        tops = ids
+    else:
+        # The tracker makes the steps in the order given, so those a pour cut
+        # short made are the first ones.
+        keyed = dict(zip([step_named(p) for p in plan], ids, strict=False))
+        tops = [keyed[k] for k in (step_key([s["id"]]) for s in top) if k in keyed]
+        claims, called = poured_within(top, calls, keyed, [], None)
+    summary = poured["summary"]
+    if code != 0 and poured.get("guardId"):
+        guard_id, root_id = poured["guardId"], poured.get("rootId")
+        # Cut short once every item was made and the root marked whole --
+        # at the guard's close -- the guard's close is all that is left,
+        # and dotdiw closes it; cut sooner, the pour is not whole.
+        rooted: Response = (
+            shown_by_its_id(root_id, invoke_tracker("operation.show-item", dict(where, id=root_id)))
+            if root_id
+            else {"status": "failed"}
         )
-    )
-    for s in formula.get("steps") or [] if code == 0 else []:
+        if not root_id:
+            summary = summary.rstrip() + (
+                " Nothing but its guard %s was made, which holds nothing, and is left open."
+                % guard_id
+            )
+        elif rooted["status"] == "completed" and (rooted.get("item") or {}).get("whole") is True:
+            summary = summary.rstrip() + (
+                " %s holds %s and every calling step it made open; every item is made and %s "
+                "is marked whole, so %s close %s finishes the pour."
+                % (guard_id, root_id, root_id, PROG, guard_id)
+            )
+        else:
+            summary = summary.rstrip() + (
+                " %s holds %s and every calling step it made open, so that none of them "
+                "completes, and no close but a pour's closes it. To finish with the pour, remove "
+                "its root, its steps and %s, which stands under no parent."
+                % (guard_id, root_id or "the root", guard_id)
+            )
+    said = poured.get("reason")
+    out: PourProcedureResponse = {
+        "status": poured["status"],
+        "summary": summary,
+        "formulaRef": ref if found else None,
+        "moleculeRef": poured.get("rootId") if found else None,
+        "stepRefs": tops if found else [],
+        "claims": claims,
+        "verifyUsing": list(formula.get("verifyUsing") or []) if found and code == 0 else None,
+        "reason": said if said in POUR_REASONS else "adapter-failed" if said else None,
+        "tracker": poured.get("tracker"),
+        "exitCode": code,
+    }
+    if called:
+        out["calls"] = called
+    if poured.get("guardId"):
+        out["guardRef"] = str(poured["guardId"])
+    return out
+
+
+# The reasons a pour answers that a tracker's own answer may carry; any other a
+# write it asked for failed with is the adapter's failure.
+POUR_REASONS = (
+    "not-installed",
+    "no-workspace",
+    "tracker-unknown",
+    "adapter-failed",
+    "no-steps",
+    "step-not-found",
+    "cycle",
+    "duplicate-step",
+)
+
+
+# Why a call is refused before a pour writes anything.
+CallRefused = Literal[
+    "call-not-found",
+    "call-cycle",
+    "call-with-claim",
+    "ambiguous",
+    "provider-formula-unserved",
+    "provider-failed",
+    "duplicate-step",
+    "no-steps",
+    "step-not-found",
+    "cycle",
+]
+
+
+def formula_identity(resolved: Mapping[str, Any]) -> str:
+    """Which formula a lookup resolved, whatever id it declares: a file's by
+    its path, a provider's by its id, which names that provider's alone. Two
+    files may declare one id, each named by its path."""
+    if resolved.get("path"):
+        return "file:%s" % resolved["path"]
+    return "provider:%s" % resolved.get("formulaRef")
+
+
+def planned_calls(
+    root: str, ref: str, steps: list[Any], path: list[tuple[str, str]]
+) -> tuple[list[dict[str, Any]], tuple[CallRefused, str] | None]:
+    """Each step of a formula that calls one, with the formula it calls as
+    the pour's own lookup reads it -- its description, its means to prove
+    and its steps, which are what is poured -- and that formula's calls in
+    turn, to any depth; or the reason and the summary that refuse the first
+    call that cannot be poured, naming the calling step, its formula and
+    the reference. A call refused: one that names no formula as text, or
+    none the lookup finds, or more than one, or one a provider does not
+    serve or failed to show; one back to a formula already on the path of
+    calls that reached it, directly or not -- the formula the lookup
+    resolved, not the id it declares (formula_identity), each named by its
+    id; a calling step that declares a claim, since what a call's work found
+    is claimed by a step after it;
+    and a formula called whose steps share an id, need a step that is none
+    of them, wait on each other, or that has none. Two calls of one formula
+    are two instances. Nothing is written."""
+    calls: list[dict[str, Any]] = []
+    for s in steps:
+        if "formula" not in s:
+            continue
+        reference = s.get("formula") or ""
+        where = "Step %s of %s calls %s" % (s["id"], ref, reference or "no formula")
+        if not reference:
+            return [], (
+                "call-not-found",
+                "%s: its formula is not text naming one. Nothing was poured." % where,
+            )
+        if s.get("claim"):
+            return [], (
+                "call-with-claim",
+                "%s and declares a claim, but a step that calls a formula claims nothing: "
+                "what its call found is claimed by a step that needs it. Nothing was poured."
+                % where,
+            )
+        r = invoke("operation.resolve-formula", {"root": root, "ident": reference})
+        if r["status"] != "completed" or not r.get("formula"):
+            said = r.get("reason")
+            why: CallRefused = (
+                said
+                if said in ("ambiguous", "provider-formula-unserved", "provider-failed")
+                else "call-not-found"
+            )
+            return [], (why, "%s: %s Nothing was poured." % (where, r["summary"]))
+        target, body = str(r["formulaRef"]), r["formula"]
+        reached = formula_identity(r)
+        seen = [identity for identity, _ in path]
+        if reached in seen:
+            loop = [name for _, name in path[seen.index(reached) :]] + [target]
+            return [], (
+                "call-cycle",
+                "%s, and the calls go round: %s. Nothing was poured." % (where, " -> ".join(loop)),
+            )
+        shared = shared_step_id(body["steps"])
+        if shared is not None:
+            return [], (
+                "duplicate-step",
+                "%s: two steps of %s share the id %s. Nothing was poured."
+                % (where, target, shared),
+            )
+        if not body["steps"]:
+            return [], ("no-steps", "%s: %s has no steps. Nothing was poured." % (where, target))
+        try:
+            steps_in_order(list(body["steps"]))
+        except LookupError as e:
+            return [], ("step-not-found", "%s: %s Nothing was poured." % (where, e))
+        except ValueError as e:
+            return [], ("cycle", "%s: %s Nothing was poured." % (where, e))
+        nested, refused = planned_calls(
+            root, target, list(body["steps"]), path + [(reached, target)]
+        )
+        if refused is not None:
+            return [], refused
+        calls.append(
+            {
+                "step": s["id"],
+                "ref": target,
+                "desc": body["description"],
+                "steps": list(body["steps"]),
+                "verifyUsing": list(body.get("verifyUsing") or []),
+                "calls": nested,
+            }
+        )
+    return calls, None
+
+
+def step_key(path: list[str]) -> str:
+    """A step's key in a pour that calls a formula: the ids of the calling
+    steps it stands within and its own, as compact JSON, so that no two
+    steps of the job share one, whatever their ids hold."""
+    return json.dumps(path, ensure_ascii=False, separators=(",", ":"))
+
+
+def planned_steps(steps: list[Any], calls: list[dict[str, Any]]) -> list[TrackerStep]:
+    """Every step of a pour that calls a formula, as the tracker is handed
+    it, in the order it makes them: each level's steps after what they
+    need, and each calling step's call right after it, to any depth. Each
+    has a key (step_key); its needs, by key, are those of its own formula,
+    and a step of a call that names none needs what its calling step needs
+    -- or, where that needs nothing, what the step that one stands within
+    needs -- so that nothing of a call is ready before its calling step
+    could start. A calling step carries the formula it calls, that
+    formula's description and its means to prove. A need naming no step
+    raises LookupError, and a cycle ValueError."""
+    plan: list[TrackerStep] = []
+
+    def place(
+        level: list[Any],
+        called: dict[str, dict[str, Any]],
+        path: list[str],
+        within: str | None,
+        gate: list[str],
+    ) -> None:
+        for s in steps_in_order(level):
+            key = step_key(path + [s["id"]])
+            needs = [step_key(path + [n]) for n in s.get("needs") or []]
+            if within is not None and not needs:
+                needs = list(gate)
+            out: TrackerStep = {"key": key, "id": s["id"], "title": s["title"], "needs": needs}
+            if s.get("claim"):
+                out["claim"] = s["claim"]
+            if within is not None:
+                out["within"] = within
+            call = called.get(s["id"])
+            if call is not None:
+                out["calls"] = call["ref"]
+                if call["desc"]:
+                    out["description"] = call["desc"]
+                if call["verifyUsing"]:
+                    out["verifyUsing"] = list(call["verifyUsing"])
+            plan.append(out)
+            if call is not None:
+                place(
+                    call["steps"],
+                    {c["step"]: c for c in call["calls"]},
+                    path + [s["id"]],
+                    key,
+                    needs,
+                )
+
+    place(steps, {c["step"]: c for c in calls}, [], None, [])
+    return plan
+
+
+def poured_within(
+    steps: list[Any],
+    calls: list[dict[str, Any]],
+    made: dict[str, str],
+    path: list[str],
+    within: str | None,
+) -> tuple[list[ClaimedStep], list[PouredCall]]:
+    """What a pour that calls a formula made, in each formula's order: each
+    claimed step, with the calling step it stands within, and each call
+    whose calling step was made -- its item, the item it stands within, the
+    formula, the items poured within it and its means to prove -- a call's
+    own after its calling step."""
+    claims: list[ClaimedStep] = []
+    poured: list[PouredCall] = []
+    called = {c["step"]: c for c in calls}
+    for s in steps:
+        item = made.get(step_key(path + [s["id"]]))
+        if item is None:
+            continue  # a pour cut short made no such step
+        for c in claimed_steps([s], {s["id"]: item}):
+            if within is not None:
+                c["within"] = within
+            claims.append(c)
+        call = called.get(s["id"])
+        if call is None:
+            continue
+        entry: PouredCall = {
+            "step": s["id"],
+            "stepRef": item,
+            "formulaRef": call["ref"],
+            "stepRefs": [
+                made[k]
+                for k in (step_key(path + [s["id"], c["id"]]) for c in call["steps"])
+                if k in made
+            ],
+            "verifyUsing": list(call["verifyUsing"]),
+        }
+        if within is not None:
+            entry["within"] = within
+        poured.append(entry)
+        inner_claims, inner_calls = poured_within(
+            call["steps"], call["calls"], made, path + [s["id"]], item
+        )
+        claims += inner_claims
+        poured += inner_calls
+    return claims, poured
+
+
+def claimed_steps(steps: list[Any], made: dict[str, str]) -> list[ClaimedStep]:
+    """Each claimed step a pour made, so that whoever does it knows what to
+    record: its statement and slots, every placeholder still open."""
+    claims: list[ClaimedStep] = []
+    for s in steps:
         claim = s.get("claim")
         if claim and made.get(s["id"]):
             statement, left = filled(claim["statement"], CLAIM_PLACEHOLDER, lambda _: None)
@@ -6531,18 +7810,7 @@ def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
                     "open": left,
                 }
             )
-    return {
-        "status": poured["status"],
-        "summary": poured["summary"],
-        "formulaRef": ref if found else None,
-        "moleculeRef": poured.get("rootId") if found else None,
-        "stepRefs": list(poured.get("stepIds") or []) if found else [],
-        "claims": claims,
-        "verifyUsing": list(formula.get("verifyUsing") or []) if found and code == 0 else None,
-        "reason": poured.get("reason"),
-        "tracker": poured.get("tracker"),
-        "exitCode": code,
-    }
+    return claims
 
 
 def StartNamedWork(request: StartNamedWorkRequest) -> StartNamedWorkResponse:
@@ -7545,9 +8813,9 @@ DOOR: dict[str, DoorSpec] = {
             "ident", "root",
         ),
         "response": (
-            "claims", "exitCode", "formulaRef", "moleculeRef",
-            "openQuestionRefs", "reason", "resultRefs", "status", "stepRefs",
-            "summary", "tracker", "verifyUsing",
+            "calls", "claims", "exitCode", "formulaRef", "guardRef",
+            "moleculeRef", "openQuestionRefs", "reason", "resultRefs",
+            "status", "stepRefs", "summary", "tracker", "verifyUsing",
         ),
         "responseRequired": (
             "status", "summary",
@@ -8120,9 +9388,10 @@ TRACKER_DOOR: dict[str, TrackerDoorSpec] = {
     },
     "operation.create-item": {
         "request": (
-            "claim", "correlationId", "description", "id", "parent",
+            "calls", "claim", "correlationId", "description", "id", "parent",
             "priority", "root", "run", "sourceRefs", "step", "title",
-            "tracker", "trackerRef", "values", "verifyUsing", "workRef",
+            "tracker", "trackerRef", "values", "verifyUsing", "within",
+            "workRef",
         ),
         "requestRequired": (
             "title",
@@ -8196,8 +9465,8 @@ TRACKER_DOOR: dict[str, TrackerDoorSpec] = {
         ),
         "requestType": PourStepsRequest,
         "response": (
-            "exitCode", "openQuestionRefs", "reason", "resultRefs", "rootId",
-            "status", "stepIds", "summary", "tracker",
+            "exitCode", "guardId", "openQuestionRefs", "reason", "resultRefs",
+            "rootId", "status", "stepIds", "summary", "tracker",
         ),
         "responseRequired": (
             "status", "summary",
@@ -8360,7 +9629,7 @@ def create_item(request: Record) -> Record:
     record.
 
     Takes: root, title*, priority, parent, description, verifyUsing, step,
-    claim, run, values, id.
+    claim, run, values, id, within, calls.
     Answers: status*, summary*, item, madeId, reason, exitCode.
     Reasons: tracker-unknown, adapter-failed, no-workspace, parent-not-found,
     not-installed.
@@ -8385,7 +9654,7 @@ def pour_steps(request: Record) -> Record:
     exists under it with its needs as edges.
 
     Takes: formulaRef*, root, title*, steps*, description, verifyUsing.
-    Answers: status*, summary*, rootId, stepIds, reason, exitCode.
+    Answers: status*, summary*, rootId, stepIds, reason, exitCode, guardId.
     Reasons: tracker-unknown, adapter-failed, no-workspace, no-steps,
     step-not-found, not-installed, cycle, duplicate-step.
     """
@@ -9849,6 +11118,115 @@ def conformance_scenario(
             "record-values on an id that does not exist is item-not-found",
         )
 
+    def calls() -> None:
+        """Of an adapter that says it pours calls (nests): a pour of a step
+        that calls a formula, under keys, keeps on each item the calling step
+        it stands within and the formula called, the calling step needs what
+        is within it and is neither closed nor given ready while it stands
+        open, the close of the last closes it, and the close of the job's
+        last step its root, here or after; and create-item takes both for a
+        move."""
+        if not (ask("describe-tracker").get("info") or {}).get("nests"):
+            return
+        within = step_key(["call"])
+        steps = [
+            {
+                "key": within,
+                "id": "call",
+                "title": "Call",
+                "needs": [],
+                "calls": "mol-called",
+                "description": "The formula called.",
+                "verifyUsing": ["run:make called"],
+            },
+            {"key": step_key(["call", "a"]), "id": "a", "title": "A", "within": within},
+            {
+                "key": step_key(["call", "b"]),
+                "id": "b",
+                "title": "B",
+                "needs": [step_key(["call", "a"])],
+                "within": within,
+            },
+            {"key": step_key(["after"]), "id": "after", "title": "After", "needs": [within]},
+        ]
+        poured = ask("pour-steps", formulaRef="mol-calls", title="mol-calls", steps=steps)
+        expect(poured["status"] == "completed", "a pour of a call: %s" % poured.get("summary"))
+        call, a, b, after = poured["stepIds"]
+        root = poured["rootId"]
+        shown = ask("show-item", id=call)["item"]
+        expect(
+            (shown.get("step"), shown.get("calls"), shown.get("run"), shown.get("verifyUsing"))
+            == ("call", "mol-called", root, ["run:make called"])
+            and shown.get("description") == "The formula called."
+            and {a, b} <= set(shown.get("needs") or []),
+            "a calling step keeps the formula it calls, its description and means, its run, "
+            "and needs what is poured within it: %s" % shown,
+        )
+        inner = ask("show-item", id=b)["item"]
+        expect(
+            (inner.get("step"), inner.get("within"), inner.get("run"), inner.get("needs"))
+            == ("b", call, root, [a]),
+            "a step poured within a call keeps the calling step and its run: %s" % inner,
+        )
+        ready_now = [i["id"] for i in ask("ready-items").get("items") or []]
+        expect(
+            a in ready_now and call not in ready_now and after not in ready_now,
+            "a calling step is not ready while what is within it is open",
+        )
+        refused = ask("close-item", id=call)
+        expect(
+            refused.get("status") == "blocked" and a in (refused.get("blockedBy") or []),
+            "close-item refuses a calling step while what is within it is open: %s"
+            % refused.get("summary"),
+        )
+        kept = ask("update-item", id=call, dropNeeds=[a])
+        expect(
+            kept.get("status") != "completed"
+            and a in (ask("show-item", id=call)["item"].get("needs") or []),
+            "update-item takes off no need of a calling step on what is within it: %s"
+            % kept.get("summary"),
+        )
+        ask("close-item", id=a)
+        last = ask("close-item", id=b)
+        if call not in (last.get("closedIds") or []):
+            closing = ask("close-item", id=call)
+            expect(
+                closing.get("status") == "completed",
+                "a calling step closes once what is within it is: %s" % closing.get("summary"),
+            )
+        expect(
+            ask("show-item", id=call)["item"]["status"] == "closed",
+            "the calling step stands closed once what is within it is",
+        )
+        done = ask("close-item", id=after)
+        if root not in (done.get("closedIds") or []):
+            closing = ask("close-item", id=root)
+            expect(
+                closing.get("status") == "completed",
+                "the root closes once every step of the job is: %s" % closing.get("summary"),
+            )
+        expect(
+            ask("show-item", id=root)["item"]["status"] == "closed",
+            "the root stands closed once every step of the job is",
+        )
+        caller = ask("create-item", title="Moved call", run=root, calls="mol-moved")
+        moved = ask(
+            "create-item", title="Moved within", run=root, within=caller["item"]["id"], step="m"
+        )
+        expect(
+            moved["status"] == "completed"
+            and ask("show-item", id=moved["item"]["id"])["item"].get("within")
+            == caller["item"]["id"]
+            and ask("show-item", id=caller["item"]["id"])["item"].get("calls") == "mol-moved"
+            and moved["item"]["id"]
+            in (ask("show-item", id=caller["item"]["id"])["item"].get("needs") or []),
+            "create-item takes within and calls for a move, the calling step needing the item",
+        )
+
+    def pour_and_calls() -> None:
+        pour()
+        calls()
+
     for operation, body in (
         ("operation.open-tracker", open_tracker),
         ("operation.describe-tracker", describe),
@@ -9859,7 +11237,7 @@ def conformance_scenario(
         ("operation.close-item", close),
         ("operation.list-items", listing),
         ("operation.update-item", update),
-        ("operation.pour-steps", pour),
+        ("operation.pour-steps", pour_and_calls),
         ("operation.record-values", claims),
     ):
         check(operation, body)
@@ -10374,6 +11752,32 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
                     else None,
                 }
             items = listed.get("items") or []
+            # A pour not known to be whole (pours_held) moves not: no move can
+            # make it whole. One known to be whole moves, its guards left
+            # behind, whatever became of them.
+            listed_ids = {i["id"]: i for i in items}
+            pours = pours_held(
+                listed_ids,
+                lambda g: invoke_tracker(
+                    "operation.show-item", {"root": root, "tracker": src, "id": g}
+                ),
+            )
+            for g, pour in sorted(pours.items()):
+                if pour["unread"]:
+                    return {
+                        "status": "failed",
+                        "exitCode": 1,
+                        "summary": "Nothing was moved: whether a pour into %s finished could not "
+                        "be told, since its guard %s could not be read: %s Try again."
+                        % (src, g, pour["unread"]),
+                    }
+                return {
+                    "status": "failed",
+                    "exitCode": 1,
+                    "summary": MOVE_POUR_UNFINISHED
+                    % (src, g, ", ".join(pour["closes"]) or "what it made", src),
+                }
+            items = [i for i in items if i.get("kind") != "guard"]
             # Where the source keeps this checkout's items, as it names its
             # store: a record of what the move read from another is none of
             # this run's, its ids naming other items here, or none.
@@ -10462,6 +11866,7 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
                     {n for i in to_write for n in i.get("needs") or []}
                     | {i["parent"] for i in to_write if i.get("parent")}
                     | {i["run"] for i in to_write if i.get("run")}
+                    | {i["within"] for i in to_write if i.get("within")}
                 )
                 - in_listing
                 - (set(ids) - set(dropped))
@@ -10610,6 +12015,22 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
         elsewhere = held_to("to", here)
         if elsewhere is not None:
             return elsewhere
+        # Items poured within a call move only into a tracker that keeps
+        # calls, which the target says of itself.
+        called = sorted(i["id"] for i in items if i.get("within") or i.get("calls"))
+        if called:
+            described = invoke_tracker("operation.describe-tracker", {"root": root, "tracker": dst})
+            if not (
+                (described.get("info") or {}) if described["status"] == "completed" else {}
+            ).get("nests"):
+                return {
+                    "status": "failed",
+                    "exitCode": 1,
+                    "summary": MOVE_NO_CALLS % (src, some_of(called), dst),
+                    "moved": 0,
+                    "mapped": sum(1 for a, b in ids.items() if a != b),
+                    "mappingPath": path,
+                }
         # Kept though nothing is written: the stores it was told.
         told = bool(ids) and (record.get("fromStore"), record.get("store")) != (source_store, here)
         record["fromStore"], record["store"] = source_store, here
@@ -10630,14 +12051,19 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
         while len(order) < len(items):
             progress = False
             for item in items:
-                if item["id"] in placed or waits(item, "parent") or waits(item, "run"):
+                if (
+                    item["id"] in placed
+                    or waits(item, "parent")
+                    or waits(item, "run")
+                    or waits(item, "within")
+                ):
                     continue
                 order.append(item)
                 placed.add(item["id"])
                 progress = True
             if not progress:
                 left = [i for i in items if i["id"] not in placed]
-                cut = [i for i in left if not waits(i, "run")]
+                cut = [i for i in left if not waits(i, "run") and not waits(i, "within")]
                 if not cut:
                     stuck = sorted(i["id"] for i in left)
                     return {
@@ -10758,6 +12184,8 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
                     "claim": whole.get("claim"),
                     "run": ids.get(whole["run"]) if whole.get("run") else None,
                     "values": list(whole.get("values") or []) or None,
+                    "within": ids.get(whole["within"]) if whole.get("within") else None,
+                    "calls": whole.get("calls"),
                 }
 
             # Gone from both, as the run is told: forgotten, its copy
@@ -10887,8 +12315,16 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
             # it, it is written again to wait on the new item, or to stand
             # under it -- read back first, since it may have gone with it.
             if lost:
+                # What the move made in its run, or within it where it is a
+                # calling step: only a make writes either.
                 in_run = sorted(
-                    ids[i] for i in ids if i not in lost and (byid.get(i) or {}).get("run") in lost
+                    ids[i]
+                    for i in ids
+                    if i not in lost
+                    and (
+                        (byid.get(i) or {}).get("run") in lost
+                        or (byid.get(i) or {}).get("within") in lost
+                    )
                 )
                 if in_run:
                     return {
@@ -11773,13 +13209,23 @@ def beads_quiet(
     session: str | None = None,
     store: str | None = None,
 ) -> tuple[int, str, str]:
-    """Run bd for its output only, nothing printed: exit code, stdout, stderr."""
+    """Run bd for its output only, nothing printed: exit code, stdout, stderr.
+    One the system will not start -- given more than a command line holds,
+    say -- answers as bd failing, saying so (BEADS_UNSTARTED), and is the
+    adapter's failure wherever bd's failures are answered (beads_failed)."""
     bd = beads_find()
     if not bd:
         return 127, "", ""
     env = beads_environment(root, session, store)
-    p = subprocess.run([bd] + list(args), capture_output=True, text=True, env=env)
+    try:
+        p = subprocess.run([bd] + list(args), capture_output=True, text=True, env=env)
+    except OSError as e:
+        return 126, "", "%s: %s" % (BEADS_UNSTARTED, e.strerror or e)
     return p.returncode, p.stdout, p.stderr
+
+
+# What beads_quiet says where the system would not start bd at all.
+BEADS_UNSTARTED = "dotdiw could not start the tracker"
 
 
 def beads_batch(lines: list[list[str]], root: str | None) -> tuple[int, str, str]:
@@ -11981,38 +13427,53 @@ def beads_held_time(stamp: Any) -> Any:
 
 def beads_record(row: dict[str, Any]) -> TrackerItem:
     """A bd issue as the interface's record. bd's list and show name an
-    edge's type differently; both are read."""
+    edge's type differently; both are read. The edge a guarded pour gives a
+    root or a calling step to its guard is the adapter's own, and no need:
+    the record names the guard as its guard instead."""
     status = row.get("status")
+    own = beads_own(row) or {}
+    guard = own.get("guard") if isinstance(own.get("guard"), str) else None
     needs = [
         d.get("depends_on_id") or d.get("id")
         for d in row.get("dependencies") or []
         if (d.get("type") or d.get("dependency_type")) == "blocks"
     ]
+    kind: Literal["root", "task", "guard"] = (
+        "guard"
+        if own.get("kind") == "guard"
+        else "root"
+        if row.get("issue_type") == "molecule"
+        else "task"
+    )
     item: TrackerItem = {
         "id": str(row.get("id")),
         "title": str(row.get("title") or ""),
-        "kind": "root" if row.get("issue_type") == "molecule" else "task",
+        "kind": kind,
         "status": status if status in BEADS_STATUSES else "open",
         "priority": row.get("priority"),
         "parent": row.get("parent"),
         "assignee": row.get("assignee"),
         "reason": row.get("close_reason"),
-        "needs": [n for n in needs if n],
+        "needs": [n for n in needs if n and n != guard],
         "createdAt": beads_held_time(row.get("created_at")),
         "updatedAt": beads_held_time(row.get("updated_at")),
     }
     if row.get("description") is not None:
         item["description"] = row["description"]
-    means = (beads_own(row) or {}).get("verifyUsing")
+    means = own.get("verifyUsing")
     if isinstance(means, list) and means:
         item["verifyUsing"] = [str(m) for m in means]
-    own = beads_own(row) or {}
     if isinstance(own.get("step"), str):
         item["step"] = own["step"]
     if isinstance(own.get("claim"), dict):
         item["claim"] = own["claim"]
     if isinstance(own.get("run"), str):
         item["run"] = own["run"]
+    for key in ("within", "calls", "guard"):
+        if isinstance(own.get(key), str):
+            item[key] = own[key]
+    if own.get("whole") is True:
+        item["whole"] = True
     kept = beads_values(row)
     if kept:
         item["values"] = [{"label": label, "text": text} for _, label, text in kept]
@@ -12020,10 +13481,9 @@ def beads_record(row: dict[str, Any]) -> TrackerItem:
 
 
 # Each claim value under a metadata key of its own, so that one value is
-# never read as part of another. bd's keys take no hyphen and a label takes
-# no underscore, so each hyphen becomes one. Under beads only a create
-# writes values -- for a move, onto the item it makes -- since no write of
-# bd's that reads an id whole sets one (beads_record_values).
+# never read as part of another, and a write of one label touches no other:
+# bd's update sets and unsets each key alone (beads_record_values). bd's keys
+# take no hyphen and a label takes no underscore, so each hyphen becomes one.
 BEADS_VALUE = "dotdiw_value."
 
 # Every item poured into a run, or moved into one, carries this label, given
@@ -12051,6 +13511,17 @@ def beads_values(row: dict[str, Any]) -> list[tuple[int, str, str]]:
     return sorted(kept)
 
 
+def beads_value_key(label: str) -> str:
+    """The metadata key a claim's label keeps its value under (BEADS_VALUE)."""
+    return BEADS_VALUE + label.replace("-", "_")
+
+
+def beads_value_held(text: str, first: int) -> str:
+    """A claim value as its key holds it: the text, and the order it was
+    first recorded in, so that values come back in that order (beads_values)."""
+    return json.dumps({"text": text, "first": first}, ensure_ascii=False)
+
+
 def beads_failed(
     shape: type[R], out: str, err: str, reasons: list[tuple[str, tuple[str, ...]]]
 ) -> R:
@@ -12075,6 +13546,8 @@ def beads_failed(
         if any(w in text for w in words):
             reason = key
             break
+    if reason is None and BEADS_UNSTARTED in text:
+        reason = "adapter-failed"
     return failed_as(shape, reason, first)
 
 
@@ -12180,6 +13653,7 @@ def beads_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
             "version": number.group(0) if number else "unknown",
             "origin": "shipped",
             "nativeNeeds": True,
+            "nests": True,
             "checkTarget": "scratch",
             "extras": ["forward", "metrics-off", "upgrade", "read"],
         },
@@ -12209,7 +13683,7 @@ def beads_create(request: CreateItemRequest) -> CreateItemResponse:
     parent = request.get("parent")
     description = request.get("description")
     means = list(request.get("verifyUsing") or [])
-    moved = {k: request[k] for k in ("step", "claim", "run") if request.get(k)}
+    moved = {k: request[k] for k in ("step", "claim", "run", "within", "calls") if request.get(k)}
     values = list(request.get("values") or [])
     if parent:
         argv += ["--parent=" + parent]
@@ -12217,15 +13691,17 @@ def beads_create(request: CreateItemRequest) -> CreateItemResponse:
         argv += ["--description=" + description]
     if means or moved or values:
         given: dict[str, Any] = {
-            BEADS_VALUE + v["label"].replace("-", "_"): json.dumps(
-                {"text": v["text"], "first": n}, ensure_ascii=False
-            )
+            beads_value_key(v["label"]): beads_value_held(v["text"], n)
             for n, v in enumerate(values)
         }
         given[BEADS_KEY] = moved
         argv += ["--metadata=" + beads_means({"metadata": given}, means)]
     if moved.get("run"):
         argv += ["--labels=" + BEADS_RUN_LABEL]
+    if moved.get("within"):
+        # The calling step needs what is poured within it: in this create,
+        # which gives the edge from the other end.
+        argv += ["--deps=blocks:" + str(moved["within"])]
     code, out, err = beads_quiet(argv, root)
     if code != 0:
         return beads_failed(CreateItemResponse, out, err, [("parent-not-found", ("parent issue",))])
@@ -12303,6 +13779,8 @@ def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
         return {"status": "failed", "reason": "step-not-found", "exitCode": 1, "summary": str(e)}
     except ValueError as e:
         return {"status": "failed", "reason": "cycle", "exitCode": 1, "summary": str(e)}
+    if any(s.get("within") or s.get("calls") for s in steps):
+        return beads_pour_guarded(request, steps, ordered, root)
     argv = ["create", "--title=" + request["title"], "--type=molecule", "--priority=2", "--json"]
     description = request.get("description")
     means = list(request.get("verifyUsing") or [])
@@ -12353,6 +13831,176 @@ def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
         "summary": "Poured %d steps under %s." % (len(ids), root_id),
         "rootId": root_id,
         "stepIds": [ids[s["id"]] for s in steps],
+        "exitCode": 0,
+    }
+
+
+def beads_pour_guarded(
+    request: PourStepsRequest, steps: list[Any], ordered: list[Any], root: str | None
+) -> PourStepsResponse:
+    """A pour of steps that call a formula, which bd cannot write at once,
+    held on a guard until it is whole, one bd write at a time:
+
+    1. the guard: an issue made blocked, under no parent -- outside the
+       root's children -- marked the adapter's guard in its metadata;
+    2. the root, made blocked by the guard and naming it in its metadata;
+    3. the guard given the root's run, and the run's label, by one update;
+    4. each step, in the order given, under the root, made with its step,
+       its claim, its run and its label, the calling step it stands within,
+       every need -- and, for a calling step, the formula it calls, that
+       formula's description and means, and an edge to the guard, which it
+       names in its metadata -- all in the create that makes it;
+    5. the guard closed.
+
+    Stopped after any of them, nothing it made can complete: the root and
+    every calling step wait on the guard, which bd holds open to every
+    close but its own and dotdiw closes only once the root reads whole
+    (known_whole, GUARD_HELD); the root
+    names it, and once the guard has the run it is an open item of the run
+    too, so a root bd closes of its own accord when its last child closes
+    is opened again by the next close through dotdiw (held_to_the_run). The
+    edges to the guard are the adapter's own, and no need (beads_record).
+    A pour that fails part of the way names the guard, the root and the
+    steps it made, in the order given."""
+    ref = request.get("formulaRef") or request["title"]
+
+    def made(argv: list[str]) -> tuple[str | None, str]:
+        """One bd create of the flags given; the id made, or what bd said."""
+        code, out, err = beads_quiet(["create", *argv, "--json"], root)
+        rows = beads_json(out) if code == 0 else []
+        if not rows:
+            return None, " ".join((err or out).split())[:240] or "the tracker exited %d" % code
+        return str(rows[0].get("id")), ""
+
+    def stopped(
+        said: str, guard: str | None, root_id: str | None, ids: dict[str, str]
+    ) -> PourStepsResponse:
+        done = [ids[step_named(x)] for x in steps if step_named(x) in ids]
+        out: PourStepsResponse = {
+            "status": "failed",
+            "reason": "adapter-failed",
+            "exitCode": 1,
+            "stepIds": done,
+            "summary": "Poured %d of %d steps%s%s, and the next write failed: %s"
+            % (
+                len(done),
+                len(steps),
+                " under %s" % root_id if root_id else ", no root made",
+                " (%s)" % ", ".join(done) if done else "",
+                said,
+            ),
+        }
+        if root_id:
+            out["rootId"] = root_id
+        if guard:
+            out["guardId"] = guard
+        return out
+
+    guard, said = made(
+        [
+            "--title=Pour of " + ref,
+            "--type=task",
+            "--status=blocked",
+            "--priority=2",
+            "--metadata=" + json.dumps({BEADS_KEY: {"kind": "guard"}}, ensure_ascii=False),
+        ]
+    )
+    if guard is None:
+        return beads_failed(PourStepsResponse, "", said, [])
+    argv = [
+        "--title=" + request["title"],
+        "--type=molecule",
+        "--priority=2",
+        "--deps=blocked-by:" + guard,
+        "--metadata="
+        + beads_means(
+            {"metadata": {BEADS_KEY: {"guard": guard}}}, list(request.get("verifyUsing") or [])
+        ),
+    ]
+    if request.get("description"):
+        argv += ["--description=" + str(request["description"])]
+    root_id, said = made(argv)
+    if root_id is None:
+        return stopped(said, guard, None, {})
+    code, out, err = beads_quiet(
+        [
+            "update",
+            guard,
+            "--metadata=" + json.dumps({BEADS_KEY: {"kind": "guard", "run": root_id}}),
+            "--add-label=" + BEADS_RUN_LABEL,
+            "--json",
+        ],
+        root,
+    )
+    wrote = beads_json(out) if code == 0 else []
+    if not wrote or str(wrote[0].get("id")) != guard:
+        said = " ".join((err or out).split())[:240] or "the tracker wrote no guard %s" % guard
+        return stopped(said, guard, root_id, {})
+    ids: dict[str, str] = {}
+    for s in ordered:
+        poured: dict[str, Any] = {"step": s["id"], "run": root_id}
+        if s.get("claim"):
+            poured["claim"] = s["claim"]
+        needs = ["blocked-by:%s" % ids[str(n)] for n in s.get("needs") or []]
+        if s.get("within"):
+            poured["within"] = ids[str(s["within"])]
+            needs.append("blocks:%s" % poured["within"])
+        argv = ["--title=" + s["title"], "--parent=" + root_id, "--type=task"]
+        if s.get("calls"):
+            poured["calls"] = s["calls"]
+            poured["guard"] = guard
+            needs.append("blocked-by:%s" % guard)
+            if s.get("description"):
+                argv += ["--description=" + str(s["description"])]
+        metadata = {BEADS_KEY: poured}
+        argv += [
+            "--metadata=" + beads_means({"metadata": metadata}, list(s.get("verifyUsing") or [])),
+            "--labels=" + BEADS_RUN_LABEL,
+        ]
+        if needs:
+            argv += ["--deps=" + ",".join(needs)]
+        ident, said = made(argv)
+        if ident is None:
+            return stopped(said, guard, root_id, ids)
+        ids[step_named(s)] = ident
+    # The root marked whole, its own words kept -- the guard it names, its
+    # means: so a guard the tracker no longer holds, housekeeping having
+    # deleted it once it closed, holds nothing of the run.
+    code, out, err = beads_quiet(
+        [
+            "update",
+            root_id,
+            "--metadata="
+            + beads_means(
+                {"metadata": {BEADS_KEY: {"guard": guard, "whole": True}}},
+                list(request.get("verifyUsing") or []),
+            ),
+            "--json",
+        ],
+        root,
+    )
+    wrote = beads_json(out) if code == 0 else []
+    if not wrote or str(wrote[0].get("id")) != root_id:
+        said = " ".join((err or out).split())[:240] or "the tracker wrote no root %s" % root_id
+        return stopped(said, guard, root_id, ids)
+    code, out, err = beads_quiet(["close", guard, "--reason", "poured whole", "--json"], root)
+    if code != 0:
+        said = " ".join((err or out).split())[:240] or "the tracker exited %d" % code
+        failed = stopped(said, guard, root_id, ids)
+        failed["summary"] = (
+            "Poured every step under %s, and the guard %s could not be closed: %s"
+            % (
+                root_id,
+                guard,
+                said,
+            )
+        )
+        return failed
+    return {
+        "status": "completed",
+        "summary": "Poured %d steps under %s." % (len(ids), root_id),
+        "rootId": root_id,
+        "stepIds": [ids[step_named(s)] for s in steps],
         "exitCode": 0,
     }
 
@@ -12449,8 +14097,42 @@ def beads_close(request: CloseItemRequest) -> CloseItemResponse:
         "%s could not be read back after the close, so whether this close closed it is not "
         "known." % ident
     )
+    # The pours not known to be whole (pours_held): a guard of one is closed
+    # by nothing but its pour, and what one holds from closing waits on its
+    # guard, whatever that reads as. A guard that stands open closes only
+    # where its pour is known to be whole (known_whole): the pour's own last
+    # write again.
+    pours = pours_held(every, lambda g: beads_show({"root": root, "id": g}))
+    holding = closes_held(pours)
+    if (every[ident].get("kind") == "guard" or ident in pours) and (
+        every[ident].get("status") == "closed" or not known_whole(ident, every)
+    ):
+        return {
+            "status": "blocked",
+            "reason": "blocked",
+            "exitCode": 1,
+            "summary": GUARD_HELD % ident,
+        }
     if ident in before:
-        poured = [i for i, o in before.items() if o.get("run") == ident]
+        poured = [i for i, o in before.items() if ident in (o.get("run"), o.get("within"))]
+        guard = every[ident].get("guard")
+        if (
+            guard
+            and guard in before
+            and before[guard].get("kind") == "guard"
+            and guard not in poured
+        ):
+            poured.append(str(guard))
+        pour = holding.get(ident)
+        if pour and pours[pour]["unread"]:
+            return failed_as(
+                CloseItemResponse,
+                "adapter-failed",
+                "Nothing closed: %s is held on %s, the guard of a pour not known to be whole, "
+                "which could not be read: %s" % (ident, pour, pours[pour]["unread"]),
+            )
+        if pour and pour not in poured:
+            poured.append(pour)
         if poured:
             return {
                 "status": "blocked",
@@ -12558,7 +14240,13 @@ def beads_close(request: CloseItemRequest) -> CloseItemResponse:
         return str(beads_failed(UpdateItemResponse, out, err, [])["summary"])
 
     closed, notes, standing = held_to_the_run(
-        [ident], marked or [], before, now, reopen, list(request.get("keepOpen") or [])
+        [ident],
+        marked or [],
+        before,
+        now,
+        reopen,
+        list(request.get("keepOpen") or []),
+        closes_held(pours_held(now, lambda g: beads_show({"root": root, "id": g}))),
     )
     if left_open:
         if not errored:
@@ -12772,6 +14460,13 @@ def beads_update(request: UpdateItemRequest) -> UpdateItemResponse:
         if whole["status"] != "completed":
             return failed_as(UpdateItemResponse, "item-not-found", whole["summary"])
         ident = str(found[0].get("id"))
+        if (beads_own(found[0]) or {}).get("kind") == "guard":
+            return failed_as(UpdateItemResponse, None, GUARD_HELD % ident)
+        for need in drop:
+            code, out, err = beads_quiet(["show", need, "--json"], root)
+            held = beads_json(out) if code == 0 else []
+            if held and (beads_own(held[0]) or {}).get("within") == ident:
+                return failed_as(UpdateItemResponse, None, CALL_NEED_HELD % (ident, need))
         if drop:
             # Each need taken off through bd's batch, which reads both ids
             # whole, as add-need's are written -- before the parent is
@@ -12814,21 +14509,85 @@ def beads_update(request: UpdateItemRequest) -> UpdateItemResponse:
 
 
 def beads_record_values(request: RecordValuesRequest) -> RecordValuesResponse:
-    """operation.record-values: not offered under beads in this release, and
-    nothing is written. bd sets a value only through its update, which
-    reads an id it holds nothing of as the one item whose id begins with
-    it, and no write of bd's that reads an id whole sets one; so an item
-    deleted as the write ran would have the value written to another. The
-    values a create is given, for a move, are the new item's own from the
-    start, and are kept (beads_create)."""
+    """operation.record-values: the claim's values merged in, each label given
+    replacing its value, a label given empty removed, every other kept
+    (merged_values) -- in one bd update of the item's whole id, which sets or
+    unsets each label given under a metadata key of its own (BEADS_VALUE),
+    so that no other key the issue holds is written, and writes all of it or
+    none. A label kept keeps the order it was first recorded in; one new to
+    the item, or given empty and then again, follows every one it holds.
+
+    The id is read first and held whole: one bd shows as another item's
+    names none, and nothing is written. bd's update reads an id it holds
+    nothing of as the one item whose id begins with it, so an item deleted
+    between that read and the update may have the values written to another
+    in its place: bd's answer names the item it wrote, and where that is
+    another the write fails, naming it, as an update's does (beads_update)."""
     if not beads_find():
         return failed_as(RecordValuesResponse, *BEADS_NOT_INSTALLED)
-    return failed_as(
-        RecordValuesResponse,
-        "unsupported",
-        "This tracker records no claim's values in this release: it cannot yet hold such a "
-        "write to the item named, so nothing was recorded on %s." % request["id"],
-    )
+    root = request.get("root")
+    if beads_env(root) is None:
+        return failed_as(RecordValuesResponse, *BEADS_NO_WORKSPACE)
+    ident = request["id"]
+    code, out, err = beads_quiet(["show", ident, "--json"], root)
+    found = beads_json(out) if code == 0 else []
+    if not found:
+        return beads_failed(RecordValuesResponse, out, err, [("item-not-found", BEADS_NOT_FOUND)])
+    whole = shown_by_its_id(ident, {"status": "completed", "item": found[0]})
+    if whole["status"] != "completed":
+        return failed_as(RecordValuesResponse, "item-not-found", whole["summary"])
+    given = list(request["values"])
+    held = beads_values(found[0])
+    merged = merged_values([{"label": label, "text": text} for _, label, text in held], given)
+    # Values come back in the order each was first recorded in. A label held
+    # and never given empty here keeps its number. Every other label merged
+    # -- new to the item, or given empty and then again -- stands after all
+    # of those, in the order merged_values puts it, so it is numbered after
+    # every one held.
+    emptied = {v["label"] for v in given if not v["text"]}
+    first = {label: n for n, label, _ in held if label not in emptied}
+    last = max((n for n, _, _ in held), default=-1)
+    for v in merged:
+        if v["label"] not in first:
+            last += 1
+            first[v["label"]] = last
+    now = {v["label"]: v["text"] for v in merged}
+    flags = []
+    for label in dict.fromkeys(v["label"] for v in given):
+        key = beads_value_key(label)
+        if label in now:
+            flags.append("--set-metadata=%s=%s" % (key, beads_value_held(now[label], first[label])))
+        else:
+            flags.append("--unset-metadata=" + key)
+    # bd's update given nothing to write writes nothing, and says so.
+    if flags:
+        code, out, err = beads_quiet(["update", ident, "--json"] + flags, root)
+        if code != 0:
+            return beads_failed(
+                RecordValuesResponse, out, err, [("item-not-found", BEADS_NOT_FOUND)]
+            )
+        wrote = [str(r.get("id")) for r in beads_json(out)]
+        if wrote and ident not in wrote:
+            return failed_as(
+                RecordValuesResponse,
+                "item-not-found",
+                "The tracker holds %s no more, and wrote the values to %s in its place."
+                % (ident, wrote[0]),
+            )
+    shown = beads_shown([ident], root)
+    if not shown or ident not in shown:
+        return failed_as(
+            RecordValuesResponse,
+            "adapter-failed",
+            "Recorded values on %s, and the tracker did not show it after." % ident,
+        )
+    return {
+        "status": "completed",
+        "summary": "Recorded %d value%s on %s."
+        % (len(given), "" if len(given) == 1 else "s", ident),
+        "item": beads_record(shown[ident]),
+        "exitCode": 0,
+    }
 
 
 def beads_ready(request: ReadyItemsRequest) -> ReadyItemsResponse:
@@ -12847,9 +14606,28 @@ def beads_ready(request: ReadyItemsRequest) -> ReadyItemsResponse:
     if rows is None:
         return failed_as(ReadyItemsResponse, "adapter-failed", BEADS_NO_LISTING)
     items = [beads_record(r) for r in rows if not r.get("is_template")]
+    # Nothing a pour not known to be whole holds (pours_held): bd holds one
+    # on its guard by the edges the pour wrote and the root its steps stand
+    # under, which a write outside dotdiw, or a step moved from under its
+    # root, can undo; the guard named on its root and calling steps holds it
+    # whatever becomes of those.
+    listed = beads_list({"root": root, "scope": "all"})
+    if listed["status"] != "completed":
+        return failed_as(ReadyItemsResponse, "adapter-failed", listed["summary"])
+    every = {i["id"]: i for i in listed.get("items") or []}
+    pours = pours_held(every, lambda g: beads_show({"root": root, "id": g}))
+    held = {i for p in pours.values() for i in p["holds"]}
+    unread = sorted(g for g, p in pours.items() if p["unread"])
+    items = [i for i in items if i.get("kind") != "guard" and i["id"] not in held]
     return {
         "status": "completed",
-        "summary": "%d ready." % len(items),
+        "summary": "%d ready." % len(items)
+        + (
+            " Left out: what the pour held on %s made, whose guard could not be read."
+            % ", ".join(unread)
+            if unread
+            else ""
+        ),
         "items": items,
         "exitCode": 0,
     }
@@ -13432,6 +15210,7 @@ BEADS = {
         "interface": TRACKER_INTERFACE,
         "origin": "shipped",
         "nativeNeeds": True,
+        "nests": True,
         "checkTarget": "scratch",
         "extras": ["forward", "metrics-off", "upgrade", "read"],
     },
@@ -13598,12 +15377,46 @@ def local_record(conn: sqlite3.Connection, row: sqlite3.Row) -> TrackerItem:
         item["values"] = json.loads(row["claim_values"])
     if "run" in held and row["run"]:
         item["run"] = row["run"]
+    if "within_item" in held and row["within_item"]:
+        item["within"] = row["within_item"]
+    if "calls" in held and row["calls"]:
+        item["calls"] = row["calls"]
     return item
+
+
+# Two columns a store made before 4.2.0 does not have: the calling step an
+# item was poured within, and the formula a calling step calls. The first
+# write that needs them adds them, in its own transaction; until then every
+# read takes the store to hold no call.
+LOCAL_CALL_COLUMNS = ("within_item", "calls")
+
+
+def local_calls(conn: sqlite3.Connection) -> bool:
+    """Whether the store has a place for calls (LOCAL_CALL_COLUMNS)."""
+    return "within_item" in local_columns(conn)
+
+
+def local_hold_calls(conn: sqlite3.Connection) -> None:
+    """The columns for calls added, inside the write that needs them."""
+    held = local_columns(conn)
+    for column in LOCAL_CALL_COLUMNS:
+        if column not in held:
+            conn.execute("ALTER TABLE items ADD COLUMN %s TEXT" % column)
+
+
+def local_under(conn: sqlite3.Connection) -> str:
+    """The SQL that says an item stands under the one given: its child, an
+    item poured in its run, or one poured within it, where the store has
+    calls; its parameter is given once for each."""
+    if local_calls(conn):
+        return "(parent = ? OR run = ? OR within_item = ?)"
+    return "(parent = ? OR run = ? OR ? IS NULL)"
 
 
 def local_blockers(conn: sqlite3.Connection, ident: str) -> list[str]:
     """What keeps an item from closing: its open needs, then its open
-    children, then the open items poured in its run, wherever they stand."""
+    children, then the open items poured in its run or within it, wherever
+    they stand."""
     needs = [
         r[0]
         for r in conn.execute(
@@ -13615,9 +15428,9 @@ def local_blockers(conn: sqlite3.Connection, ident: str) -> list[str]:
     under = [
         r[0]
         for r in conn.execute(
-            "SELECT id FROM items WHERE (parent = ? OR run = ?) AND status != 'closed' "
-            "ORDER BY parent IS NOT ?, created_at, id",
-            (ident, ident, ident),
+            "SELECT id FROM items WHERE %s AND status != 'closed' "
+            "ORDER BY parent IS NOT ?, created_at, id" % local_under(conn),
+            (ident, ident, ident, ident),
         )
     ]
     return needs + [c for c in under if c not in needs]
@@ -13625,13 +15438,14 @@ def local_blockers(conn: sqlite3.Connection, ident: str) -> list[str]:
 
 def local_waiting(conn: sqlite3.Connection, start: str, dropped: Iterable[str] = ()) -> set[str]:
     """Every item start waits on before it can close, to any depth: its
-    needs, its children and the items poured in its run -- the cycle check,
-    read inside the write it guards. Needs of start given as dropped are
-    not followed: an update that takes them off checks what the item will
-    wait on, before it writes anything."""
+    needs, its children and the items poured in its run or within it -- the
+    cycle check, read inside the write it guards. Needs of start given as
+    dropped are not followed: an update that takes them off checks what the
+    item will wait on, before it writes anything."""
     left_off = set(dropped)
     seen: set[str] = set()
     todo = [start]
+    under_sql = "SELECT id FROM items WHERE %s" % local_under(conn)
     while todo:
         at = todo.pop()
         needs = [
@@ -13639,9 +15453,7 @@ def local_waiting(conn: sqlite3.Connection, start: str, dropped: Iterable[str] =
             for (n,) in conn.execute("SELECT needs FROM edges WHERE id = ?", (at,))
             if at != start or n not in left_off
         ]
-        under = [
-            i for (i,) in conn.execute("SELECT id FROM items WHERE parent = ? OR run = ?", (at, at))
-        ]
+        under = [i for (i,) in conn.execute(under_sql, (at, at, at))]
         for nxt in needs + under:
             if nxt not in seen:
                 seen.add(nxt)
@@ -13656,8 +15468,9 @@ def local_closing(
     now: str,
     keep: Iterable[str] = (),
 ) -> list[str]:
-    """Close one item, and when it was the last open step, the poured root
-    above it and the root of the run it was poured in, wherever it stands,
+    """Close one item, and each it leaves with nothing open -- the poured
+    root above it, the root of the run it was poured in and the calling step
+    it was poured within, wherever it stands -- and so on up from each,
     save one to keep open (keep); the ids closed, the item's first."""
     conn.execute(
         "UPDATE items SET status = 'closed', reason = ?, closed_at = ?, updated_at = ? "
@@ -13665,26 +15478,43 @@ def local_closing(
         (reason, now, now, row["id"]),
     )
     closed = [row["id"]]
-    above = []
-    if row["parent"]:
-        parent = local_fetch(conn, row["parent"])
-        if parent and parent["kind"] in ("root", "molecule"):
-            above.append(parent)
-    run = row["run"] if "run" in row.keys() else None
-    if run and run != row["parent"]:
-        root = local_fetch(conn, run)
-        if root:
-            above.append(root)
-    for item in above:
-        if item["id"] in keep:
-            continue
-        if item["status"] != "closed" and not local_blockers(conn, item["id"]):
-            conn.execute(
-                "UPDATE items SET status = 'closed', reason = ?, closed_at = ?, "
-                "updated_at = ? WHERE id = ?",
-                ("every step closed", now, now, item["id"]),
-            )
-            closed.append(item["id"])
+    todo = [row]
+    while todo:
+        at = todo.pop(0)
+        held = at.keys()
+        above = []
+        if at["parent"]:
+            parent = local_fetch(conn, at["parent"])
+            if parent and parent["kind"] in ("root", "molecule"):
+                above.append(parent)
+        for column in ("run", "within_item"):
+            up = at[column] if column in held else None
+            if up and up not in [a["id"] for a in above]:
+                item = local_fetch(conn, up)
+                if item:
+                    above.append(item)
+        if "calls" in held:
+            # A calling step that needs it, whose last need it may have been.
+            for needing in conn.execute(
+                "SELECT i.* FROM edges e JOIN items i ON i.id = e.id "
+                "WHERE e.needs = ? AND i.calls IS NOT NULL ORDER BY i.created_at, i.id",
+                (at["id"],),
+            ).fetchall():
+                if needing["id"] not in [a["id"] for a in above]:
+                    above.append(needing)
+        for item in above:
+            if item["id"] in keep or item["id"] in closed:
+                continue
+            if item["status"] != "closed" and not local_blockers(conn, item["id"]):
+                conn.execute(
+                    "UPDATE items SET status = 'closed', reason = ?, closed_at = ?, "
+                    "updated_at = ? WHERE id = ?",
+                    ("every step closed", now, now, item["id"]),
+                )
+                closed.append(item["id"])
+                shut = local_fetch(conn, item["id"])
+                if shut is not None:
+                    todo.append(shut)
     return closed
 
 
@@ -13805,6 +15635,7 @@ def local_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
             "version": VERSION,
             "origin": "shipped",
             "nativeNeeds": True,
+            "nests": True,
             "extras": ["upgrade"],
             "checkTarget": "scratch",
         },
@@ -13821,13 +15652,14 @@ def local_create(request: CreateItemRequest) -> CreateItemResponse:
     try:
         with local_write(conn):
             parent = request.get("parent")
-            if parent and not local_fetch(conn, parent):
-                return {
-                    "status": "failed",
-                    "reason": "parent-not-found",
-                    "exitCode": 1,
-                    "summary": "%s names no item here." % parent,
-                }
+            for above in (parent, request.get("within")):
+                if above and not local_fetch(conn, above):
+                    return {
+                        "status": "failed",
+                        "reason": "parent-not-found",
+                        "exitCode": 1,
+                        "summary": "%s names no item here." % above,
+                    }
             now, ident = local_now(), request.get("id") or local_new_id(conn)
             priority = request.get("priority")
             if request.get("id") and local_fetch(conn, ident):
@@ -13854,6 +15686,17 @@ def local_create(request: CreateItemRequest) -> CreateItemResponse:
                     now,
                 ),
             )
+            if request.get("within") or request.get("calls"):
+                local_hold_calls(conn)
+                conn.execute(
+                    "UPDATE items SET within_item = ?, calls = ? WHERE id = ?",
+                    (request.get("within") or None, request.get("calls") or None, ident),
+                )
+            if request.get("within"):
+                conn.execute(
+                    "INSERT OR IGNORE INTO edges (id, needs) VALUES (?, ?)",
+                    (request["within"], ident),
+                )
             fetched = local_fetch(conn, ident)
             item = local_record(conn, fetched) if fetched is not None else None
     except sqlite3.OperationalError as e:
@@ -13913,7 +15756,13 @@ def local_need(request: AddNeedRequest) -> AddNeedResponse:
 def local_pour(request: PourStepsRequest) -> PourStepsResponse:
     """operation.pour-steps: a root named after the formula, keeping its
     description and the means to prove its run, and one item per step under
-    it, each needing the steps it names; all or nothing."""
+    it, each needing the steps it names; all or nothing, in one transaction.
+    Where steps have keys, as in a pour that calls a formula, each needs the
+    steps its needs name by key and stands within the calling step its
+    within names, every one of them under the root, and a calling step
+    keeps the formula it calls, that formula's description and its means to
+    prove; a store made before 4.2.0 gains the columns for it in the same
+    transaction (local_hold_calls)."""
     steps = list(request.get("steps") or [])
     if not steps:
         return {
@@ -13958,6 +15807,8 @@ def local_pour(request: PourStepsRequest) -> PourStepsResponse:
                 ),
             )
             ids: dict[str, str] = {}
+            if any(s.get("within") or s.get("calls") for s in steps):
+                local_hold_calls(conn)
             for s in ordered:
                 ident = local_new_id(conn)
                 conn.execute(
@@ -13975,11 +15826,29 @@ def local_pour(request: PourStepsRequest) -> PourStepsResponse:
                         now,
                     ),
                 )
+                if s.get("within"):
+                    conn.execute(
+                        "INSERT OR IGNORE INTO edges (id, needs) VALUES (?, ?)",
+                        (ids[str(s["within"])], ident),
+                    )
+                if s.get("within") or s.get("calls"):
+                    called = list(s.get("verifyUsing") or [])
+                    conn.execute(
+                        "UPDATE items SET within_item = ?, calls = ?, description = ?, "
+                        "verify_using = ? WHERE id = ?",
+                        (
+                            ids[str(s["within"])] if s.get("within") else None,
+                            s.get("calls") or None,
+                            s.get("description") or None,
+                            json.dumps(called) if called else None,
+                            ident,
+                        ),
+                    )
                 for n in s.get("needs") or []:
                     conn.execute(
                         "INSERT OR IGNORE INTO edges (id, needs) VALUES (?, ?)", (ident, ids[n])
                     )
-                ids[s["id"]] = ident
+                ids[step_named(s)] = ident
     except sqlite3.OperationalError as e:
         return local_refused(PourStepsResponse, e)
     finally:
@@ -13988,7 +15857,7 @@ def local_pour(request: PourStepsRequest) -> PourStepsResponse:
         "status": "completed",
         "summary": "Poured %d steps under %s." % (len(ids), root_id),
         "rootId": root_id,
-        "stepIds": [ids[s["id"]] for s in steps],
+        "stepIds": [ids[step_named(s)] for s in steps],
         "exitCode": 0,
     }
 
@@ -14161,6 +16030,15 @@ def local_update(request: UpdateItemRequest) -> UpdateItemResponse:
                     "summary": "%s names no item here." % ident,
                 }
             drop = [str(n) for n in request.get("dropNeeds") or []]
+            for need in drop:
+                held = local_fetch(conn, need)
+                if held is not None and "within_item" in held.keys():
+                    if held["within_item"] == ident:
+                        return {
+                            "status": "failed",
+                            "exitCode": 1,
+                            "summary": CALL_NEED_HELD % (ident, need),
+                        }
             if parent and not local_fetch(conn, parent):
                 return {
                     "status": "failed",
@@ -14249,18 +16127,24 @@ def local_record_values(request: RecordValuesRequest) -> RecordValuesResponse:
 
 
 def local_ready(request: ReadyItemsRequest) -> ReadyItemsResponse:
-    """operation.ready-items: the open items with no open need."""
+    """operation.ready-items: the open items with no open need, save a
+    calling step while an item poured within it is open."""
     conn = local_connect(request.get("root"))
     if conn is None:
         return failed_as(ReadyItemsResponse, *LOCAL_NO_WORKSPACE)
     try:
+        held = (
+            "AND id NOT IN (SELECT within_item FROM items "
+            "WHERE within_item IS NOT NULL AND status != 'closed') "
+            if local_calls(conn)
+            else ""
+        )
         items = [
             local_record(conn, r)
             for r in conn.execute(
                 "SELECT * FROM items WHERE status = 'open' AND id NOT IN "
                 "(SELECT e.id FROM edges e JOIN items n ON n.id = e.needs "
-                "WHERE n.status != 'closed') "
-                "ORDER BY created_at, id"
+                "WHERE n.status != 'closed') " + held + "ORDER BY created_at, id"
             )
         ]
     finally:
@@ -14280,6 +16164,7 @@ LOCAL = {
         "interface": TRACKER_INTERFACE,
         "origin": "shipped",
         "nativeNeeds": True,
+        "nests": True,
         "checkTarget": "scratch",
         "extras": ["upgrade"],
     },
@@ -14671,6 +16556,7 @@ def show_name(request: Request, response: Response) -> None:
 
 
 def show_pour(request: Request, response: Response) -> None:
+    called = response.get("calls") or []
     if request.get("json") and response.get("moleculeRef"):
         # The record, whole or as far as the pour went: a pour that stopped
         # part of the way still names the root and the steps it made.
@@ -14679,6 +16565,19 @@ def show_pour(request: Request, response: Response) -> None:
             answer["verifyUsing"] = response["verifyUsing"]
         if response.get("claims"):
             answer["claims"] = response["claims"]
+        if called:
+            answer["calls"] = [
+                dict(
+                    {"step": c["step"], "stepId": c["stepRef"]},
+                    **({"within": c["within"]} if c.get("within") else {}),
+                    formula=c["formulaRef"],
+                    stepIds=c.get("stepRefs") or [],
+                    **({"verifyUsing": c["verifyUsing"]} if c.get("verifyUsing") else {}),
+                )
+                for c in called
+            ]
+        if response.get("guardRef"):
+            answer["guardId"] = response["guardRef"]
         print(json.dumps(answer, indent=2, ensure_ascii=False))
         if response["status"] != "completed":
             sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
@@ -14688,13 +16587,32 @@ def show_pour(request: Request, response: Response) -> None:
     elif response["status"] != "completed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
     elif response.get("moleculeRef"):
-        print("\u2713 Poured mol: created %d issues" % (len(response.get("stepRefs") or []) + 1))
+        made = 1 + len(response.get("stepRefs") or [])
+        made += sum(len(c.get("stepRefs") or []) for c in called)
+        print("\u2713 Poured mol: created %d issues" % made)
         print("  Root issue: %s" % response["moleculeRef"])
+        for c in called:
+            print(
+                "  %s (%s)%s calls %s: %d step%s within it"
+                % (
+                    c["stepRef"],
+                    c["step"],
+                    " within %s" % c["within"] if c.get("within") else "",
+                    c["formulaRef"],
+                    len(c.get("stepRefs") or []),
+                    "" if len(c.get("stepRefs") or []) == 1 else "s",
+                )
+            )
     means = response.get("verifyUsing") or []
     if means and response["status"] == "completed" and not request.get("json"):
         print("Verify using:")
         for value in means:
             print("  %s" % value)
+    for c in called if response["status"] == "completed" and not request.get("json") else []:
+        if c.get("verifyUsing"):
+            print("Verify using, for %s (%s):" % (c["stepRef"], c["formulaRef"]))
+            for value in c["verifyUsing"]:
+                print("  %s" % value)
     for c in response.get("claims") or [] if not request.get("json") else []:
         print(
             "%s has a claim. When it is done, record it: %s claim %s %s"
@@ -14713,20 +16631,41 @@ def show_claim(request: Request, response: Response) -> None:
         print(json.dumps(run, indent=2, ensure_ascii=False))
         return
     print("Run %s (%s)" % (run["root"], run.get("formula") or ""))
-    if not run["steps"]:
+    calls = run.get("calls") or []
+    if not run["steps"] and not any(c["steps"] for c in calls):
         print("\nNo step of this run has a claim.")
-    for s in run["steps"]:
-        print("\n%s (%s, %s)" % (s["step"], s["item"], s.get("status") or ""))
-        held = {v["label"]: v["text"] for v in s["values"]}
-        for label in s["slots"]:
-            print("  %s: %s" % (label, held.get(label, "")))
-        print("claim:\n%s" % s["claim"])
-    if run["verifyUsing"]:
-        print("\nverify-using:")
-        for m in run["verifyUsing"]:
-            print(m)
-    if run["open"]:
-        print("\nopen: %s" % ", ".join(run["open"]))
+
+    def claimed(steps: list[Any], lead: str) -> None:
+        for s in steps:
+            print("\n%s%s (%s, %s)" % (lead, s["step"], s["item"], s.get("status") or ""))
+            held = {v["label"]: v["text"] for v in s["values"]}
+            for label in s["slots"]:
+                print("%s  %s: %s" % (lead, label, held.get(label, "")))
+            print("%sclaim:\n%s%s" % (lead, lead, s["claim"]))
+
+    def proven(means: list[str], left: list[str], lead: str) -> None:
+        if means:
+            print("\n%sverify-using:" % lead)
+            for m in means:
+                print("%s%s" % (lead, m))
+        if left:
+            print("\n%sopen: %s" % (lead, ", ".join(left)))
+
+    claimed(run["steps"], "")
+    proven(run["verifyUsing"], run["open"], "")
+    for c in calls:
+        print(
+            "\nCall %s (%s, %s)%s calls %s"
+            % (
+                c["step"],
+                c["item"],
+                c.get("status") or "",
+                " within %s" % c["within"] if c.get("within") else "",
+                c.get("formula") or "",
+            )
+        )
+        claimed(c["steps"], "  ")
+        proven(c["verifyUsing"], c["open"], "  ")
 
 
 def show_forward(request: Request, response: Response) -> None:

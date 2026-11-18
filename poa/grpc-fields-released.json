@@ -1,0 +1,936 @@
+{
+ "about": "Each message dotdiw serve served at this release, with its fields in the order of their numbers, the first numbered 1. A later release keeps every one of them at its number and adds fields after the last; recorded again at each release.",
+ "messages": {
+  "AdoptARepositoryRequest": [
+   "correlation_id",
+   "source_refs",
+   "repository_ref",
+   "conventions_ref",
+   "root",
+   "tracker",
+   "prefix"
+  ],
+  "AdoptARepositoryResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "workspace",
+   "exit_code"
+  ],
+  "AdoptRepositoryRequest": [
+   "correlation_id",
+   "source_refs",
+   "repository_ref",
+   "root",
+   "quiet",
+   "tracker",
+   "prefix"
+  ],
+  "AdoptRepositoryResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "exit_code",
+   "workspace",
+   "created",
+   "reason",
+   "tracker",
+   "actor"
+  ],
+  "AnswerThroughAFormulaProviderRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_management_provider_ref",
+   "formula_ref",
+   "root",
+   "action",
+   "name",
+   "module",
+   "location"
+  ],
+  "AnswerThroughAFormulaProviderResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "provider",
+   "providers",
+   "reason",
+   "clashing",
+   "exit_code"
+  ],
+  "CheckTrackerRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_adapter_ref",
+   "tracker_ref",
+   "root",
+   "name",
+   "path"
+  ],
+  "CheckTrackerResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "results",
+   "passed",
+   "reason",
+   "exit_code"
+  ],
+  "ChooseATrackerRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_adapter_ref",
+   "repository_ref",
+   "tracker_ref",
+   "root",
+   "action",
+   "name",
+   "path"
+  ],
+  "ChooseATrackerResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "trackers",
+   "chosen",
+   "results",
+   "passed",
+   "reason",
+   "exit_code"
+  ],
+  "ClaimRun": [
+   "root",
+   "formula",
+   "steps",
+   "verify_using",
+   "open",
+   "etag"
+  ],
+  "ClaimValue": [
+   "label",
+   "text"
+  ],
+  "ClaimedStep": [
+   "item",
+   "step",
+   "status",
+   "statement",
+   "slots",
+   "values",
+   "claim",
+   "open",
+   "etag"
+  ],
+  "CommitFormulaRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "path"
+  ],
+  "CommitFormulaResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "command",
+   "exit_code"
+  ],
+  "CompareWhatWasReadRequest": [
+   "correlation_id",
+   "source_refs",
+   "work_ref",
+   "molecule_ref",
+   "root",
+   "tracker",
+   "etags"
+  ],
+  "CompareWhatWasReadResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "changed",
+   "reason",
+   "exit_code"
+  ],
+  "ConventionProblem": [
+   "kind",
+   "where",
+   "what"
+  ],
+  "DeclareConventionsRequest": [
+   "correlation_id",
+   "source_refs",
+   "conventions_ref",
+   "root",
+   "announce"
+  ],
+  "DeclareConventionsResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "renamed",
+   "declared",
+   "changed",
+   "exit_code"
+  ],
+  "DescribeAndCheckRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "mode",
+   "tracker"
+  ],
+  "DescribeAndCheckResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "problems",
+   "formula_count",
+   "exit_code",
+   "undeclared"
+  ],
+  "DescribeProviderRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_management_provider_ref",
+   "formula_ref",
+   "name",
+   "module",
+   "location"
+  ],
+  "DescribeProviderResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "answers",
+   "provider",
+   "reason",
+   "exit_code"
+  ],
+  "FindAHeldProcedureRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "ask",
+   "ident",
+   "json"
+  ],
+  "FindAHeldProcedureResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "formula_ref",
+   "path",
+   "text",
+   "formula",
+   "formulas",
+   "formula_count",
+   "exit_code"
+  ],
+  "FormulaBody": [
+   "description",
+   "verify_using",
+   "steps"
+  ],
+  "FormulaExample": [
+   "formula_ref",
+   "example"
+  ],
+  "FormulaProvider": [
+   "name",
+   "module",
+   "location",
+   "version",
+   "answers",
+   "unavailable"
+  ],
+  "FormulaStep": [
+   "id",
+   "title",
+   "needs",
+   "claim",
+   "description"
+  ],
+  "ForwardToTheTrackerRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_command_ref",
+   "root",
+   "arguments",
+   "tracker",
+   "etags",
+   "terminal"
+  ],
+  "ForwardToTheTrackerResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "exit_code",
+   "output",
+   "closed_refs",
+   "reason",
+   "printed",
+   "operation",
+   "answers",
+   "tracker",
+   "items"
+  ],
+  "HandmadeProcedure": [
+   "work_ref",
+   "title",
+   "step_count"
+  ],
+  "HeldFormula": [
+   "formula_ref",
+   "name",
+   "description",
+   "path",
+   "examples",
+   "verify_using",
+   "provider"
+  ],
+  "IndexTheProjectRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "background"
+  ],
+  "IndexTheProjectResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "formula_count",
+   "file_count",
+   "providers_left_out",
+   "unparsed",
+   "exit_code"
+  ],
+  "LearnTheConventionsRequest": [
+   "correlation_id",
+   "source_refs"
+  ],
+  "LearnTheConventionsResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "text",
+   "exit_code"
+  ],
+  "ListFormulasRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "json"
+  ],
+  "ListFormulasResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "formulas",
+   "formula_count",
+   "exit_code"
+  ],
+  "ListProviderFormulasRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_management_provider_ref",
+   "formula_ref",
+   "name"
+  ],
+  "ListProviderFormulasResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "formulas",
+   "reason",
+   "exit_code"
+  ],
+  "ListTrackersRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_adapter_ref",
+   "root"
+  ],
+  "ListTrackersResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "trackers",
+   "chosen",
+   "exit_code"
+  ],
+  "MatchFormulasRequest": [
+   "correlation_id",
+   "source_refs",
+   "work_ref",
+   "formula_ref",
+   "root",
+   "title",
+   "description",
+   "exclude",
+   "surface"
+  ],
+  "MatchFormulasResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "pour_ref",
+   "surfaced",
+   "exit_code"
+  ],
+  "MigrateWorkspaceRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_ref",
+   "work_ref",
+   "root",
+   "from_tracker",
+   "to_tracker",
+   "deleted_ids",
+   "source_gone_ids",
+   "from_store",
+   "to_store"
+  ],
+  "MigrateWorkspaceResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "moved",
+   "resumed",
+   "mapped",
+   "mapping_path",
+   "reason",
+   "exit_code",
+   "assignees_left"
+  ],
+  "MoveAWorkspaceRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_ref",
+   "work_ref",
+   "root",
+   "from_tracker",
+   "to_tracker",
+   "deleted_ids",
+   "source_gone_ids",
+   "from_store",
+   "to_store"
+  ],
+  "MoveAWorkspaceResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "moved",
+   "resumed",
+   "mapped",
+   "mapping_path",
+   "reason",
+   "exit_code",
+   "assignees_left"
+  ],
+  "NameTheWorkRequest": [
+   "correlation_id",
+   "source_refs",
+   "work_ref",
+   "root",
+   "title",
+   "tracker",
+   "priority",
+   "parent",
+   "description",
+   "json",
+   "etags"
+  ],
+  "NameTheWorkResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "work_ref",
+   "exit_code",
+   "reason",
+   "item",
+   "tracker"
+  ],
+  "NoticeHandmadeProceduresRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "tracker"
+  ],
+  "NoticeHandmadeProceduresResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "undeclared",
+   "exit_code"
+  ],
+  "NudgeTowardsAFormulaRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "text"
+  ],
+  "NudgeTowardsAFormulaResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "nudged",
+   "command",
+   "exit_code"
+  ],
+  "PourProcedureRequest": [
+   "correlation_id",
+   "source_refs",
+   "work_ref",
+   "formula_ref",
+   "molecule_ref",
+   "root",
+   "ident",
+   "tracker",
+   "json"
+  ],
+  "PourProcedureResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "molecule_ref",
+   "exit_code",
+   "formula_ref",
+   "claims",
+   "step_refs",
+   "reason",
+   "tracker",
+   "verify_using"
+  ],
+  "ReadRunRequest": [
+   "correlation_id",
+   "source_refs",
+   "work_ref",
+   "molecule_ref",
+   "root",
+   "tracker",
+   "id"
+  ],
+  "ReadRunResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "run",
+   "reason",
+   "exit_code"
+  ],
+  "RecordClaimRequest": [
+   "correlation_id",
+   "source_refs",
+   "work_ref",
+   "root",
+   "tracker",
+   "id",
+   "values",
+   "etags"
+  ],
+  "RecordClaimResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "item",
+   "reason",
+   "exit_code"
+  ],
+  "RecordWhatAStepFoundRequest": [
+   "correlation_id",
+   "source_refs",
+   "work_ref",
+   "root",
+   "tracker",
+   "id",
+   "values",
+   "json",
+   "etags"
+  ],
+  "RecordWhatAStepFoundResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "run",
+   "reason",
+   "exit_code"
+  ],
+  "RegisterProviderRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_management_provider_ref",
+   "formula_ref",
+   "root",
+   "name",
+   "module",
+   "location"
+  ],
+  "RegisterProviderResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "provider",
+   "reason",
+   "clashing",
+   "exit_code"
+  ],
+  "RemoveProviderRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_management_provider_ref",
+   "name"
+  ],
+  "RemoveProviderResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "provider",
+   "reason",
+   "exit_code"
+  ],
+  "ReportWhatIsYoursToCommitRequest": [
+   "correlation_id",
+   "source_refs",
+   "repository_ref",
+   "root",
+   "paths"
+  ],
+  "ReportWhatIsYoursToCommitResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "yours",
+   "exit_code"
+  ],
+  "ResolveFormulaRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "ident"
+  ],
+  "ResolveFormulaResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "formula_ref",
+   "path",
+   "reason",
+   "exit_code",
+   "formula"
+  ],
+  "RunATrackerCommandRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_command_ref",
+   "root",
+   "arguments",
+   "tracker",
+   "etags",
+   "terminal"
+  ],
+  "RunATrackerCommandResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "exit_code",
+   "items",
+   "closed_refs",
+   "output",
+   "reason"
+  ],
+  "ShipATrackerRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_adapter_ref",
+   "name",
+   "directory"
+  ],
+  "ShipATrackerResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "path",
+   "reason",
+   "exit_code"
+  ],
+  "ShowFormulaRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "ident"
+  ],
+  "ShowFormulaResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "reason",
+   "path",
+   "text",
+   "exit_code"
+  ],
+  "ShowProviderFormulaRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_management_provider_ref",
+   "formula_ref",
+   "root",
+   "name",
+   "ident"
+  ],
+  "ShowProviderFormulaResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "formula_ref",
+   "formula",
+   "reason",
+   "exit_code"
+  ],
+  "StartNamedWorkRequest": [
+   "correlation_id",
+   "source_refs",
+   "work_ref",
+   "formula_ref",
+   "molecule_ref",
+   "root",
+   "title",
+   "description",
+   "quiet",
+   "tracker",
+   "priority",
+   "parent",
+   "json",
+   "etags"
+  ],
+  "StartNamedWorkResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "work_ref",
+   "surfaced",
+   "exit_code",
+   "item",
+   "reason"
+  ],
+  "StepClaim": [
+   "statement",
+   "slots"
+  ],
+  "TeachTheConventionsRequest": [
+   "correlation_id",
+   "source_refs"
+  ],
+  "TeachTheConventionsResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "text",
+   "exit_code"
+  ],
+  "TrackerActor": [
+   "name",
+   "id",
+   "verified"
+  ],
+  "TrackerCheckResult": [
+   "operation",
+   "status",
+   "detail"
+  ],
+  "TrackerInfo": [
+   "name",
+   "version",
+   "interface",
+   "origin",
+   "source",
+   "native_needs",
+   "check_target",
+   "extras"
+  ],
+  "TrackerItem": [
+   "id",
+   "title",
+   "kind",
+   "status",
+   "priority",
+   "parent",
+   "reason",
+   "needs",
+   "created_at",
+   "updated_at",
+   "assignee",
+   "description",
+   "verify_using",
+   "step",
+   "claim",
+   "run",
+   "values",
+   "etag"
+  ],
+  "TurnMetricsOffRequest": [
+   "correlation_id",
+   "source_refs",
+   "repository_ref",
+   "tracker",
+   "root"
+  ],
+  "TurnMetricsOffResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "turned_off",
+   "exit_code",
+   "path"
+  ],
+  "UndoEarlierAdoptionRequest": [
+   "correlation_id",
+   "source_refs",
+   "repository_ref",
+   "root",
+   "tracker",
+   "apply"
+  ],
+  "UndoEarlierAdoptionResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "pending",
+   "undone",
+   "command",
+   "workspace",
+   "adopted",
+   "hooks_replaced",
+   "exit_code",
+   "tracker"
+  ],
+  "UseTrackerRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_adapter_ref",
+   "repository_ref",
+   "tracker_ref",
+   "root",
+   "name"
+  ],
+  "UseTrackerResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "name",
+   "reason",
+   "actor",
+   "exit_code",
+   "previous"
+  ],
+  "WriteAProcedureDownRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "title",
+   "directory",
+   "from_ref",
+   "text",
+   "path",
+   "tracker"
+  ],
+  "WriteAProcedureDownResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "command",
+   "problems",
+   "path",
+   "exit_code"
+  ],
+  "WriteFormulaRequest": [
+   "correlation_id",
+   "source_refs",
+   "formula_ref",
+   "root",
+   "title",
+   "directory",
+   "from_ref",
+   "tracker"
+  ],
+  "WriteFormulaResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "path",
+   "seeded",
+   "steps_from",
+   "left",
+   "reason",
+   "exit_code"
+  ],
+  "WriteTrackerRequest": [
+   "correlation_id",
+   "source_refs",
+   "tracker_adapter_ref",
+   "name",
+   "directory"
+  ],
+  "WriteTrackerResponse": [
+   "status",
+   "summary",
+   "result_refs",
+   "open_question_refs",
+   "path",
+   "reason",
+   "exit_code"
+  ]
+ },
+ "release": "4.1.0"
+}

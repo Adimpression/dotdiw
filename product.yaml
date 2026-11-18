@@ -596,6 +596,45 @@ promiseChanges:
       A client reads in one call and writes in a later one, and another may
       change the work in between; a write on what no longer is overwrites
       that change or leaves the work inconsistent.
+  - changeId: change.beads-records-claim-values
+    summary: >
+      From 4.2.0, a claim's values are recorded under beads too, on the
+      step's own issue, in one write that touches no other key the issue
+      holds. bd reads an id it holds no more as the one issue whose id
+      begins with it, so a step deleted as that write runs may have its
+      values written to that issue instead; the write then fails naming it,
+      as an update and a close under beads do.
+    compatibility: additive
+    rationale: >
+      Under beads a claim recorded nothing, so a run poured there could not
+      fill the means to prove it from what its steps found.
+  - changeId: change.a-step-calls-a-formula
+    summary: >
+      From 4.2.0, a formula's step may call one formula instead of repeating
+      its steps: the pour pours that formula's steps within the calling
+      step, in the same run, so that the whole job is one run under one
+      root. Each call is an instance named by its calling step's item, which
+      every item poured within it keeps, wherever it is moved; claims and the
+      means to prove bind to it and the step id, and a run read back gives
+      each call its own. The calling step's needs hold back its call, to any
+      depth; it needs every item within it, a need no update takes off, and
+      closes, through dotdiw, once they and its needs are done, whichever is
+      last, up to the root. Every call is resolved
+      before anything is written, and what was resolved is poured; a missing
+      or ambiguous reference, calls that go round, and a calling step that
+      declares a claim are refused, naming the step and the reference. The
+      tracker interface stays 4: an adapter says it pours calls, and the
+      local tracker, beads and Jira do. A pour of calls is whole or leaves
+      its root and calling steps unable to complete: the local tracker
+      writes it at once, and beads and Jira hold it on a guard that only
+      the pour closes and nothing else writes, and give nothing of it ready
+      until then.
+    compatibility: additive
+    rationale: >
+      A team reuses a procedure another team keeps without copying its
+      steps, which would then drift from the procedure they copied, and the
+      job stays one run, whose completion and means to prove cover all of
+      it.
 openQuestions:
   - questionId: question.hundreds-of-formulas
     question: >

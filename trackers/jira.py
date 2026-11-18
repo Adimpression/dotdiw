@@ -509,7 +509,8 @@ def record(issue: dict[str, Any]) -> Record:
     """An issue as the interface's record."""
     f = issue.get("fields") or {}
     labels = f.get("labels") or []
-    kind = "root" if "root" in labels else "task"
+    own = (issue.get("properties") or {}).get(PROPERTY) or {}
+    kind = "guard" if own.get("kind") == "guard" else "root" if "root" in labels else "task"
     status = CATEGORIES.get(
         ((f.get("status") or {}).get("statusCategory") or {}).get("key") or "", "open"
     )
@@ -554,13 +555,15 @@ def record(issue: dict[str, Any]) -> Record:
         out["description"] = description
     if means:
         out["verifyUsing"] = means
-    own = (issue.get("properties") or {}).get(PROPERTY) or {}
     if isinstance(own.get("step"), str):
         out["step"] = own["step"]
     if isinstance(own.get("claim"), dict):
         out["claim"] = own["claim"]
-    if isinstance(own.get("run"), str):
-        out["run"] = own["run"]
+    for name in ("run", "within", "calls", "guard"):
+        if isinstance(own.get(name), str):
+            out[name] = own[name]
+    if own.get("whole") is True:
+        out["whole"] = True
     values = written(issue.get("properties") or {})
     if values:
         out["values"] = values
@@ -769,23 +772,42 @@ def move_to(key: str, issue: dict[str, Any], category: str) -> bool:
 
 
 def in_order(steps: list[Any]) -> list[Any]:
-    """The steps each after those it needs, otherwise as declared. A need
+    """The steps each after those it needs and the calling step it stands
+    within, otherwise as declared; steps are named by key where they have
+    one, and steps under keys keep the order given where it is one. A need
     naming no step raises LookupError, and a cycle ValueError."""
-    known = {s["id"] for s in steps}
+
+    def name(s: Any) -> str:
+        return str(s.get("key") or s["id"])
+
+    def waits(s: Any) -> list[str]:
+        return [str(n) for n in s.get("needs") or []] + (
+            [str(s["within"])] if s.get("within") else []
+        )
+
+    known = {name(s) for s in steps}
     for s in steps:
-        for need in s.get("needs") or []:
+        for need in waits(s):
             if need not in known:
-                raise LookupError("%s needs %s, which is not a step." % (s["id"], need))
+                raise LookupError("%s needs %s, which is not a step." % (name(s), need))
+    if any(s.get("key") for s in steps):
+        seen: set[str] = set()
+        for s in steps:
+            if not all(n in seen for n in waits(s)):
+                break
+            seen.add(name(s))
+        else:
+            return list(steps)
     order: list[Any] = []
     placed: set[str] = set()
     left = list(steps)
     while left:
-        ready = [s for s in left if all(n in placed for n in s.get("needs") or [])]
+        ready = [s for s in left if all(n in placed for n in waits(s))]
         if not ready:
-            raise ValueError("A cycle among the steps: %s." % ", ".join(s["id"] for s in left))
+            raise ValueError("A cycle among the steps: %s." % ", ".join(name(s) for s in left))
         order.extend(ready)
-        placed.update(s["id"] for s in ready)
-        left = [s for s in left if s["id"] not in placed]
+        placed.update(name(s) for s in ready)
+        left = [s for s in left if name(s) not in placed]
     return order
 
 
@@ -898,6 +920,7 @@ def jira_describe(request: Request) -> Response:
             "version": version,
             "origin": "loaded",
             "nativeNeeds": True,
+            "nests": True,
             "checkTarget": os.environ.get("JIRA_CHECK_PROJECT"),
             "extras": [],
         },
@@ -944,7 +967,9 @@ def make(request: Request, root: bool = False) -> tuple[Response, str | None]:
         return failed(e), None
     key = made["key"]
     wrote(request.get("root"), key, request.get("parent"), request.get("run"))
-    kept: dict[str, Any] = {k: request[k] for k in ("step", "claim", "run") if request.get(k)}
+    kept: dict[str, Any] = {
+        k: request[k] for k in ("step", "claim", "run", "within", "calls") if request.get(k)
+    }
     values = list(request.get("values") or [])
     if values:
         kept["values"] = True  # so that a search's issue is read again whole (full)
@@ -980,12 +1005,14 @@ def jira_create(request: Request) -> Response:
     fails once Jira made the issue names it (madeId), so that a move holds it
     as made and finishes it, rather than make a second."""
     run_root: dict[str, Any] | None = None
-    if config() is not None and (request.get("parent") or request.get("run")):
+    if config() is not None and (
+        request.get("parent") or request.get("run") or request.get("within")
+    ):
         project, refused = opened(request.get("root"))
         if refused or not project:
             return refused or dict(NO_WORKSPACE)
         try:
-            for field in ("parent", "run"):
+            for field in ("parent", "run", "within"):
                 above = fetch_here(request[field], project) if request.get(field) else None
                 if request.get(field) and above is None:
                     return {
@@ -1001,6 +1028,23 @@ def jira_create(request: Request) -> Response:
         except JiraError as e:
             return failed(e)
     out, key = make(request)
+    if out["status"] == "completed" and key is not None and request.get("within"):
+        # The calling step needs what is poured within it; the issue is read
+        # back with that need, and a failure of either still names it made.
+        edge = linked_to({"root": request.get("root"), "id": request["within"], "needs": key}, True)
+        if edge["status"] != "completed":
+            out = dict(
+                edge, summary="Jira made %s and could not link it: %s" % (key, edge["summary"])
+            )
+        else:
+            try:
+                out = dict(out, item=record(held(key)))
+            except JiraError as e:
+                said = failed(e)
+                out = dict(
+                    said,
+                    summary="Jira made %s and could not read it back: %s" % (key, said["summary"]),
+                )
     if out["status"] != "completed" and key is not None:
         out = dict(out, madeId=key)
     if out["status"] == "completed" and run_root is not None:
@@ -1053,7 +1097,16 @@ def reaches(
             continue
         fetched = fetch(key)
         now = record(fetched) if fetched is not None else None
-        if unsure and now is not None and via not in (now.get("parent"), now.get("run")):
+        if (
+            unsure
+            and now is not None
+            and via
+            not in (
+                now.get("parent"),
+                now.get("run"),
+                now.get("within"),
+            )
+        ):
             continue  # under it no more, as blockers() reads it
         if key == target:
             return True
@@ -1064,6 +1117,7 @@ def reaches(
         if key == target:
             return True
         needs = [n for n in now["needs"] if key != start or n.upper() not in left_off]
+        needs += [now["guard"]] if now.get("guard") else []
         children = {i["key"] for i in search("parent = %s" % text(key))} | {
             i["key"] for i in as_they_stand(root, project, [], key)
         }
@@ -1076,6 +1130,14 @@ def reaches(
                 i["key"]
                 for i in whole
                 if ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == key
+            }
+        if now.get("calls"):
+            if whole is None:
+                whole = as_they_stand(root, project, search("project = %s" % text(project)))
+            poured |= {
+                i["key"]
+                for i in whole
+                if ((i.get("properties") or {}).get(PROPERTY) or {}).get("within") == key
             }
         todo.extend([(n, None) for n in needs] + [(c, key) for c in sorted(children | poured)])
     return False
@@ -1151,15 +1213,16 @@ def jira_pour(request: Request) -> Response:
         }
     seen: set[str] = set()
     for s in steps:
-        if s["id"] in seen:
+        named = str(s.get("key") or s["id"])
+        if named in seen:
             # One id per step comes back, so two steps with one id pour nothing.
             return {
                 "status": "failed",
                 "reason": "duplicate-step",
                 "exitCode": 1,
-                "summary": "Two steps share the id %s, so nothing was poured." % s["id"],
+                "summary": "Two steps share the id %s, so nothing was poured." % named,
             }
-        seen.add(s["id"])
+        seen.add(named)
     try:
         ordered = in_order(steps)
     except LookupError as e:
@@ -1167,6 +1230,8 @@ def jira_pour(request: Request) -> Response:
     except ValueError as e:
         return {"status": "failed", "reason": "cycle", "exitCode": 1, "summary": str(e)}
     root = request.get("root")
+    if any(s.get("within") or s.get("calls") for s in steps):
+        return pour_guarded(request, steps, ordered)
     made, root_id = make(
         {
             "root": root,
@@ -1238,8 +1303,243 @@ def jira_pour(request: Request) -> Response:
     }
 
 
+def made_at_once(checkout: str | None, fields: dict[str, Any], own: dict[str, Any]) -> str:
+    """One issue made by one write: its fields and the adapter's property
+    together in the create, so that what holds it -- the guard it names --
+    holds it from the moment Jira has made it; its key. Jira takes no more
+    than one link in a create, so a need is written after it, by itself."""
+    body: dict[str, Any] = {"fields": fields, "properties": [{"key": PROPERTY, "value": own}]}
+    above = [own.get("run"), own.get("within")] + [(fields.get("parent") or {}).get("key")]
+    made = call("POST", "/rest/api/3/issue", body)
+    key = str(made["key"])
+    wrote(checkout, key, *above)
+    return key
+
+
+# What the core says of these, as an adapter of its own says it.
+GUARD_HELD = (
+    "%s is a pour's guard: only the pour that made it closes it, and nothing else writes it."
+)
+CALL_NEED_HELD = (
+    "%s needs %s, which was poured within it: a calling step needs every item of its "
+    "call, and that need is not taken off."
+)
+
+
+class LinkRefused(Exception):
+    """A need a guarded pour asked for and did not get, in Jira's words."""
+
+
+def pour_guarded(request: Request, steps: list[Any], ordered: list[Any]) -> Response:
+    """A pour of steps that call a formula, which Jira cannot write at once,
+    held on a guard until it is whole, one write at a time:
+
+    1. the guard: a task labelled blocked, under no parent -- outside the
+       root's epic -- its property saying it is a guard;
+    2. the root, an Epic labelled root, its property naming the guard;
+    3. the guard's property given the root's run;
+    4. each step, in the order given, under the root, made by one create
+       with its property -- its step, its claim, its run, the calling step
+       it stands within, and, for a calling step, the formula it calls and
+       the guard -- and then, a Blocks link each, as add-need writes one,
+       its needs and its calling step's need of it, since Jira takes no
+       more than one link in a create;
+    5. the guard closed, by its transition alone.
+
+    Stopped after any of them, nothing it made can complete: the root and
+    every calling step name the guard from the create that made each, a
+    close of one is refused while its guard stands open (blockers), a
+    guard's close is refused, and nothing closes one in the wake of another
+    close; and nothing of the pour is given ready while the guard stands
+    open (jira_ready), so a step made before its needs are linked is no
+    work yet. A pour that fails part of the way names the guard, the root
+    and the steps it made, in the order given."""
+    checkout = request.get("root")
+    project, refused = opened(checkout)
+    if refused or not project:
+        return refused or dict(NO_WORKSPACE)
+    ref = request.get("formulaRef") or request["title"]
+    guard: str | None = None
+    root_id: str | None = None
+    ids: dict[str, str] = {}
+
+    def named(s: Any) -> str:
+        return str(s.get("key") or s["id"])
+
+    def task(title: str, labels: list[str], **more: Any) -> dict[str, Any]:
+        fields = {
+            "project": {"key": project},
+            "summary": title,
+            "issuetype": {"name": "Task"},
+            "priority": {"name": PRIORITIES[2]},
+            "labels": labels,
+        }
+        fields.update(more)
+        return fields
+
+    try:
+        guard = made_at_once(checkout, task("Pour of %s" % ref, ["blocked"]), {"kind": "guard"})
+        fields = task(request["title"], ["root"], issuetype={"name": "Epic"})
+        described = keep_verify_using(
+            request.get("description"), list(request.get("verifyUsing") or [])
+        )
+        if described:
+            fields["description"] = adf(described)
+        root_id = made_at_once(checkout, fields, {"guard": guard})
+        call("PUT", of(guard, "properties", PROPERTY), {"kind": "guard", "run": root_id})
+        wrote(checkout, guard, root_id)
+        for s in ordered:
+            own: dict[str, Any] = {"step": s["id"], "run": root_id}
+            if s.get("claim"):
+                own["claim"] = s["claim"]
+            more: dict[str, Any] = {"parent": {"key": root_id}}
+            if s.get("calls"):
+                own["calls"] = s["calls"]
+                own["guard"] = guard
+                described = keep_verify_using(
+                    s.get("description"), list(s.get("verifyUsing") or [])
+                )
+                if described:
+                    more["description"] = adf(described)
+            if s.get("within"):
+                own["within"] = ids[str(s["within"])]
+            made = made_at_once(checkout, task(s["title"], [], **more), own)
+            ids[named(s)] = made
+            # Each need, then the calling step's need of it, a link each: the
+            # writes add-need makes.
+            edges = [(made, ids[str(n)]) for n in s.get("needs") or []]
+            if s.get("within"):
+                edges.append((own["within"], made))
+            for waiter, needed in edges:
+                edge = linked_to({"root": checkout, "id": waiter, "needs": needed}, fresh=True)
+                if edge["status"] != "completed":
+                    raise LinkRefused(edge["summary"])
+        # The root marked whole: so a guard Jira no longer holds -- deleted,
+        # as old done issues are, once it closed -- holds nothing of the run.
+        wrote(checkout, root_id)
+        call("PUT", of(root_id, "properties", PROPERTY), {"guard": guard, "whole": True})
+        # Closed by the transition alone: a reason is a comment, a write of
+        # its own, which could fail once the guard was closed.
+        if not close_one(guard, None):
+            raise JiraError(0, "the guard %s has no transition to done" % guard)
+    except (JiraError, LinkRefused) as e:
+        said = failed(e)["summary"] if isinstance(e, JiraError) else str(e)
+        done = [ids[named(x)] for x in steps if named(x) in ids]
+        out: Response = {
+            "status": "failed",
+            "reason": "adapter-failed",
+            "exitCode": 1,
+            "stepIds": done,
+            "summary": "Poured %d of %d steps%s%s, and the next write failed: %s"
+            % (
+                len(done),
+                len(steps),
+                " under %s" % root_id if root_id else ", no root made",
+                " (%s)" % ", ".join(done) if done else "",
+                said,
+            ),
+        }
+        if root_id:
+            out["rootId"] = root_id
+        if guard:
+            out["guardId"] = guard
+        return out
+    return {
+        "status": "completed",
+        "summary": "Poured %d steps under %s." % (len(ids), root_id),
+        "rootId": root_id,
+        "stepIds": [ids[named(s)] for s in steps],
+        "exitCode": 0,
+    }
+
+
+def pours_held(every: dict[str, Record]) -> dict[str, dict[str, Any]]:
+    """Each pour not known to be whole, by its guard, of every issue listed
+    (by key), as dotdiw tells one: a guard is an issue that reads as one, or
+    a key an issue names as its guard; its pour's roots are each namer's
+    run, or the namer itself where it names none, and the guard's own run.
+    A guard that stands open and reads as one holds its run whatever its
+    roots read; otherwise a root that reads whole -- marked so once every
+    issue and link was made -- holds nothing, and nor does a root no longer
+    listed. With a root listed that does not read whole, the pour
+    holds unless its guard reads closed: listed so, or read so by its key,
+    which only then is read. One no lookup finds holds; one Jira would not
+    answer holds, and what it said is kept (unread). What it holds: the
+    guard, every namer, every issue of its roots' runs and the roots."""
+    named: dict[str, list[str]] = {}
+    for k, o in every.items():
+        g = o.get("guard")
+        if isinstance(g, str) and g:
+            named.setdefault(g, []).append(k)
+    out: dict[str, dict[str, Any]] = {}
+    for g in sorted({k for k, o in every.items() if o["kind"] == "guard"} | set(named)):
+        namers = sorted(named.get(g, []))
+        listed = every.get(g)
+        roots = {str(every[n].get("run") or n) for n in namers}
+        if listed is not None and isinstance(listed.get("run"), str) and listed["run"]:
+            roots.add(str(listed["run"]))
+        standing = listed is not None and listed["kind"] == "guard" and listed["status"] != "closed"
+        live = [r for r in roots if r in every and every[r].get("whole") is not True]
+        if not live and not (standing and roots):
+            continue
+        unread: str | None = None
+        if listed is not None:
+            if listed["status"] == "closed":
+                continue
+        else:
+            try:
+                issue = fetch(g)
+            except JiraError as e:
+                issue, unread = None, str(failed(e)["summary"])
+            if issue is not None and record(issue)["status"] == "closed":
+                continue
+        runs = [k for k, o in every.items() if k in roots or o.get("run") in roots]
+        out[g] = {
+            "guard": g,
+            "roots": sorted(roots),
+            "namers": namers,
+            "holds": sorted({g, *namers, *runs}),
+            "unread": unread,
+        }
+    return out
+
+
+def whole_by_its_run(guard: Record) -> bool:
+    """Whether a guard's pour is known to be whole: the root of the run the
+    guard was given, read by its key -- never as a search has it, which may
+    be without the root, or without its mark -- reads whole. A guard given
+    no run yet stopped before its root could be known, and is not."""
+    run = guard.get("run")
+    if not isinstance(run, str) or not run:
+        return False
+    fetched = fetch(run)
+    return fetched is not None and record(fetched).get("whole") is True
+
+
+def guarded_still(guard: Record, namers: list[Record]) -> bool:
+    """Whether the pour a guard holds is not known to be whole (pours_held),
+    given the guard and the open issues that name it: some root of it --
+    each namer's run, or the namer itself, and the guard's own run -- that
+    is not read by its key as whole: no lookup reads it -- deleted, or not
+    the token's to see, which Jira's 404 does not tell apart -- or it reads
+    otherwise."""
+    roots = {str(n.get("run") or n["id"]) for n in namers}
+    if isinstance(guard.get("run"), str) and guard["run"]:
+        roots.add(guard["run"])
+    for k in sorted(roots):
+        fetched = fetch(k)
+        if fetched is None or record(fetched).get("whole") is not True:
+            return True
+    return False
+
+
 def blockers(
-    root: str | None, project: str, key: str, item: Record, first: bool = False
+    root: str | None,
+    project: str,
+    key: str,
+    item: Record,
+    first: bool = False,
+    namers: list[Record] | None = None,
 ) -> list[str]:
     """Open needs, then open children, then the open issues poured in its run,
     wherever they stand, of an issue: its needs and its children in whichever
@@ -1259,14 +1559,60 @@ def blockers(
     out = []
     for n in item["needs"]:
         issue = fetch(n)
-        if issue is None or record(issue)["status"] != "closed":
+        if (issue is None or record(issue)["status"] != "closed") and n not in out:
             out.append(n)
+    # A root, or a calling step, waits on its guard -- its own, its run
+    # root's, and any guard of its run: one that stands open and reads as a
+    # guard, whatever the root reads, as bd's own edges hold it; and, while
+    # the run's root is not known to be whole, one no lookup reads or that no
+    # longer reads as a guard. A root no lookup reads that a search still
+    # lists open is not gone: Jira's 404 does not tell a deleted issue from
+    # one no longer the token's to see.
+    rows: list[dict[str, Any]] = search(
+        "project = %s AND statusCategory != Done ORDER BY created ASC" % text(project)
+    )
+    run_key = str(item.get("run") or key)
+    guards: list[str] = []
+    live = False
+    if item["kind"] == "root" or item.get("calls") or item.get("guard"):
+        run_root: Record | None = item
+        if run_key != key:
+            fetched = fetch(run_key)
+            run_root = record(fetched) if fetched is not None else None
+        live = (
+            run_root.get("whole") is not True
+            if run_root is not None
+            else run_key in {r["key"] for r in rows}
+        )
+        guards = [
+            g
+            for g in (item.get("guard"), (run_root or {}).get("guard"))
+            if isinstance(g, str) and g
+        ]
+        guards += [
+            r["key"]
+            for r in rows
+            if ((r.get("properties") or {}).get(PROPERTY) or {}).get("kind") == "guard"
+            and ((r.get("properties") or {}).get(PROPERTY) or {}).get("run") == run_key
+        ]
+    for g in dict.fromkeys(guards):
+        issue = fetch(g)
+        if issue is None:
+            holds = live
+        else:
+            as_read = record(issue)
+            holds = as_read["status"] != "closed" and (as_read["kind"] == "guard" or live)
+        if holds and g not in out:
+            out.append(g)
     if first and out:
         return out[:1]
     found = {i["key"]: record(i) for i in search("parent = %s ORDER BY created ASC" % text(key))}
-    for i in search("project = %s AND statusCategory != Done ORDER BY created ASC" % text(project)):
-        if ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == key:
+    for i in rows:
+        own = (i.get("properties") or {}).get(PROPERTY) or {}
+        if key in (own.get("run"), own.get("within")):
             found.setdefault(i["key"], record(i))
+        if namers is not None and own.get("guard") == key:
+            namers.append(record(i))
     again = [
         k for k, above in written_lately(root).items() if k != key and (key in above or k in found)
     ]
@@ -1282,7 +1628,7 @@ def blockers(
                 return [k]
             continue  # open as the search has it, unread: it holds the close
         now = record(fresh) if fresh is not None else None
-        if now is None or key not in (now.get("parent"), now.get("run")):
+        if now is None or key not in (now.get("parent"), now.get("run"), now.get("within")):
             found.pop(k, None)
             continue
         found[k] = now
@@ -1290,7 +1636,7 @@ def blockers(
             return [k]
     under = sorted(found.values(), key=lambda r: (r.get("createdAt") or "", r["id"]))
     children = [r for r in under if r.get("parent") == key]
-    poured = [r for r in under if r.get("run") == key]
+    poured = [r for r in under if key in (r.get("run"), r.get("within"))]
     for c in children + poured:
         if c["status"] != "closed" and c["id"] not in out:
             out.append(c["id"])
@@ -1367,21 +1713,55 @@ def in_the_wake(
     only one that has stood open since before the close, as a close cut
     short leaves it, moved between open statuses or not, is closed in its
     wake."""
+    closed: list[str] = []
+    todo = [item]
+    while todo:
+        at = todo.pop(0)
+        for root in above_in_the_wake(checkout, project, at, keep, since, closed):
+            closed.append(root["id"])
+            todo.append(root)
+        since = None  # what closes in the wake of this close closes now
+    return closed
+
+
+def above_in_the_wake(
+    checkout: str | None,
+    project: str,
+    item: Record,
+    keep: set[str],
+    since: datetime.datetime | None,
+    closed: list[str],
+) -> list[Record]:
+    """What in_the_wake closes one level up from an issue: its poured root,
+    the root of the run it was poured in, the calling step it was poured
+    within, and each calling step that needs it, whose last need it may have
+    been, each closed when nothing of it stands open; the records closed.
+    One that is the parent as well as one of the others is taken for the
+    other."""
+    reached: dict[str, bool] = {}
+    for up, must_be_root in (
+        (item.get("parent"), True),
+        (item.get("run"), False),
+        (item.get("within"), False),
+    ):
+        if up:
+            reached[str(up)] = reached.get(str(up), True) and must_be_root
+    # The issues that need it: Blocks links of which it is the end that blocks.
+    for link in ((held(item["id"]).get("fields") or {}).get("issuelinks")) or []:
+        other = (link.get("outwardIssue") or {}).get("key")
+        if (link.get("type") or {}).get("name") == "Blocks" and other and other not in reached:
+            needing = fetch_here(other, project)
+            if needing is not None and record(needing).get("calls"):
+                reached[str(needing["key"])] = False
     roots = []
-    parent = item.get("parent")
-    if parent:
-        above = fetch_here(parent, project)
-        if above is not None and record(above)["kind"] == "root":
+    for up, must_be_root in reached.items():
+        above = fetch_here(up, project)
+        if above is not None and (not must_be_root or record(above)["kind"] == "root"):
             roots.append(above)
-    run = item.get("run")
-    if run and run != parent:
-        above = fetch_here(run, project)
-        if above is not None:
-            roots.append(above)
-    closed = []
+    shut: list[Record] = []
     for issue in roots:
         root = record(issue)
-        if root["id"] in keep:
+        if root["id"] in keep or root["id"] in closed or root["kind"] == "guard":
             continue  # one to keep open: nothing closes it in the wake of this close
         changed = moment((issue.get("fields") or {}).get("statuscategorychangedate"))
         if (
@@ -1393,10 +1773,10 @@ def in_the_wake(
             continue  # done when the issue was, or since, and opened again: as it stands
         if root["status"] == "closed" or blockers(checkout, project, root["id"], root, True):
             continue
-        wrote(checkout, root["id"], root.get("parent"), root.get("run"))
+        wrote(checkout, root["id"], root.get("parent"), root.get("run"), root.get("within"))
         if close_one(root["id"], "every step closed"):
-            closed.append(root["id"])
-    return closed
+            shut.append(record(held(root["id"])))
+    return shut
 
 
 def jira_close(request: Request) -> Response:
@@ -1417,6 +1797,13 @@ def jira_close(request: Request) -> Response:
             }
         key = issue["key"]  # as Jira gives it, which reads a key in any case
         item = record(issue)
+        if item["kind"] == "guard" and item["status"] == "closed":
+            return {
+                "status": "blocked",
+                "reason": "blocked",
+                "exitCode": 1,
+                "summary": GUARD_HELD % key,
+            }
         checkout = request.get("root")
         keep = set(request.get("keepOpen") or [])
         if item["status"] == "closed":
@@ -1439,7 +1826,23 @@ def jira_close(request: Request) -> Response:
                 "closedIds": after,
                 "exitCode": 0,
             }
-        blocked = blockers(checkout, project, key, item)
+        # A pour's guard -- one that reads as one, or a key an open issue names
+        # as its guard -- closes only where its pour is known to be whole:
+        # the pour's own last write again, the way out of a pour cut short at
+        # its guard's close.
+        namers: list[Record] = []
+        blocked = blockers(checkout, project, key, item, namers=namers)
+        if (
+            not whole_by_its_run(item)
+            if item["kind"] == "guard"
+            else bool(namers) and guarded_still(item, namers)
+        ):
+            return {
+                "status": "blocked",
+                "reason": "blocked",
+                "exitCode": 1,
+                "summary": GUARD_HELD % key,
+            }
         if blocked:
             return {
                 "status": "blocked",
@@ -1448,7 +1851,7 @@ def jira_close(request: Request) -> Response:
                 "exitCode": 1,
                 "summary": "%s is blocked by %s." % (key, ", ".join(blocked)),
             }
-        wrote(checkout, key, item.get("parent"), item.get("run"))
+        wrote(checkout, key, item.get("parent"), item.get("run"), item.get("within"))
         if not close_one(key, request.get("closeReason")):
             return {
                 "status": "failed",
@@ -1612,6 +2015,12 @@ def jira_update(request: Request) -> Response:
             }
         key = issue["key"]  # as Jira gives it, which reads a key in any case
         drop = {str(n).upper() for n in request.get("dropNeeds") or []}
+        if record(issue)["kind"] == "guard":
+            return {"status": "failed", "exitCode": 1, "summary": GUARD_HELD % key}
+        for need in sorted(drop):
+            held_need = fetch(need)
+            if held_need is not None and record(held_need).get("within") == key:
+                return {"status": "failed", "exitCode": 1, "summary": CALL_NEED_HELD % (key, need)}
         if request.get("parent"):
             above = fetch_here(request["parent"], project)
             if above is None:
@@ -1850,14 +2259,29 @@ def jira_ready(request: Request) -> Response:
             status[n] = record(issue)["status"] if issue is not None else "open"
     except JiraError as e:
         return failed(e)
+    # Nothing of a pour not known to be whole is work yet (pours_held): its
+    # guard, the root and the calling steps that name it, and every item of
+    # its run, a step among them perhaps made before its needs were linked.
+    pours = pours_held({i["id"]: i for i in items})
+    held = {k for p in pours.values() for k in p["holds"]}
     ready = [
         i
         for i in items
-        if i["status"] == "open" and not any(status.get(n, "open") != "closed" for n in i["needs"])
+        if i["status"] == "open"
+        and i["kind"] != "guard"
+        and i["id"] not in held
+        and not any(status.get(n, "open") != "closed" for n in i["needs"])
     ]
+    unread = sorted(g for g, p in pours.items() if p["unread"])
     return {
         "status": "completed",
-        "summary": "%d ready." % len(ready),
+        "summary": "%d ready." % len(ready)
+        + (
+            " Left out: what the pour held on %s made, whose guard could not be read."
+            % ", ".join(unread)
+            if unread
+            else ""
+        ),
         "items": ready,
         "exitCode": 0,
     }
@@ -1870,6 +2294,7 @@ TRACKER = {
         "interface": 4,
         "origin": "loaded",
         "nativeNeeds": True,
+        "nests": True,
         "checkTarget": os.environ.get("JIRA_CHECK_PROJECT"),
         "extras": [],
     },
