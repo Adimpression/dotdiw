@@ -426,9 +426,11 @@ owns only what is its own.
 - `carrier.yaml`, `reliant-enactments/` -- who may stand in the product's
   position, and one real occasion of reliance.
 - `poa/product-model.yaml` and `operation-idl.json` -- the governed source and
-  the operation algebra derived from it: fifty-four operations, each traced
+  the operation algebra derived from it: fifty-five operations, each traced
   to a duty, a step and a lawful lifecycle transition, eleven of them the
-  tracker interface an adapter answers. Each step and journey of the model
+  tracker interface an adapter answers. Its gRPC projection is what
+  `dotdiw serve` serves, and `test_promise.py` holds the descriptor served
+  to the proto POA generates, field for field. Each step and journey of the model
   declares, in its operation block, what its operation takes, returns and
   calls, and the tracker and git commands it runs. `poa derive` writes the
   IDL from the model, and `poa/complete-idl.py` writes in what derive leaves
@@ -556,7 +558,7 @@ chosen or not, turns its anonymous usage metrics off before asking it anything,
 `metrics.disabled: true` in `~/.config/bd/config.yaml`, per machine, the one
 thing dotdiw changes outside `~/.dotdiw`, said the first time. The store dotdiw brings has no
 metrics and no commands beyond the tracker's own, `list`, `ready`, `show`,
-`close`, `update` and `dep add`; `--help` prints what bare `dotdiw` prints,
+`close`, `update`, `dep add` and `dep remove`; `--help` prints what bare `dotdiw` prints,
 and anything else it refuses by name.
 
 A tracker not built into dotdiw is one file, `<name>.py`, exposing a table,
@@ -637,6 +639,145 @@ the `bin/` dotdiw runs from, where a package named
 [`formula-providers/README.md`](formula-providers/README.md) says how to write
 one.
 
+## Other clients, over gRPC
+
+Anything that is not a terminal -- a service, an agent platform, another
+tool -- reaches the same operations over gRPC:
+
+```bash
+dotdiw serve                          # on 127.0.0.1:50051
+dotdiw serve --address 127.0.0.1:0    # on any free port; the line it prints names it
+```
+
+The service is POA's projection of `operation-idl.json`,
+`workflow.discovery.dotdiw.v0.DotdiwOperations`: one method for every
+operation with a body that is not internal-only. A client is generated from
+the proto `poa generate grpc` writes. `serve` needs grpcio and protobuf;
+nothing else in dotdiw does.
+
+Clients call at once, and one may change an item between another's read and
+its write. So every item a read answers carries an ETag, a digest of the item
+as the tracker holds it, the same through `show`, `list` and `ready`; and a
+run read back carries one over every item poured in it. A write gives back,
+in `etags`, the ETags it rests on, and takes effect only if each still
+matches. Otherwise nothing is written and the call fails with `ABORTED`, as
+AIP-154 has it, and the client reads again and decides again. The compare and
+the write are one step, under the lock of the store the write goes to: a
+checkout's workspace holds the store of the local tracker and of beads, so
+the lock is the workspace's; a tracker loaded from a file may keep its store
+where other checkouts reach it -- every checkout adopted on one Jira project
+does -- so its lock is one that every checkout under the same dotdiw home
+(`~/.dotdiw`) shares, the home being where the tracker's name means that
+adapter. Each request finds the checkout's tracker afresh -- its choice, or,
+where it has made none, the one tracker holding a store in its workspace --
+and keeps it for its length: a write's lock, its compare, its write and what
+it reads back all go to one tracker, even if the checkout switches meanwhile
+or a move makes another store, and a running `dotdiw serve` follows a switch
+made on the command line from its next request. Nothing
+is held between two calls, so a client that fails between them leaves
+nothing behind. A write given no ETags is unconditional, as on the command
+line, though a create under a parent and a pour still take the lock, as a
+close does, and under beads so do `q` and `reopen` passed through, so that
+a close cannot find nothing open under an item while work is being made or
+reopened under it. `init` brings a store an earlier version made
+up to date under the lock too, since that rewrites items, and their ETags
+with them. One move of a workspace runs at a time, so two at once make nothing
+twice; it reads the source whole under the source's lock, letting go of it
+before it writes, so it never reads a pour half made, its steps without their
+needs; and it writes the target under the target's lock from its first write
+there to its last, as a pour does, so a step it made is never closed before
+it waits on what it needs. A move that stops part way leaves what it made
+unfinished -- an item the target made and could not read back included, which
+the next run finishes rather than make again -- and until the move runs again,
+in the checkout it ran in, and finishes it, nothing closes any of that through
+dotdiw or lists it as ready, `dotdiw ready` under beads included, and no move
+from that tracker runs, since it would read that half made -- from this
+checkout, or, under a tracker loaded from a file, from any checkout under the
+home on the same store; another Jira site's project of the same key is no part
+of it, nor is another project, whose checkouts reach none of this one's issues.
+An item the move made and has not finished that the target then says it
+holds none of stays made too, since Jira says so of an issue its caller
+cannot see: the next run writes nothing more until it can be read, or until
+`dotdiw tracker migrate <from> <to> --deleted <id>` says it was deleted,
+which makes it again, finished or not; what waited on it or stood under it
+is written again to the new one, and only what the move made in its run
+must be deleted and named too, which the run says. Nothing but the move
+closes what it has not finished, by name or in the wake of another close: a
+root left with nothing open by the close of its last step stays open while
+the move holds it. What the move does not
+close is finished, and held by nothing, once its needs and status are
+written, so a close the target refuses -- Jira will not close an issue whose
+need is open, nor local one whose child is -- holds only what is to be
+closed, and closing what it waits on there lets the next run through. A
+move takes each item it writes of as the source shows it by its id, and
+reads by id what its listing lacks: while the source shows what it does not
+list, as Jira does for a while after a write, the run writes nothing; what
+it made of an item the source neither lists nor shows stays held; and
+`--source-gone <id>` says the source holds an item no more -- deleted, or
+archived, which Jira shows and lists no more -- which leaves the copy made
+of it as made; a need on it or a place under it is written to that copy,
+or, where the move made none, left out, and said. A need or parent
+the source shows none of, as a Jira issue's in another project, is left out
+too, the move saying which, as is the root of a run. Every command a
+refusal gives names all the run was told, its stores included. While a move
+stands stopped the source may change: the next run brings each item it made
+and has not finished in line with what the source shows now -- a need it
+wrote and a parent the source no longer shows taken off first, so that
+nothing written after makes a cycle; then title, priority, parent, a claim's
+values in the source's order, each need the copy lacks, and a status set back
+to open; a copy closed already stays closed, keeping its close reason -- a
+close cut short is finished with the source's -- and says what only a make
+writes and it kept as made, a close reason it kept, and what the target holds
+that the source does not, as a need written there on a copy the move holds,
+which it keeps. Where the target refuses a write as a cycle that a need it
+keeps closes, the run names that need: `dotdiw dep remove <id> <need>` takes
+one off. The run that finishes the move says what every run since it last
+finished left out, kept or forgot, as the copies then stand. An item gone from
+the source whose copy is deleted in the target too, told both ways, is
+forgotten. The move's own closes leave open what it has yet to close, so a
+run's root keeps its own close reason. A run whose
+target
+names another store than the move wrote to -- `JIRA_SITE` changed, say --
+writes nothing there, and neither does one whose source names another store
+than the move read from, since that store's issues of the same keys are
+other issues. A record written by an earlier dotdiw names no store: a run of
+it writes nothing until `--from-store <store>` or `--to-store <store>` names
+the store the move read from or wrote to, as the run's answer gives it. Under
+Jira an issue is made under a parent, or in a run, of its own project alone,
+and an issue's open children and needs in another project, where a site puts
+them, hold its close; and since Jira's search is without a write for a while
+after it, what was written through this dotdiw home in the last ten minutes
+is read by key wherever a close looks for open children or steps, a cycle
+check for what an issue waits on, or a listing, `ready` or `show` for every
+issue, so a step closed right after its pour leaves its root open and a need
+added a moment ago keeps its issue out of `ready`; a child the search still
+has open that Jira will not show by its key holds its parent's close.
+`ready` reads under the store's lock, so it lists nothing a pour or a move
+is part way through, and waits for one as a close does; so
+does bd's own `ready` under beads. One adoption of
+a checkout runs at a time
+too, whether git was told the checkout's directory through `GIT_DIR` or not,
+and reads the checkout's key and choice again once it runs, so two `init`s
+at once leave the checkout one workspace, and a `tracker use` made while
+`init` looks is not undone. A move opens its target under the same lock, so
+a move to Jira and an `init` naming another project at once leave the
+checkout on one project. Raced on one item by
+sixteen clients, 480 writes lost none with ETags; without them, 452 were lost.
+
+Without a terminal, `list`, `ready` and `show` answer records under every
+adapter, beads included, and a command the tracker runs itself answers with
+its output.
+
+What stays outside: a write made past dotdiw -- bd itself, Jira's own screens,
+or a bd command dotdiw passes through as it is, given no ETags -- can land
+between the compare and the write, and so can one made through dotdiw under
+another home or on another machine, since two homes writing one hosted
+project share no lock and Jira offers no write held to a version. `serve` has no TLS and no authentication,
+and listens on the loopback address unless told otherwise. And proto3 cannot
+tell 0, false or empty text from a field not given, so through gRPC a priority
+of 0 reads as not given -- except a field that a record within the request
+requires, which is read as given: an empty text removes a claim's value.
+
 ## Commands
 
 ```bash
@@ -657,9 +798,10 @@ dotdiw tracker new <name>                    # write the file a tracker of your 
 dotdiw formula provider register <name> <module> [--at <location>]   # serve a provider's formulas under <name>
 dotdiw formula provider list                 # what is registered, and what each answers
 dotdiw formula provider remove <name>        # take a registration away
+dotdiw serve [--address <host:port>]         # the same operations over gRPC, for clients that are not a terminal
 ```
 
-`list`, `ready`, `show`, `close`, `update` and `dep add` are the tracker's,
+`list`, `ready`, `show`, `close`, `update`, `dep add` and `dep remove` are the tracker's,
 answered by whichever one the checkout uses. No task ever requires typing the
 tracker's own name.
 

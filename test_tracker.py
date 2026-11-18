@@ -507,6 +507,69 @@ class AnInterruptedMove(unittest.TestCase):
         )
 
 
+class AMoveShowsEachItemItMakes(unittest.TestCase):
+    """A tracker's listing need not carry an item's description or the means
+    to prove it, so a move shows each item it makes, and writes both as
+    shown."""
+
+    def setUp(self):
+        self.home = tempfile.mkdtemp(prefix="dotdiw-shown-home-")
+        self.repo = tempfile.mkdtemp(prefix="dotdiw-shown-repo-")
+        self.addCleanup(shutil.rmtree, self.home, True)
+        self.addCleanup(shutil.rmtree, self.repo, True)
+        before = {k: os.environ.get(k) for k in ("HOME", "DOTDIW_TRACKER")}
+
+        def restore():
+            for k, v in before.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+        self.addCleanup(restore)
+        os.environ["HOME"] = self.home
+        os.environ.pop("DOTDIW_TRACKER", None)
+        for args in (["init", "-q", "."], ["config", "--local", "dotdiw.workspace", "s" * 16]):
+            subprocess.run(["git"] + args, cwd=self.repo, capture_output=True)
+        os.makedirs(os.path.join(self.home, ".dotdiw", "s" * 16))
+        self.m = load_module("dotdiw_for_shown_moves")
+        self.src, self.dst = Memory("src"), Memory("dst")
+        source, target = self.src.table(), self.dst.table()
+        listed = source["operations"]["operation.list-items"]
+        create = target["operations"]["operation.create-item"]
+        self.asked: list[dict[str, object]] = []
+
+        def brief(request):
+            out = listed(request)
+            kept = [
+                {k: v for k, v in i.items() if k not in ("description", "verifyUsing")}
+                for i in out["items"]
+            ]
+            return dict(out, items=kept)
+
+        def created(request):
+            self.asked.append(dict(request))
+            return create(request)
+
+        source["operations"]["operation.list-items"] = brief
+        target["operations"]["operation.create-item"] = created
+        self.m.register_tracker("src", source)
+        self.m.register_tracker("dst", target)
+
+    def test_the_description_and_the_means_move_as_shown(self):
+        made = self.src.add("Count the plot")
+        self.src.items[made].update(description="Count it.", verifyUsing=["run:make check"])
+        moved = self.m.invoke(
+            "operation.migrate-workspace",
+            {"root": self.repo, "fromTracker": "src", "toTracker": "dst"},
+        )
+        self.assertEqual(moved["status"], "completed", moved)
+        self.assertEqual(
+            [(r["title"], r.get("description"), r.get("verifyUsing")) for r in self.asked],
+            [("Count the plot", "Count it.", ["run:make check"])],
+        )
+
+
 @uses("bd")
 class MovingBetweenAdapters(unittest.TestCase):
     """A workspace's work moves from each adapter present to each other one
