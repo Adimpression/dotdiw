@@ -1183,8 +1183,8 @@ MUTATIONS = [
     (
         "beads answers its own type for a root",
         "dotdiw",
-        '        "kind": "root" if row.get("issue_type") == "molecule" else "task",\n',
-        '        "kind": row.get("issue_type") or "task",\n',
+        '        else "root"\n        if row.get("issue_type") == "molecule"\n        else "task"\n',
+        '        else row.get("issue_type") or "task"\n',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
@@ -1197,8 +1197,8 @@ MUTATIONS = [
     (
         "jira answers a root as an epic",
         "trackers/jira.py",
-        '    kind = "root" if "root" in labels else "task"\n',
-        '    kind = "epic" if "root" in labels else "task"\n',
+        'else "root" if "root" in labels else "task"',
+        'else "epic" if "root" in labels else "task"',
         ["test_jira.py", "TheHostedAdapter.test_it_passes_the_check_from_where_a_package_puts_it"],
     ),
     (
@@ -1303,8 +1303,8 @@ MUTATIONS = [
     (
         "the formula's description is not handed to pour-steps",
         "dotdiw",
-        '            "description": formula.get("desc") or None,\n',
-        '            "description": None,\n',
+        '                description=formula.get("desc") or None,\n',
+        "                description=None,\n",
         [
             "test_dotdiw.py",
             "TheMeansToProveARun.test_a_pour_shows_the_means_and_the_root_keeps_them",
@@ -1313,8 +1313,8 @@ MUTATIONS = [
     (
         "the means are not handed to pour-steps",
         "dotdiw",
-        '                "verifyUsing": list(formula.get("verifyUsing") or []),\n            },\n',
-        '                "verifyUsing": [],\n            },\n',
+        '                verifyUsing=list(formula.get("verifyUsing") or []),\n            ),\n',
+        "                verifyUsing=[],\n            ),\n",
         [
             "test_dotdiw.py",
             "TheMeansToProveARun.test_a_pour_shows_the_means_and_the_root_keeps_them",
@@ -1344,7 +1344,7 @@ MUTATIONS = [
     (
         "beads reads no means back",
         "dotdiw",
-        '    means = (beads_own(row) or {}).get("verifyUsing")\n',
+        '    means = own.get("verifyUsing")\n',
         "    means = None\n",
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
@@ -2140,8 +2140,8 @@ MUTATIONS = [
     (
         "a beads record reads a dotdiw value of the issue's own as its own",
         "dotdiw",
-        '    means = (beads_own(row) or {}).get("verifyUsing")\n',
-        '    means = (beads_metadata(row).get(BEADS_KEY) or {}).get("verifyUsing")\n',
+        '    own = beads_own(row) or {}\n    guard = own.get("guard") if isinstance(own.get("guard"), str) else None\n',
+        '    own = beads_metadata(row).get(BEADS_KEY) or {}\n    guard = own.get("guard") if isinstance(own.get("guard"), str) else None\n',
         [
             "test_dotdiw.py",
             "TheBeadsMetadata.test_a_dotdiw_value_of_the_issues_own_is_left_as_it_is",
@@ -2275,8 +2275,8 @@ MUTATIONS = [
     (
         "local pours steps that share an id",
         "dotdiw",
-        '    it, each needing the steps it names; all or nothing."""\n    steps = list(request.get("steps") or [])\n    if not steps:\n        return {\n            "status": "failed",\n            "reason": "no-steps",\n            "exitCode": 1,\n            "summary": "No steps to pour.",\n        }\n    shared = shared_step_id(steps)\n',
-        '    it, each needing the steps it names; all or nothing."""\n    steps = list(request.get("steps") or [])\n    if not steps:\n        return {\n            "status": "failed",\n            "reason": "no-steps",\n            "exitCode": 1,\n            "summary": "No steps to pour.",\n        }\n    shared = None\n',
+        '    transaction (local_hold_calls)."""\n    steps = list(request.get("steps") or [])\n    if not steps:\n        return {\n            "status": "failed",\n            "reason": "no-steps",\n            "exitCode": 1,\n            "summary": "No steps to pour.",\n        }\n    shared = shared_step_id(steps)\n',
+        '    transaction (local_hold_calls)."""\n    steps = list(request.get("steps") or [])\n    if not steps:\n        return {\n            "status": "failed",\n            "reason": "no-steps",\n            "exitCode": 1,\n            "summary": "No steps to pour.",\n        }\n    shared = None\n',
         ["test_dotdiw.py", "TheLocalAdapter.test_steps_that_share_an_id_pour_nothing"],
     ),
     (
@@ -2319,7 +2319,7 @@ MUTATIONS = [
     (
         "jira pours steps that share an id",
         "trackers/jira.py",
-        '        if s["id"] in seen:\n',
+        "        if named in seen:\n",
         "        if False:\n",
         ["test_jira.py", "TheTable.test_steps_that_share_an_id_pour_nothing"],
     ),
@@ -2373,8 +2373,8 @@ MUTATIONS = [
     (
         "a pour hands the tracker a file",
         "dotdiw",
-        '                "verifyUsing": list(formula.get("verifyUsing") or []),\n            },\n',
-        '                "verifyUsing": list(formula.get("verifyUsing") or []),\n                "path": os.path.join(root, r["path"]) if found else None,\n            },\n',
+        '                verifyUsing=list(formula.get("verifyUsing") or []),\n            ),\n',
+        '                verifyUsing=list(formula.get("verifyUsing") or []),\n                path=os.path.join(root, r["path"]) if found else None,\n            ),\n',
         [
             "test_dotdiw.py",
             "WhatAModuleGetsWrong.test_a_pour_hands_the_tracker_the_formula_and_no_file",
@@ -2383,7 +2383,7 @@ MUTATIONS = [
     (
         "a pour hands the tracker steps that share an id",
         "dotdiw",
-        '    shared = shared_step_id(formula.get("steps") or [])\n',
+        "    shared = shared_step_id(top)\n",
         "    shared = None\n",
         [
             "test_promise.py",
@@ -2793,8 +2793,8 @@ MUTATIONS = [
     (
         "beads pours a step without its claim",
         "dotdiw",
-        '            poured["claim"] = s["claim"]\n',
-        "            pass\n",
+        '        argv = ["create", "--title=" + s["title"], "--parent=" + root_id, "--type=task", "--json"]\n        poured: dict[str, Any] = {"step": s["id"], "run": root_id}\n        if s.get("claim"):\n            poured["claim"] = s["claim"]\n',
+        '        argv = ["create", "--title=" + s["title"], "--parent=" + root_id, "--type=task", "--json"]\n        poured: dict[str, Any] = {"step": s["id"], "run": root_id}\n        if s.get("claim"):\n            pass\n',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
@@ -2814,7 +2814,7 @@ MUTATIONS = [
     (
         "beads creates an item without what a move carries",
         "dotdiw",
-        '    moved = {k: request[k] for k in ("step", "claim", "run") if request.get(k)}\n',
+        '    moved = {k: request[k] for k in ("step", "claim", "run", "within", "calls") if request.get(k)}\n',
         "    moved: dict[str, Any] = {}\n",
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
@@ -3075,8 +3075,8 @@ MUTATIONS = [
     (
         "beads pours a step without its run",
         "dotdiw",
-        '        poured: dict[str, Any] = {"step": s["id"], "run": root_id}\n',
-        '        poured: dict[str, Any] = {"step": s["id"]}\n',
+        '        argv = ["create", "--title=" + s["title"], "--parent=" + root_id, "--type=task", "--json"]\n        poured: dict[str, Any] = {"step": s["id"], "run": root_id}\n',
+        '        argv = ["create", "--title=" + s["title"], "--parent=" + root_id, "--type=task", "--json"]\n        poured: dict[str, Any] = {"step": s["id"]}\n',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
@@ -3089,12 +3089,9 @@ MUTATIONS = [
     (
         "beads puts every value under one key",
         "dotdiw",
-        '            BEADS_VALUE + v["label"].replace("-", "_"): json.dumps(\n',
-        '            BEADS_VALUE + "all": json.dumps(\n',
-        [
-            "test_dotdiw.py",
-            "TheBeadsAdapter.test_a_claims_values_are_declined_and_nothing_is_written",
-        ],
+        '    return BEADS_VALUE + label.replace("-", "_")\n',
+        '    return BEADS_VALUE + "all"\n',
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_claims_values_are_kept_under_keys_of_their_own"],
     ),
     (
         "jira pours a step without its run",
@@ -3106,8 +3103,8 @@ MUTATIONS = [
     (
         "jira reads no run back",
         "trackers/jira.py",
-        '        out["run"] = own["run"]\n',
-        "        pass\n",
+        '    for name in ("run", "within", "calls", "guard"):\n',
+        '    for name in ("within", "calls", "guard"):\n',
         ["test_tracker.py", "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter"],
     ),
     (
@@ -3190,8 +3187,8 @@ MUTATIONS = [
     (
         "migrate writes a step before the root of its run",
         "dotdiw",
-        '            if item["id"] in placed or waits(item, "parent") or waits(item, "run"):\n',
-        '            if item["id"] in placed or waits(item, "parent"):\n',
+        '                    or waits(item, "run")\n                    or waits(item, "within")\n',
+        '                    or waits(item, "within")\n',
         ["test_dotdiw.py", "TheClaimCommand.test_a_move_writes_each_runs_root_before_its_steps"],
     ),
     (
@@ -3207,14 +3204,14 @@ MUTATIONS = [
     (
         "a root closes while a step of its run is open, under local",
         "dotdiw",
-        "            \"SELECT id FROM items WHERE (parent = ? OR run = ?) AND status != 'closed' \"\n",
-        "            \"SELECT id FROM items WHERE (parent = ? OR NULL = ?) AND status != 'closed' \"\n",
+        '    return "(parent = ? OR run = ? OR ? IS NULL)"\n',
+        '    return "(parent = ? OR NULL = ? OR ? IS NULL)"\n',
         ["test_dotdiw.py", "TheClaimCommand.test_a_run_closes_after_every_step_poured_in_it"],
     ),
     (
         "a root closes while a step of its run is open, under beads",
         "dotdiw",
-        '        poured = [i for i, o in before.items() if o.get("run") == ident]\n',
+        '        poured = [i for i, o in before.items() if ident in (o.get("run"), o.get("within"))]\n',
         "        poured = []\n",
         [
             "test_dotdiw.py",
@@ -3224,7 +3221,7 @@ MUTATIONS = [
     (
         "a root closes while a step of its run is open, under jira",
         "trackers/jira.py",
-        '        if ((i.get("properties") or {}).get(PROPERTY) or {}).get("run") == key:\n',
+        '        if key in (own.get("run"), own.get("within")):\n',
         "        if False:\n",
         [
             "test_jira.py",
@@ -3311,7 +3308,7 @@ MUTATIONS = [
     (
         "the pass-through closes a root while a step of its run is open",
         "dotdiw",
-        "                standing = what_stands_open(ident, before[ident], before, earlier)\n",
+        "                standing = what_stands_open(ident, before[ident], before, earlier, held)\n",
         "                standing = []\n",
         [
             "test_dotdiw.py",
@@ -3331,8 +3328,8 @@ MUTATIONS = [
     (
         "what an item waits on leaves out its run",
         "dotdiw",
-        '        for above in (i.get("parent"), i.get("run")):\n',
-        '        for above in (i.get("parent"),):\n',
+        "            for above in stands_under(i):\n",
+        '            for above in (i.get("parent"),):\n',
         [
             "test_dotdiw.py",
             "TheClaimCommand.test_under_beads_no_edge_by_any_name_makes_a_root_wait_on_itself",
@@ -3351,11 +3348,8 @@ MUTATIONS = [
     (
         "local leaves the root of a moved step's run open",
         "dotdiw",
-        '    if run and run != row["parent"]:\n'
-        "        root = local_fetch(conn, run)\n"
-        "        if root:\n"
-        "            above.append(root)\n",
-        "",
+        '        for column in ("run", "within_item"):\n',
+        '        for column in ("within_item",):\n',
         [
             "test_dotdiw.py",
             "TheLocalAdapter.test_the_last_step_closes_the_root_of_its_run_wherever_it_stands",
@@ -3364,7 +3358,7 @@ MUTATIONS = [
     (
         "jira leaves the root of a moved step's run open",
         "trackers/jira.py",
-        "    if run and run != parent:\n        above = fetch_here(run, project)\n        if above is not None:\n            roots.append(above)\n",
+        '        (item.get("run"), False),\n',
         "",
         [
             "test_jira.py",
@@ -3458,8 +3452,8 @@ MUTATIONS = [
     (
         "a forced close passes an open child",
         "dotdiw",
-        '        if i != ident and i not in earlier and ident in (o.get("parent"), o.get("run"))\n',
-        '        if i != ident and i not in earlier and ident == o.get("run")\n',
+        "        if i != ident and i not in earlier and ident in stands_under(o)\n",
+        "        if i != ident and i not in earlier and ident in stands_under(o)[1:]\n",
         ["test_dotdiw.py", "TheClaimCommand.test_under_beads_every_way_of_closing_a_root_is_held"],
     ),
     (
@@ -3472,8 +3466,8 @@ MUTATIONS = [
     (
         "a close runs where the tracker cannot be read",
         "dotdiw",
-        '        elif listed.get("reason") not in TRACKER_CANNOT_ANSWER:\n',
-        "        elif False:\n",
+        '            elif listed.get("reason") not in TRACKER_CANNOT_ANSWER:\n                failed = dict(listed)\n                failed["summary"] = (\n                    "Nothing ran: what the tracker holds open could not be read',
+        '            elif False:\n                failed = dict(listed)\n                failed["summary"] = (\n                    "Nothing ran: what the tracker holds open could not be read',
         [
             "test_dotdiw.py",
             "TheClaimCommand.test_under_beads_a_close_does_not_run_where_the_tracker_cannot_be_read",
@@ -3482,8 +3476,8 @@ MUTATIONS = [
     (
         "a close by another command stands",
         "dotdiw",
-        "        waiting = what_stands_open(ident, now[ident], standing, set())\n        if waiting:\n",
-        "        waiting = what_stands_open(ident, now[ident], standing, set())\n        if False:\n",
+        "        waiting = what_stands_open(ident, now[ident], standing, set(), held)\n        if waiting:\n",
+        "        waiting = what_stands_open(ident, now[ident], standing, set(), held)\n        if False:\n",
         [
             "test_dotdiw.py",
             "TheClaimCommand.test_under_beads_what_a_close_closed_over_an_open_step_is_opened_again",
@@ -3492,7 +3486,7 @@ MUTATIONS = [
     (
         "the pass-through leaves the root of a run open",
         "dotdiw",
-        "    follows = closes_that_follow(common, shut, {**before, **now}, standing, keep)\n",
+        "    follows = closes_that_follow(common, shut, {**before, **now}, standing, keep, held)\n",
         "    follows: list[Response] = []\n",
         [
             "test_dotdiw.py",
@@ -3575,8 +3569,8 @@ MUTATIONS = [
     (
         "local checks a parent before its write",
         "dotdiw",
-        '    try:\n        with local_write(conn):\n            if not local_fetch(conn, ident):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % ident,\n                }\n            drop = [str(n) for n in request.get("dropNeeds") or []]\n            if parent and not local_fetch(conn, parent):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % parent,\n                }\n            # Checked as the item will wait once the needs given to take off\n            # are off, so that a parent that waited on it only through one of\n            # them is no cycle; and nothing written where it is refused.\n            if parent and (parent == ident or parent in local_waiting(conn, ident, drop)):',
-        '    try:\n        early = local_waiting(conn, ident, [str(n) for n in request.get("dropNeeds") or []])\n        with local_write(conn):\n            if not local_fetch(conn, ident):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % ident,\n                }\n            drop = [str(n) for n in request.get("dropNeeds") or []]\n            if parent and not local_fetch(conn, parent):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % parent,\n                }\n            # Checked as the item will wait once the needs given to take off\n            # are off, so that a parent that waited on it only through one of\n            # them is no cycle; and nothing written where it is refused.\n            if parent and (parent == ident or parent in early):',
+        '    try:\n        with local_write(conn):\n            if not local_fetch(conn, ident):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % ident,\n                }\n            drop = [str(n) for n in request.get("dropNeeds") or []]\n            for need in drop:\n                held = local_fetch(conn, need)\n                if held is not None and "within_item" in held.keys():\n                    if held["within_item"] == ident:\n                        return {\n                            "status": "failed",\n                            "exitCode": 1,\n                            "summary": CALL_NEED_HELD % (ident, need),\n                        }\n            if parent and not local_fetch(conn, parent):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % parent,\n                }\n            # Checked as the item will wait once the needs given to take off\n            # are off, so that a parent that waited on it only through one of\n            # them is no cycle; and nothing written where it is refused.\n            if parent and (parent == ident or parent in local_waiting(conn, ident, drop)):\n',
+        '    try:\n        early = local_waiting(conn, ident, [str(n) for n in request.get("dropNeeds") or []])\n        with local_write(conn):\n            if not local_fetch(conn, ident):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % ident,\n                }\n            drop = [str(n) for n in request.get("dropNeeds") or []]\n            for need in drop:\n                held = local_fetch(conn, need)\n                if held is not None and "within_item" in held.keys():\n                    if held["within_item"] == ident:\n                        return {\n                            "status": "failed",\n                            "exitCode": 1,\n                            "summary": CALL_NEED_HELD % (ident, need),\n                        }\n            if parent and not local_fetch(conn, parent):\n                return {\n                    "status": "failed",\n                    "reason": "item-not-found",\n                    "exitCode": 1,\n                    "summary": "%s names no item here." % parent,\n                }\n            # Checked as the item will wait once the needs given to take off\n            # are off, so that a parent that waited on it only through one of\n            # them is no cycle; and nothing written where it is refused.\n            if parent and (parent == ident or parent in early):\n',
         [
             "test_dotdiw.py",
             "TheLocalAdapter.test_a_parent_and_a_need_cannot_close_a_cycle_between_them",
@@ -3900,8 +3894,8 @@ MUTATIONS = [
     (
         "what a typed close closed against the rule is not held as its own close",
         "dotdiw",
-        "        waiting = what_stands_open(ident, now[ident], standing, set())\n        if waiting:\n",
-        "        waiting = what_stands_open(ident, now[ident], standing, set())\n        if False:\n",
+        "        waiting = what_stands_open(ident, now[ident], standing, set(), held)\n        if waiting:\n",
+        "        waiting = what_stands_open(ident, now[ident], standing, set(), held)\n        if False:\n",
         [
             "test_dotdiw.py",
             "TheBeadsAdapter.test_a_step_opened_again_as_its_root_closes_blocks_that_close",
@@ -4674,17 +4668,17 @@ MUTATIONS = [
         '        "operation.record-values", dict(where, id=request["id"], values=values)\n',
         [
             "test_dotdiw.py",
-            "TheClaimCommand.test_under_beads_a_claim_is_declined_and_nothing_is_written",
+            "TheClaimCommand.test_under_beads_a_claim_is_recorded_on_the_step_named",
         ],
     ),
     (
         "a claim reads a deleted root's short id as its step's",
         "dotdiw",
-        "    shown = shown_for_a_word(\n",
-        "    shown = (lambda word, shown: shown)(\n",
+        '        shown = shown_for_a_word(\n            request["id"], invoke_tracker(',
+        '        shown = (lambda word, shown: shown)(\n            request["id"], invoke_tracker(',
         [
             "test_dotdiw.py",
-            "TheClaimCommand.test_under_beads_a_claim_is_declined_and_nothing_is_written",
+            "TheClaimCommand.test_under_beads_a_claim_is_recorded_on_the_step_named",
         ],
     ),
     (
@@ -4802,24 +4796,59 @@ MUTATIONS = [
         ["test_dotdiw.py", "TheBeadsAdapter.test_a_close_bd_answers_and_does_not_make_is_no_close"],
     ),
     (
-        "a claim's values under beads fail as the adapter's fault",
+        "beads writes a claim's values to the item bd shows",
         "dotdiw",
-        '        RecordValuesResponse,\n        "unsupported",\n',
-        '        RecordValuesResponse,\n        "adapter-failed",\n',
+        '    whole = shown_by_its_id(ident, {"status": "completed", "item": found[0]})\n',
+        '    whole = {"status": "completed"}\n',
         [
             "test_dotdiw.py",
-            "TheBeadsAdapter.test_a_claims_values_are_declined_and_nothing_is_written",
+            "TheBeadsAdapter.test_a_claims_values_go_to_no_other_item_than_the_one_named",
         ],
+    ),
+    (
+        "beads takes values bd wrote to another item as recorded",
+        "dotdiw",
+        "        if wrote and ident not in wrote:\n            return failed_as(\n                RecordValuesResponse,\n",
+        "        if False:\n            return failed_as(\n                RecordValuesResponse,\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_claims_values_go_to_no_other_item_than_the_one_named",
+        ],
+    ),
+    (
+        "beads numbers a label new to an item from the start",
+        "dotdiw",
+        "    last = max((n for n, _, _ in held), default=-1)\n",
+        "    last = -1\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_claims_values_are_kept_under_keys_of_their_own"],
+    ),
+    (
+        "beads keeps a label given empty and again in its place",
+        "dotdiw",
+        "    first = {label: n for n, label, _ in held if label not in emptied}\n",
+        "    first = {label: n for n, label, _ in held}\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_claims_values_are_kept_under_keys_of_their_own"],
+    ),
+    (
+        "beads moves a label given again to the end",
+        "dotdiw",
+        '        if v["label"] not in first:\n',
+        "        if True:\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_claims_values_are_kept_under_keys_of_their_own"],
+    ),
+    (
+        "beads keeps a label given empty",
+        "dotdiw",
+        '            flags.append("--unset-metadata=" + key)\n',
+        "            pass\n",
+        ["test_dotdiw.py", "TheBeadsAdapter.test_a_claims_values_are_kept_under_keys_of_their_own"],
     ),
     (
         "a claim the tracker declines is reported as its failure",
         "dotdiw",
         '            if recorded.get("reason") in ("item-not-found", "unsupported")\n',
         '            if recorded.get("reason") in ("item-not-found",)\n',
-        [
-            "test_dotdiw.py",
-            "TheBeadsAdapter.test_a_claims_values_are_declined_and_nothing_is_written",
-        ],
+        ["test_promise.py", "AStepsRun.test_a_tracker_that_records_no_values_says_so"],
     ),
     (
         "a write on a stale read writes anyway",
@@ -4934,8 +4963,8 @@ MUTATIONS = [
     (
         "a command run as it is compares nothing",
         "dotdiw",
-        "                    return refusal(None, [compared])\n            stopped = stopped_here(common) if ready else {}\n",
-        "                    pass\n            stopped = stopped_here(common) if ready else {}\n",
+        "                    return refusal(None, [compared])\n            if reopened or dropped:\n",
+        "                    pass\n            if reopened or dropped:\n",
         [
             "test_dotdiw.py",
             "TheBeadsAdapterHeldToWhatWasRead.test_a_command_passed_through_as_it_is_holds_to_its_etags",
@@ -5634,8 +5663,8 @@ MUTATIONS = [
     (
         "jira closes the root another project's issue stands under",
         "trackers/jira.py",
-        '        above = fetch_here(parent, project)\n        if above is not None and record(above)["kind"] == "root":\n',
-        '        above = fetch(parent)\n        if above is not None and record(above)["kind"] == "root":\n',
+        "        above = fetch_here(up, project)\n        if above is not None and (not must_be_root or",
+        "        above = fetch(up) if must_be_root else fetch_here(up, project)\n        if above is not None and (not must_be_root or",
         [
             "test_jira.py",
             "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
@@ -5644,8 +5673,8 @@ MUTATIONS = [
     (
         "jira closes the root another project's issue was poured in",
         "trackers/jira.py",
-        "        above = fetch_here(run, project)\n        if above is not None:\n            roots.append(above)\n",
-        "        above = fetch(run)\n        if above is not None:\n            roots.append(above)\n",
+        "        above = fetch_here(up, project)\n        if above is not None and (not must_be_root or",
+        "        above = fetch_here(up, project) if must_be_root else fetch(up)\n        if above is not None and (not must_be_root or",
         [
             "test_jira.py",
             "AStoppedMoveHoldsWhatItMade.test_a_checkout_on_another_project_reaches_no_issue_of_this_one",
@@ -5784,7 +5813,7 @@ MUTATIONS = [
     (
         "jira makes an issue in a run of another project",
         "trackers/jira.py",
-        '            for field in ("parent", "run"):\n',
+        '            for field in ("parent", "run", "within"):\n',
         '            for field in ("parent",):\n',
         [
             "test_jira.py",
@@ -5794,7 +5823,7 @@ MUTATIONS = [
     (
         "jira checks no parent a create names",
         "trackers/jira.py",
-        '    if config() is not None and (request.get("parent") or request.get("run")):\n',
+        '    if config() is not None and (\n        request.get("parent") or request.get("run") or request.get("within")\n    ):\n',
         "    if False:\n",
         [
             "test_jira.py",
@@ -6194,7 +6223,7 @@ MUTATIONS = [
     (
         "jira keeps no issue it closes",
         "trackers/jira.py",
-        '        wrote(checkout, key, item.get("parent"), item.get("run"))\n',
+        '        wrote(checkout, key, item.get("parent"), item.get("run"), item.get("within"))\n',
         "",
         [
             "test_jira.py",
@@ -6294,8 +6323,8 @@ MUTATIONS = [
     (
         "local's close closes in its wake what a move holds",
         "dotdiw",
-        '        if item["id"] in keep:\n            continue\n',
-        "",
+        '            if item["id"] in keep or item["id"] in closed:\n',
+        '            if item["id"] in closed:\n',
         [
             "test_jira.py",
             "AStoppedMoveHoldsWhatItMade.test_a_held_root_stays_open_when_an_item_of_its_run_left_as_made_is_closed",
@@ -6344,8 +6373,8 @@ MUTATIONS = [
     (
         "jira's close closes in its wake what a move holds",
         "trackers/jira.py",
-        '        if root["id"] in keep:\n            continue  # one to keep open: nothing closes it in the wake of this close\n',
-        "",
+        '        if root["id"] in keep or root["id"] in closed or root["kind"] == "guard":\n',
+        '        if root["id"] in closed or root["kind"] == "guard":\n',
         [
             "test_jira.py",
             "AStoppedMoveHoldsWhatItMade.test_a_root_held_to_wait_on_an_issue_made_again_stays_open_in_the_wake_of_its_run",
@@ -6354,7 +6383,7 @@ MUTATIONS = [
     (
         "a root the tracker closed of its own accord, held by a move, stays closed",
         "dotdiw",
-        "        if ident in held and ident not in named and ident not in tried:\n",
+        "        if ident in kept and ident not in named and ident not in tried:\n",
         "        if False:\n",
         [
             "test_dotdiw.py",
@@ -6384,8 +6413,8 @@ MUTATIONS = [
     (
         "beads' close reads nothing to keep open",
         "dotdiw",
-        '        [ident], marked or [], before, now, reopen, list(request.get("keepOpen") or [])\n',
-        "        [ident], marked or [], before, now, reopen, []\n",
+        '        list(request.get("keepOpen") or []),\n        closes_held(pours_held(now, lambda g: beads_show',
+        "        [],\n        closes_held(pours_held(now, lambda g: beads_show",
         [
             "test_tracker.py",
             "EveryAdapterPresent.test_the_scenario_passes_on_every_adapter",
@@ -6734,8 +6763,8 @@ MUTATIONS = [
     (
         "bd's close claims the next ready while a move stands",
         "dotdiw",
-        '        if closing_words is not None and any(\n            a.partition("=")[0] in CLOSE_TAKES_THE_NEXT for a in argv\n        ):\n',
-        "        if False:\n",
+        "        if takes_the_next:\n            stopped = stopped_here(common)\n",
+        "        if False:\n            stopped = stopped_here(common)\n",
         [
             "test_dotdiw.py",
             "TheTrackerCommands.test_under_beads_what_a_stopped_move_holds_is_neither_listed_ready_nor_claimed",
@@ -6874,8 +6903,8 @@ MUTATIONS = [
     (
         "bd's own ready decides and runs unheld",
         "dotdiw",
-        "            if etags or ready or named in TRACKER_HELD_AS_IT_IS\n",
-        "            if etags or named in TRACKER_HELD_AS_IT_IS\n",
+        "            if etags or ready or named in TRACKER_HELD_AS_IT_IS or dropped\n",
+        "            if etags or named in TRACKER_HELD_AS_IT_IS or dropped\n",
         [
             "test_dotdiw.py",
             "TheBeadsAdapter.test_bds_own_ready_and_a_move_into_beads_run_one_after_the_other",
@@ -7725,7 +7754,7 @@ MUTATIONS = [
     (
         "jira's cycle check follows a child taken from under it a moment ago",
         "trackers/jira.py",
-        '        if unsure and now is not None and via not in (now.get("parent"), now.get("run")):\n',
+        '        if (\n            unsure\n            and now is not None\n            and via\n            not in (\n                now.get("parent"),\n                now.get("run"),\n                now.get("within"),\n            )\n        ):\n',
         "        if False:\n",
         [
             "test_jira.py",
@@ -7751,6 +7780,927 @@ MUTATIONS = [
             "test_jira.py",
             "AStoppedMoveHoldsWhatItMade.test_a_child_taken_from_under_an_issue_a_moment_ago_closes_no_cycle_through_it",
         ],
+    ),
+    (
+        "a calling step that declares a claim is poured",
+        "dotdiw",
+        '        if s.get("claim"):\n            return [], (\n                "call-with-claim",\n',
+        '        if False:\n            return [], (\n                "call-with-claim",\n',
+        [
+            "test_dotdiw.py",
+            "AStepThatCallsAFormula.test_a_calling_step_that_declares_a_claim_pours_nothing",
+        ],
+    ),
+    (
+        "a call that names no formula is poured",
+        "dotdiw",
+        '        if r["status"] != "completed" or not r.get("formula"):\n',
+        "        if False:\n",
+        ["test_dotdiw.py", "AStepThatCallsAFormula.test_a_reference_to_no_formula_pours_nothing"],
+    ),
+    (
+        "calls that go round are poured",
+        "dotdiw",
+        "        if reached in seen:\n",
+        "        if False:\n",
+        ["test_dotdiw.py", "AStepThatCallsAFormula.test_a_formula_that_calls_itself_pours_nothing"],
+    ),
+    (
+        "a called formula's needs are not read before the pour",
+        "dotdiw",
+        '            steps_in_order(list(body["steps"]))\n',
+        "            pass\n",
+        [
+            "test_dotdiw.py",
+            "AStepThatCallsAFormula.test_a_called_formula_whose_needs_name_no_step_pours_nothing",
+        ],
+    ),
+    (
+        "a pour that calls a formula is asked of a tracker that does not pour calls",
+        "dotdiw",
+        '        if not info.get("nests"):\n',
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "APourThatCallsInProcess.test_a_tracker_that_does_not_pour_calls_is_asked_nothing",
+        ],
+    ),
+    (
+        "a call's steps wait on nothing its calling step needs",
+        "dotdiw",
+        "            if within is not None and not needs:\n                needs = list(gate)\n",
+        "            pass\n",
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderLocal.test_a_calling_steps_needs_hold_back_its_call_at_any_depth",
+        ],
+    ),
+    (
+        "a call within a call waits on nothing that holds back the call it stands within",
+        "dotdiw",
+        "                    key,\n                    needs,\n                )\n",
+        "                    key,\n                    [],\n                )\n",
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderLocal.test_a_calling_steps_needs_hold_back_its_call_at_any_depth",
+        ],
+    ),
+    (
+        "a call's values fill the run's own means",
+        "dotdiw",
+        '            found.setdefault(within, {})[kid["step"]] = own\n',
+        '            found.setdefault(None, {})[kid["step"]] = own\n            found.setdefault(within, {})[kid["step"]] = own\n',
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderLocal.test_two_calls_of_one_formula_keep_their_claims_and_means_apart",
+        ],
+    ),
+    (
+        "two calls of one formula fill each other's means",
+        "dotdiw",
+        "        by_step = found.get(within, {})\n",
+        "        by_step = {k: v for f in found.values() for k, v in f.items()}\n",
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderLocal.test_two_calls_of_one_formula_keep_their_claims_and_means_apart",
+        ],
+    ),
+    (
+        "a claimed step a call poured names no call",
+        "dotdiw",
+        '            if within is not None:\n                c["within"] = within\n',
+        "            pass\n",
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderLocal.test_two_calls_of_one_formula_keep_their_claims_and_means_apart",
+        ],
+    ),
+    (
+        "the local tracker keeps no calling step on a step poured within it",
+        "dotdiw",
+        '                            ids[str(s["within"])] if s.get("within") else None,\n',
+        "                            None,\n",
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderLocal.test_three_levels_are_one_run_and_close_up_to_the_root",
+        ],
+    ),
+    (
+        "under the local tracker a calling step does not need what is poured within it",
+        "dotdiw",
+        '                        (ids[str(s["within"])], ident),\n',
+        "                        (ident, ident),\n",
+        ["test_dotdiw.py", "TheTrackerCommands.test_list_use_and_check_under_local"],
+    ),
+    (
+        "the close of a call's last item closes nothing up, under beads",
+        "dotdiw",
+        '        for up, must_be_root in zip(stands_under(item), (True, False, False), strict=True):\n            if up:\n                reached[str(up)] = reached.get(str(up), True) and must_be_root\n        for i, o in (standing or {}).items():\n            if o.get("calls") and ident in (o.get("needs") or []):\n                reached[i] = False\n',
+        "        for up, must_be_root in zip(stands_under(item)[:2], (True, False), strict=True):\n            if up:\n                reached[str(up)] = reached.get(str(up), True) and must_be_root\n        for i, o in (standing or {}).items():\n            if False:\n                reached[i] = False\n",
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderBeads.test_three_levels_are_one_run_and_close_up_to_the_root",
+        ],
+    ),
+    (
+        "dotdiw closes a pour's guard",
+        "dotdiw",
+        '            if a_guard(ident) and (\n                every[ident].get("status") == "closed" or not known_whole(ident, every)\n            ):\n',
+        "            if False:\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pour_closes_its_guard_and_shows_it_nowhere",
+        ],
+    ),
+    (
+        "under beads a pour's guard is a need",
+        "dotdiw",
+        '        "needs": [n for n in needs if n and n != guard],\n',
+        '        "needs": [n for n in needs if n],\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pour_closes_its_guard_and_shows_it_nowhere",
+        ],
+    ),
+    (
+        "under beads a pour's guard is given no run",
+        "dotdiw",
+        '            "--metadata=" + json.dumps({BEADS_KEY: {"kind": "guard", "run": root_id}}),\n',
+        '            "--metadata=" + json.dumps({BEADS_KEY: {"kind": "guard"}}),\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pour_closes_its_guard_and_shows_it_nowhere",
+        ],
+    ),
+    (
+        "under beads a whole pour leaves its guard open",
+        "dotdiw",
+        '    code, out, err = beads_quiet(["close", guard, "--reason", "poured whole", "--json"], root)\n',
+        '    code, out, err = beads_quiet(["show", guard, "--json"], root)\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pour_closes_its_guard_and_shows_it_nowhere",
+        ],
+    ),
+    (
+        "a move gives a step poured within a call the calling step's old id",
+        "dotdiw",
+        '                    "within": ids.get(whole["within"]) if whole.get("within") else None,\n',
+        '                    "within": whole.get("within"),\n',
+        ["test_jira.py", "ACallMoves.test_a_job_that_calls_a_formula_moves_whole"],
+    ),
+    (
+        "a pour that did not finish is moved",
+        "dotdiw",
+        "            for g, pour in sorted(pours.items()):\n",
+        "            for g, pour in []:\n",
+        ["test_jira.py", "ACallMoves.test_a_pour_that_did_not_finish_moves_nothing"],
+    ),
+    (
+        "a call moves into a tracker that does not keep calls",
+        "dotdiw",
+        '            ).get("nests"):\n                return {\n',
+        '            ).get("nests") and False:\n                return {\n',
+        ["test_jira.py", "ACallMoves.test_a_call_moves_into_no_tracker_that_does_not_keep_calls"],
+    ),
+    (
+        "jira closes a pour's guard",
+        "trackers/jira.py",
+        '        if item["kind"] == "guard" and item["status"] == "closed":\n            return {\n',
+        "        if False:\n            return {\n",
+        ["test_jira.py", "APourUnderJiraCutShort.test_a_whole_pour_closes_its_guard"],
+    ),
+    (
+        "jira closes a root or calling step its guard holds",
+        "trackers/jira.py",
+        "        if holds and g not in out:\n            out.append(g)\n",
+        "        if False:\n            out.append(g)\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete",
+        ],
+    ),
+    (
+        "under jira a calling step does not need what is poured within it",
+        "trackers/jira.py",
+        '            if s.get("within"):\n                edges.append((own["within"], made))\n',
+        "            pass\n",
+        [
+            "test_jira.py",
+            "NestedPoursUnderJira.test_three_levels_are_one_run_and_close_up_to_the_root",
+        ],
+    ),
+    (
+        "a calling step's need of its call is taken off under a pass-through",
+        "dotdiw",
+        '        if (records.get(need) or {}).get("within") == waiter:\n',
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderBeads.test_a_calling_steps_need_of_its_call_is_not_taken_off",
+        ],
+    ),
+    (
+        "the local tracker takes off a calling step's need of its call",
+        "dotdiw",
+        '                    if held["within_item"] == ident:\n',
+        "                    if False:\n",
+        ["test_dotdiw.py", "TheTrackerCommands.test_list_use_and_check_under_local"],
+    ),
+    (
+        "jira takes off a calling step's need of its call",
+        "trackers/jira.py",
+        '            if held_need is not None and record(held_need).get("within") == key:\n',
+        "            if False:\n",
+        ["test_jira.py", "TheHostedAdapter.test_it_is_listed_from_the_home_and_passes_the_check"],
+    ),
+    (
+        "a pour's guard is written by a reopen or an update",
+        "dotdiw",
+        "        if ident is not None and a_guard(ident):\n",
+        "        if False:\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pour_closes_its_guard_and_shows_it_nowhere",
+        ],
+    ),
+    (
+        "a calling step whose need closes last stays open under beads",
+        "dotdiw",
+        '            if o.get("calls") and ident in (o.get("needs") or []):\n',
+        "            if False:\n",
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderBeads.test_a_calling_step_whose_need_closes_last_closes",
+        ],
+    ),
+    (
+        "a calling step whose need closes last stays open under the local tracker",
+        "dotdiw",
+        '                "WHERE e.needs = ? AND i.calls IS NOT NULL ORDER BY i.created_at, i.id",\n',
+        '                "WHERE e.needs = ? AND 0 ORDER BY i.created_at, i.id",\n',
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderLocal.test_a_calling_step_whose_need_closes_last_closes",
+        ],
+    ),
+    (
+        "a calling step whose need closes last stays open under jira",
+        "trackers/jira.py",
+        '            if needing is not None and record(needing).get("calls"):\n',
+        "            if False:\n",
+        ["test_jira.py", "NestedPoursUnderJira.test_a_calling_step_whose_need_closes_last_closes"],
+    ),
+    (
+        "jira gives the items of a guarded pour ready",
+        "trackers/jira.py",
+        '    held = {k for p in pours.values() for k in p["holds"]}\n',
+        "    held: set[str] = set()\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete",
+        ],
+    ),
+    (
+        "under jira a calling step is made without its guard",
+        "trackers/jira.py",
+        '                own["guard"] = guard\n',
+        "                pass\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_whole_pour_closes_its_guard",
+        ],
+    ),
+    (
+        "a move keeps what stands within a calling step it lost",
+        "dotdiw",
+        '                        or (byid.get(i) or {}).get("within") in lost\n',
+        "                        or False\n",
+        [
+            "test_jira.py",
+            "AStoppedMoveHoldsWhatItMade.test_issues_within_a_deleted_calling_step_are_made_again_with_it",
+        ],
+    ),
+    (
+        "jira's create forgets the item it made when it cannot read it back",
+        "trackers/jira.py",
+        "            try:\n                out = dict(out, item=record(held(key)))\n            except JiraError as e:\n",
+        "            if True:\n                out = dict(out, item=record(held(key)))\n            if False:\n",
+        ["test_jira.py", "ACallMoves.test_a_move_whose_read_back_fails_makes_nothing_twice"],
+    ),
+    (
+        "a calling step whose claim cannot be read is poured",
+        "dotdiw",
+        '                        step["claim"] = {"statement": "", "slots": []}\n',
+        "                        pass\n",
+        [
+            "test_dotdiw.py",
+            "AStepThatCallsAFormula.test_a_calling_step_whose_claim_cannot_be_read_pours_nothing",
+        ],
+    ),
+    (
+        "beads names a guard twice in what holds a close",
+        "dotdiw",
+        '            and before[guard].get("kind") == "guard"\n            and guard not in poured\n',
+        '            and before[guard].get("kind") == "guard"\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete",
+        ],
+    ),
+    (
+        "a field added to a record is numbered before those a release served",
+        "dotdiw",
+        "    etag: str | None\n    within: str | None\n    calls: str | None\n    guard: str | None\n",
+        "    within: str | None\n    calls: str | None\n    guard: str | None\n    etag: str | None\n",
+        ["test_promise.py", "TheGrpcProjection.test_every_field_released_keeps_its_number"],
+    ),
+    (
+        "jira gives ready a pour whose guard no read shows closed",
+        "trackers/jira.py",
+        '            if issue is not None and record(issue)["status"] == "closed":\n',
+        '            if issue is None or record(issue)["status"] == "closed":\n',
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_guard_no_read_confirms_closed_holds_ready_and_a_move",
+        ],
+    ),
+    (
+        "a move carries a pour whose guard no read shows closed",
+        "dotdiw",
+        '            elif shown.get("reason") != "item-not-found":\n                unread = str(',
+        '            elif shown.get("reason") == "item-not-found":\n                continue\n            else:\n                unread = str(',
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_guard_no_read_confirms_closed_holds_ready_and_a_move",
+        ],
+    ),
+    (
+        "calls that go round are told by the id each formula declares",
+        "dotdiw",
+        '        return "file:%s" % resolved["path"]\n',
+        '        return "provider:%s" % resolved.get("formulaRef")\n',
+        [
+            "test_dotdiw.py",
+            "AStepThatCallsAFormula.test_two_formulas_of_one_id_call_each_other_by_path",
+        ],
+    ),
+    (
+        "bd that would not start raises",
+        "dotdiw",
+        '    try:\n        p = subprocess.run([bd] + list(args), capture_output=True, text=True, env=env)\n    except OSError as e:\n        return 126, "", "%s: %s" % (BEADS_UNSTARTED, e.strerror or e)\n',
+        "    p = subprocess.run([bd] + list(args), capture_output=True, text=True, env=env)\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_value_too_long_to_hand_bd_is_the_adapters_failure",
+        ],
+    ),
+    (
+        "bd that would not start is no adapter's failure",
+        "dotdiw",
+        "    if reason is None and BEADS_UNSTARTED in text:\n",
+        "    if False:\n",
+        [
+            "test_dotdiw.py",
+            "TheBeadsAdapter.test_a_value_too_long_to_hand_bd_is_the_adapters_failure",
+        ],
+    ),
+    (
+        "jira gives ready a pour whose guard no longer reads as one",
+        "trackers/jira.py",
+        '        if listed is not None:\n            if listed["status"] == "closed":\n                continue\n',
+        '        if listed is not None:\n            if listed["status"] == "closed" or listed["kind"] != "guard":\n                continue\n',
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_guard_no_read_confirms_closed_holds_ready_and_a_move",
+        ],
+    ),
+    (
+        "a move carries a pour whose guard no longer reads as one",
+        "dotdiw",
+        '        if listed is not None:\n            if listed.get("status") == "closed":\n                continue\n',
+        '        if listed is not None:\n            if listed.get("status") == "closed" or listed.get("kind") != "guard":\n                continue\n',
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_guard_no_read_confirms_closed_holds_ready_and_a_move",
+        ],
+    ),
+    (
+        "a provider's step's call is dropped",
+        "dotdiw",
+        '            step["formula"] = called.strip()\n',
+        "            pass\n",
+        ["test_promise.py", "AStepsCall.test_a_providers_answer_carries_a_steps_call"],
+    ),
+    (
+        "a step's Formula: line is not read",
+        "dotdiw",
+        '            told["formula"] = line[len("Formula:") :].strip()\n',
+        "            pass\n",
+        ["test_promise.py", "AStepsCall.test_a_providers_answer_carries_a_steps_call"],
+    ),
+    (
+        "check names no calling step that declares a claim",
+        "dotdiw",
+        '                elif "claim" in s:\n',
+        "                elif False:\n",
+        [
+            "test_dotdiw.py",
+            "AStepThatCallsAFormula.test_check_names_what_a_pour_would_refuse_of_a_call",
+        ],
+    ),
+    (
+        "a formula that is not text is read as one",
+        "dotdiw",
+        '                step["formula"] = called.strip() if isinstance(called, str) else ""\n',
+        '                step["formula"] = called.strip() if isinstance(called, str) else str(called)\n',
+        ["test_dotdiw.py", "AStepThatCallsAFormula.test_a_formula_that_is_not_text_pours_nothing"],
+    ),
+    (
+        "a provider's formula is shown without its calls",
+        "dotdiw",
+        '                step["formula"] = s["formula"]\n',
+        "                pass\n",
+        [
+            "test_promise.py",
+            "AStepsCall.test_the_directory_provider_answers_a_steps_call_and_show_prints_it",
+        ],
+    ),
+    (
+        "a pour's JSON lists no calls",
+        "dotdiw",
+        '        if called:\n            answer["calls"] = [\n',
+        '        if False:\n            answer["calls"] = [\n',
+        [
+            "test_dotdiw.py",
+            "NestedPoursUnderLocal.test_three_levels_are_one_run_and_close_up_to_the_root",
+        ],
+    ),
+    (
+        "a pour does not mark its root whole",
+        "dotdiw",
+        '                {"metadata": {BEADS_KEY: {"guard": guard, "whole": True}}},\n',
+        '                {"metadata": {BEADS_KEY: {"guard": guard}}},\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pour_closes_its_guard_and_shows_it_nowhere",
+        ],
+    ),
+    (
+        "the mark of a root whole drops its means",
+        "dotdiw",
+        '                {"metadata": {BEADS_KEY: {"guard": guard, "whole": True}}},\n                list(request.get("verifyUsing") or []),\n',
+        '                {"metadata": {BEADS_KEY: {"guard": guard, "whole": True}}},\n                [],\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pour_closes_its_guard_and_shows_it_nowhere",
+        ],
+    ),
+    (
+        "beads reads no root whole",
+        "dotdiw",
+        '    if own.get("whole") is True:\n        item["whole"] = True\n',
+        "",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pour_closes_its_guard_and_shows_it_nowhere",
+        ],
+    ),
+    (
+        "jira marks no root whole",
+        "trackers/jira.py",
+        '        call("PUT", of(root_id, "properties", PROPERTY), {"guard": guard, "whole": True})\n',
+        "",
+        ["test_jira.py", "APourUnderJiraCutShort.test_a_whole_pour_closes_its_guard"],
+    ),
+    (
+        "jira reads no root whole",
+        "trackers/jira.py",
+        '    if own.get("whole") is True:\n        out["whole"] = True\n',
+        "",
+        ["test_jira.py", "APourUnderJiraCutShort.test_a_whole_pour_closes_its_guard"],
+    ),
+    (
+        "a root that reads whole holds its pour",
+        "dotdiw",
+        '        live = [r for r in roots if r in every and every[r].get("whole") is not True]\n        if not live and not (standing and roots):\n            continue\n        unread: str | None = None\n',
+        "        live = [r for r in roots if r in every]\n        if not live and not (standing and roots):\n            continue\n        unread: str | None = None\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_whole_pours_guard_deleted_by_housekeeping_holds_nothing",
+        ],
+    ),
+    (
+        "a root the tracker no longer lists holds its pour",
+        "dotdiw",
+        '        live = [r for r in roots if r in every and every[r].get("whole") is not True]\n        if not live and not (standing and roots):\n            continue\n        unread: str | None = None\n',
+        '        live = [r for r in roots if r not in every or every[r].get("whole") is not True]\n        if not live and not (standing and roots):\n            continue\n        unread: str | None = None\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_step_of_a_finished_run_reopened_after_housekeeping_closes",
+        ],
+    ),
+    (
+        "jira: a root that reads whole holds its pour",
+        "trackers/jira.py",
+        '        live = [r for r in roots if r in every and every[r].get("whole") is not True]\n',
+        "        live = [r for r in roots if r in every]\n",
+        ["test_jira.py", "APourUnderJiraCutShort.test_a_whole_pours_guard_deleted_holds_nothing"],
+    ),
+    (
+        "jira holds a root or calling step on the guard of a whole pour",
+        "trackers/jira.py",
+        '            run_root.get("whole") is not True\n            if run_root is not None\n',
+        "            True\n            if run_root is not None\n",
+        ["test_jira.py", "APourUnderJiraCutShort.test_a_whole_pours_guard_deleted_holds_nothing"],
+    ),
+    (
+        "a root or calling step closes while its pour is not known to be whole",
+        "dotdiw",
+        "    by_pour = (held or {}).get(ident)\n",
+        "    by_pour = None\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_guard_deleted_outside_dotdiw_still_holds_its_pour",
+        ],
+    ),
+    (
+        "a close through dotdiw holds no pour not known to be whole after it",
+        "dotdiw",
+        "    held = closes_held(pours)\n    shut, notes, standing = held_to_the_run(named, shut, before, now, reopen, keep, held)\n",
+        "    held: dict[str, str] = {}\n    shut, notes, standing = held_to_the_run(named, shut, before, now, reopen, keep, held)\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_root_bd_closes_once_its_guard_is_deleted_is_opened_again",
+        ],
+    ),
+    (
+        "beads' close-item holds no pour not known to be whole",
+        "dotdiw",
+        "        if pour and pour not in poured:\n            poured.append(pour)\n",
+        "",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_guard_deleted_outside_dotdiw_still_holds_its_pour",
+        ],
+    ),
+    (
+        "beads gives ready what a pour not known to be whole holds",
+        "dotdiw",
+        '    items = [i for i in items if i.get("kind") != "guard" and i["id"] not in held]\n',
+        '    items = [i for i in items if i.get("kind") != "guard"]\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_edges_to_the_guard_taken_off_outside_dotdiw_give_nothing_ready",
+        ],
+    ),
+    (
+        "the tracker's own ready runs for a pour not known to be whole",
+        "dotdiw",
+        "                given = ready_the_tracker_may_give(common, argv)\n",
+        "                given = None\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_no_ready_gives_what_a_pour_cut_short_made",
+        ],
+    ),
+    (
+        "bd's ready of one molecule runs for a pour it holds",
+        "dotdiw",
+        "    else:\n        texts(answer)\n    return out\n",
+        "    else:\n        pass\n    return out\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_no_ready_gives_what_a_pour_cut_short_made",
+        ],
+    ),
+    (
+        "a close claims the next ready item while a pour is not known to be whole",
+        "dotdiw",
+        '            if pours:\n                return refusal(\n                    operation,\n                    [\n                        {\n                            "status": "failed",\n                            "reason": "unsupported-command",\n                            "exitCode": 1,\n                            "summary": CLOSE_NEXT_POUR_HELD\n',
+        '            if False:\n                return refusal(\n                    operation,\n                    [\n                        {\n                            "status": "failed",\n                            "reason": "unsupported-command",\n                            "exitCode": 1,\n                            "summary": CLOSE_NEXT_POUR_HELD\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_close_takes_no_next_item_while_a_pour_is_held",
+        ],
+    ),
+    (
+        "dotdiw closes a guard while its pour is not known to be whole",
+        "dotdiw",
+        '                every[ident].get("status") == "closed" or not known_whole(ident, every)\n            ):\n                out.append(',
+        '                every[ident].get("status") == "closed" or False\n            ):\n                out.append(',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_guard_that_no_longer_reads_as_one_is_closed_by_no_one_but_its_pour",
+        ],
+    ),
+    (
+        "dotdiw closes no guard of a pour known to be whole",
+        "dotdiw",
+        '                every[ident].get("status") == "closed" or not known_whole(ident, every)\n            ):\n                out.append(',
+        '                every[ident].get("status") == "closed" or True\n            ):\n                out.append(',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete",
+        ],
+    ),
+    (
+        "a guard that no longer reads as one is written",
+        "dotdiw",
+        '        return (records.get(ident) or {}).get("kind") == "guard" or ident in pours\n',
+        '        return (records.get(ident) or {}).get("kind") == "guard"\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_guard_that_no_longer_reads_as_one_is_closed_by_no_one_but_its_pour",
+        ],
+    ),
+    (
+        "a need taken off is read with no listing",
+        "dotdiw",
+        "                refused, _ = held_at_the_command_line(\n                    common, None, [], listed_now, reopened, [], dropped\n                )\n",
+        "                refused, _ = held_at_the_command_line(\n                    common, None, [], None, reopened, [], dropped\n                )\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_guard_that_no_longer_reads_as_one_is_closed_by_no_one_but_its_pour",
+        ],
+    ),
+    (
+        "an edge is written to or from a guard",
+        "dotdiw",
+        "        guarded = [i for i in (waiter, item) if a_guard(i)]\n",
+        "        guarded: list[str] = []\n",
+        ["test_dotdiw.py", "APourUnderBeadsCutShort.test_nothing_is_put_under_or_tied_to_a_guard"],
+    ),
+    (
+        "bd's quick create makes an item under a guard",
+        "dotdiw",
+        '            elif path == ["q"] and isinstance((reading.get("options") or {}).get("parent"), str):\n',
+        "            elif False:\n",
+        ["test_dotdiw.py", "APourUnderBeadsCutShort.test_nothing_is_put_under_or_tied_to_a_guard"],
+    ),
+    (
+        "create makes an item under a guard",
+        "dotdiw",
+        '        guarded = parent_a_guard(root, request.get("tracker"), request.get("parent"))\n',
+        "        guarded = None\n",
+        ["test_dotdiw.py", "APourUnderBeadsCutShort.test_nothing_is_put_under_or_tied_to_a_guard"],
+    ),
+    (
+        "jira closes a guard that no longer reads as one",
+        "trackers/jira.py",
+        "            else bool(namers) and guarded_still(item, namers)\n",
+        "            else False\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_guard_that_no_longer_reads_as_one_is_closed_by_no_one_but_its_pour",
+        ],
+    ),
+    (
+        "jira closes a guard while its pour is not known to be whole",
+        "trackers/jira.py",
+        "            not whole_by_its_run(item)\n",
+        "            False\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete",
+        ],
+    ),
+    (
+        "jira holds a calling step on no guard of its run",
+        "trackers/jira.py",
+        '        guards += [\n            r["key"]\n            for r in rows\n',
+        '        guards += [\n            r["key"]\n            for r in []\n',
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_calling_step_waits_on_its_runs_guard_whatever_names_it",
+        ],
+    ),
+    (
+        "a pour cut at its guard's close is not told the way out",
+        "dotdiw",
+        '        elif rooted["status"] == "completed" and (rooted.get("item") or {}).get("whole") is True:\n',
+        "        elif False:\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete",
+        ],
+    ),
+    (
+        "a guard made alone is said to hold",
+        "dotdiw",
+        "        if not root_id:\n            summary = summary.rstrip() + (\n",
+        "        if False:\n            summary = summary.rstrip() + (\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete",
+        ],
+    ),
+    (
+        "jira closes a guard given no run yet",
+        "trackers/jira.py",
+        "    if not isinstance(run, str) or not run:\n        return False\n    fetched = fetch(run)\n",
+        "    if not isinstance(run, str) or not run:\n        return True\n    fetched = fetch(run)\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_guard_whose_root_no_search_finds_yet_is_not_closed",
+        ],
+    ),
+    (
+        "dotdiw closes a guard no root of which is known",
+        "dotdiw",
+        '    return bool(roots) and all((every.get(r) or {}).get("whole") is True for r in roots)\n',
+        '    return all((every.get(r) or {}).get("whole") is True for r in roots)\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete",
+        ],
+    ),
+    (
+        "a parent the tracker cannot read takes an item",
+        "dotdiw",
+        '            if shown.get("reason") in ("item-not-found",) + TRACKER_CANNOT_ANSWER:\n                return None  # the create names it no item, and says so\n',
+        "            if True:\n                return None  # the create names it no item, and says so\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_parent_that_cannot_be_read_takes_no_item",
+        ],
+    ),
+    (
+        "a guard the listing shows is read again before a create is refused",
+        "dotdiw",
+        "    if not (parent in every and guarded(parent, every[parent])):\n",
+        "    if True:\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_parent_that_cannot_be_read_takes_no_item",
+        ],
+    ),
+    (
+        "bd's own ready is refused while bd still holds every pour",
+        "dotdiw",
+        "        hit = [i for i in held if i in names or _BD_WORD.sub(PROG, i) in names]\n",
+        "        hit = held\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_cut_short_that_bd_still_holds_leaves_its_ready_alone",
+        ],
+    ),
+    (
+        "jira takes a root a search lists and no lookup reads for gone",
+        "trackers/jira.py",
+        '            else run_key in {r["key"] for r in rows}\n',
+        "            else False\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_root_a_search_lists_and_no_lookup_reads_holds_its_pour",
+        ],
+    ),
+    (
+        "jira closes a guard whose root no lookup reads",
+        "trackers/jira.py",
+        '        if fetched is None or record(fetched).get("whole") is not True:\n            return True\n',
+        '        if fetched is not None and record(fetched).get("whole") is not True:\n            return True\n',
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_root_a_search_lists_and_no_lookup_reads_holds_its_pour",
+        ],
+    ),
+    (
+        "an open guard of a whole pour holds nothing",
+        "dotdiw",
+        '        live = [r for r in roots if r in every and every[r].get("whole") is not True]\n        if not live and not (standing and roots):\n            continue\n        unread: str | None = None\n',
+        '        live = [r for r in roots if r in every and every[r].get("whole") is not True]\n        if not live:\n            continue\n        unread: str | None = None\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_cut_at_its_guards_close_moves_once_the_guard_closes",
+        ],
+    ),
+    (
+        "jira: an open guard of a whole pour holds nothing",
+        "trackers/jira.py",
+        "        if not live and not (standing and roots):\n",
+        "        if not live:\n",
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_root_marked_whole_holds_its_run_while_its_guard_stands_open",
+        ],
+    ),
+    (
+        "jira holds no root or calling step on an open guard of a whole pour",
+        "trackers/jira.py",
+        '            holds = as_read["status"] != "closed" and (as_read["kind"] == "guard" or live)\n',
+        '            holds = as_read["status"] != "closed" and live\n',
+        [
+            "test_jira.py",
+            "APourUnderJiraCutShort.test_a_root_marked_whole_holds_its_run_while_its_guard_stands_open",
+        ],
+    ),
+    (
+        "a close a held pour refuses gives no way out",
+        "dotdiw",
+        '                    guard = held.get(ident) or ""\n                    if guard in standing:\n',
+        '                    guard = ""\n                    if guard in standing:\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_guard_deleted_outside_dotdiw_still_holds_its_pour",
+        ],
+    ),
+    (
+        "a ready option that only narrows bd's is refused while a pour is held",
+        "dotdiw",
+        '        "limit",\n        "max-rows",\n        "metadata-field",\n        "mol",\n',
+        '        "max-rows",\n        "metadata-field",\n        "mol",\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_cut_short_that_bd_still_holds_leaves_its_ready_alone",
+        ],
+    ),
+    (
+        "the quiet run asks bd's default ready, not the command given",
+        "dotdiw",
+        '    ran = quietly(argv if asked_as_json else ["--json", *argv])\n',
+        '    ran = quietly(["--json", "ready"])\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_bds_ready_runs_only_where_the_very_command_gives_nothing_held",
+        ],
+    ),
+    (
+        "a ready with an option dotdiw does not know to only read is run while a pour is held",
+        "dotdiw",
+        "    if unknown:\n        return refused(READY_POUR_OPTION",
+        "    if False:\n        return refused(READY_POUR_OPTION",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_bds_ready_runs_only_where_the_very_command_gives_nothing_held",
+        ],
+    ),
+    (
+        "a ready whose quiet answer cannot be read runs while a pour is held",
+        "dotdiw",
+        "    if answer is None:\n        return refused(unread)\n    given = gives(named_in(answer))\n",
+        "    if answer is None:\n        return None\n    given = gives(named_in(answer))\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_bds_ready_runs_only_where_the_very_command_gives_nothing_held",
+        ],
+    ),
+    (
+        "a ready item that only mentions a held item holds bd's ready back",
+        "dotdiw",
+        "    if isinstance(answer, list):\n        ids(answer)\n",
+        "    if False:\n        ids(answer)\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_cut_short_that_bd_still_holds_leaves_its_ready_alone",
+        ],
+    ),
+    (
+        "bd's ready asked as JSON is answered from a second run",
+        "dotdiw",
+        "    if given is not None or asked_as_json:\n        return given or dict(ran, printed=False)\n",
+        "    if given is not None:\n        return given\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_what_bds_ready_gives_is_the_very_answer_that_was_checked",
+        ],
+    ),
+    (
+        "what bd's ready printed as text is given unread",
+        "dotdiw",
+        '    given = gives(words | {w.rstrip(".") for w in words})\n',
+        "    given = None\n",
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_what_bds_ready_gives_is_the_very_answer_that_was_checked",
+        ],
+    ),
+    (
+        "bd's human respond and dismiss run as they are",
+        "dotdiw",
+        '    "human": ("", "list", "stats"),\n',
+        '    "human": ("", "list", "stats", "respond", "dismiss"),\n',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_no_command_run_as_it_is_closes_what_a_close_would_not",
+        ],
+    ),
+    (
+        "a listing that is no ready is held as one while a pour is held",
+        "dotdiw",
+        '(named == "list" and options.get("ready") is not True)',
+        '(named == "list" and "ready" not in options)',
+        [
+            "test_dotdiw.py",
+            "APourUnderBeadsCutShort.test_a_pour_cut_short_that_bd_still_holds_leaves_its_ready_alone",
+        ],
+    ),
+    (
+        "a reopen or a need taken off that cannot be read runs",
+        "dotdiw",
+        '        elif named != "q" and reading.get("reason") not in TRACKER_CANNOT_ANSWER:\n',
+        "        elif False:\n",
+        ["test_dotdiw.py", "TheClaimCommand.test_under_beads_only_a_pour_makes_a_root"],
     ),
 ]
 

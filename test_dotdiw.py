@@ -1228,7 +1228,7 @@ class TheName(unittest.TestCase):
         lines = p.stdout.strip().split("\n")
         self.assertEqual(len(lines), 2, p.stdout)
         self.assertRegex(lines[1], r"^  tracker beads \d+(\.\d+)+$")
-        self.assertNotIn("4.1.0", lines[1], "the tracker underneath, not this tool")
+        self.assertNotIn("4.2.0", lines[1], "the tracker underneath, not this tool")
 
     def test_without_the_tracker_the_message_is_the_install_command(self):
         """Nothing on PATH but the system: one line, the command for the tracker
@@ -2099,44 +2099,75 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
         )
         self.assertEqual(self.ask("show-item", id=b)["item"]["title"], "Renamed")
 
-    def test_a_claims_values_are_declined_and_nothing_is_written(self):
-        """bd sets a value only through its update, which reads an id it
-        holds nothing of as another item's, and no write of bd's that reads
-        an id whole sets one. So record-values is declined as unsupported,
-        and nothing is written to the item, by any id; the values a create is
-        given, for a move, are the new item's own, and are kept."""
+    def test_a_value_too_long_to_hand_bd_is_the_adapters_failure(self):
+        """A value longer than the system lets a command line carry -- here
+        over a million characters -- cannot reach bd at all: record-values
+        answers that as the adapter's failure, in one line, and records
+        nothing, rather than raise."""
         self.ask("open-tracker", prefix="t")
+        claim = {"statement": "{{ n }}", "slots": ["n"]}
         poured = self.ask(
             "pour-steps",
             formulaRef="m",
             title="m",
-            steps=[{"id": "a", "title": "A", "claim": {"statement": "{{ n }}", "slots": ["n"]}}],
+            steps=[{"id": "a", "title": "A", "claim": claim}],
+        )
+        (a,) = poured["stepIds"]
+        out = self.ask("record-values", id=a, values=[{"label": "n", "text": "v" * 1126400}])
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "adapter-failed"), out)
+        self.assertIn("could not start the tracker", out["summary"])
+        self.assertNotIn("values", self.ask("show-item", id=a)["item"])
+
+    def test_a_claims_values_are_kept_under_keys_of_their_own(self):
+        """Each label is set or unset under a metadata key of its own, in one
+        bd update of the item's whole id, so that the step's id, claim and
+        run, kept under the adapter's own key, stay as they were. Values go
+        in as given, any text at all, and come back in the order each was
+        first recorded, as merged_values leaves them; the values a create is
+        given, for a move, are the new item's own, and are kept."""
+        self.ask("open-tracker", prefix="t")
+        claim = {"statement": "{{ n }}", "slots": ["n", "roster-id", "place"]}
+        poured = self.ask(
+            "pour-steps",
+            formulaRef="m",
+            title="m",
+            steps=[{"id": "a", "title": "A", "claim": claim}],
         )
         root, (a,) = poured["rootId"], poured["stepIds"]
-        code, before, err = self.m.beads_quiet(["show", a, "--json"], self.repo.path)
-        self.assertEqual(code, 0, err)
-        for ident in (a, root, "t-nothing"):
-            with self.subTest(ident=ident):
-                out = self.ask("record-values", id=ident, values=[{"label": "n", "text": "1"}])
-                self.assertEqual((out["status"], out.get("reason")), ("failed", "unsupported"), out)
-                self.assertEqual(
-                    out["summary"],
-                    "This tracker records no claim's values in this release: it cannot yet "
-                    "hold such a write to the item named, so nothing was recorded on %s." % ident,
-                )
-        code, after, err = self.m.beads_quiet(["show", a, "--json"], self.repo.path)
-        self.assertEqual(code, 0, err)
-        self.assertEqual(json.loads(after), json.loads(before), "nothing written")
-        claimed = self.m.invoke(
-            "operation.record-claim",
-            {
-                "root": self.repo.path,
-                "tracker": "beads",
-                "id": a,
-                "values": [{"label": "n", "text": "1"}],
-            },
+
+        def row():
+            code, out, err = self.m.beads_quiet(["show", a, "--json"], self.repo.path)
+            self.assertEqual(code, 0, err)
+            return self.m.beads_json(out)[0]
+
+        own = self.m.beads_own(row())
+        odd = 'x=y\nz "q" é  , -n'
+        held: list[Any] = []
+        for values in (
+            [("n", "1"), ("roster-id", odd)],
+            [("roster-id", ""), ("place", "north plot")],
+            [("n", "2")],
+            [("roster-id", "r")],
+            [("place", ""), ("place", "south")],
+            [("n", "3"), ("n", "")],
+            [("absent", "")],
+        ):
+            given = [{"label": label, "text": text} for label, text in values]
+            with self.subTest(values=values):
+                out = self.ask("record-values", id=a, values=given)
+                self.assertEqual(out["status"], "completed", out)
+                held = self.m.merged_values(held, given)
+                self.assertEqual(out["item"].get("values") or [], held)
+                self.assertEqual(self.ask("show-item", id=a)["item"].get("values") or [], held)
+        self.assertEqual(
+            held, [{"label": "roster-id", "text": "r"}, {"label": "place", "text": "south"}]
         )
-        self.assertEqual((claimed["status"], claimed.get("reason")), ("failed", "unsupported"))
+        kept = row()
+        self.assertEqual(self.m.beads_own(kept), own, "the step's id, claim and run as they were")
+        self.assertEqual(
+            sorted(k for k in self.m.beads_metadata(kept) if k.startswith(self.m.BEADS_VALUE)),
+            ["dotdiw_value.place", "dotdiw_value.roster_id"],
+        )
         moved = self.ask(
             "create-item", title="Moved", step="a", run=root, values=[{"label": "n", "text": "7"}]
         )
@@ -2144,6 +2175,59 @@ class TheBeadsAdapter(InterfaceRecords, unittest.TestCase):
             self.ask("show-item", id=moved["item"]["id"])["item"].get("values"),
             [{"label": "n", "text": "7"}],
         )
+        out = self.ask(
+            "record-values", id=moved["item"]["id"], values=[{"label": "place", "text": "w"}]
+        )
+        self.assertEqual(
+            out["item"].get("values"),
+            [{"label": "n", "text": "7"}, {"label": "place", "text": "w"}],
+            "a label new to a moved item follows the values it was made with",
+        )
+
+    def test_a_claims_values_go_to_no_other_item_than_the_one_named(self):
+        """bd's update reads an id it holds nothing of as the one item whose
+        id begins with it -- a deleted parent's as its only child's -- and
+        writes that one. The id is read first and held whole: one bd holds
+        nothing of, or shows as another item's, is not found, and nothing is
+        written. One deleted as bd's update runs has bd write the child in
+        its place: the write fails, naming the child written."""
+        self.ask("open-tracker", prefix="t")
+        n = [{"label": "n", "text": "1"}]
+        out = self.ask("record-values", id="t-nothing", values=n)
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        parent = self.ask("create-item", title="P")["item"]["id"]
+        child = self.ask("create-item", title="C", parent=parent)["item"]["id"]
+        code, _, err = self.m.beads_quiet(["delete", parent, "--force"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        out = self.ask("record-values", id=parent, values=n)
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        self.assertEqual(
+            out["summary"],
+            "The tracker holds no item %s: asked for it, it shows %s." % (parent, child),
+        )
+        self.assertFalse(self.ask("show-item", id=child)["item"].get("values"), "nothing written")
+        parent = self.ask("create-item", title="Q")["item"]["id"]
+        child = self.ask("create-item", title="D", parent=parent)["item"]["id"]
+        real = self.m.beads_quiet
+
+        def deleted_as_the_update_runs(args, at=None, **given):
+            if args[:2] == ["update", parent]:
+                code, _, err = real(["delete", parent, "--force"], at)
+                self.assertEqual(code, 0, err)
+            return real(args, at, **given)
+
+        self.m.beads_quiet = deleted_as_the_update_runs
+        try:
+            out = self.ask("record-values", id=parent, values=n)
+        finally:
+            self.m.beads_quiet = real
+        self.assertEqual((out["status"], out.get("reason")), ("failed", "item-not-found"), out)
+        self.assertEqual(
+            out["summary"],
+            "The tracker holds %s no more, and wrote the values to %s in its place."
+            % (parent, child),
+        )
+        self.assertEqual(self.ask("show-item", id=child)["item"].get("values"), n)
 
     def test_a_need_of_an_item_held_no_more_is_given_to_no_other(self):
         """bd's dep add reads a deleted root's id as its one step left's. A
@@ -3639,7 +3723,8 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
         conn = sqlite3.connect(os.path.join(self.repo.workspace(), "dotdiw.sqlite"))
         with conn:
             conn.execute("UPDATE items SET kind = 'molecule' WHERE id = ?", (root,))
-            conn.execute("UPDATE items SET kind = 'epic' WHERE id = ?", (step,))
+            # Such a store kept no run on a step: its root is its parent alone.
+            conn.execute("UPDATE items SET kind = 'epic', run = NULL WHERE id = ?", (step,))
         conn.close()
         self.assertEqual(self.ask("show-item", id=root)["item"]["kind"], "root")
         self.assertEqual(self.ask("show-item", id=step)["item"]["kind"], "task")
@@ -3785,6 +3870,19 @@ class TheLocalAdapter(InterfaceRecords, unittest.TestCase):
         )
         root = self.ask("show-item", id=poured["rootId"])["item"]
         self.assertEqual((root["status"], root["reason"]), ("closed", "every step closed"))
+        # And with the last item made under it by hand, which is of no run:
+        # its parent, a poured root, closes with it.
+        again = self.ask(
+            "pour-steps", formulaRef="mol-y", title="mol-y", steps=[{"id": "a", "title": "A"}]
+        )
+        under = self.ask("create-item", title="By hand", parent=again["rootId"])["item"]
+        self.assertIsNone(under.get("run"), under)
+        self.assertEqual(
+            self.ask("close-item", id=again["stepIds"][0])["closedIds"], [again["stepIds"][0]]
+        )
+        self.assertEqual(
+            self.ask("close-item", id=under["id"])["closedIds"], [under["id"], again["rootId"]]
+        )
         # A plain parent is the worker's to close; a cycle is refused.
         p = self.ask("create-item", title="P")["item"]["id"]
         c = self.ask("create-item", title="C", parent=p)["item"]["id"]
@@ -4407,7 +4505,7 @@ title = "The first step"
         self.assertIn("this repository is adopted; its tracker is", out)
 
         code, out = self.dotdiw("--version")
-        self.assertEqual(out.strip().split("\n")[1], "  tracker local 4.1.0", out)
+        self.assertEqual(out.strip().split("\n")[1], "  tracker local 4.2.0", out)
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap")
         self.assertEqual(code, 0, out)
@@ -5516,7 +5614,7 @@ class TheTrackerCommands(unittest.TestCase):
         lines = [line for line in out.splitlines() if line.strip()]
         self.assertEqual(len(lines), 2, out)
         self.assertRegex(lines[0], r"^  beads\s+not installed\s+shipped$")
-        self.assertRegex(lines[1], r"^  local\s+4\.1\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(lines[1], r"^  local\s+4\.2\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.repo.dotdiw("tracker", "check", "local", env=env)
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 11, out)
@@ -5607,7 +5705,7 @@ class TheTrackerCommands(unittest.TestCase):
         # A root moves as a task until question.how-migrate-copies-a-root is settled.
         self.assertEqual(moved[root]["kind"], "task")
         self.assertEqual(
-            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 4.1.0"
+            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 4.2.0"
         )
 
         code, out = repo.dotdiw("tracker", "migrate", "beads", "local")
@@ -8106,6 +8204,18 @@ statement = "Roster {{ roster-id }} covers {{ capacity }} people for the overnig
         )
         shown = json.loads(self.run_tool(*beads, "show", one, "--json")[1])
         self.assertEqual((shown[0] if isinstance(shown, list) else shown)["issue_type"], "task")
+        # Nor does a reopen run where it cannot be read: it might open a
+        # pour's guard again.
+        env = self.shim('if [ "$1" = reopen ] && [ "$2" = --help ]; then exit 1; fi')
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW, *beads, "reopen", one],
+            cwd=self.repo.path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn("cannot read the command as the tracker would", p.stdout + p.stderr)
 
     @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
@@ -9074,28 +9184,47 @@ statement = "Roster {{ roster-id }} covers {{ capacity }} people for the overnig
         p = self.close_under(env, *beads, "update", root, "--title", "Again")
         self.assertIn("Updated issue: %s" % step, p.stdout + p.stderr)
 
-    def test_under_beads_a_claim_is_declined_and_nothing_is_written(self):
-        """bd sets a value only through its update, which reads an id it
-        holds nothing of as another item's. So a claim's values are
-        declined under beads, by the full id or a short one, saying so, and
-        nothing is written; the id is read first all the same, and the short
-        id of a root bd holds no more, which bd reads as its step's, names
-        no item."""
+    @uses("bd")
+    @unittest.skipUnless(have_bd(), "needs the tracker")
+    def test_under_beads_a_claim_is_recorded_on_the_step_named(self):
+        """Under beads a claim's values are recorded on the step named, by
+        its full id or a short one, and the run is printed filled from them,
+        as under local. The short id of a root bd holds no more, which bd
+        reads as its step's, names no item, and nothing is written."""
         beads, root, step = self.poured_under_beads()
-        before = json.loads(self.did(*beads, "show", step, "--json"))
-        for given in (step, step.rsplit("-", 1)[1]):
+        for given, roster in ((step, "42"), (step.rsplit("-", 1)[1], "43")):
             with self.subTest(given=given):
                 code, out, err = self.run_tool(
-                    *beads, "claim", given, "roster-id: 42", "capacity: 80"
+                    *beads,
+                    "claim",
+                    given,
+                    "roster-id: %s" % roster,
+                    "capacity: 80",
+                    "shift-date: 2026-11-13",
                 )
-                self.assertEqual(code, 1, out + err)
+                self.assertEqual(code, 0, out + err)
                 self.assertIn(
-                    "This tracker records no claim's values in this release: it cannot yet "
-                    "hold such a write to the item named, so nothing was recorded on %s." % step,
-                    err,
+                    "claim:\nRoster %s covers 80 people for the overnight shift starting "
+                    "2026-11-13.\n" % roster,
+                    out,
                 )
-        self.assertEqual(json.loads(self.did(*beads, "show", step, "--json")), before)
+                self.assertIn(
+                    "verify-using:\njson+https://rosters.example.org/%s | .capacity == 80 and "
+                    '.shift_date == "2026-11-13"\n' % roster,
+                    out,
+                )
+        code, out, err = self.run_tool(*beads, "claim", step, "--json")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(
+            json.loads(out)["steps"][0]["values"],
+            [
+                {"label": "roster-id", "text": "43"},
+                {"label": "capacity", "text": "80"},
+                {"label": "shift-date", "text": "2026-11-13"},
+            ],
+        )
         self.deleted_by_bd(root)
+        before = json.loads(self.did(*beads, "show", step, "--json"))
         short = root.rsplit("-", 1)[1]
         code, out, err = self.run_tool(*beads, "claim", short, "roster-id: 7")
         self.assertEqual(code, 1, out + err)
@@ -9104,6 +9233,7 @@ statement = "Roster {{ roster-id }} covers {{ capacity }} people for the overnig
             % (short, step),
             err,
         )
+        self.assertEqual(json.loads(self.did(*beads, "show", step, "--json")), before)
 
     @uses("bd")
     @unittest.skipUnless(have_bd(), "needs the tracker")
@@ -10968,6 +11098,1326 @@ def have_grpc():
     return True
 
 
+CAMPAIGN = """formula = "publish-campaign"
+description = "Prepare a campaign for publication after its image has been selected."
+
+[[steps]]
+id = "clear-image-rights"
+title = "Clear the selected image for paid social"
+formula = "clear-image-for-paid-social"
+
+[[steps]]
+id = "prepare-publication"
+title = "Prepare the campaign for publication"
+needs = ["clear-image-rights"]
+"""
+
+CLEARANCE = """formula = "clear-image-for-paid-social"
+description = "Clear a selected image for paid social: its licence, then its model release."
+verify-using = ["run:check-licence {{ licence.number }}"]
+
+[[steps]]
+id = "licence"
+title = "Confirm the image's licence covers paid social"
+
+[steps.claim]
+statement = "Licence {{ number }} covers paid social."
+"number:" = {}
+
+[[steps]]
+id = "release"
+title = "Confirm a model release is on file"
+needs = ["licence"]
+"""
+
+
+def calling(name, *steps):
+    """A formula whose steps are given as (id, the formula it calls, its needs)."""
+    text = 'formula = "%s"\ndescription = "Run %s. Use when testing calls."\n' % (name, name)
+    for ident, called, needs in steps:
+        text += '\n[[steps]]\nid = "%s"\ntitle = "Step %s"\n' % (ident, ident)
+        if called is not None:
+            text += "formula = %s\n" % called
+        if needs:
+            text += "needs = %s\n" % json.dumps(needs)
+    return text
+
+
+# Three deep: alpha's a2 calls beta, whose b2 calls gamma.
+NESTED = {
+    "alpha.formula.toml": calling(
+        "alpha", ("a1", None, []), ("a2", '"beta"', ["a1"]), ("a3", None, ["a2"])
+    ),
+    "gamma.formula.toml": calling("gamma", ("g1", None, []), ("g2", None, ["g1"])),
+    # A call within a call that names no needs waits on what holds back the
+    # call it stands within.
+    "delta.formula.toml": calling("delta", ("d1", None, []), ("d2", '"epsilon"', ["d1"])),
+    "epsilon.formula.toml": calling("epsilon", ("e1", '"zeta"', [])),
+    "zeta.formula.toml": calling("zeta", ("z1", None, [])),
+    # Its own means name a step id only its calls hold: no call fills them.
+    "twice.formula.toml": calling(
+        "twice",
+        ("first", '"clear-image-for-paid-social"', []),
+        ("second", '"clear-image-for-paid-social"', []),
+    ).replace(
+        'description = "Run twice. Use when testing calls."\n',
+        'description = "Run twice. Use when testing calls."\n'
+        'verify-using = ["run:both {{ licence.number }}"]\n',
+    ),
+    # A calling step that needs a step, and a step after it.
+    "needy.formula.toml": calling(
+        "needy",
+        ("first", None, []),
+        ("second", '"clear-image-for-paid-social"', ["first"]),
+        ("third", None, ["second"]),
+    ),
+    # Step ids a formula may always have held: a slash is no call.
+    "flat.formula.toml": calling(
+        "flat", ("clear-image-rights/", None, []), ("clear-image-rights/licence", None, [])
+    ),
+    "first-job.formula.toml": calling("first-job", ("f1", None, [])).replace(
+        'description = "Run first-job. Use when testing calls."\n',
+        'description = "Run first-job. Use when testing calls."\n'
+        'verify-using = ["run:first {{ f1.n }}"]\n',
+    )
+    + '\n[steps.claim]\nstatement = "Found {{ n }}."\n"n:" = {}\n',
+    "second-job.formula.toml": calling("second-job", ("s1", None, [])),
+    "campaigns/publish-campaign.formula.toml": CAMPAIGN,
+    "rights/clear-image-for-paid-social.formula.toml": CLEARANCE,
+}
+# beta's b1 claims a value its means read.
+NESTED["beta.formula.toml"] = (
+    'formula = "beta"\ndescription = "Run beta. Use when testing calls."\n'
+    'verify-using = ["run:beta {{ b1.v }}"]\n'
+    '\n[[steps]]\nid = "b1"\ntitle = "Step b1"\n'
+    '\n[steps.claim]\nstatement = "B {{ v }}."\n"v:" = {}\n'
+    '\n[[steps]]\nid = "b2"\ntitle = "Step b2"\nformula = "gamma"\nneeds = ["b1"]\n'
+)
+
+
+class NestedPours(_TestBase):
+    """A pour that calls formulas, through the command line, as a worker runs
+    it: one run for the whole job, each call held within its calling step,
+    its needs holding back the call, the close of the last item of a call
+    closing it up to the root, and each call keeping its own claims and
+    means. Mixed into one class per adapter that says it pours calls, which
+    names the checkout (where) and its environment (env), so that every
+    adapter is held to the same scenario."""
+
+    where: str
+    env: dict[str, str]
+
+    def write_nested(self):
+        for rel, text in NESTED.items():
+            path = os.path.join(self.where, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text)
+
+    def run_tool(self, *args):
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW] + list(args),
+            cwd=self.where,
+            env=self.env,
+            input="",
+            capture_output=True,
+            text=True,
+        )
+        return p.returncode, p.stdout, p.stderr
+
+    def did(self, *args):
+        code, out, err = self.run_tool(*args)
+        self.assertEqual(code, 0, out + err)
+        return out
+
+    def records(self, *args):
+        return json.loads(self.did(*args, "--json"))
+
+    def shown(self, ident):
+        shown = self.records("show", ident)
+        return shown[0] if isinstance(shown, list) else shown
+
+    def own(self, ident, field):
+        """A field of an item's record, or, where bd's own show prints the
+        item, as dotdiw keeps it in bd's metadata."""
+        shown = self.shown(ident)
+        if field in shown:
+            return shown[field]
+        metadata = shown.get("metadata") or {}
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        return (metadata.get("dotdiw") or {}).get(field)
+
+    def made(self, poured):
+        """Every item a pour made, its root left out, in the order poured."""
+        out = list(poured["stepIds"])
+        for c in poured.get("calls") or []:
+            out += [i for i in c["stepIds"] if i not in out]
+        return out
+
+    def ready(self, poured):
+        """What is ready of what the pour made, in the order poured."""
+        given = {i["id"] for i in self.records("ready")}
+        return [i for i in self.made(poured) if i in given]
+
+    def test_three_levels_are_one_run_and_close_up_to_the_root(self):
+        poured = self.records("formula", "pour", "alpha")
+        root = poured["rootId"]
+        a1, a2, a3 = poured["stepIds"]
+        beta, gamma = poured["calls"]
+        b1, b2 = beta["stepIds"]
+        g1, g2 = gamma["stepIds"]
+        self.assertEqual(
+            (beta["step"], beta["stepId"], beta["formula"], beta.get("within")),
+            ("a2", a2, "beta", None),
+        )
+        self.assertEqual(
+            (gamma["step"], gamma["stepId"], gamma["formula"], gamma.get("within")),
+            ("b2", b2, "gamma", a2),
+        )
+        self.assertEqual(beta["verifyUsing"], ["run:beta {{ b1.v }}"])
+        self.assertEqual([(c["item"], c.get("within")) for c in poured["claims"]], [(b1, a2)])
+        for item in self.made(poured):
+            self.assertEqual(self.own(item, "run"), root, "one run holds all of the job")
+        self.assertEqual(
+            [self.own(i, "within") for i in (a1, b1, b2, g1, g2)], [None, a2, a2, b2, b2]
+        )
+        self.assertEqual(self.ready(poured), [a1])
+        code, out, err = self.run_tool("close", a2)
+        self.assertEqual(code, 1, "a calling step waits on its call: " + out + err)
+        self.did("close", a1)
+        self.assertEqual(self.ready(poured), [b1])
+        self.did("close", b1)
+        self.assertEqual(self.ready(poured), [g1])
+        self.did("close", g1)
+        self.assertEqual(self.ready(poured), [g2])
+        self.did("close", g2)
+        self.assertEqual(
+            [self.shown(i)["status"] for i in (b2, a2)], ["closed", "closed"], "closed up the chain"
+        )
+        self.assertEqual(self.shown(root)["status"], "open")
+        self.assertEqual(self.ready(poured), [a3])
+        self.did("close", a3)
+        self.assertEqual(self.shown(root)["status"], "closed")
+
+    def test_a_calling_steps_needs_hold_back_its_call_at_any_depth(self):
+        poured = self.records("formula", "pour", "delta")
+        d1, d2 = poured["stepIds"]
+        epsilon, zeta = poured["calls"]
+        (e1,) = epsilon["stepIds"]
+        (z1,) = zeta["stepIds"]
+        self.assertEqual((zeta["stepId"], zeta.get("within")), (e1, d2))
+        self.assertEqual(self.ready(poured), [d1], "z1 waits on d1 through two calls")
+        self.did("close", d1)
+        self.assertEqual(self.ready(poured), [z1])
+        self.did("close", z1)
+        self.assertEqual([self.shown(i)["status"] for i in (e1, d2)], ["closed", "closed"])
+        self.assertEqual(self.shown(poured["rootId"])["status"], "closed")
+
+    def test_two_calls_of_one_formula_keep_their_claims_and_means_apart(self):
+        poured = self.records("formula", "pour", "twice")
+        one, two = poured["calls"]
+        self.assertEqual(
+            [(c["step"], c["formula"]) for c in (one, two)],
+            [("first", "clear-image-for-paid-social"), ("second", "clear-image-for-paid-social")],
+        )
+        self.assertEqual(
+            [(c["step"], c.get("within")) for c in poured["claims"]],
+            [("licence", one["stepId"]), ("licence", two["stepId"])],
+        )
+        self.did("claim", one["stepIds"][0], "number: L-1")
+        self.did("claim", two["stepIds"][0], "number: L-2")
+        run = self.records("claim", poured["rootId"])
+        calls = {c["item"]: c for c in run["calls"]}
+        self.assertEqual(sorted(calls), sorted([one["stepId"], two["stepId"]]))
+        for call, number in ((one, "L-1"), (two, "L-2")):
+            read = calls[call["stepId"]]
+            self.assertEqual((read["step"], read["formula"]), (call["step"], call["formula"]))
+            self.assertEqual(read["verifyUsing"], ["run:check-licence %s" % number])
+            self.assertEqual(read["open"], [])
+            self.assertEqual(
+                [(s["item"], s["claim"], s.get("within")) for s in read["steps"]],
+                [
+                    (
+                        call["stepIds"][0],
+                        "Licence %s covers paid social." % number,
+                        call["stepId"],
+                    )
+                ],
+            )
+        self.assertEqual(run["steps"], [])
+        self.assertEqual(
+            (run["verifyUsing"], run["open"]),
+            (["run:both {{ licence.number }}"], ["{{ licence.number }}"]),
+            "a call's values fill its own means and no other",
+        )
+
+    def test_a_calling_steps_need_of_its_call_is_not_taken_off(self):
+        poured = self.records("formula", "pour", "publish-campaign")
+        rights, prepare = poured["stepIds"]
+        licence, release = poured["calls"][0]["stepIds"]
+        code, out, err = self.run_tool("dep", "remove", rights, licence)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(
+            "%s needs %s, which was poured within it: a calling step needs every item of its "
+            "call, and that need is not taken off." % (rights, licence),
+            out + err,
+        )
+        self.did("close", licence)
+        self.assertEqual(self.ready(poured), [release], "the calling step still waits on it")
+
+    def test_a_calling_step_whose_need_closes_last_closes(self):
+        """The call's work done while the calling step's need was opened
+        again: closing that need, the last thing the calling step waits on,
+        closes it, and the job goes on."""
+        poured = self.records("formula", "pour", "needy")
+        first, second, third = poured["stepIds"]
+        licence, release = poured["calls"][0]["stepIds"]
+        self.did("close", first)
+        self.did("close", licence)
+        self.did("update", first, "--status", "open")
+        self.did("close", release)
+        self.assertEqual(self.shown(second)["status"], "open", "its need stands open")
+        self.did("close", first)
+        self.assertEqual(self.shown(second)["status"], "closed")
+        self.assertEqual(self.ready(poured), [third])
+
+    def test_an_item_moved_keeps_its_call(self):
+        poured = self.records("formula", "pour", "publish-campaign")
+        rights, prepare = poured["stepIds"]
+        licence, release = poured["calls"][0]["stepIds"]
+        elsewhere = self.records("create", "Somewhere else")["id"]
+        self.did("update", licence, "--parent", elsewhere)
+        self.assertEqual(self.own(licence, "within"), rights)
+        self.assertEqual(self.own(licence, "run"), poured["rootId"])
+        self.did("claim", licence, "number: L-9")
+        read = self.records("claim", poured["rootId"])["calls"][0]
+        self.assertEqual(read["verifyUsing"], ["run:check-licence L-9"])
+        code, out, err = self.run_tool("close", rights)
+        self.assertEqual(code, 1, "the call still holds its calling step: " + out + err)
+        self.did("close", licence)
+        self.did("close", release)
+        self.assertEqual(self.shown(rights)["status"], "closed")
+        self.assertEqual(self.ready(poured), [prepare])
+
+    def test_a_flat_formula_whose_ids_hold_a_slash_pours_as_it_did(self):
+        poured = self.records("formula", "pour", "flat")
+        top, below = poured["stepIds"]
+        self.assertNotIn("calls", poured)
+        self.assertEqual(self.ready(poured), [top, below])
+        for item in (top, below):
+            self.assertIsNone(self.own(item, "within"))
+            self.assertIsNone(self.own(item, "calls"))
+        self.did("close", top)
+        self.assertEqual(self.shown(below)["status"], "open")
+        self.assertEqual(self.shown(poured["rootId"])["status"], "open")
+        self.assertNotIn("calls", self.records("claim", poured["rootId"]))
+
+    def test_jobs_poured_apart_wait_through_their_roots_and_keep_their_own(self):
+        first = self.records("formula", "pour", "first-job")
+        second = self.records("formula", "pour", "second-job")
+        (f1,) = first["stepIds"]
+        (s1,) = second["stepIds"]
+        self.did("dep", "add", s1, first["rootId"])
+        self.assertEqual(self.ready(second), [])
+        self.did("claim", f1, "n: 7")
+        self.did("close", f1)
+        self.assertEqual(self.shown(first["rootId"])["status"], "closed")
+        self.assertEqual(self.ready(second), [s1])
+        mine, theirs = (self.records("claim", r["rootId"]) for r in (first, second))
+        self.assertEqual(mine["verifyUsing"], ["run:first 7"])
+        self.assertEqual([s["item"] for s in mine["steps"]], [f1])
+        self.assertEqual((theirs["steps"], theirs["verifyUsing"]), ([], []))
+
+
+class NestedPoursUnderLocal(NestedPours, unittest.TestCase):
+    """The scenario of a pour that calls formulas, under the local tracker."""
+
+    def setUp(self):
+        self.repo = Repo(tracker="local")
+        self.addCleanup(self.repo.close)
+        self.where, self.env = self.repo.path, self.repo.env
+        self.write_nested()
+        self.did("init", "--tracker", "local")
+
+
+@uses("bd")
+@unittest.skipUnless(have_bd(), "needs the tracker")
+class NestedPoursUnderBeads(NestedPours, unittest.TestCase):
+    """The scenario of a pour that calls formulas, under beads."""
+
+    def setUp(self):
+        self.repo = Repo(tracker="beads")
+        self.addCleanup(self.repo.close)
+        self.where, self.env = self.repo.path, self.repo.env
+        self.write_nested()
+        self.did("init", "--tracker", "beads")
+
+
+class AStepThatCallsAFormula(unittest.TestCase):
+    """Every call is resolved before anything is written, and a call that
+    cannot be poured is refused, naming the step and the reference, with
+    nothing made; what was resolved is what is poured."""
+
+    def setUp(self):
+        self.repo = Repo(tracker="local")
+        self.addCleanup(self.repo.close)
+        self.repo.write("campaigns/publish-campaign.formula.toml", CAMPAIGN)
+        self.repo.write("rights/clear-image-for-paid-social.formula.toml", CLEARANCE)
+        code, out = self.repo.dotdiw("init", "--tracker", "local")
+        self.assertEqual(code, 0, out)
+
+    def run_tool(self, *args):
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW] + list(args),
+            cwd=self.repo.path,
+            env=self.repo.env,
+            capture_output=True,
+            text=True,
+        )
+        return p.returncode, p.stdout, p.stderr
+
+    def did(self, *args):
+        code, out, err = self.run_tool(*args)
+        self.assertEqual(code, 0, out + err)
+        return out
+
+    def records(self, *args):
+        return json.loads(self.did(*args, "--json"))
+
+    def test_the_pour_says_what_each_call_holds(self):
+        out = self.did("formula", "pour", "publish-campaign")
+        self.assertIn("created 5 issues", out)
+        self.assertRegex(
+            out,
+            r"\n  \S+ \(clear-image-rights\) calls clear-image-for-paid-social: "
+            r"2 steps within it\n",
+        )
+        self.assertRegex(out, r"\nVerify using, for \S+ \(clear-image-for-paid-social\):\n")
+
+    def refused(self, name, said):
+        """The pour of name refused, saying so, with nothing made."""
+        before = self.records("list")
+        code, out, err = self.run_tool("formula", "pour", name)
+        self.assertEqual(code, 1, out + err)
+        self.assertIn(said, err)
+        self.assertEqual(self.records("list"), before, "nothing was poured")
+
+    def test_a_reference_to_no_formula_pours_nothing(self):
+        self.repo.write("lost.formula.toml", calling("lost", ("s", '"no-such-formula"', [])))
+        self.refused(
+            "lost",
+            "Step s of lost calls no-such-formula: no-such-formula names no formula. "
+            "Nothing was poured.",
+        )
+
+    def test_a_reference_that_names_two_formulas_pours_nothing(self):
+        for where in ("one", "two"):
+            self.repo.write("%s/twin.formula.toml" % where, calling("twin", ("t", None, [])))
+        self.repo.write("caller.formula.toml", calling("caller", ("s", '"twin"', [])))
+        self.refused("caller", "Step s of caller calls twin: twin names more than one formula: ")
+
+    def test_a_formula_that_calls_itself_pours_nothing(self):
+        self.repo.write("loop.formula.toml", calling("loop", ("s", '"loop"', [])))
+        self.refused(
+            "loop", "Step s of loop calls loop, and the calls go round: loop -> loop. Nothing"
+        )
+
+    def test_two_formulas_of_one_id_call_each_other_by_path(self):
+        """Two files declare one formula id, and each is named by its path: a
+        call from one to the other is no cycle, since they are two formulas;
+        one that calls back to the first is one."""
+        self.repo.write(
+            "a/shared.formula.toml", calling("shared", ("s", '"b/shared.formula.toml"', []))
+        )
+        self.repo.write("b/shared.formula.toml", calling("shared", ("x", None, [])))
+        poured = self.records("formula", "pour", "a/shared.formula.toml")
+        (call,) = poured["calls"]
+        self.assertEqual((call["step"], call["formula"], len(call["stepIds"])), ("s", "shared", 1))
+        self.repo.write(
+            "b/shared.formula.toml", calling("shared", ("x", '"a/shared.formula.toml"', []))
+        )
+        self.refused(
+            "a/shared.formula.toml",
+            "Step x of shared calls a/shared.formula.toml, and the calls go round: "
+            "shared -> shared -> shared. Nothing was poured.",
+        )
+
+    def test_calls_that_go_round_pour_nothing(self):
+        self.repo.write("a.formula.toml", calling("alpha", ("a1", '"beta"', [])))
+        self.repo.write("b.formula.toml", calling("beta", ("b1", '"alpha"', [])))
+        self.refused(
+            "alpha",
+            "Step b1 of beta calls alpha, and the calls go round: alpha -> beta -> alpha. "
+            "Nothing was poured.",
+        )
+
+    def test_a_calling_step_that_declares_a_claim_pours_nothing(self):
+        self.repo.write(
+            "claiming.formula.toml",
+            calling("claiming", ("s", '"clear-image-for-paid-social"', []))
+            + '\n[steps.claim]\nstatement = "Done {{ x }}."\n"x:" = {}\n',
+        )
+        self.refused(
+            "claiming",
+            "Step s of claiming calls clear-image-for-paid-social and declares a claim, but a "
+            "step that calls a formula claims nothing: what its call found is claimed by a "
+            "step that needs it. Nothing was poured.",
+        )
+
+    def test_a_calling_step_whose_claim_cannot_be_read_pours_nothing(self):
+        self.repo.write(
+            "unread.formula.toml",
+            calling("unread", ("s", '"clear-image-for-paid-social"', []))
+            + 'claim = "not a table"\n',
+        )
+        self.refused(
+            "unread",
+            "Step s of unread calls clear-image-for-paid-social and declares a claim, but a "
+            "step that calls a formula claims nothing",
+        )
+
+    def test_a_called_formula_whose_needs_name_no_step_pours_nothing(self):
+        self.repo.write("broken.formula.toml", calling("broken", ("x", None, ["nowhere"])))
+        self.repo.write("calls-broken.formula.toml", calling("calls-broken", ("s", '"broken"', [])))
+        self.refused(
+            "calls-broken",
+            "Step s of calls-broken calls broken: x needs nowhere, which is not a step. "
+            "Nothing was poured.",
+        )
+
+    def test_a_formula_that_is_not_text_pours_nothing(self):
+        self.repo.write("odd.formula.toml", calling("odd", ("s", "7", [])))
+        self.refused(
+            "odd",
+            "Step s of odd calls no formula: its formula is not text naming one. "
+            "Nothing was poured.",
+        )
+
+    def test_a_calling_step_may_name_needs(self):
+        self.repo.write(
+            "needy.formula.toml",
+            calling(
+                "needy",
+                ("first", None, []),
+                ("second", '"clear-image-for-paid-social"', ["first"]),
+            ),
+        )
+        poured = self.records("formula", "pour", "needy")
+        first, second = poured["stepIds"]
+        licence, release = poured["calls"][0]["stepIds"]
+        shown = self.records("show", licence)
+        self.assertEqual((shown["within"], shown["needs"]), (second, [first]))
+
+    def test_check_names_what_a_pour_would_refuse_of_a_call(self):
+        self.repo.write("odd.formula.toml", calling("odd", ("s", "7", [])))
+        self.repo.write(
+            "claiming.formula.toml",
+            calling("claiming", ("a", None, []), ("b", '"odd"', ["a"]))
+            + '\n[steps.claim]\nstatement = "Done {{ x }}."\n"x:" = {}\n',
+        )
+        code, out, err = self.run_tool("check")
+        self.assertIn("step s calls no formula: its formula is not text naming one", out + err)
+        self.assertIn(
+            "step b calls odd and declares a claim -- a step that calls a formula claims "
+            "nothing; what its call found is claimed by a step that needs it",
+            out + err,
+        )
+
+
+class APourThatCallsInProcess(unittest.TestCase):
+    """What a pour that calls a formula does that only a test inside the
+    process can make happen: a definition changed after it was read, a
+    tracker that does not say it pours calls, and, under the local tracker,
+    a write that fails part of the way, which writes nothing."""
+
+    def setUp(self):
+        self.repo = Repo(tracker="local")
+        self.addCleanup(self.repo.close)
+        home = os.environ.get("HOME", "")
+        os.environ["HOME"] = self.repo.home
+        self.addCleanup(os.environ.__setitem__, "HOME", home)
+        self.m = load_module("dotdiw_calls_in_process")
+        self.repo.git("config", "--local", "dotdiw.workspace", "k" * 16)
+        os.makedirs(self.repo.workspace())
+        for rel, text in NESTED.items():
+            self.repo.write(rel, text)
+        self.assertEqual(self.ask("open-tracker", prefix="w")["status"], "completed")
+        self.operations = self.m.TRACKERS["local"]["operations"]
+
+    def ask(self, operation, **request):
+        request.setdefault("root", self.repo.path)
+        request.setdefault("tracker", "local")
+        return self.m.invoke_tracker("operation." + operation, request)
+
+    def pour(self, ident):
+        return self.m.invoke(
+            "operation.pour-procedure", {"root": self.repo.path, "ident": ident, "tracker": "local"}
+        )
+
+    def test_a_definition_changed_once_read_pours_as_it_was_read(self):
+        real = self.operations["operation.pour-steps"]
+
+        def rewritten_first(request):
+            self.repo.write("gamma.formula.toml", calling("gamma", ("changed", None, [])))
+            self.repo.write("beta.formula.toml", calling("beta", ("other", None, [])))
+            return real(request)
+
+        self.operations["operation.pour-steps"] = rewritten_first
+        try:
+            out = self.pour("alpha")
+        finally:
+            self.operations["operation.pour-steps"] = real
+        self.assertEqual(out["status"], "completed", out)
+        beta, gamma = out["calls"]
+        steps = {
+            i["id"]: i["step"]
+            for i in self.ask("list-items", scope="all", run=out["moleculeRef"])["items"]
+        }
+        self.assertEqual([steps[i] for i in beta["stepRefs"]], ["b1", "b2"])
+        self.assertEqual([steps[i] for i in gamma["stepRefs"]], ["g1", "g2"])
+
+    def test_a_tracker_that_does_not_pour_calls_is_asked_nothing(self):
+        real = self.operations["operation.describe-tracker"]
+
+        def no_calls(request):
+            out = real(request)
+            out["info"] = {k: v for k, v in out["info"].items() if k != "nests"}
+            return out
+
+        self.operations["operation.describe-tracker"] = no_calls
+        try:
+            out = self.pour("publish-campaign")
+            plain = self.pour("second-job")
+        finally:
+            self.operations["operation.describe-tracker"] = real
+        self.assertEqual((out["status"], out["reason"]), ("failed", "call-unsupported"))
+        self.assertEqual(
+            out["summary"],
+            "Step clear-image-rights of publish-campaign calls clear-image-for-paid-social, "
+            "and the tracker local does not pour a step that calls a formula. Nothing was "
+            "poured.",
+        )
+        self.assertEqual(plain["status"], "completed", "a pour with no call is asked as it was")
+        self.assertEqual(
+            sorted(i["id"] for i in self.ask("list-items", scope="all")["items"]),
+            sorted([plain["moleculeRef"]] + plain["stepRefs"]),
+        )
+
+    def test_a_pour_the_store_refuses_at_any_write_writes_nothing(self):
+        """The local tracker writes a pour in one transaction: refused at any
+        write of it -- the columns a store made before calls gains, an item,
+        a need, a calling step's fields -- nothing of the pour is left, so
+        nothing of it can complete. Each write is refused in turn, until a
+        pour has none left to refuse and is whole."""
+        real = self.m.local_connect
+        writes: list[str] = []
+
+        class Cut:
+            """A connection whose write numbered cut the store refuses."""
+
+            def __init__(self, conn, cut):
+                self.conn, self.cut = conn, cut
+
+            def execute(self, sql, *args):
+                if sql.split(None, 1)[0].upper() in ("INSERT", "UPDATE", "ALTER"):
+                    writes.append(sql)
+                    if len(writes) == self.cut:
+                        raise sqlite3.OperationalError("disk I/O error")
+                return self.conn.execute(sql, *args)
+
+            def __enter__(self):
+                return self.conn.__enter__()
+
+            def __exit__(self, *exc):
+                return self.conn.__exit__(*exc)
+
+            def __getattr__(self, name):
+                return getattr(self.conn, name)
+
+        def connect(root, cut):
+            conn = real(root)
+            return Cut(conn, cut) if conn is not None else None
+
+        before = self.ask("list-items", scope="all")["items"]
+        cut = 0
+        while True:
+            cut += 1
+            writes.clear()
+            self.m.local_connect = lambda root, cut=cut: connect(root, cut)
+            try:
+                out = self.pour("alpha")
+            finally:
+                self.m.local_connect = real
+            if out["status"] == "completed":
+                break
+            self.assertEqual(out["status"], "failed", cut)
+            self.assertNotIn("guardRef", out)
+            self.assertEqual(self.ask("list-items", scope="all")["items"], before, cut)
+            conn = real(self.repo.path)
+            self.assertFalse(self.m.local_calls(conn), "the columns go with the write")
+            conn.close()
+        self.assertEqual(len(writes), cut - 1, "every write of the pour was refused once")
+        self.assertGreater(cut, 20)
+
+
+@uses("bd")
+@unittest.skipUnless(have_bd(), "needs the tracker")
+class APourUnderBeadsCutShort(unittest.TestCase):
+    """bd writes a pour one issue at a time, so a pour that calls a formula
+    is held on a guard, made first and closed last: stopped after any write
+    it makes, no root and no calling step it made can complete, the guard
+    closes for no close but the pour's, and a root bd closes of its own
+    accord while the guard stands open is opened again."""
+
+    def setUp(self):
+        self.repo = Repo(tracker="beads")
+        self.addCleanup(self.repo.close)
+        for rel, text in NESTED.items():
+            self.repo.write(rel, text)
+        self.repo.write(
+            "outer.formula.toml",
+            calling("outer", ("first", None, []), ("call", '"gamma"', ["first"])),
+        )
+        code, out = self.repo.dotdiw("init", "--tracker", "beads")
+        self.assertEqual(code, 0, out)
+        home = os.environ.get("HOME", "")
+        os.environ["HOME"] = self.repo.home
+        self.addCleanup(os.environ.__setitem__, "HOME", home)
+        self.addCleanup(os.environ.pop, "BEADS_DIR", None)
+        self.m = load_module("dotdiw_beads_cut_short")
+
+    def ask(self, operation, **request):
+        request.setdefault("root", self.repo.path)
+        request.setdefault("tracker", "beads")
+        return self.m.invoke_tracker("operation." + operation, request)
+
+    def run_tool(self, *args):
+        code, out = self.repo.dotdiw(*args)
+        return code, out
+
+    def status(self, ident):
+        return self.ask("show-item", id=ident)["item"]["status"]
+
+    def pour(self, ident, cut=None):
+        """The pour of ident, bd's write numbered cut refused; the writes."""
+        real = self.m.beads_quiet
+        writes = []
+
+        def counted(args, root=None, **given):
+            if args[:1] in (["create"], ["update"], ["close"]):
+                writes.append(args[0])
+                if len(writes) == cut:
+                    return 1, "", "Error: refused by the test"
+            return real(args, root, **given)
+
+        self.m.beads_quiet = counted
+        try:
+            out = self.m.invoke(
+                "operation.pour-procedure",
+                {"root": self.repo.path, "ident": ident, "tracker": "beads"},
+            )
+        finally:
+            self.m.beads_quiet = real
+        return out, writes
+
+    def test_a_whole_pour_closes_its_guard_and_shows_it_nowhere(self):
+        out, writes = self.pour("publish-campaign")
+        self.assertEqual(out["status"], "completed", out)
+        # The guard, the root, the guard's run, each step, the root marked
+        # whole, and the guard's close.
+        self.assertEqual(
+            writes, ["create"] * 2 + ["update"] + ["create"] * 4 + ["update"] + ["close"]
+        )
+        root = self.ask("show-item", id=out["moleculeRef"])["item"]
+        self.assertIs(root.get("whole"), True, root)
+        # The mark keeps every other word of the root's own: its means too.
+        twice, _ = self.pour("twice")
+        self.assertEqual(twice["status"], "completed", twice)
+        marked = self.ask("show-item", id=twice["moleculeRef"])["item"]
+        self.assertEqual(
+            (marked.get("whole"), marked.get("verifyUsing"), marked.get("guard") is not None),
+            (True, ["run:both {{ licence.number }}"], True),
+            marked,
+        )
+        guard = root["guard"]
+        self.assertNotIn(guard, root["needs"])
+        shown = self.ask("show-item", id=guard)["item"]
+        self.assertEqual(
+            (shown["kind"], shown["status"], shown["run"], shown.get("parent")),
+            ("guard", "closed", out["moleculeRef"], None),
+        )
+        (call,) = out["calls"]
+        self.assertEqual(self.ask("show-item", id=call["stepRef"])["item"]["guard"], guard)
+        self.assertNotIn(guard, [i["id"] for i in self.ask("ready-items")["items"]])
+        code, said = self.run_tool("close", guard)
+        self.assertEqual(code, 1, said)
+        self.assertIn("is a pour's guard: only the pour that made it closes it", said)
+        for words in (
+            ("reopen", guard),
+            ("update", guard, "--status", "open"),
+            ("dep", "remove", out["moleculeRef"], guard),
+        ):
+            code, said = self.run_tool(*words)
+            self.assertEqual(code, 1, (words, said))
+            self.assertIn("nothing else writes it", said)
+        self.assertEqual(self.status(guard), "closed", "the guard stays released")
+
+    def test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete(self):
+        _, writes = self.pour("publish-campaign")
+        for cut in range(1, len(writes) + 1):
+            out, _ = self.pour("publish-campaign", cut)
+            self.assertEqual(out["status"], "failed", cut)
+            guard = out.get("guardRef")
+            root = out.get("moleculeRef")
+            if cut == 1:
+                self.assertIsNone(guard, "nothing was made")
+                continue
+            self.assertIsNotNone(guard, cut)
+            if root is None:
+                # Stopped before the root was made: the guard holds nothing,
+                # and, with no root of it known, no close through dotdiw
+                # closes it.
+                self.assertIn("Nothing but its guard %s was made" % guard, out["summary"])
+                code, said = self.run_tool("close", guard)
+                self.assertEqual(code, 1, said)
+                continue
+            if cut == len(writes):
+                # Stopped at the guard's close, the last write: every item is
+                # made and the root marked whole, and the guard's close
+                # through dotdiw finishes the pour.
+                self.assertIn("finishes the pour", out["summary"])
+                code, said = self.run_tool("close", guard)
+                self.assertEqual(code, 0, said)
+                self.assertEqual(self.status(guard), "closed")
+                continue
+            self.assertIn("no close but a pour's closes it", out["summary"])
+            made = (
+                self.ask("list-items", scope="all", run=root)["items"] if root is not None else []
+            )
+            callers = [i["id"] for i in made if i.get("calls")]
+            ordinary = [i["id"] for i in made if not i.get("calls") and i["kind"] == "task"]
+            given = [i["id"] for i in self.ask("ready-items")["items"]]
+            self.assertEqual(
+                [i for i in given if i in [m["id"] for m in made] + [root, guard]],
+                [],
+                "nothing of a pour whose guard stands open is ready",
+            )
+            for _ in range(len(ordinary)):
+                for ident in ordinary:
+                    self.run_tool("close", ident)
+            for held in [root] + callers if root else []:
+                self.assertEqual(self.status(held), "open", (cut, held))
+                code, said = self.run_tool("close", held)
+                self.assertEqual(code, 1, said)
+                self.assertEqual(self.status(held), "open", (cut, held))
+                blocked = self.ask("close-item", id=held).get("blockedBy") or []
+                self.assertEqual(len(blocked), len(set(blocked)), blocked)
+            code, said = self.run_tool("close", guard)
+            self.assertEqual(code, 1, said)
+            self.assertNotEqual(self.status(guard), "closed", cut)
+
+    def test_a_root_bd_closes_while_its_guard_is_open_is_opened_again(self):
+        """Stopped once its first step is made, before its calling step:
+        the first step's close leaves the root bd's molecule with no child
+        open, which bd closes of its own accord; the guard, in its run, is
+        open, and the root is opened again."""
+        out, _ = self.pour("outer", cut=5)
+        self.assertEqual(out["status"], "failed", out)
+        (first,) = out["stepRefs"]
+        code, said = self.run_tool("close", first)
+        self.assertEqual(code, 0, said)
+        self.assertIn(
+            "%s closed of the tracker's own accord while %s stood open, so it is open again."
+            % (out["moleculeRef"], out["guardRef"]),
+            said,
+        )
+        self.assertEqual(self.status(out["moleculeRef"]), "open", said)
+        self.assertEqual(self.status(out["guardRef"]), "blocked")
+
+    def cut_at_the_mark(self):
+        """publish-campaign poured and stopped at the write that marks its
+        root whole: every item made, the root not marked, the guard open;
+        the pour's answer and what it made."""
+        _, writes = self.pour("publish-campaign")
+        out, _ = self.pour("publish-campaign", len(writes) - 1)
+        self.assertEqual(out["status"], "failed", out)
+        made = self.ask("list-items", scope="all", run=out["moleculeRef"])["items"]
+        return out, made
+
+    def whole_pour(self):
+        """publish-campaign poured whole: its answer, what it made, its guard."""
+        out, _ = self.pour("publish-campaign")
+        self.assertEqual(out["status"], "completed", out)
+        made = self.ask("list-items", scope="all", run=out["moleculeRef"])["items"]
+        return out, made, self.ask("show-item", id=out["moleculeRef"])["item"]["guard"]
+
+    def given_none_of(self, steps, *argv):
+        """What argv answers gives none of the steps: listed as ready, or
+        refused for a pour not known to be whole."""
+        code, said = self.run_tool(*argv)
+        if code != 0:
+            self.assertIn("not known to be whole", said, (argv, said))
+            return
+        self.assertFalse([s for s in steps if s in said], (argv, said))
+
+    def ready_ids(self):
+        code, said = self.run_tool("ready", "--json")
+        self.assertEqual(code, 0, said)
+        return [r["id"] for r in json.loads(said)]
+
+    def test_a_guard_deleted_outside_dotdiw_still_holds_its_pour(self):
+        """Its pour stopped before its root was marked whole, the guard is
+        deleted with bd, which takes its edges with it: the root and the
+        calling step still name it, so nothing of the pour is ready by any
+        ready dotdiw runs, and neither closes."""
+        out, made = self.cut_at_the_mark()
+        guard, root = out["guardRef"], out["moleculeRef"]
+        code, _, err = self.m.beads_quiet(["delete", guard, "--force"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        steps = [m["id"] for m in made if m["kind"] == "task"]
+        for argv in (("ready", "--json"), ("list", "--ready", "--json"), ("ready", "--mol", root)):
+            self.given_none_of(steps, *argv)
+        callers = [i["id"] for i in made if i.get("calls")]
+        ordinary = [i["id"] for i in made if not i.get("calls") and i["kind"] == "task"]
+        for _ in ordinary:
+            for ident in ordinary:
+                self.run_tool("close", ident)
+        for held in [root] + callers:
+            code, said = self.run_tool("close", held)
+            self.assertEqual(code, 1, said)
+            self.assertIn(guard, said)
+            self.assertIn(
+                "the guard of a pour not known to be whole, which no close but its pour's closes",
+                said,
+            )
+            answer = self.ask("close-item", id=held)
+            self.assertEqual(answer["status"], "blocked", answer)
+            self.assertIn(guard, answer.get("blockedBy") or [], answer)
+            self.assertEqual(self.status(held), "open", held)
+
+    def test_a_root_bd_closes_once_its_guard_is_deleted_is_opened_again(self):
+        """Stopped once its first step is made, the guard deleted with bd:
+        the first step's close leaves the molecule with no child open, which
+        bd closes of its own accord, and the root, still not marked whole,
+        is opened again."""
+        out, _ = self.pour("outer", cut=5)
+        self.assertEqual(out["status"], "failed", out)
+        (first,) = out["stepRefs"]
+        code, _, err = self.m.beads_quiet(["delete", out["guardRef"], "--force"], self.repo.path)
+        self.assertEqual(code, 0, err)
+        code, said = self.run_tool("close", first)
+        self.assertEqual(code, 0, said)
+        self.assertEqual(self.status(out["moleculeRef"]), "open", said)
+        self.assertIn("was not read as closed", said)
+
+    def test_a_guard_that_no_longer_reads_as_one_is_closed_by_no_one_but_its_pour(self):
+        """The guard's dotdiw metadata taken off with bd, so that it reads as
+        a task: named on the root and the calling step, it is a guard still,
+        refused a close and the edge to it taken off, and holds the pour."""
+        out, made = self.cut_at_the_mark()
+        guard, root = out["guardRef"], out["moleculeRef"]
+        code, _, err = self.m.beads_quiet(
+            ["update", guard, "--unset-metadata", "dotdiw"], self.repo.path
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.ask("show-item", id=guard)["item"]["kind"], "task")
+        for words in (("close", guard), ("dep", "remove", root, guard)):
+            code, said = self.run_tool(*words)
+            self.assertEqual(code, 1, (words, said))
+            self.assertIn("nothing else writes it", said)
+        self.assertNotEqual(self.status(guard), "closed")
+        self.given_none_of([m["id"] for m in made if m["kind"] == "task"], "ready", "--json")
+
+    def test_no_ready_gives_what_a_pour_cut_short_made(self):
+        """bd's own ready keeps a pour only by the edges and parents it
+        wrote: its ready for one molecule gives every step of it, and one
+        moved from under its root through dotdiw itself is given; dotdiw's
+        ready leaves the pour out, bd's own is refused while it stands, and
+        so is a close that would claim the next ready item."""
+        out, made = self.cut_at_the_mark()
+        root = out["moleculeRef"]
+        steps = [m["id"] for m in made if m["kind"] == "task"]
+        free = [
+            m["id"] for m in made if m["kind"] == "task" and not m.get("calls") and not m["needs"]
+        ]
+        self.assertTrue(free, made)
+        for argv in (
+            ("list", "--ready", "--json"),
+            ("ready", "--mol", root),
+            ("ready", "--mol", root, "--json"),
+        ):
+            self.given_none_of(steps, *argv)
+        code, said = self.run_tool("update", free[0], "--parent", "")
+        self.assertEqual(code, 0, said)
+        for spelled in (("ready", "--json"), ("list", "--ready", "--json")):
+            self.given_none_of(steps, *spelled)
+        code, said = self.run_tool("create", "Other")
+        self.assertEqual(code, 0, said)
+        other = group1("Created issue: (\\S+)", said)
+        code, said = self.run_tool("close", other, "--claim-next")
+        self.assertEqual(code, 1, said)
+        self.assertIn("not known to be whole", said)
+        self.assertNotEqual(self.status(other), "closed")
+
+    def test_a_pour_cut_short_that_bd_still_holds_leaves_its_ready_alone(self):
+        """A pour cut short and left as it is: bd's edges and parents still
+        hold it, so bd's own ready runs, and gives nothing of it -- though
+        an item it gives merely mentions one the pour holds, here by its
+        title."""
+        out, made = self.cut_at_the_mark()
+        steps = [m["id"] for m in made if m["kind"] == "task"]
+        code, said = self.run_tool("create", out["moleculeRef"])
+        self.assertEqual(code, 0, said)
+        other = group1("Created issue: (\\S+)", said)
+        for argv in (("ready", "-n", "5", "--json"), ("list", "--ready", "--json")):
+            code, said = self.run_tool(*argv)
+            self.assertEqual(code, 0, (argv, said))
+            given = [r["id"] for r in json.loads(said)]
+            self.assertEqual(([s for s in steps if s in given], other in given), ([], True), said)
+        # A listing that is no ready is bd's own, a pour held or not.
+        code, said = self.run_tool("list", "--ready=false", "--json")
+        self.assertEqual(code, 0, said)
+        self.assertTrue([r for r in json.loads(said) if r["id"] in steps], said)
+
+    def test_bds_ready_runs_only_where_the_very_command_gives_nothing_held(self):
+        """bd's own ready widened past what its default gives -- ephemeral
+        work, say -- may give what a held pour made though its default gives
+        none of it: here a leaf moved from under its root and made
+        ephemeral. While a pour is held, dotdiw runs the very command
+        quietly first, and runs it only where its answer names nothing the
+        pour holds: the spellings that give the leaf run not, and one that
+        does not, with the same option, runs. One that writes, as --claim
+        does, or whose answer cannot be read, runs not, and nothing is
+        claimed."""
+        out, made = self.cut_at_the_mark()
+        free = [
+            m["id"] for m in made if m["kind"] == "task" and not m.get("calls") and not m["needs"]
+        ]
+        leaf = free[0]
+        for words in (("update", leaf, "--parent", ""), ("update", leaf, "--ephemeral")):
+            code, said = self.run_tool(*words)
+            self.assertEqual(code, 0, (words, said))
+        for argv in (
+            ("ready", "--include-ephemeral", "--json"),
+            ("list", "--ready", "--include-ephemeral", "--json"),
+            ("ready", "--include-ephemeral", "--claim", "--json"),
+            ("ready", "--include-ephemeral", "--json=false"),
+        ):
+            code, said = self.run_tool(*argv)
+            self.assertEqual(code, 1, (argv, said))
+            self.assertIn("not known to be whole", said)
+            self.assertFalse(said.lstrip().startswith(("[", "{")), (argv, said))
+        shown = self.ask("show-item", id=leaf)["item"]
+        self.assertEqual((shown["status"], shown.get("assignee")), ("open", None), shown)
+        # The same option, where what it gives is none of the pour's.
+        code, said = self.run_tool("ready", "--include-ephemeral", "--assignee", "nobody", "--json")
+        self.assertEqual(code, 0, said)
+        self.assertEqual(json.loads(said), [])
+
+    def test_bds_ready_is_read_as_bd_reads_it(self):
+        """--mol after an option terminator is no option: bd takes the words
+        after it for words, and gives its whole ready. dotdiw reads the
+        command as bd will, and holds it as it holds any ready."""
+        out, made = self.cut_at_the_mark()
+        free = [
+            m["id"] for m in made if m["kind"] == "task" and not m.get("calls") and not m["needs"]
+        ]
+        code, said = self.run_tool("update", free[0], "--parent", "")
+        self.assertEqual(code, 0, said)
+        code, said = self.run_tool("create", "Other")
+        self.assertEqual(code, 0, said)
+        other = group1("Created issue: (\\S+)", said)
+        for argv in (
+            ("ready", "--json", "--", "--mol", other),
+            ("ready", "--json", "--", "--mol=%s" % other),
+        ):
+            code, said = self.run_tool(*argv)
+            self.assertEqual(code, 1, (argv, said))
+            self.assertIn("not known to be whole", said)
+            self.assertFalse(said.lstrip().startswith("["), (argv, said))
+
+    def test_what_bds_ready_gives_is_the_very_answer_that_was_checked(self):
+        """A leaf of a held pour, moved from under its root and deferred, so
+        that bd's ready leaves it out -- and woken once bd's ready has first
+        answered, as a deferred item's time passing wakes it. Asked as JSON,
+        the command is run once, and that answer, read before the leaf woke,
+        is what is given; asked as text, what it then printed names the
+        leaf, and is not given."""
+        out, made = self.cut_at_the_mark()
+        free = [
+            m["id"] for m in made if m["kind"] == "task" and not m.get("calls") and not m["needs"]
+        ]
+        leaf = free[0]
+        code, said = self.run_tool("update", leaf, "--parent", "")
+        self.assertEqual(code, 0, said)
+        real = self.m.beads_quiet
+        for words, refused in (
+            (["ready", "-n", "50", "--json"], False),
+            (["ready", "-n", "50"], True),
+        ):
+            code, said = self.run_tool("defer", leaf)
+            self.assertEqual(code, 0, said)
+            ran: list[list[str]] = []
+
+            def wakes_after_the_first(args, root=None, _ran=ran, **given):
+                answer = real(args, root, **given)
+                if "ready" in args and "--help" not in args:
+                    if not _ran:
+                        woke = real(["undefer", leaf], self.repo.path)
+                        self.assertEqual(woke[0], 0, woke)
+                    _ran.append(list(args))
+                return answer
+
+            self.m.beads_quiet = wakes_after_the_first
+            try:
+                answer = self.m.invoke(
+                    "operation.run-a-tracker-command",
+                    {
+                        "root": self.repo.path,
+                        "arguments": words,
+                        "tracker": "beads",
+                        "terminal": False,
+                    },
+                )
+            finally:
+                self.m.beads_quiet = real
+            self.assertNotIn(leaf, answer.get("output") or "", (words, answer))
+            self.assertEqual(answer["status"], "failed" if refused else "completed", answer)
+            self.assertEqual(len(ran), 2 if refused else 1, ran)
+
+    def test_no_command_run_as_it_is_closes_what_a_close_would_not(self):
+        """bd's human respond and human dismiss close the item they name,
+        whatever it waits on -- a pour's guard among them: dotdiw runs
+        neither, and the guard stands as it was; its listing runs."""
+        out, _ = self.cut_at_the_mark()
+        guard = out["guardRef"]
+        for words in (("human", "dismiss", guard, "done"), ("human", "respond", guard)):
+            code, said = self.run_tool(*words)
+            self.assertEqual(code, 1, (words, said))
+            self.assertIn("does not run human", said)
+        self.assertEqual(self.status(guard), "blocked")
+        code, said = self.run_tool("human", "list")
+        self.assertEqual(code, 0, said)
+
+    def test_an_empty_molecule_is_no_molecule(self):
+        """bd reads --mol given empty as no molecule at all, and gives its
+        whole ready: dotdiw holds it as it holds any ready."""
+        out, made = self.cut_at_the_mark()
+        free = [
+            m["id"] for m in made if m["kind"] == "task" and not m.get("calls") and not m["needs"]
+        ]
+        code, said = self.run_tool("update", free[0], "--parent", "")
+        self.assertEqual(code, 0, said)
+        for argv in (("ready", "--mol=", "--json"), ("ready", "--mol", "", "--json")):
+            code, said = self.run_tool(*argv)
+            self.assertEqual(code, 1, (argv, said))
+            self.assertIn("not known to be whole", said)
+            self.assertFalse(said.lstrip().startswith(("[", "{")), (argv, said))
+
+    def test_a_close_takes_no_next_item_while_a_pour_is_held(self):
+        """A leaf of a pour cut short, moved from under its root and made to
+        wait on an ordinary item: bd's ready gives it only once that item
+        closes, so a close of it that goes on to claim the next ready item
+        would claim the leaf. While a pour is held, no close takes the
+        next: nothing closes, and the leaf stays as it was."""
+        out, made = self.cut_at_the_mark()
+        free = [
+            m["id"] for m in made if m["kind"] == "task" and not m.get("calls") and not m["needs"]
+        ]
+        leaf = free[0]
+        code, said = self.run_tool("update", leaf, "--parent", "")
+        self.assertEqual(code, 0, said)
+        code, said = self.run_tool("create", "Other")
+        self.assertEqual(code, 0, said)
+        other = group1("Created issue: (\\S+)", said)
+        code, said = self.run_tool("dep", "add", leaf, other)
+        self.assertEqual(code, 0, said)
+        for flag in ("--claim-next", "--continue", "--suggest-next"):
+            code, said = self.run_tool("close", other, flag, "--json")
+            self.assertEqual(code, 1, (flag, said))
+            self.assertIn("not known to be whole", said)
+            self.assertEqual(self.status(other), "open", flag)
+        shown = self.ask("show-item", id=leaf)["item"]
+        self.assertEqual((shown["status"], shown.get("assignee")), ("open", None), shown)
+        # Without it, the close runs.
+        code, said = self.run_tool("close", other)
+        self.assertEqual(code, 0, said)
+
+    def test_bds_ready_of_one_molecule_gives_nothing_a_held_pour_moved_under_it(self):
+        """A step of a pour cut short, moved under another, whole pour's
+        root through dotdiw: bd's ready of that molecule would give it, and
+        runs not."""
+        whole, _, _ = self.whole_pour()
+        out, made = self.cut_at_the_mark()
+        free = [
+            m["id"] for m in made if m["kind"] == "task" and not m.get("calls") and not m["needs"]
+        ]
+        code, said = self.run_tool("update", free[0], "--parent", whole["moleculeRef"])
+        self.assertEqual(code, 0, said)
+        code, said = self.run_tool("ready", "--mol", whole["moleculeRef"], "--json")
+        self.assertEqual(code, 1, said)
+        self.assertIn("not known to be whole", said)
+        self.assertIn("while it would give %s" % out["moleculeRef"], said)
+
+    def test_edges_to_the_guard_taken_off_outside_dotdiw_give_nothing_ready(self):
+        """The root's and the calling step's edges to the guard taken off
+        with bd: bd's own ready would give the pour, and no ready dotdiw
+        runs does."""
+        out, made = self.cut_at_the_mark()
+        guard, root = out["guardRef"], out["moleculeRef"]
+        for waiter in [root] + [i["id"] for i in made if i.get("calls")]:
+            code, _, err = self.m.beads_quiet(["dep", "remove", waiter, guard], self.repo.path)
+            self.assertEqual(code, 0, err)
+        steps = [m["id"] for m in made if m["kind"] == "task"]
+        for argv in (("ready", "--json"), ("list", "--ready", "--json")):
+            self.given_none_of(steps, *argv)
+
+    def test_a_whole_pours_guard_deleted_by_housekeeping_holds_nothing(self):
+        """A whole pour's guard, closed, is deleted by dotdiw prune, as by
+        any housekeeping of closed issues: its root reads whole, so its work
+        is ready as before, and it moves."""
+        out, made, guard = self.whole_pour()
+        steps = [m["id"] for m in made if m["kind"] == "task"]
+        self.assertTrue([s for s in steps if s in self.ready_ids()])
+        code, said = self.run_tool("prune", "--pattern", "*", "--force")
+        self.assertEqual(code, 0, said)
+        self.assertEqual(self.ask("show-item", id=guard)["reason"], "item-not-found")
+        self.assertTrue([s for s in steps if s in self.ready_ids()])
+        code, said = self.run_tool("tracker", "migrate", "beads", "local")
+        self.assertEqual(code, 0, said)
+
+    def test_a_step_of_a_finished_run_reopened_after_housekeeping_closes(self):
+        """A whole pour worked to its end, a calling step opened again, and
+        the closed root and guard deleted by dotdiw prune: a root the
+        tracker no longer lists holds nothing, so the step closes again."""
+        out, made, guard = self.whole_pour()
+        root = out["moleculeRef"]
+        for _ in made:
+            for item in made:
+                self.run_tool("close", item["id"])
+        self.assertEqual(self.status(root), "closed")
+        (caller,) = [i["id"] for i in made if i.get("calls")]
+        code, said = self.run_tool("reopen", caller)
+        self.assertEqual(code, 0, said)
+        code, said = self.run_tool("prune", "--pattern", "*", "--force")
+        self.assertEqual(code, 0, said)
+        listed = [i["id"] for i in self.ask("list-items", scope="all")["items"]]
+        self.assertEqual([i for i in (root, guard) if i in listed], [], listed)
+        code, said = self.run_tool("close", caller)
+        self.assertEqual(code, 0, said)
+        self.assertEqual(self.status(caller), "closed")
+
+    def test_a_pour_cut_at_its_guards_close_moves_once_the_guard_closes(self):
+        """Stopped at the guard's close, the root marked whole: the guard
+        stands open and reads as one, so it holds its run still, and no move
+        carries it until dotdiw closes the guard."""
+        _, writes = self.pour("publish-campaign")
+        out, _ = self.pour("publish-campaign", len(writes))
+        self.assertEqual(out["status"], "failed", out)
+        guard = out["guardRef"]
+        code, said = self.run_tool("tracker", "migrate", "beads", "local")
+        self.assertEqual(code, 1, said)
+        self.assertIn("not known to have finished: its guard %s" % guard, said)
+        code, said = self.run_tool("close", guard)
+        self.assertEqual(code, 0, said)
+        code, said = self.run_tool("tracker", "migrate", "beads", "local")
+        self.assertEqual(code, 0, said)
+
+    def test_a_guard_unclosed_by_a_command_run_as_it_is_is_closed_again(self):
+        """A whole pour's guard deferred, a command dotdiw runs as it is: its
+        pour reads whole, so dotdiw closes the guard again, and bd gives its
+        work again."""
+        out, made, guard = self.whole_pour()
+        code, said = self.run_tool("defer", guard)
+        self.assertEqual(code, 0, said)
+        self.assertNotEqual(self.status(guard), "closed")
+        code, said = self.run_tool("close", guard)
+        self.assertEqual(code, 0, said)
+        self.assertEqual(self.status(guard), "closed")
+        steps = [m["id"] for m in made if m["kind"] == "task"]
+        self.assertTrue([s for s in steps if s in self.ready_ids()])
+
+    def test_nothing_is_put_under_or_tied_to_a_guard(self):
+        """No item is made under a guard, by create or by bd's quick create,
+        nor moved under one, nor any need written to or from one."""
+        out, _ = self.cut_at_the_mark()
+        guard = out["guardRef"]
+        code, said = self.run_tool("create", "Other")
+        self.assertEqual(code, 0, said)
+        other = group1("Created issue: (\\S+)", said)
+        for words in (
+            ("create", "Under the guard", "--parent", guard),
+            ("q", "Under the guard", "--parent", guard),
+            ("update", other, "--parent", guard),
+            ("dep", "add", guard, other),
+            ("dep", "add", other, guard),
+        ):
+            code, said = self.run_tool(*words)
+            self.assertEqual(code, 1, (words, said))
+            self.assertIn("nothing else writes it", said)
+        items = self.ask("list-items", scope="all")["items"]
+        self.assertEqual([i["id"] for i in items if i.get("parent") == guard], [])
+
+    @contextlib.contextmanager
+    def failing_to_show(self, *ids):
+        """The tracker door, a show of any of ids failing as an adapter's
+        failure, everything else answered as it is."""
+        real = self.m.invoke_tracker
+
+        def door(operation, request):
+            if operation == "operation.show-item" and request.get("id") in ids:
+                return {
+                    "status": "failed",
+                    "reason": "adapter-failed",
+                    "exitCode": 1,
+                    "summary": "The tracker could not be reached.",
+                }
+            return real(operation, request)
+
+        self.m.invoke_tracker = door
+        try:
+            yield
+        finally:
+            self.m.invoke_tracker = real
+
+    def test_a_parent_that_cannot_be_read_takes_no_item(self):
+        """A create under a guard whose show fails: the listing says it is a
+        guard, and nothing is made; under a parent the tracker cannot show at
+        all, nothing is made either, saying why."""
+        out, _ = self.cut_at_the_mark()
+        guard = out["guardRef"]
+        code, said = self.run_tool("create", "Other")
+        self.assertEqual(code, 0, said)
+        other = group1("Created issue: (\\S+)", said)
+        for parent, words in ((guard, "nothing else writes it"), (other, "could not be read")):
+            with self.failing_to_show(parent):
+                made = self.m.invoke(
+                    "operation.name-the-work",
+                    {
+                        "root": self.repo.path,
+                        "tracker": "beads",
+                        "title": "Under",
+                        "parent": parent,
+                    },
+                )
+            self.assertEqual(made["status"], "failed", made)
+            self.assertIn(words, made["summary"])
+        items = self.ask("list-items", scope="all")["items"]
+        self.assertEqual([i["id"] for i in items if i.get("parent") in (guard, other)], [])
+
+    def test_a_guard_made_before_any_root_holds_nothing(self):
+        """Stopped once the guard alone is made: it holds nothing, so bd's
+        own ready runs, and the workspace moves."""
+        out, _ = self.pour("publish-campaign", 2)
+        self.assertEqual(out["status"], "failed", out)
+        self.assertIsNone(out.get("moleculeRef"), out)
+        code, said = self.run_tool("list", "--ready", "--json")
+        self.assertEqual(code, 0, said)
+        code, said = self.run_tool("tracker", "migrate", "beads", "local")
+        self.assertEqual(code, 0, said)
+
+
 class Served:
     """dotdiw serve on a free port of the loopback address, in a checkout,
     and a client of it whose messages are built from the descriptor it
@@ -11220,14 +12670,6 @@ class ServedOverGrpcUnderBeads(ServedOverGrpc):
         said = self.served.call("RunATrackerCommand", arguments=["count"], terminal=True)
         self.assertEqual((said.exit_code, said.output), (0, out.output))
         self.assertTrue(said.output.strip(), said)
-
-    def test_an_empty_text_in_a_value_is_given(self):
-        """beads records no claim's values in this release: an empty text
-        reaches it as given, and it answers as it does any other."""
-        _, record = self.counted()
-        for text in ("1", ""):
-            found = record(text)
-            self.assertEqual((found.exit_code, found.reason), (1, "unsupported"), found)
 
     def test_clients_racing_to_write_one_item_lose_no_update(self):
         ident = self.served.call("StartNamedWork", title="count 0", quiet=True).work_ref

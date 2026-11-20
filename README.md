@@ -161,15 +161,68 @@ values, and `verify-using` filled from them, where `{{ tag.name }}` reads the
 `tag` step's `name`, split at the last dot. A value fills `verify-using` only
 when it is simple -- letters, digits and `. _ : / @ + -` -- and a placeholder
 with no value stays as written and is named open; `--json` prints the run as
-data. Under the beads tracker, `dotdiw claim` reads a run back but records no
-values in this release, since beads cannot yet hold such a write to the step
-named; the command says so and writes nothing. A claim the formula cannot
+data. Under the beads tracker the values go on the step's own issue in one
+write. bd reads an id it no longer holds as the one issue whose id begins with
+it, so a step deleted as that write runs may have its values written to that
+issue instead, and the command then fails naming it. A claim the formula cannot
 declare well is named by `dotdiw check`, and so
 is a `verify-using` placeholder that names no claimed slot; a file of this
 repository that a slot names is left to the run, which records it. A root stays
 open while a step poured in its run is open, wherever that step stands, and
 closes with the last of them; `dotdiw update --parent` and `dotdiw dep add`
 refuse to make a root wait on a step that waits on it.
+
+A step may call another formula instead of repeating its steps -- a procedure
+another team keeps, named as `dotdiw formula pour` names one, a provider's
+included:
+
+```toml
+[[steps]]
+id = "clear-image-rights"
+title = "Clear the selected image for paid social"
+formula = "clear-image-for-paid-social"
+
+[[steps]]
+id = "prepare-publication"
+title = "Prepare the campaign for publication"
+needs = ["clear-image-rights"]
+```
+
+The pour pours the steps of `clear-image-for-paid-social` within
+`clear-image-rights`, in the same run: the whole job is one run under one
+root. The call's steps wait on what `clear-image-rights` needs -- or, where it
+needs nothing, on what the step it stands within needs, to any depth -- and
+`clear-image-rights` needs every one of them -- a need no update takes off
+-- and closes itself, through dotdiw, once they and its own needs are done,
+whichever is last, which can close what it stands within in turn, up to the
+root; `prepare-publication` waits on all of it. Each call is an
+instance of its own, named by the calling step's item, which every item
+poured within it carries as `within`, set when it is made and kept wherever
+the item is moved: two steps that call one formula pour it twice, and each
+call keeps its own claims and `verify-using`, which `dotdiw claim` reads back
+call by call. A calling step may name needs and declares no claim; a step
+after it claims what the call found.
+
+Every call, and every call those formulas make, is resolved before anything
+is written, and what was resolved is what is poured, whatever is written to
+a formula meanwhile: a reference that names no formula or more than one,
+calls that go round, a called formula whose steps share an id, need a step
+that is none of them or wait on each other, and a calling step that declares
+a claim are refused, naming the step and the reference, and nothing is
+poured. So is a pour that calls a formula into a tracker that does not say
+it pours calls; the local tracker, beads and Jira do. The local tracker
+writes the whole job in one transaction. beads and Jira write it one item at
+a time, so they hold it on a guard -- an item of its own, `Pour of
+<formula>`, made first, outside the root's children, and closed last, once
+the root is marked whole, and written by nothing else: until then neither
+the root nor any calling step can complete, nothing of the pour is given
+ready and no move carries it, whatever a write outside dotdiw does to the
+guard, so a pour cut short leaves nothing that finishes as if whole, and
+names the guard and the way out. Once its guard has closed, a root marked
+whole holds nothing, so housekeeping that deletes a closed guard frees its
+run. `dotdiw check` names a calling step with a claim, and a
+`formula` that is not text. A step id is only ever an id: one with a slash
+in it means what it always meant.
 
 ### 2. Priya starts her work the way the project says to
 
@@ -430,7 +483,10 @@ owns only what is its own.
   to a duty, a step and a lawful lifecycle transition, eleven of them the
   tracker interface an adapter answers. Its gRPC projection is what
   `dotdiw serve` serves, and `test_promise.py` holds the descriptor served
-  to the proto POA generates, field for field. Each step and journey of the model
+  to the proto POA generates, field for field, and to
+  `poa/grpc-fields-released.json`, which records each field the last
+  release served by its number: a field added comes after the last, so a
+  client built against the release reads every field where it was. Each step and journey of the model
   declares, in its operation block, what its operation takes, returns and
   calls, and the tracker and git commands it runs. `poa derive` writes the
   IDL from the model, and `poa/complete-idl.py` writes in what derive leaves

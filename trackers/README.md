@@ -188,7 +188,8 @@ it:
   reads holds the close: a lookup that finds nothing does not say the item
   was closed.
 - `create-item`, given `title`, `priority`, `parent`, `description`, and from
-  migrate an `id`, `verifyUsing`, `step`, `claim`, `values` and `run`, all
+  migrate an `id`, `verifyUsing`, `step`, `claim`, `values` and `run`, and,
+  from an adapter that says it pours calls, `within` and `calls`, all
   kept and returned exactly as given: honour the id, or give your own, and the id
   in the record is what counts. The record comes back with status open and kind
   task, since only a pour makes a root; a child carries its parent; an unknown
@@ -226,9 +227,11 @@ it:
   once every field is there. The record comes back as it now stands. Unknown is
   `item-not-found`. Write the values to the item of that very id. Where the
   only write that sets them reads an id the tracker holds nothing of as
-  another item's, as bd's update does, answer every `record-values` as
-  `unsupported` and write nothing, rather than risk another item's record:
-  the beads adapter does, so a claim's values are not recorded under beads.
+  another item's, as bd's update does, read the item first and hold its id
+  whole, write by that id, and where the tracker answers that it wrote
+  another item, fail with `item-not-found` naming that item, as the beads
+  adapter does. A tracker that cannot write the values at all answers every
+  `record-values` as `unsupported` and writes nothing.
   Never guard such a write by first changing a field of the item, its
   assignee or any other: a write cut short leaves that change behind, and
   the field is part of the item's record. The values `create-item` is
@@ -361,6 +364,78 @@ it:
   the means not kept, a step refused, or an item made and not read back -- is
   a failure that names the root and the steps it made, in `rootId`, `stepIds`
   and its summary.
+- Pouring calls, which an adapter offers by saying `"nests": True` in its
+  info; dotdiw pours no step that calls a formula, and moves no item poured
+  within one, into an adapter that does not. Where a formula's step calls
+  another, `pour-steps` is given the whole job at once, every step with a
+  `key` -- its name in the pour -- its `needs` named by key, and, for a step
+  of a call, `within`, the key of the calling step it stands within; a
+  calling step carries `calls`, the formula it calls, and that formula's
+  `description` and `verifyUsing`. The steps come in an order where each
+  follows what it needs and the step it stands within: make them in that
+  order, so that those a pour cut short made are the first given, and answer
+  one id per step in that order. Each item keeps its `step`, `claim` and
+  `run` as before, and `within` as the id made for its calling step, and the
+  calling step needs it. `show-item` and `list-items` return `within` and
+  `calls` exactly as given. A calling step waits on every item within it,
+  wherever it stands: `close-item` refuses it, naming them, while one is
+  open, and `ready-items` gives it only once none is; `update-item` refuses
+  to take that need off, so that what is ready and what closes agree. The
+  close of the last item within it, or of the last of its needs, whichever
+  is last, may close it, and so on up to the root, or leave that to dotdiw.
+  `step` is an id and nothing more: a step id with a slash in it is no
+  call.
+- A pour of calls is whole or leaves nothing able to complete. Write it in
+  one transaction where the tracker has them, as the local adapter does.
+  Otherwise hold it on a guard, as beads and Jira do, one write at a time:
+  1. make the guard: an item whose kind reads back `guard`, blocked, under no
+     parent -- outside the root's children -- with no run yet;
+  2. make the root already naming it as its `guard`, and, where the tracker
+     itself refuses a close on an open edge, as bd does, waiting on it -- an
+     edge of the adapter's own, which `show-item` answers as no need;
+  3. give the guard the root's `run`, now that the root has an id;
+  4. make each step in the order given, each with its run and its `within`,
+     and each calling step naming the guard as its `guard` too, in the write
+     that makes it; and its needs and its calling step's need of it in that
+     write where the tracker takes them there -- bd's create takes its
+     metadata and both ends of its edges -- or each in a write of its own
+     right after it -- Jira's create takes the issue's property, and at most
+     one link, so `jira.py` writes every link after the create, as add-need
+     does;
+  5. mark the root `whole` -- its own record, every word of it kept, with
+     `whole` added -- once every item and need is made;
+  6. close the guard -- one write, a reason included only where it is part
+     of that write.
+  Stopped after any of these, no root or calling step it made can close:
+  each names an open guard, and `close-item` refuses one while its guard
+  stands open, as dotdiw's close does. A pour is not known to be whole while
+  a root of it the tracker lists does not read `whole` and its guard is not
+  read as closed -- listed closed, or shown closed by its key where no
+  listing has it; a guard no read finds, or one that cannot be read, holds.
+  So a guard deleted, or stripped of its kind, outside dotdiw still holds an
+  unfinished pour. A guard that stands open and reads as one holds its run
+  whatever its root reads, as bd's own edges to it do; once it has closed,
+  is gone, or no longer reads as one, a root that reads `whole` holds
+  nothing -- housekeeping may delete the guard once it closed. Nothing
+  of a pour not known to be whole is given ready: its guard, every item
+  naming the guard, every item of its roots' runs and the roots themselves,
+  whatever each reads as. bd's own ready keeps only the edges and parents
+  the pour wrote, which a write outside dotdiw can undo, so the beads
+  adapter's `ready-items` reads every item and leaves the pour out itself,
+  as `jira.py` does. dotdiw, for its part, gives of bd's own ready while a
+  pour is held only the very answer it checked -- the command run quietly,
+  and its answer given where it names nothing the pour holds -- and runs no
+  close that takes the next ready item; and `close-item` holds the root,
+  every calling step and every namer of the guard on it. A guard is no work
+  and no one's to write:
+  `ready-items` never gives it, `update-item` refuses one that reads as a
+  guard whoever asks, no close that follows another reaches it, and
+  `close-item` closes it only where its pour is known to be whole -- the
+  root of the guard's run, read by its key and not as a search may still
+  show it, reads `whole`: step 6 again, the way out of a pour cut short at
+  its guard's close. A guard no root of which is known holds nothing, and
+  is not closed. A pour that fails part of the way answers `guardId` with
+  `rootId` and `stepIds`.
 
 Three rules are the adapter's, since the door decides none of them: a close
 is refused while an open need or an open child exists; a poured root closes

@@ -36,7 +36,7 @@ import tempfile
 import threading
 import unittest
 import urllib.parse
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -117,7 +117,8 @@ class StubJira:
         self.held = None  # a function of each request's method and path, run before it is answered
         # What a search is behind on, as Jira's is for a while after a write, a
         # read by key never: an issue's key with None, which no search finds
-        # yet, or with the fields a search still shows of it.
+        # yet, or with the fields a search still shows of it -- its
+        # properties among them under _properties.
         self.lagging = {}
 
     def issue(self, key, wanted="", props="", stale=None):
@@ -173,7 +174,7 @@ class StubJira:
             "key": key,
             "fields": {k: v for k, v in kept.items() if not wanted or k in wanted.split(",")},
         }
-        held = self.properties.get(key) or {}
+        held = (stale or {}).get("_properties", self.properties.get(key)) or {}
         asked = list(held) if props == "*all" else [p for p in props.split(",") if p in held]
         if asked:
             answer["properties"] = {p: held[p] for p in asked}
@@ -280,6 +281,10 @@ class StubJira:
         if rest == ["issue"] and method == "POST" and self.refuse_children:
             if body["fields"].get("parent"):
                 return 400, {"errors": {"parent": "That parent cannot have children."}}
+        if rest == ["issue"] and method == "POST" and (body or {}).get("update"):
+            # Jira takes one link in a create at most, and the stub models
+            # none: the adapter links an issue after it is made.
+            return 400, {"errors": {"update": "The stub models no update in a create."}}
         if rest == ["issue"] and method == "POST":
             fields = (body or {}).get("fields") or {}
             project = (fields.get("project") or {}).get("key")
@@ -311,6 +316,9 @@ class StubJira:
             self.issues[key]["updated"] = self.issues[key]["created"]
             if self.unreadable == "all" or (self.unreadable == "children" and parent):
                 self.unread.add(key)
+            # Jira's create takes the issue's properties in the same request.
+            for prop in (body or {}).get("properties") or []:
+                self.properties.setdefault(key, {})[prop["key"]] = prop["value"]
             return 201, {"id": str(len(self.issues)), "key": key}
         if rest[:1] == ["issue"] and len(rest) == 2:
             key = rest[1]
@@ -645,7 +653,7 @@ class TheHostedAdapter(unittest.TestCase):
             out,
             r"(?m)^  jira\s+0\.1, site 1001\.0\.0-stub\s+loaded, from .*/\.dotdiw/trackers/jira\.py$",
         )
-        self.assertRegex(out, r"(?m)^  local\s+4\.1\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(out, r"(?m)^  local\s+4\.2\.0\s+shipped\s+\(this checkout\)$")
         code, out = self.home.dotdiw("tracker", "check", "jira")
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 11, out)
@@ -3696,6 +3704,30 @@ class AStoppedMoveHoldsWhatItMade(unittest.TestCase):
         self.assertEqual(self.show(last[beta])["needs"], [last[alpha]])
         titles = sorted(f["summary"] for f in stub.issues.values())
         self.assertEqual(titles, ["Alpha", "Beta"])
+
+    def test_issues_within_a_deleted_calling_step_are_made_again_with_it(self):
+        """A move makes a run's Root, a calling step Call in it, and Inner
+        poured within Call; Call's issue is deleted in Jira. Told so, the
+        run makes nothing, and names Inner, which only its make puts within
+        a call, to delete and name too."""
+        top = self.local("Root")
+        call = self.local("Call", parent=top, run=top, calls="mol-called")
+        inner = self.local("Inner", parent=top, run=top, within=call, step="inner")
+        self.assertEqual(self.move()["status"], "completed")
+        stub = self.site.stub
+        ids = dict(self.record()["ids"])
+        self.assertEqual(
+            (stub.properties[ids[inner]]["dotdiw"]["within"]), ids[call], "moved within its call"
+        )
+        del stub.issues[ids[call]]
+        again = self.move(deleted=[ids[call]])
+        self.assertEqual(again["status"], "failed", again)
+        both = " ".join("--deleted %s" % key for key in sorted([ids[call], ids[inner]]))
+        self.assertEqual(
+            again["summary"],
+            self.m.MOVE_DELETED_HELD
+            % ("jira", ids[call], ids[inner], "jira", "dotdiw tracker migrate local jira " + both),
+        )
 
     def test_issues_in_the_run_of_a_deleted_one_are_made_again_with_it(self):
         """A move makes Root, Step under it and Loose in its run, and stops
@@ -6941,6 +6973,543 @@ class TheHostedAdapterServed(unittest.TestCase):
             self.fail("%s: %s" % (e.code(), e.details()))
         done = (moved.status, moved.moved) == ("completed", 1)
         self.assertTrue(done or "no checkout was given" in moved.summary, moved)
+
+
+def dotdiw_tests():
+    """test_dotdiw.py as a module: the one suites.py loaded, where it did, so
+    that its scenarios are held of Jira as of every adapter."""
+    if "test_dotdiw" in sys.modules:
+        return sys.modules["test_dotdiw"]
+    loader = importlib.machinery.SourceFileLoader(
+        "test_dotdiw", os.path.join(HERE, "test_dotdiw.py")
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[loader.name] = module
+    loader.exec_module(module)
+    return module
+
+
+if TYPE_CHECKING:
+    from test_dotdiw import NestedPours
+else:
+    NestedPours = dotdiw_tests().NestedPours
+
+
+class NestedPoursUnderJira(NestedPours, unittest.TestCase):
+    """The scenario of a pour that calls formulas, under Jira, as under the
+    local tracker and beads."""
+
+    def setUp(self):
+        self.site = Site()
+        self.addCleanup(self.site.close)
+        self.home = Home(self.site)
+        self.addCleanup(self.home.close)
+        self.where, self.env = self.home.path, self.home.env
+        self.write_nested()
+        self.did("init", "--tracker", "jira", "--prefix", "demo")
+
+
+class APourUnderJiraCutShort(unittest.TestCase):
+    """Jira writes a pour one request at a time, so a pour that calls a
+    formula is held on a guard, made first and closed last: stopped after
+    any write it makes, no root and no calling step it made can complete,
+    and the guard closes for no close but the pour's."""
+
+    def setUp(self):
+        self.site = Site()
+        self.addCleanup(self.site.close)
+        self.home = Home(self.site)
+        self.addCleanup(self.home.close)
+        tests = dotdiw_tests()
+        for rel, text in (
+            ("campaigns/publish-campaign.formula.toml", tests.CAMPAIGN),
+            ("rights/clear-image-for-paid-social.formula.toml", tests.CLEARANCE),
+        ):
+            path = os.path.join(self.home.path, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text)
+        code, out = self.home.dotdiw("init", "--tracker", "jira", "--prefix", "demo")
+        self.assertEqual(code, 0, out)
+
+    @staticmethod
+    def a_write(method, path):
+        return method in ("POST", "PUT", "DELETE") and not path.startswith("/rest/api/3/search")
+
+    def pour(self, cut=None):
+        """The pour, the write numbered cut answered 503; the writes, and the
+        answer as JSON where the pour made its root."""
+        stub = self.site.stub
+        real = stub.handle
+        writes = []
+
+        def counted(method, path, query, body):
+            if self.a_write(method, path):
+                writes.append((method, path))
+                if len(writes) == cut:
+                    return 503, {"errorMessages": ["The service is unavailable."]}
+            return real(method, path, query, body)
+
+        with mock.patch.object(stub, "handle", counted):
+            p = subprocess.run(
+                [sys.executable, "-I", DOTDIW, "formula", "pour", "publish-campaign", "--json"],
+                cwd=self.home.path,
+                env=self.home.env,
+                input="",
+                capture_output=True,
+                text=True,
+            )
+        answer = json.loads(p.stdout) if p.stdout.strip() else None
+        return p.returncode, answer, p.stderr, writes
+
+    def status(self, key):
+        category = STATUSES.get(self.site.stub.issues[key]["_status"], "new")
+        return {"new": "open", "indeterminate": "in_progress", "done": "closed"}[category]
+
+    def guards(self):
+        return [
+            k
+            for k, props in self.site.stub.properties.items()
+            if (props.get("dotdiw") or {}).get("kind") == "guard"
+        ]
+
+    def test_a_whole_pour_closes_its_guard(self):
+        code, answer, err, writes = self.pour()
+        self.assertEqual(code, 0, err)
+        # The guard, the root, the guard's run; each step, then each of its
+        # links -- licence's to its calling step, release's need and its
+        # calling step's, prepare's need -- the root marked whole, and the
+        # guard's close.
+        self.assertEqual(
+            [m for m, _ in writes], ["POST"] * 2 + ["PUT"] + ["POST"] * 8 + ["PUT"] + ["POST"]
+        )
+        self.assertEqual(
+            [p for _, p in writes if p.endswith("/issueLink")], ["/rest/api/3/issueLink"] * 4
+        )
+        (guard,) = self.guards()
+        self.assertEqual(self.status(guard), "closed")
+        self.assertIsNone(self.site.stub.issues[guard]["parent"], "outside the root's epic")
+        self.assertEqual(
+            self.site.stub.properties[guard]["dotdiw"], {"kind": "guard", "run": answer["rootId"]}
+        )
+        self.assertEqual(
+            self.site.stub.properties[answer["rootId"]]["dotdiw"], {"guard": guard, "whole": True}
+        )
+        # Each calling step names the guard in the create that makes it.
+        callers = [
+            own["dotdiw"]
+            for own in self.site.stub.properties.values()
+            if (own.get("dotdiw") or {}).get("calls")
+        ]
+        self.assertEqual([c.get("guard") for c in callers], [guard], callers)
+        code, out = self.home.dotdiw("show", answer["rootId"], "--json")
+        self.assertEqual(code, 0, out)
+        self.assertIs(json.loads(out)["whole"], True, out)
+        code, out = self.home.dotdiw("close", guard)
+        self.assertEqual(code, 1, out)
+        self.assertIn("is a pour's guard: only the pour that made it closes it", out)
+
+    def test_a_guard_no_read_confirms_closed_holds_ready_and_a_move(self):
+        """Stopped once the first step of its call is made, a pour's guard is
+        deleted in Jira, so that no search lists it and no lookup reads it:
+        the root and the calling step that name it hold the pour back until
+        it is read as closed -- nothing of the pour is given ready, and the
+        move into local moves nothing."""
+        code, answer, err, _ = self.pour(cut=6)
+        self.assertEqual(code, 1, err)
+        (guard,) = self.guards()
+        root = answer["rootId"]
+        made = [root] + [
+            k
+            for k, props in self.site.stub.properties.items()
+            if (props.get("dotdiw") or {}).get("run") == root and k != guard
+        ]
+        self.assertEqual(len(made), 3, "the root, the calling step and the step within it")
+        # Listed, but no longer read as a guard: its property gone, it is a
+        # task that stands open, and holds as its guard did.
+        del self.site.stub.properties[guard]["dotdiw"]
+        self.held_back(made, guard)
+        # Then gone from every listing and every lookup.
+        del self.site.stub.issues[guard]
+        self.held_back(made, guard)
+
+    def held_back(self, made, guard):
+        """Nothing of what made holds is ready, and the move into local moves
+        nothing, naming the guard."""
+        code, out = self.home.dotdiw("ready", "--json")
+        self.assertEqual(code, 0, out)
+        self.assertEqual([i["id"] for i in json.loads(out) if i["id"] in made], [])
+        code, out = self.home.dotdiw("tracker", "migrate", "jira", "local")
+        self.assertEqual(code, 1, out)
+        self.assertIn(
+            "Nothing was moved: a pour into jira is not known to have finished: its guard %s"
+            % guard,
+            out,
+        )
+
+    def run_of(self, root, guard):
+        return [
+            k
+            for k, props in self.site.stub.properties.items()
+            if (props.get("dotdiw") or {}).get("run") == root and k != guard
+        ]
+
+    def test_a_guard_that_no_longer_reads_as_one_is_closed_by_no_one_but_its_pour(self):
+        """Stopped once the first step of its call is made, its guard's
+        property taken off in Jira, so that it reads as a task: the root and
+        the calling step name it, so it is a guard still, and no close
+        through dotdiw closes it."""
+        code, answer, err, _ = self.pour(cut=6)
+        self.assertEqual(code, 1, err)
+        (guard,) = self.guards()
+        del self.site.stub.properties[guard]["dotdiw"]
+        code, out = self.home.dotdiw("close", guard)
+        self.assertEqual(code, 1, out)
+        self.assertIn("nothing else writes it", out)
+        self.assertNotEqual(self.status(guard), "closed")
+
+    def test_a_whole_pours_guard_deleted_holds_nothing(self):
+        """A whole pour's guard, closed, is deleted in Jira, as old done
+        issues are: its root reads whole, so its work is ready, and its
+        calling step and root close once their steps do."""
+        code, answer, err, _ = self.pour()
+        self.assertEqual(code, 0, err)
+        (guard,) = self.guards()
+        root = answer["rootId"]
+        del self.site.stub.issues[guard]
+        run = self.run_of(root, guard)
+        given = json.loads(self.home.dotdiw("ready", "--json")[1] or "[]")
+        self.assertTrue([i for i in given if i["id"] in run], given)
+        callers = [k for k in run if self.site.stub.properties[k]["dotdiw"].get("calls")]
+        for _ in run:
+            for key in run:
+                if key not in callers:
+                    self.home.dotdiw("close", key)
+        for held in callers + [root]:
+            self.assertEqual(self.status(held), "closed", held)
+
+    def test_a_calling_step_waits_on_its_runs_guard_whatever_names_it(self):
+        """Stopped at the root's mark, every issue made: the root's and the
+        calling step's guard properties taken off in Jira, the guard left as
+        it stands. The calling step is of a run whose guard stands open, so
+        no close of it, asked or in the wake of its steps', closes it."""
+        _, _, _, writes = self.pour()
+        code, answer, err, _ = self.pour(len(writes) - 1)
+        self.assertEqual(code, 1, err)
+        root = answer["rootId"]
+        (guard,) = [
+            g for g in self.guards() if self.site.stub.properties[g]["dotdiw"].get("run") == root
+        ]
+        run = self.run_of(root, guard)
+        callers = [k for k in run if self.site.stub.properties[k]["dotdiw"].get("calls")]
+        for k in callers + [root]:
+            self.site.stub.properties[k]["dotdiw"].pop("guard", None)
+        for _ in run:
+            for key in run:
+                if key not in callers:
+                    self.home.dotdiw("close", key)
+        for held in callers:
+            code, out = self.home.dotdiw("close", held)
+            self.assertEqual(code, 1, (held, out))
+            self.assertIn(guard, out)
+            self.assertEqual(self.status(held), "open")
+
+    def test_a_guard_whose_root_no_search_finds_yet_is_not_closed(self):
+        """Stopped after the root is made, before the guard is given its run:
+        no search finds the root yet, and the guard is not closed -- only
+        one whose run's root reads whole, as read by its key, is -- nor does
+        the root, which names it, close."""
+        code, answer, err, _ = self.pour(cut=3)
+        self.assertEqual(code, 1, err)
+        (guard,) = self.guards()
+        root = answer["rootId"]
+        self.assertNotIn("run", self.site.stub.properties[guard]["dotdiw"])
+        self.site.stub.lagging[root] = None
+        for ident in (guard, root):
+            code, out = self.home.dotdiw("close", ident)
+            self.assertEqual(code, 1, (ident, out))
+            self.assertEqual(self.status(ident), "open", ident)
+        self.assertIn("nothing else writes it", self.home.dotdiw("close", guard)[1])
+
+    def test_a_guard_whose_root_reads_whole_closes_whatever_a_search_still_shows(self):
+        """Stopped at the guard's close, the root marked whole: a search still
+        shows the root as it was before the mark, and the guard's close,
+        read by its key, finishes the pour."""
+        _, _, _, writes = self.pour()
+        code, answer, err, _ = self.pour(len(writes))
+        self.assertEqual(code, 1, err)
+        root = answer["rootId"]
+        (guard,) = [
+            g for g in self.guards() if self.site.stub.properties[g]["dotdiw"].get("run") == root
+        ]
+        self.site.stub.lagging[root] = {"_properties": {"dotdiw": {"guard": guard}}}
+        code, out = self.home.dotdiw("close", guard)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.status(guard), "closed")
+
+    def test_a_root_a_search_lists_and_no_lookup_reads_holds_its_pour(self):
+        """Stopped once the first step of its call is made, its guard's
+        property taken off, its root no longer read by its key though a
+        search lists it -- deleted, or no longer the token's to see, which
+        Jira's 404 does not tell apart: the root is not read as whole, so
+        the guard is not closed, and the step's close closes neither its
+        calling step nor the root."""
+        code, answer, err, _ = self.pour(cut=6)
+        self.assertEqual(code, 1, err)
+        (guard,) = self.guards()
+        root = answer["rootId"]
+        run = self.run_of(root, guard)
+        callers = [k for k in run if self.site.stub.properties[k]["dotdiw"].get("calls")]
+        (leaf,) = [k for k in run if k not in callers]
+        del self.site.stub.properties[guard]["dotdiw"]
+        self.site.stub.gone.add(root)
+        code, out = self.home.dotdiw("close", guard)
+        self.assertEqual(code, 1, out)
+        self.assertNotEqual(self.status(guard), "closed")
+        self.home.dotdiw("close", leaf)
+        for held in callers + [root]:
+            self.assertEqual(self.status(held), "open", held)
+
+    def test_a_root_marked_whole_holds_its_run_while_its_guard_stands_open(self):
+        """Stopped at the guard's close, the root marked whole and the guard
+        open: as under beads, whose edges hold it, nothing of the run is
+        ready and no calling step closes until the guard's close through
+        dotdiw, which then frees the run."""
+        _, _, _, writes = self.pour()
+        code, answer, err, _ = self.pour(len(writes))
+        self.assertEqual(code, 1, err)
+        root = answer["rootId"]
+        (guard,) = [
+            g for g in self.guards() if self.site.stub.properties[g]["dotdiw"].get("run") == root
+        ]
+        run = self.run_of(root, guard)
+        callers = [k for k in run if self.site.stub.properties[k]["dotdiw"].get("calls")]
+        given = json.loads(self.home.dotdiw("ready", "--json")[1] or "[]")
+        self.assertEqual([i["id"] for i in given if i["id"] in run + [root]], [], given)
+        for _ in run:
+            for key in run:
+                if key not in callers:
+                    self.home.dotdiw("close", key)
+        for held in callers:
+            self.assertEqual(self.status(held), "open", held)
+            code, out = self.home.dotdiw("close", held)
+            self.assertEqual(code, 1, out)
+        code, out = self.home.dotdiw("close", guard)
+        self.assertEqual(code, 0, out)
+        for held in callers:
+            code, out = self.home.dotdiw("close", held)
+            self.assertEqual(code, 0, out)
+
+    def test_a_pour_stopped_after_any_write_leaves_nothing_able_to_complete(self):
+        _, _, _, writes = self.pour()
+        for cut in range(1, len(writes) + 1):
+            before = set(self.guards())
+            code, answer, err, _ = self.pour(cut)
+            self.assertEqual(code, 1, (cut, err))
+            made = sorted(set(self.guards()) - before)
+            if cut == 1:
+                self.assertEqual(made, [], "nothing was made")
+                continue
+            (guard,) = made
+            self.assertEqual(self.status(guard), "open", cut)
+            root = (answer or {}).get("rootId")
+            if root is None:
+                # Stopped before the root was made: the guard holds nothing,
+                # and, with no root of it known, no close through dotdiw
+                # closes it.
+                self.assertIn("Nothing but its guard %s was made" % guard, err)
+                code, out = self.home.dotdiw("close", guard)
+                self.assertEqual(code, 1, out)
+                continue
+            self.assertIn("%s holds" % guard, err)
+            if cut == len(writes):
+                # Stopped at the guard's close, the last write: every issue
+                # is made and the root marked whole, and the guard's close
+                # through dotdiw finishes the pour, its steps then work.
+                self.assertIn("finishes the pour", err)
+                code, out = self.home.dotdiw("close", guard)
+                self.assertEqual(code, 0, out)
+                self.assertEqual(self.status(guard), "closed")
+                given = json.loads(self.home.dotdiw("ready", "--json")[1] or "[]")
+                self.assertTrue(
+                    [
+                        i
+                        for i in given
+                        if (self.site.stub.properties.get(i["id"], {}).get("dotdiw") or {}).get(
+                            "run"
+                        )
+                        == root
+                    ],
+                    given,
+                )
+                continue
+            self.assertIn("no close but a pour's closes it", err)
+            run = [
+                k
+                for k, props in self.site.stub.properties.items()
+                if root and (props.get("dotdiw") or {}).get("run") == root and k != guard
+            ]
+            callers = [k for k in run if self.site.stub.properties[k]["dotdiw"].get("calls")]
+            given = json.loads(self.home.dotdiw("ready", "--json")[1] or "[]")
+            self.assertEqual(
+                [i["id"] for i in given if i["id"] in run + [root, guard]],
+                [],
+                "nothing of a pour whose guard stands open is ready",
+            )
+            for _ in run:
+                for key in run:
+                    if key not in callers:
+                        self.home.dotdiw("close", key)
+            for held in ([root] if root else []) + callers:
+                code, out = self.home.dotdiw("close", held)
+                self.assertEqual(code, 1, (cut, held, out))
+                self.assertEqual(self.status(held), "open", (cut, held))
+            code, out = self.home.dotdiw("close", guard)
+            self.assertEqual(code, 1, out)
+            self.assertEqual(self.status(guard), "open", cut)
+
+
+class ACallMoves(unittest.TestCase):
+    """A job that calls a formula moves between trackers whole: each item
+    keeps the call it was poured within, as the id the move gave the
+    calling step, and the formula a calling step calls, so that the call
+    still holds its calling step and reads back its own claims and means. A
+    pour that did not finish moves nothing, nor does a call into a tracker
+    that does not keep calls."""
+
+    def setUp(self):
+        self.site = Site()
+        self.addCleanup(self.site.close)
+        self.home = Home(self.site)
+        self.addCleanup(self.home.close)
+        self.home.env["JIRA_PROJECT"] = "CHK"  # where a move into Jira writes
+        tests = dotdiw_tests()
+        for rel, text in (
+            ("campaigns/publish-campaign.formula.toml", tests.CAMPAIGN),
+            ("rights/clear-image-for-paid-social.formula.toml", tests.CLEARANCE),
+        ):
+            path = os.path.join(self.home.path, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text)
+
+    def records(self, *args):
+        p = subprocess.run(
+            [sys.executable, "-I", DOTDIW] + list(args) + ["--json"],
+            cwd=self.home.path,
+            env=self.home.env,
+            input="",
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        return json.loads(p.stdout)
+
+    def did(self, *args):
+        code, out = self.home.dotdiw(*args)
+        self.assertEqual(code, 0, out)
+        return out
+
+    def test_a_job_that_calls_a_formula_moves_whole(self):
+        self.did("init", "--tracker", "local")
+        poured = self.records("formula", "pour", "publish-campaign")
+        licence = poured["calls"][0]["stepIds"][0]
+        self.did("claim", licence, "number: L-5")
+        self.did("tracker", "migrate", "local", "jira")
+        moved = {i["title"]: i for i in self.records("--tracker", "jira", "list", "--all")}
+        root = moved["publish-campaign"]
+        rights = moved["Clear the selected image for paid social"]
+        within = [moved[t] for t in moved if moved[t].get("within")]
+        self.assertEqual(
+            (rights["calls"], rights["run"]), ("clear-image-for-paid-social", root["id"])
+        )
+        self.assertEqual(sorted(i["step"] for i in within), ["licence", "release"])
+        for item in within:
+            self.assertEqual((item["within"], item["run"]), (rights["id"], root["id"]))
+            self.assertIn(item["id"], rights["needs"])
+        read = self.records("--tracker", "jira", "claim", root["id"])
+        self.assertEqual(read["calls"][0]["item"], rights["id"])
+        self.assertEqual(read["calls"][0]["verifyUsing"], ["run:check-licence L-5"])
+
+    def test_a_pour_that_did_not_finish_moves_nothing(self):
+        self.did("init", "--tracker", "jira", "--prefix", "demo")
+        stub = self.site.stub
+        real = stub.handle
+        writes = []
+
+        def cut_at_the_fifth(method, path, query, body):
+            if method in ("POST", "PUT") and not path.startswith("/rest/api/3/search"):
+                writes.append(path)
+                if len(writes) == 5:
+                    return 503, {"errorMessages": ["The service is unavailable."]}
+            return real(method, path, query, body)
+
+        with mock.patch.object(stub, "handle", cut_at_the_fifth):
+            code, out = self.home.dotdiw("formula", "pour", "publish-campaign")
+        self.assertEqual(code, 1, out)
+        code, out = self.home.dotdiw("tracker", "migrate", "jira", "local")
+        self.assertEqual(code, 1, out)
+        self.assertIn("Nothing was moved: a pour into jira is not known to have finished", out)
+
+    def test_a_move_whose_read_back_fails_makes_nothing_twice(self):
+        """Jira makes a step poured within a call, links its calling step's
+        need of it, and cannot read it back: the move names it made, and the
+        next run finishes it rather than make a second."""
+        self.did("init", "--tracker", "local")
+        self.records("formula", "pour", "publish-campaign")
+        stub = self.site.stub
+        real = stub.handle
+        linked: list[Any] = []
+
+        def unread_once(method, path, query, body):
+            if method == "POST" and path == "/rest/api/3/issueLink":
+                linked.append(((body or {}).get("outwardIssue") or {}).get("key"))
+            elif method == "GET" and len(linked) == 1 and path.endswith("/" + linked[0]):
+                linked.append("read")
+                return 503, {"errorMessages": ["The service is unavailable."]}
+            return real(method, path, query, body)
+
+        with mock.patch.object(stub, "handle", unread_once):
+            code, out = self.home.dotdiw("tracker", "migrate", "local", "jira")
+        self.assertEqual(code, 1, out)
+        self.assertEqual(linked[1:], ["read"], "the step made within the call was not read back")
+        self.did("tracker", "migrate", "local", "jira")
+        steps = sorted(
+            (p["dotdiw"].get("step"), p["dotdiw"].get("within"))
+            for p in stub.properties.values()
+            if (p.get("dotdiw") or {}).get("within")
+        )
+        self.assertEqual([s for s, _ in steps], ["licence", "release"], "each made once")
+
+    def test_a_calling_step_its_steps_stand_under_closes_with_them(self):
+        """Moved under their calling step, the steps of its call close it
+        as they would have under the root."""
+        self.did("init", "--tracker", "jira", "--prefix", "demo")
+        poured = self.records("formula", "pour", "publish-campaign")
+        rights, prepare = poured["stepIds"]
+        for item in poured["calls"][0]["stepIds"]:
+            self.did("update", item, "--parent", rights)
+        for item in poured["calls"][0]["stepIds"]:
+            self.did("close", item)
+        shown = self.records("show", rights)
+        self.assertEqual(shown["status"], "closed")
+
+    def test_a_call_moves_into_no_tracker_that_does_not_keep_calls(self):
+        installed = os.path.join(self.home.home, ".dotdiw", "trackers", "jira.py")
+        with open(installed, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertEqual(text.count('"nests": True,'), 2)
+        with open(installed, "w", encoding="utf-8") as fh:
+            fh.write(text.replace('"nests": True,', ""))
+        self.did("init", "--tracker", "local")
+        self.records("formula", "pour", "publish-campaign")
+        code, out = self.home.dotdiw("tracker", "migrate", "local", "jira")
+        self.assertEqual(code, 1, out)
+        self.assertIn("holds items poured within a call", out)
+        self.assertIn("and jira does not say it keeps calls.", out)
+        self.assertEqual(self.site.stub.issues, {}, "nothing was written")
 
 
 if __name__ == "__main__":

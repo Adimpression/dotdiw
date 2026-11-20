@@ -52,14 +52,15 @@ answers an empty list for a store that is gone.
   means to prove one line in a form `check` reads, each step an id and a
   title, once, with needs that name step ids, and a step's claim a statement
   with its slots' labels in lowercase kebab-case, each once, every `{{ label }}`
-  placeholder naming one -- and refuses one outside it. Only `verifyUsing`, a
-  step's `needs` and its `claim` may be left out; nothing given is replaced by
-  a default. A provider with title and description fields alone may keep what
+  placeholder naming one, and the formula a step calls text naming one -- and
+  refuses one outside it. Only `verifyUsing`, a step's `needs`, its `claim` and
+  its `formula` may be left out; nothing given is replaced by a default. A provider with title and description fields alone may keep what
   it left out in its descriptions instead: the means under a `Verify using:`
   heading that ends the formula's description, one `- ` line each, and in a
   step's description its id on a `Step ID:` line, its needs on a `Needs:`
-  line, comma separated, and its claim under a `Claim:` heading -- the
-  statement, then a line for each slot, its label and a colon. dotdiw reads
+  line, comma separated, its claim under a `Claim:` heading -- the
+  statement, then a line for each slot, its label and a colon -- and the
+  formula it calls on a `Formula:` line. dotdiw reads
   them into the same model as a file's. `dotdiw formula show` prints a
   provider's formula in the form a file takes, so what it prints pours with
   its claims.
