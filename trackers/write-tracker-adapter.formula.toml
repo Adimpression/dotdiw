@@ -1,7 +1,7 @@
 # The steps are the sections of README.md beside this file. The README says what
 # each one takes, and this file lets `dotdiw formula pour` track them.
 formula = "mol-write-tracker-adapter"
-description = "Write an adapter for a tracker dotdiw does not ship, as one file, <name>.py, that answers the eleven operations of the tracker interface in records, prove it with dotdiw tracker check, choose it on a checkout and ship it as a package named dotdiw-tracker-<name>. Use when a team's work lives in a tracker dotdiw has no adapter for -- Linear, GitHub Issues, Jira elsewhere, a database of your own -- when a tracker is to be put behind dotdiw, or when tracker check fails on an adapter."
+description = "Write an adapter for a tracker dotdiw does not ship, as one file, <name>.py, that answers the eleven operations of the tracker interface in records, prove it with dotdiw tracker check, choose it on a checkout and ship it as a package named dotdiw-tracker-<name>. Use when a team's work lives in a tracker dotdiw has no adapter for -- Linear, GitHub Issues, Jira elsewhere, a database of your own -- when a new tracker module under the home directory needs implementing, when a tracker is to be put behind dotdiw, or when tracker check fails on an adapter."
 examples = [
   "Write a tracker adapter",
   "Write a tracker adapter for Linear",
@@ -14,7 +14,7 @@ examples = [
   "Release dotdiw-tracker-linear",
   "tracker check fails on our adapter",
 ]
-version = 3
+version = 4
 type = "workflow"
 
 [[steps]]

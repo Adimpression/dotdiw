@@ -1,0 +1,1237 @@
+{
+  "messages": {
+    "AdoptARepositoryRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "repositoryRef": 3,
+        "conventionsRef": 4,
+        "root": 5,
+        "tracker": 6,
+        "prefix": 7
+      },
+      "reserved": []
+    },
+    "AdoptARepositoryResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "workspace": 5,
+        "exitCode": 6
+      },
+      "reserved": []
+    },
+    "AdoptRepositoryRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "repositoryRef": 3,
+        "root": 4,
+        "quiet": 5,
+        "tracker": 6,
+        "prefix": 7
+      },
+      "reserved": []
+    },
+    "AdoptRepositoryResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "exitCode": 5,
+        "workspace": 6,
+        "created": 7,
+        "reason": 8,
+        "tracker": 9,
+        "actor": 10
+      },
+      "reserved": []
+    },
+    "AnswerThroughAFormulaProviderRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaManagementProviderRef": 3,
+        "formulaRef": 4,
+        "root": 5,
+        "action": 6,
+        "name": 7,
+        "module": 8,
+        "location": 9
+      },
+      "reserved": []
+    },
+    "AnswerThroughAFormulaProviderResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "provider": 5,
+        "providers": 6,
+        "reason": 7,
+        "clashing": 8,
+        "exitCode": 9
+      },
+      "reserved": []
+    },
+    "CheckTrackerRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerAdapterRef": 3,
+        "trackerRef": 4,
+        "root": 5,
+        "name": 6,
+        "path": 7
+      },
+      "reserved": []
+    },
+    "CheckTrackerResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "results": 5,
+        "passed": 6,
+        "reason": 7,
+        "exitCode": 8
+      },
+      "reserved": []
+    },
+    "ChooseATrackerRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerAdapterRef": 3,
+        "repositoryRef": 4,
+        "trackerRef": 5,
+        "root": 6,
+        "action": 7,
+        "name": 8,
+        "path": 9
+      },
+      "reserved": []
+    },
+    "ChooseATrackerResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "trackers": 5,
+        "chosen": 6,
+        "results": 7,
+        "passed": 8,
+        "reason": 9,
+        "exitCode": 10
+      },
+      "reserved": []
+    },
+    "ClaimRun": {
+      "fields": {
+        "root": 1,
+        "formula": 2,
+        "steps": 3,
+        "verifyUsing": 4,
+        "open": 5,
+        "etag": 6
+      },
+      "reserved": []
+    },
+    "ClaimValue": {
+      "fields": {
+        "label": 1,
+        "text": 2
+      },
+      "reserved": []
+    },
+    "ClaimedStep": {
+      "fields": {
+        "item": 1,
+        "step": 2,
+        "status": 3,
+        "statement": 4,
+        "slots": 5,
+        "values": 6,
+        "claim": 7,
+        "open": 8,
+        "etag": 9
+      },
+      "reserved": []
+    },
+    "CommitFormulaRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "path": 5
+      },
+      "reserved": []
+    },
+    "CommitFormulaResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "command": 5,
+        "exitCode": 6
+      },
+      "reserved": []
+    },
+    "CompareWhatWasReadRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "workRef": 3,
+        "moleculeRef": 4,
+        "root": 5,
+        "tracker": 6,
+        "etags": 7
+      },
+      "reserved": []
+    },
+    "CompareWhatWasReadResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "changed": 5,
+        "reason": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "ConventionProblem": {
+      "fields": {
+        "kind": 1,
+        "where": 2,
+        "what": 3
+      },
+      "reserved": []
+    },
+    "DeclareConventionsRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "conventionsRef": 3,
+        "root": 4,
+        "announce": 5
+      },
+      "reserved": []
+    },
+    "DeclareConventionsResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "renamed": 5,
+        "declared": 6,
+        "changed": 7,
+        "exitCode": 8
+      },
+      "reserved": []
+    },
+    "DescribeAndCheckRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "mode": 5,
+        "tracker": 6
+      },
+      "reserved": []
+    },
+    "DescribeAndCheckResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "problems": 5,
+        "formulaCount": 6,
+        "exitCode": 7,
+        "undeclared": 8
+      },
+      "reserved": []
+    },
+    "DescribeProviderRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaManagementProviderRef": 3,
+        "formulaRef": 4,
+        "name": 5,
+        "module": 6,
+        "location": 7
+      },
+      "reserved": []
+    },
+    "DescribeProviderResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "answers": 5,
+        "provider": 6,
+        "reason": 7,
+        "exitCode": 8
+      },
+      "reserved": []
+    },
+    "FindAHeldProcedureRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "ask": 5,
+        "ident": 6,
+        "json": 7
+      },
+      "reserved": []
+    },
+    "FindAHeldProcedureResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "formulaRef": 5,
+        "path": 6,
+        "text": 7,
+        "formula": 8,
+        "formulas": 9,
+        "formulaCount": 10,
+        "exitCode": 11
+      },
+      "reserved": []
+    },
+    "FormulaBody": {
+      "fields": {
+        "description": 1,
+        "verifyUsing": 2,
+        "steps": 3
+      },
+      "reserved": []
+    },
+    "FormulaExample": {
+      "fields": {
+        "formulaRef": 1,
+        "example": 2
+      },
+      "reserved": []
+    },
+    "FormulaProvider": {
+      "fields": {
+        "name": 1,
+        "module": 2,
+        "location": 3,
+        "version": 4,
+        "answers": 5,
+        "unavailable": 6
+      },
+      "reserved": []
+    },
+    "FormulaStep": {
+      "fields": {
+        "id": 1,
+        "title": 2,
+        "needs": 3,
+        "claim": 4,
+        "description": 5
+      },
+      "reserved": []
+    },
+    "ForwardToTheTrackerRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerCommandRef": 3,
+        "root": 4,
+        "arguments": 5,
+        "tracker": 6,
+        "etags": 7,
+        "terminal": 8
+      },
+      "reserved": []
+    },
+    "ForwardToTheTrackerResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "exitCode": 5,
+        "output": 6,
+        "closedRefs": 7,
+        "reason": 8,
+        "printed": 9,
+        "operation": 10,
+        "answers": 11,
+        "tracker": 12,
+        "items": 13
+      },
+      "reserved": []
+    },
+    "HandmadeProcedure": {
+      "fields": {
+        "workRef": 1,
+        "title": 2,
+        "stepCount": 3
+      },
+      "reserved": []
+    },
+    "HeldFormula": {
+      "fields": {
+        "formulaRef": 1,
+        "name": 2,
+        "description": 3,
+        "path": 4,
+        "examples": 5,
+        "verifyUsing": 6,
+        "provider": 7
+      },
+      "reserved": []
+    },
+    "IndexTheProjectRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "background": 5
+      },
+      "reserved": []
+    },
+    "IndexTheProjectResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "formulaCount": 5,
+        "fileCount": 6,
+        "providersLeftOut": 7,
+        "unparsed": 8,
+        "exitCode": 9
+      },
+      "reserved": []
+    },
+    "LearnTheConventionsRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2
+      },
+      "reserved": []
+    },
+    "LearnTheConventionsResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "text": 5,
+        "exitCode": 6
+      },
+      "reserved": []
+    },
+    "ListFormulasRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "json": 5
+      },
+      "reserved": []
+    },
+    "ListFormulasResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "formulas": 5,
+        "formulaCount": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "ListProviderFormulasRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaManagementProviderRef": 3,
+        "formulaRef": 4,
+        "name": 5
+      },
+      "reserved": []
+    },
+    "ListProviderFormulasResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "formulas": 5,
+        "reason": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "ListTrackersRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerAdapterRef": 3,
+        "root": 4
+      },
+      "reserved": []
+    },
+    "ListTrackersResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "trackers": 5,
+        "chosen": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "MatchFormulasRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "workRef": 3,
+        "formulaRef": 4,
+        "root": 5,
+        "title": 6,
+        "description": 7,
+        "exclude": 8,
+        "surface": 9
+      },
+      "reserved": []
+    },
+    "MatchFormulasResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "pourRef": 5,
+        "surfaced": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "MigrateWorkspaceRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerRef": 3,
+        "workRef": 4,
+        "root": 5,
+        "fromTracker": 6,
+        "toTracker": 7,
+        "deletedIds": 8,
+        "sourceGoneIds": 9,
+        "fromStore": 10,
+        "toStore": 11
+      },
+      "reserved": []
+    },
+    "MigrateWorkspaceResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "moved": 5,
+        "resumed": 6,
+        "mapped": 7,
+        "mappingPath": 8,
+        "reason": 9,
+        "exitCode": 10,
+        "assigneesLeft": 11
+      },
+      "reserved": []
+    },
+    "MoveAWorkspaceRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerRef": 3,
+        "workRef": 4,
+        "root": 5,
+        "fromTracker": 6,
+        "toTracker": 7,
+        "deletedIds": 8,
+        "sourceGoneIds": 9,
+        "fromStore": 10,
+        "toStore": 11
+      },
+      "reserved": []
+    },
+    "MoveAWorkspaceResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "moved": 5,
+        "resumed": 6,
+        "mapped": 7,
+        "mappingPath": 8,
+        "reason": 9,
+        "exitCode": 10,
+        "assigneesLeft": 11
+      },
+      "reserved": []
+    },
+    "NameTheWorkRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "workRef": 3,
+        "root": 4,
+        "title": 5,
+        "tracker": 6,
+        "priority": 7,
+        "parent": 8,
+        "description": 9,
+        "json": 10,
+        "etags": 11
+      },
+      "reserved": []
+    },
+    "NameTheWorkResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "workRef": 5,
+        "exitCode": 6,
+        "reason": 7,
+        "item": 8,
+        "tracker": 9
+      },
+      "reserved": []
+    },
+    "NoticeHandmadeProceduresRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "tracker": 5
+      },
+      "reserved": []
+    },
+    "NoticeHandmadeProceduresResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "undeclared": 5,
+        "exitCode": 6
+      },
+      "reserved": []
+    },
+    "NudgeTowardsAFormulaRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "text": 5
+      },
+      "reserved": []
+    },
+    "NudgeTowardsAFormulaResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "nudged": 5,
+        "command": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "PourProcedureRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "workRef": 3,
+        "formulaRef": 4,
+        "moleculeRef": 5,
+        "root": 6,
+        "ident": 7,
+        "tracker": 8,
+        "json": 9
+      },
+      "reserved": []
+    },
+    "PourProcedureResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "moleculeRef": 5,
+        "exitCode": 6,
+        "formulaRef": 7,
+        "claims": 8,
+        "stepRefs": 9,
+        "reason": 10,
+        "tracker": 11,
+        "verifyUsing": 12
+      },
+      "reserved": []
+    },
+    "ReadRunRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "workRef": 3,
+        "moleculeRef": 4,
+        "root": 5,
+        "tracker": 6,
+        "id": 7
+      },
+      "reserved": []
+    },
+    "ReadRunResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "run": 5,
+        "reason": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "RecordClaimRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "workRef": 3,
+        "root": 4,
+        "tracker": 5,
+        "id": 6,
+        "values": 7,
+        "etags": 8
+      },
+      "reserved": []
+    },
+    "RecordClaimResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "item": 5,
+        "reason": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "RecordWhatAStepFoundRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "workRef": 3,
+        "root": 4,
+        "tracker": 5,
+        "id": 6,
+        "values": 7,
+        "json": 8,
+        "etags": 9
+      },
+      "reserved": []
+    },
+    "RecordWhatAStepFoundResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "run": 5,
+        "reason": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "RegisterProviderRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaManagementProviderRef": 3,
+        "formulaRef": 4,
+        "root": 5,
+        "name": 6,
+        "module": 7,
+        "location": 8
+      },
+      "reserved": []
+    },
+    "RegisterProviderResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "provider": 5,
+        "reason": 6,
+        "clashing": 7,
+        "exitCode": 8
+      },
+      "reserved": []
+    },
+    "RemoveProviderRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaManagementProviderRef": 3,
+        "name": 4
+      },
+      "reserved": []
+    },
+    "RemoveProviderResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "provider": 5,
+        "reason": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "ReportWhatIsYoursToCommitRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "repositoryRef": 3,
+        "root": 4,
+        "paths": 5
+      },
+      "reserved": []
+    },
+    "ReportWhatIsYoursToCommitResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "yours": 5,
+        "exitCode": 6
+      },
+      "reserved": []
+    },
+    "ResolveFormulaRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "ident": 5
+      },
+      "reserved": []
+    },
+    "ResolveFormulaResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "formulaRef": 5,
+        "path": 6,
+        "reason": 7,
+        "exitCode": 8,
+        "formula": 9
+      },
+      "reserved": []
+    },
+    "RunATrackerCommandRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerCommandRef": 3,
+        "root": 4,
+        "arguments": 5,
+        "tracker": 6,
+        "etags": 7,
+        "terminal": 8
+      },
+      "reserved": []
+    },
+    "RunATrackerCommandResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "exitCode": 5,
+        "items": 6,
+        "closedRefs": 7,
+        "output": 8,
+        "reason": 9
+      },
+      "reserved": []
+    },
+    "ShipATrackerRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerAdapterRef": 3,
+        "name": 4,
+        "directory": 5
+      },
+      "reserved": []
+    },
+    "ShipATrackerResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "path": 5,
+        "reason": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    },
+    "ShowFormulaRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "ident": 5
+      },
+      "reserved": []
+    },
+    "ShowFormulaResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "reason": 5,
+        "path": 6,
+        "text": 7,
+        "exitCode": 8
+      },
+      "reserved": []
+    },
+    "ShowProviderFormulaRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaManagementProviderRef": 3,
+        "formulaRef": 4,
+        "root": 5,
+        "name": 6,
+        "ident": 7
+      },
+      "reserved": []
+    },
+    "ShowProviderFormulaResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "formulaRef": 5,
+        "formula": 6,
+        "reason": 7,
+        "exitCode": 8
+      },
+      "reserved": []
+    },
+    "StartNamedWorkRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "workRef": 3,
+        "formulaRef": 4,
+        "moleculeRef": 5,
+        "root": 6,
+        "title": 7,
+        "description": 8,
+        "quiet": 9,
+        "tracker": 10,
+        "priority": 11,
+        "parent": 12,
+        "json": 13,
+        "etags": 14
+      },
+      "reserved": []
+    },
+    "StartNamedWorkResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "workRef": 5,
+        "surfaced": 6,
+        "exitCode": 7,
+        "item": 8,
+        "reason": 9
+      },
+      "reserved": []
+    },
+    "StepClaim": {
+      "fields": {
+        "statement": 1,
+        "slots": 2
+      },
+      "reserved": []
+    },
+    "TeachTheConventionsRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2
+      },
+      "reserved": []
+    },
+    "TeachTheConventionsResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "text": 5,
+        "exitCode": 6
+      },
+      "reserved": []
+    },
+    "TrackerActor": {
+      "fields": {
+        "name": 1,
+        "id": 2,
+        "verified": 3
+      },
+      "reserved": []
+    },
+    "TrackerCheckResult": {
+      "fields": {
+        "operation": 1,
+        "status": 2,
+        "detail": 3
+      },
+      "reserved": []
+    },
+    "TrackerInfo": {
+      "fields": {
+        "name": 1,
+        "version": 2,
+        "interface": 3,
+        "origin": 4,
+        "source": 5,
+        "nativeNeeds": 6,
+        "checkTarget": 7,
+        "extras": 8
+      },
+      "reserved": []
+    },
+    "TrackerItem": {
+      "fields": {
+        "id": 1,
+        "title": 2,
+        "kind": 3,
+        "status": 4,
+        "priority": 5,
+        "parent": 6,
+        "reason": 7,
+        "needs": 8,
+        "createdAt": 9,
+        "updatedAt": 10,
+        "assignee": 11,
+        "description": 12,
+        "verifyUsing": 13,
+        "step": 14,
+        "claim": 15,
+        "run": 16,
+        "values": 17,
+        "etag": 18
+      },
+      "reserved": []
+    },
+    "TurnMetricsOffRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "repositoryRef": 3,
+        "tracker": 4,
+        "root": 5
+      },
+      "reserved": []
+    },
+    "TurnMetricsOffResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "turnedOff": 5,
+        "exitCode": 6,
+        "path": 7
+      },
+      "reserved": []
+    },
+    "UndoEarlierAdoptionRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "repositoryRef": 3,
+        "root": 4,
+        "tracker": 5,
+        "apply": 6
+      },
+      "reserved": []
+    },
+    "UndoEarlierAdoptionResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "pending": 5,
+        "undone": 6,
+        "command": 7,
+        "workspace": 8,
+        "adopted": 9,
+        "hooksReplaced": 10,
+        "exitCode": 11,
+        "tracker": 12
+      },
+      "reserved": []
+    },
+    "UseTrackerRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerAdapterRef": 3,
+        "repositoryRef": 4,
+        "trackerRef": 5,
+        "root": 6,
+        "name": 7
+      },
+      "reserved": []
+    },
+    "UseTrackerResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "name": 5,
+        "reason": 6,
+        "actor": 7,
+        "exitCode": 8,
+        "previous": 9
+      },
+      "reserved": []
+    },
+    "WriteAProcedureDownRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "title": 5,
+        "directory": 6,
+        "fromRef": 7,
+        "text": 8,
+        "path": 9,
+        "tracker": 10
+      },
+      "reserved": []
+    },
+    "WriteAProcedureDownResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "command": 5,
+        "problems": 6,
+        "path": 7,
+        "exitCode": 8
+      },
+      "reserved": []
+    },
+    "WriteFormulaRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "formulaRef": 3,
+        "root": 4,
+        "title": 5,
+        "directory": 6,
+        "fromRef": 7,
+        "tracker": 8
+      },
+      "reserved": []
+    },
+    "WriteFormulaResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "path": 5,
+        "seeded": 6,
+        "stepsFrom": 7,
+        "left": 8,
+        "reason": 9,
+        "exitCode": 10
+      },
+      "reserved": []
+    },
+    "WriteTrackerRequest": {
+      "fields": {
+        "correlationId": 1,
+        "sourceRefs": 2,
+        "trackerAdapterRef": 3,
+        "name": 4,
+        "directory": 5
+      },
+      "reserved": []
+    },
+    "WriteTrackerResponse": {
+      "fields": {
+        "status": 1,
+        "summary": 2,
+        "resultRefs": 3,
+        "openQuestionRefs": 4,
+        "path": 5,
+        "reason": 6,
+        "exitCode": 7
+      },
+      "reserved": []
+    }
+  }
+}

@@ -1,0 +1,81 @@
+Native POA adoption and dotdiw 4.2.1 release verification -- 2026-11-23
+
+POA build
+  SHA-256: 53038e0bb6d5606a8dafb211bd0de8b2d9ec2667383f6217f0dc4530a3d9319e
+  Read the build's learn packet before adoption. DOTDIW_POA selects this
+  executable for both the test suites and mutation harness; the fallback is
+  ~/poa. The binary must support native operation contracts, journey/step
+  participation, field-number registries and explicit --json-list-map encoding.
+
+Change
+  POA now derives all operation contracts, shared types, calls, external
+  dependencies, provenance and exact participation scopes from the source.
+  Native operationContracts and operationContractTypes replace the legacy
+  per-step operation blocks and operationTypes. complete-idl.py is removed.
+  generate-project.py only attaches application manifests, projection
+  descriptions and change records, and generates Python records, doors and the
+  adapter starter. Guards and a fresh native-derivation comparison protect
+  every other native IDL section; legacy authoring annotations are refused.
+
+  Compared with the pre-adoption source: all 55 operation IDs and kinds, 139
+  type IDs, record fields and order, 112 call edges, external calls and
+  dependencies are preserved. There are 129 record types and 26 interface
+  bindings. Six read operations are query-only; observing a formula no longer
+  claims to write its authoring lifecycle transition. Praxis and the POA
+  mirror agree. Participation and timing reflect actual backend crossings.
+
+  Runtime Python AST differs only in the release constant, now 4.2.1. The
+  project version, lockfile and version-output checks agree. Tracker interface
+  4 and digest e29ce5a9be895e93 are unchanged.
+
+Wire compatibility
+  Native gRPC generation receives the released field-number registry plus:
+    --json-list-map type.forward-to-the-tracker-response:answers
+  The released wire field stays repeated JSON strings; canonical domain IDL
+  remains a list of maps. Native metadata records the domain type and encoding.
+  Native conform grpc-signatures does not forward the encoding selector; this
+  proof uses native generate, Buf compilation and actual-server descriptor
+  comparison instead. It does not claim that helper passed or that generated
+  metadata itself enforces runtime validation.
+
+Final release gates
+  Product and Praxis schema validation: passed.
+  Native source and IDL schema validation: passed.
+  Native IDL conformance: 17/17 checks passed.
+  CESC schema validation and semantic conformance: 32/32 checks passed.
+  All 8 trace expectations passed, including anti-golden outcomes.
+  Sweep with CESC and source: passed; no gaps or guardrail findings.
+  Formula discovery: all 64 leave-one-out examples across 9 formulas passed,
+  including the adapter formula's home-directory module-authoring situation.
+  Ruff formatting and lint: passed. Mypy: all 9 source files passed.
+  Version/lockfile consistency: uv lock --check --offline passed.
+  Full suites.py all: 805 tests passed, no skips (Python 3.14.3).
+  Full mutation table: 951/951 caught, including all three new native guards.
+  Each mutation's test passed on the pristine copy first. The original harness
+  run() executed all entries across six independent repository copies, with no
+  omissions or duplicate entries; the record is restored to table order in
+  measurements/results/mutation-tracker.txt. Temporary stores used a RAM disk.
+  Released field numbers, native compiled projection and live gRPC tests are
+  included in the full suite. Final derivation and regeneration had no drift.
+
+  Before adoption, 36 independent native-contract probes and 16 independent
+  scope/JSON-selection probes also behaved as expected, including refusals of
+  hidden transitive crossings, scope drift and unselected map/list encoding.
+
+Regenerated artifacts
+  operation-idl.json SHA-256: e3b39f5e67c7abc620c2cbc2d7ef4282eea893e0b8c96066c9c1147622bfcafd
+  dotdiw SHA-256: f3b91836de0d522094fab0714ee00450d967a785e00605738bf4ee22b93c506a
+
+Reproduction
+  Set DOTDIW_POA to the qualified build and follow version 8 of
+  check-promise-artifacts.formula.toml. Generation/static checks used Python
+  3.12.16, Ruff 0.17.3 and mypy 2.4.1. Full tests used Python 3.14.3, protobuf
+  7.35.1 and grpcio 1.80.0, with Buf and protoc 25.1 available. Test-only
+  dependencies were installed in an isolated environment.
+
+  "$DOTDIW_POA" validate --model poa/product-model.yaml
+  "$DOTDIW_POA" derive --product-model poa/product-model.yaml --out operation-idl.json --write
+  python poa/generate-project.py
+  "$DOTDIW_POA" check --idl operation-idl.json --product-model poa/product-model.yaml
+  python -I suites.py all
+  From measurements/: python -I measure/mutate_tracker.py

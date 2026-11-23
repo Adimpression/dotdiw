@@ -1,0 +1,39 @@
+formula = "mol-assess-native-poa-contract"
+description = "Assess a newly synced POA binary for native operation-contract adoption: read poa learn, verify supported authoring and alternatives, reproduce remaining limits independently, and compare the real model without weakening its contracts. Use when replacing dotdiw's custom IDL completion with native POA contracts, checking a new POA build, or preparing a technical handoff about contract migration blockers for the POA team."
+examples = [
+  "Assess native POA contract adoption",
+  "Replace dotdiw's custom IDL completion with native POA contracts",
+  "Write the POA team technical handoff for native contract migration blockers",
+  "Verify the newly synced POA addresses the contract derivation boundary",
+]
+version = 1
+type = "workflow"
+
+[[steps]]
+id = "learn"
+title = "Identify the exact POA executable by digest and read its fresh learn packet from an empty directory; establish source ownership, derivation, conformance, lifecycle, timing, and projection rules before proposing changes"
+
+[[steps]]
+id = "control"
+title = "Prove a small supported model validates, derives, and passes source conformance; check its declared fields, deterministic regeneration, drift rejection, and preservation of existing output on refusal"
+needs = ["learn"]
+
+[[steps]]
+id = "isolated-cases"
+title = "Reduce each suspected gap to an independent domain example, compare source validation and derivation with IDL schema validation, and test supported equivalent representations; distinguish documented limits from broken promises"
+needs = ["control"]
+
+[[steps]]
+id = "real-model"
+title = "Assess the real operation model in scratch space; inventory all semantics the old completion stage supplies and separate native coverage limits from dotdiw-owned modeling errors without patching the production IDL"
+needs = ["control"]
+
+[[steps]]
+id = "projections"
+title = "Assess contract preservation separately from projection support and runtime enforcement; compare released field numbers and encodings, and state whether generated code was inspected, compiled, or exercised"
+needs = ["isolated-cases", "real-model"]
+
+[[steps]]
+id = "handoff"
+title = "Write the handoff with independent fixtures, supported alternatives, application responsibilities, and acceptance criteria that preserve Product Operation Algebra; verify the package and record its paths on the work item"
+needs = ["projections"]

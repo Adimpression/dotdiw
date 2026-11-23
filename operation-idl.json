@@ -85,16 +85,25 @@
           "object.molecule"
         ],
         "interactionIds": [
-          "interaction.start-work",
-          "interaction.pour-procedure"
+          "interaction.answer-through-adapter",
+          "interaction.answer-through-formula-provider",
+          "interaction.check-discoverability",
+          "interaction.find-procedure",
+          "interaction.pour-procedure",
+          "interaction.run-any-command",
+          "interaction.start-work"
         ],
         "invariantIds": [
           "invariant.one-door",
           "invariant.work-starts-named"
         ],
         "boundaryIds": [
+          "boundary.check-to-report",
           "boundary.create-to-match",
-          "boundary.dotdiw-to-tracker"
+          "boundary.dotdiw-to-tracker",
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer",
+          "boundary.run-any-command"
         ]
       },
       "timing": {
@@ -166,6 +175,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.start-named-work",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.name-the-work",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -208,9 +222,12 @@
           "object.formula"
         ],
         "interactionIds": [
-          "interaction.write-procedure",
+          "interaction.answer-through-adapter",
+          "interaction.answer-through-formula-provider",
           "interaction.check-discoverability",
-          "interaction.find-procedure"
+          "interaction.find-procedure",
+          "interaction.start-work",
+          "interaction.write-procedure"
         ],
         "invariantIds": [
           "invariant.one-door",
@@ -218,10 +235,12 @@
           "invariant.every-formula-finds-itself"
         ],
         "boundaryIds": [
-          "boundary.repository-to-remote",
           "boundary.check-to-report",
+          "boundary.create-to-match",
+          "boundary.dotdiw-to-tracker",
           "boundary.list-to-answer",
-          "boundary.provider-to-answer"
+          "boundary.provider-to-answer",
+          "boundary.repository-to-remote"
         ]
       },
       "timing": {
@@ -293,6 +312,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.write-a-procedure-down",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.notice-handmade-procedures",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -336,6 +360,7 @@
         ],
         "interactionIds": [
           "interaction.adopt-repository",
+          "interaction.answer-through-adapter",
           "interaction.run-any-command"
         ],
         "invariantIds": [
@@ -345,6 +370,7 @@
         ],
         "boundaryIds": [
           "boundary.adoption",
+          "boundary.dotdiw-to-tracker",
           "boundary.run-any-command"
         ]
       },
@@ -411,6 +437,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.adopt-a-repository",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.adopt-repository",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -445,14 +476,28 @@
           "object.tracker-command"
         ],
         "interactionIds": [
-          "interaction.forward-command"
+          "interaction.answer-through-adapter",
+          "interaction.answer-through-formula-provider",
+          "interaction.check-discoverability",
+          "interaction.find-procedure",
+          "interaction.forward-command",
+          "interaction.learn",
+          "interaction.start-work",
+          "interaction.write-procedure"
         ],
         "invariantIds": [
           "invariant.one-door",
           "invariant.one-name-for-all-four"
         ],
         "boundaryIds": [
-          "boundary.command-to-tracker"
+          "boundary.check-to-report",
+          "boundary.command-to-tracker",
+          "boundary.create-to-match",
+          "boundary.dotdiw-to-tracker",
+          "boundary.learn-to-text",
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer",
+          "boundary.repository-to-remote"
         ]
       },
       "timing": {
@@ -510,6 +555,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.run-a-tracker-command",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.forward-to-the-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -546,8 +596,7 @@
           "object.formula"
         ],
         "interactionIds": [
-          "interaction.write-procedure",
-          "interaction.check-discoverability",
+          "interaction.answer-through-formula-provider",
           "interaction.find-procedure"
         ],
         "invariantIds": [
@@ -555,14 +604,15 @@
           "invariant.only-committed-formulas-are-held"
         ],
         "boundaryIds": [
-          "boundary.list-to-answer"
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "A git listing and a few small files, read from disk."
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: local formula files can be read immediately, while a registered provider may need process or network time. The answer waits for the providers it asks; the local-file measurement does not measure a remote provider."
       },
       "requestType": "type.find-a-held-procedure-request",
       "responseType": "type.find-a-held-procedure-response",
@@ -616,8 +666,8 @@
         },
         {
           "sourceKind": "manual-decision",
-          "sourceRef": "journey.find-a-held-procedure",
-          "reason": "derive gives a journey every boundary of every interaction its duty uses, so this under-1s journey inherited boundary.repository-to-remote from the duty's sharing interaction and failed check.boundary-timing. It crosses only boundary.list-to-answer."
+          "sourceRef": "step.index-the-project",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -691,6 +741,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.learn-the-conventions",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.teach-the-conventions",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -733,7 +788,7 @@
           "object.molecule"
         ],
         "interactionIds": [
-          "interaction.forward-command"
+          "interaction.answer-through-adapter"
         ],
         "invariantIds": [
           "invariant.one-door",
@@ -741,8 +796,7 @@
           "invariant.one-name-for-all-four"
         ],
         "boundaryIds": [
-          "boundary.dotdiw-to-tracker",
-          "boundary.command-to-tracker"
+          "boundary.dotdiw-to-tracker"
         ]
       },
       "timing": {
@@ -842,6 +896,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.answer-through-the-tracker",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.open-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -889,7 +948,9 @@
           "object.tracker"
         ],
         "interactionIds": [
-          "interaction.forward-command"
+          "interaction.adopt-repository",
+          "interaction.answer-through-adapter",
+          "interaction.choose-tracker"
         ],
         "invariantIds": [
           "invariant.one-door",
@@ -897,8 +958,8 @@
           "invariant.one-name-for-all-four"
         ],
         "boundaryIds": [
-          "boundary.dotdiw-to-tracker",
-          "boundary.command-to-tracker"
+          "boundary.adoption",
+          "boundary.dotdiw-to-tracker"
         ]
       },
       "timing": {
@@ -949,6 +1010,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.choose-a-tracker",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.list-trackers",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -979,7 +1045,8 @@
           "object.work"
         ],
         "interactionIds": [
-          "interaction.forward-command"
+          "interaction.answer-through-adapter",
+          "interaction.move-workspace"
         ],
         "invariantIds": [
           "invariant.one-door",
@@ -987,8 +1054,7 @@
           "invariant.one-name-for-all-four"
         ],
         "boundaryIds": [
-          "boundary.dotdiw-to-tracker",
-          "boundary.command-to-tracker"
+          "boundary.dotdiw-to-tracker"
         ]
       },
       "timing": {
@@ -1029,6 +1095,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.move-a-workspace",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.migrate-workspace",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -1104,6 +1175,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.ship-a-tracker",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.write-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -1139,8 +1215,7 @@
           "object.formula"
         ],
         "interactionIds": [
-          "interaction.write-procedure",
-          "interaction.check-discoverability",
+          "interaction.answer-through-formula-provider",
           "interaction.find-procedure"
         ],
         "invariantIds": [
@@ -1148,8 +1223,6 @@
           "invariant.formula-storage-apart-from-task-storage"
         ],
         "boundaryIds": [
-          "boundary.repository-to-remote",
-          "boundary.check-to-report",
           "boundary.list-to-answer",
           "boundary.provider-to-answer"
         ]
@@ -1202,6 +1275,11 @@
           "sourceKind": "journey-completion",
           "sourceRef": "journey.answer-through-a-formula-provider",
           "reason": "Derived from journey completion criteria."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.register-provider",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -1232,6 +1310,7 @@
           "object.work"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
           "interaction.record-what-a-step-found"
         ],
         "invariantIds": [
@@ -1285,8 +1364,8 @@
         },
         {
           "sourceKind": "manual-decision",
-          "sourceRef": "journey.record-what-a-step-found",
-          "reason": "Records a claim's values, when given, then reads the run."
+          "sourceRef": "step.record-claim",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -1316,17 +1395,19 @@
           "object.work"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
           "interaction.start-work"
         ],
         "boundaryIds": [
-          "boundary.create-to-match"
+          "boundary.create-to-match",
+          "boundary.dotdiw-to-tracker"
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "The match belongs in the same breath as the title. A procedure that arrives later arrives after the work began.\n"
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: matching local formulas can answer immediately, while registered provider discovery and the chosen tracker can take longer. The recorded local create-to-match measurement describes that measured local setup, not every external provider."
       },
       "requestType": "type.name-the-work-request",
       "responseType": "type.name-the-work-response",
@@ -1392,6 +1473,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.name-the-work",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.name-the-work",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -1443,17 +1529,21 @@
           "object.formula"
         ],
         "interactionIds": [
+          "interaction.answer-through-formula-provider",
+          "interaction.find-procedure",
           "interaction.start-work"
         ],
         "boundaryIds": [
-          "boundary.create-to-match"
+          "boundary.create-to-match",
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "The match belongs in the same breath as the title. A procedure that arrives later arrives after the work began.\n"
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: matching local formulas can answer immediately, while registered provider discovery and the chosen tracker can take longer. The recorded local create-to-match measurement describes that measured local setup, not every external provider."
       },
       "requestType": "type.match-formulas-request",
       "responseType": "type.match-formulas-response",
@@ -1492,7 +1582,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.match-formulas",
-          "reason": "The step id does not start with a query verb, so derive called this a command. It ranks and prints; it changes nothing."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -1525,11 +1615,15 @@
           "object.molecule"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
+          "interaction.answer-through-formula-provider",
+          "interaction.find-procedure",
           "interaction.pour-procedure"
         ],
         "boundaryIds": [
-          "boundary.create-to-match",
-          "boundary.dotdiw-to-tracker"
+          "boundary.dotdiw-to-tracker",
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
@@ -1625,6 +1719,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.pour-procedure",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.pour-procedure",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -1668,17 +1767,25 @@
           "object.formula"
         ],
         "interactionIds": [
-          "interaction.check-discoverability"
+          "interaction.answer-through-adapter",
+          "interaction.answer-through-formula-provider",
+          "interaction.check-discoverability",
+          "interaction.find-procedure",
+          "interaction.start-work"
         ],
         "boundaryIds": [
-          "boundary.check-to-report"
+          "boundary.check-to-report",
+          "boundary.create-to-match",
+          "boundary.dotdiw-to-tracker",
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "A local search over the project's own text, so the answer is immediate.\n"
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: the local search itself is immediate, while building its index may wait for registered providers and its handmade notice may wait for the chosen tracker. The command returns after those answers."
       },
       "requestType": "type.notice-handmade-procedures-request",
       "responseType": "type.notice-handmade-procedures-response",
@@ -1723,7 +1830,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.notice-handmade-procedures",
-          "reason": "Reads the tracker and prints; changes nothing."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -1808,7 +1915,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.nudge-towards-a-formula",
-          "reason": "Reads the remembered text and prints; the memory itself is the tracker's and was already stored."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -1838,9 +1945,15 @@
           "object.formula"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
+          "interaction.answer-through-formula-provider",
+          "interaction.find-procedure",
           "interaction.write-procedure"
         ],
         "boundaryIds": [
+          "boundary.dotdiw-to-tracker",
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer",
           "boundary.repository-to-remote"
         ]
       },
@@ -1899,6 +2012,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.write-formula",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.write-formula",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -1943,17 +2061,25 @@
           "object.formula"
         ],
         "interactionIds": [
-          "interaction.check-discoverability"
+          "interaction.answer-through-adapter",
+          "interaction.answer-through-formula-provider",
+          "interaction.check-discoverability",
+          "interaction.find-procedure",
+          "interaction.start-work"
         ],
         "boundaryIds": [
-          "boundary.check-to-report"
+          "boundary.check-to-report",
+          "boundary.create-to-match",
+          "boundary.dotdiw-to-tracker",
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "A local search over the project's own text, so the answer is immediate.\n"
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: the local search itself is immediate, while building its index may wait for registered providers and its handmade notice may wait for the chosen tracker. The command returns after those answers."
       },
       "requestType": "type.describe-and-check-request",
       "responseType": "type.describe-and-check-response",
@@ -1961,24 +2087,13 @@
         "type.artifact-not-found-error",
         "type.open-question-blocked-error"
       ],
-      "stateTransitions": [
-        {
-          "objectId": "object.formula",
-          "fromState": "written",
-          "toState": "findable",
-          "triggerStepIds": [
-            "step.describe-and-check"
-          ],
-          "lifecycleContractId": "lifecycle.formula",
-          "transitionId": "transition.formula-written-to-findable"
-        }
-      ],
+      "stateTransitions": [],
       "idempotency": {
         "idempotencyClass": "query-only",
         "explanation": "Observes and prints; changes nothing in the project or the tracker."
       },
       "preconditions": [
-        "A written formula."
+        "A formula whose description and examples have already been written in the words people use for the work."
       ],
       "postconditions": [
         "A verify-using placeholder that names no slot of a step's claim, by the step's id and the slot's label after the last dot, is named with the formula.",
@@ -2020,7 +2135,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.describe-and-check",
-          "reason": "Reads the formulas and the index and prints; changes nothing."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -2126,10 +2241,14 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.commit-formula",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.commit-formula",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
-      "externalCalls": [],
-      "notes": "Never performed by dotdiw: invariant.tool-never-commits. The body refuses, returning blocked with the exact git command and the reason the commit is the worker's. It binds inline because POA's conformance check requires every binding to resolve to a callable."
+      "externalCalls": []
     },
     {
       "operationId": "operation.adopt-repository",
@@ -2157,10 +2276,12 @@
           "object.repository"
         ],
         "interactionIds": [
-          "interaction.adopt-repository"
+          "interaction.adopt-repository",
+          "interaction.answer-through-adapter"
         ],
         "boundaryIds": [
-          "boundary.adoption"
+          "boundary.adoption",
+          "boundary.dotdiw-to-tracker"
         ]
       },
       "timing": {
@@ -2222,6 +2343,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.adopt-repository",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.adopt-repository",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -2349,6 +2475,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.declare-conventions",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.declare-conventions",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": []
@@ -2421,7 +2552,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.report-what-is-yours-to-commit",
-          "reason": "Reads git's status and prints; the commit is the worker's."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -2459,17 +2590,21 @@
           "object.repository"
         ],
         "interactionIds": [
+          "interaction.adopt-repository",
+          "interaction.answer-through-adapter",
           "interaction.run-any-command"
         ],
         "boundaryIds": [
+          "boundary.adoption",
+          "boundary.dotdiw-to-tracker",
           "boundary.run-any-command"
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "Reads of a config file and a git setting, before the command the worker actually typed; anything slower would be felt on every run.\n"
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.undo-earlier-adoption-request",
       "responseType": "type.undo-earlier-adoption-response",
@@ -2521,6 +2656,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.undo-earlier-adoption",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.undo-earlier-adoption",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -2650,6 +2790,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.turn-metrics-off",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.turn-metrics-off",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -2699,10 +2844,14 @@
           "object.tracker-command"
         ],
         "interactionIds": [
-          "interaction.forward-command"
+          "interaction.answer-through-adapter",
+          "interaction.forward-command",
+          "interaction.learn"
         ],
         "boundaryIds": [
-          "boundary.command-to-tracker"
+          "boundary.command-to-tracker",
+          "boundary.dotdiw-to-tracker",
+          "boundary.learn-to-text"
         ]
       },
       "timing": {
@@ -2808,6 +2957,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.forward-to-the-tracker",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.forward-to-the-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -2863,9 +3017,11 @@
           "object.work",
           "object.molecule"
         ],
-        "interactionIds": [],
+        "interactionIds": [
+          "interaction.answer-through-adapter"
+        ],
         "boundaryIds": [
-          "boundary.command-to-tracker"
+          "boundary.dotdiw-to-tracker"
         ]
       },
       "timing": {
@@ -2920,7 +3076,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.compare-what-was-read",
-          "reason": "Holds a write to the ETags it rests on."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -2964,6 +3120,7 @@
           "object.formula"
         ],
         "interactionIds": [
+          "interaction.answer-through-formula-provider",
           "interaction.find-procedure"
         ],
         "boundaryIds": [
@@ -2972,10 +3129,10 @@
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "A git listing and a handful of small files, read from disk."
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: local formula files can be read immediately, while a registered provider may need process or network time. The answer waits for the providers it asks; the local-file measurement does not measure a remote provider."
       },
       "requestType": "type.index-the-project-request",
       "responseType": "type.index-the-project-response",
@@ -3020,7 +3177,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.index-the-project",
-          "reason": "Reads git and the formula files; builds an in-memory index."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -3058,6 +3215,7 @@
           "object.formula"
         ],
         "interactionIds": [
+          "interaction.answer-through-formula-provider",
           "interaction.find-procedure"
         ],
         "boundaryIds": [
@@ -3066,10 +3224,10 @@
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "A git listing and a handful of small files, read from disk."
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: local formula files can be read immediately, while a registered provider may need process or network time. The answer waits for the providers it asks; the local-file measurement does not measure a remote provider."
       },
       "requestType": "type.list-formulas-request",
       "responseType": "type.list-formulas-response",
@@ -3108,7 +3266,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.list-formulas",
-          "reason": "Prints what the project holds."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -3138,6 +3296,7 @@
           "object.formula"
         ],
         "interactionIds": [
+          "interaction.answer-through-formula-provider",
           "interaction.find-procedure"
         ],
         "boundaryIds": [
@@ -3146,10 +3305,10 @@
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "A git listing and a handful of small files, read from disk."
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: local formula files can be read immediately, while a registered provider may need process or network time. The answer waits for the providers it asks; the local-file measurement does not measure a remote provider."
       },
       "requestType": "type.show-formula-request",
       "responseType": "type.show-formula-response",
@@ -3187,7 +3346,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.show-formula",
-          "reason": "Prints one formula file."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -3217,6 +3376,7 @@
           "object.formula"
         ],
         "interactionIds": [
+          "interaction.answer-through-formula-provider",
           "interaction.find-procedure"
         ],
         "boundaryIds": [
@@ -3225,10 +3385,10 @@
         ]
       },
       "timing": {
-        "realWorldLatencyClass": "under-1s",
-        "syncExpectation": "synchronous",
-        "networkSeparationAllowed": false,
-        "causalJustification": "A git listing and a handful of small files, read from disk."
+        "realWorldLatencyClass": "mixed",
+        "syncExpectation": "mixed",
+        "networkSeparationAllowed": true,
+        "causalJustification": "Timing is mixed: local formula files can be read immediately, while a registered provider may need process or network time. The answer waits for the providers it asks; the local-file measurement does not measure a remote provider."
       },
       "requestType": "type.resolve-formula-request",
       "responseType": "type.resolve-formula-response",
@@ -3276,7 +3436,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.resolve-formula",
-          "reason": "Maps an id to a file; changes nothing."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -3344,7 +3504,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.teach-the-conventions",
-          "reason": "Prints compiled-in text."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -3385,7 +3545,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.open-tracker-request",
       "responseType": "type.open-tracker-response",
@@ -3422,6 +3582,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.open-tracker",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.open-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -3475,7 +3640,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.describe-tracker-request",
       "responseType": "type.describe-tracker-response",
@@ -3485,8 +3650,8 @@
       ],
       "stateTransitions": [],
       "idempotency": {
-        "idempotencyClass": "naturally-idempotent",
-        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+        "idempotencyClass": "query-only",
+        "explanation": "Observes tracker state without changing product state."
       },
       "preconditions": [
         "A registered adapter."
@@ -3503,6 +3668,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.describe-tracker",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.describe-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -3563,7 +3733,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.create-item-request",
       "responseType": "type.create-item-response",
@@ -3597,6 +3767,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.create-item",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.create-item",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -3651,7 +3826,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.add-need-request",
       "responseType": "type.add-need-response",
@@ -3678,6 +3853,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.add-need",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.add-need",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -3733,7 +3913,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.pour-steps-request",
       "responseType": "type.pour-steps-response",
@@ -3771,6 +3951,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.pour-steps",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.pour-steps",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -3838,7 +4023,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.close-item-request",
       "responseType": "type.close-item-response",
@@ -3872,6 +4057,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.close-item",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.close-item",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -3950,7 +4140,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.show-item-request",
       "responseType": "type.show-item-response",
@@ -3960,8 +4150,8 @@
       ],
       "stateTransitions": [],
       "idempotency": {
-        "idempotencyClass": "naturally-idempotent",
-        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+        "idempotencyClass": "query-only",
+        "explanation": "Observes tracker state without changing product state."
       },
       "preconditions": [
         "An id."
@@ -3977,6 +4167,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.show-item",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.show-item",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -4037,7 +4232,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.list-items-request",
       "responseType": "type.list-items-response",
@@ -4047,8 +4242,8 @@
       ],
       "stateTransitions": [],
       "idempotency": {
-        "idempotencyClass": "naturally-idempotent",
-        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+        "idempotencyClass": "query-only",
+        "explanation": "Observes tracker state without changing product state."
       },
       "preconditions": [
         "An open tracker."
@@ -4066,6 +4261,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.list-items",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.list-items",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -4132,7 +4332,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.update-item-request",
       "responseType": "type.update-item-response",
@@ -4167,6 +4367,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.update-item",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.update-item",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -4239,7 +4444,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.ready-items-request",
       "responseType": "type.ready-items-response",
@@ -4249,8 +4454,8 @@
       ],
       "stateTransitions": [],
       "idempotency": {
-        "idempotencyClass": "naturally-idempotent",
-        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+        "idempotencyClass": "query-only",
+        "explanation": "Observes tracker state without changing product state."
       },
       "preconditions": [
         "An open tracker."
@@ -4266,6 +4471,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.ready-items",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.ready-items",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -4338,7 +4548,7 @@
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "The local store answers in the same breath; the beads adapter in the tracker process's time; a hosted tracker in its network's.\n"
+        "causalJustification": "Timing is mixed by adapter: the local store can answer immediately, beads waits for a local process, and a hosted tracker waits for a network response. Each operation waits for its chosen adapter to answer; no asynchronous completion is implied."
       },
       "requestType": "type.record-values-request",
       "responseType": "type.record-values-response",
@@ -4371,6 +4581,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.record-values",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.record-values",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -4420,6 +4635,7 @@
           "object.tracker-adapter"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
           "interaction.choose-tracker"
         ],
         "boundaryIds": [
@@ -4440,8 +4656,8 @@
       ],
       "stateTransitions": [],
       "idempotency": {
-        "idempotencyClass": "naturally-idempotent",
-        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+        "idempotencyClass": "query-only",
+        "explanation": "Observes tracker state without changing product state."
       },
       "preconditions": [
         "An adopted repository."
@@ -4463,6 +4679,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.list-trackers",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.list-trackers",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -4508,9 +4729,12 @@
           "object.tracker"
         ],
         "interactionIds": [
+          "interaction.adopt-repository",
+          "interaction.answer-through-adapter",
           "interaction.choose-tracker"
         ],
         "boundaryIds": [
+          "boundary.adoption",
           "boundary.dotdiw-to-tracker"
         ]
       },
@@ -4572,6 +4796,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.use-tracker",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.use-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -4622,6 +4851,7 @@
           "object.tracker"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
           "interaction.choose-tracker"
         ],
         "boundaryIds": [
@@ -4642,8 +4872,8 @@
       ],
       "stateTransitions": [],
       "idempotency": {
-        "idempotencyClass": "naturally-idempotent",
-        "explanation": "Given the same source artifacts, the product-visible result is deterministic."
+        "idempotencyClass": "query-only",
+        "explanation": "Observes tracker state without changing product state."
       },
       "preconditions": [
         "A registered adapter with a declared check target, or a file holding one."
@@ -4733,6 +4963,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.check-tracker",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.check-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -4795,6 +5030,7 @@
           "object.work"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
           "interaction.move-workspace"
         ],
         "boundaryIds": [
@@ -4913,6 +5149,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.migrate-workspace",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.migrate-workspace",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -5005,6 +5246,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.write-tracker",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.write-tracker",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -5034,15 +5280,19 @@
           "object.formula"
         ],
         "interactionIds": [
-          "interaction.answer-through-formula-provider"
+          "interaction.answer-through-formula-provider",
+          "interaction.find-procedure"
         ],
-        "boundaryIds": []
+        "boundaryIds": [
+          "boundary.list-to-answer",
+          "boundary.provider-to-answer"
+        ]
       },
       "timing": {
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+        "causalJustification": "Timing is mixed by provider: a local directory can answer immediately while an API endpoint requires network time. Each operation waits for its provider to answer; no asynchronous completion is implied."
       },
       "requestType": "type.register-provider-request",
       "responseType": "type.register-provider-response",
@@ -5097,6 +5347,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.register-provider",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.register-provider",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -5128,13 +5383,15 @@
         "interactionIds": [
           "interaction.answer-through-formula-provider"
         ],
-        "boundaryIds": []
+        "boundaryIds": [
+          "boundary.provider-to-answer"
+        ]
       },
       "timing": {
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+        "causalJustification": "Timing is mixed by provider: a local directory can answer immediately while an API endpoint requires network time. Each operation waits for its provider to answer; no asynchronous completion is implied."
       },
       "requestType": "type.describe-provider-request",
       "responseType": "type.describe-provider-response",
@@ -5161,6 +5418,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.describe-provider",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.describe-provider",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -5193,13 +5455,15 @@
         "interactionIds": [
           "interaction.answer-through-formula-provider"
         ],
-        "boundaryIds": []
+        "boundaryIds": [
+          "boundary.provider-to-answer"
+        ]
       },
       "timing": {
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+        "causalJustification": "Timing is mixed by provider: a local directory can answer immediately while an API endpoint requires network time. Each operation waits for its provider to answer; no asynchronous completion is implied."
       },
       "requestType": "type.list-provider-formulas-request",
       "responseType": "type.list-provider-formulas-response",
@@ -5227,6 +5491,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.list-provider-formulas",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.list-provider-formulas",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -5259,13 +5528,15 @@
         "interactionIds": [
           "interaction.answer-through-formula-provider"
         ],
-        "boundaryIds": []
+        "boundaryIds": [
+          "boundary.provider-to-answer"
+        ]
       },
       "timing": {
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+        "causalJustification": "Timing is mixed by provider: a local directory can answer immediately while an API endpoint requires network time. Each operation waits for its provider to answer; no asynchronous completion is implied."
       },
       "requestType": "type.show-provider-formula-request",
       "responseType": "type.show-provider-formula-response",
@@ -5295,6 +5566,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.show-provider-formula",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.show-provider-formula",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -5325,13 +5601,15 @@
         "interactionIds": [
           "interaction.answer-through-formula-provider"
         ],
-        "boundaryIds": []
+        "boundaryIds": [
+          "boundary.provider-to-answer"
+        ]
       },
       "timing": {
         "realWorldLatencyClass": "mixed",
         "syncExpectation": "mixed",
         "networkSeparationAllowed": true,
-        "causalJustification": "A file system answers in the same breath; an API endpoint in its network's time.\n"
+        "causalJustification": "Timing is mixed by provider: a local directory can answer immediately while an API endpoint requires network time. Each operation waits for its provider to answer; no asynchronous completion is implied."
       },
       "requestType": "type.remove-provider-request",
       "responseType": "type.remove-provider-response",
@@ -5368,6 +5646,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.remove-provider",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.remove-provider",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ]
     },
@@ -5397,6 +5680,7 @@
           "object.work"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
           "interaction.record-what-a-step-found"
         ],
         "boundaryIds": [
@@ -5454,6 +5738,11 @@
           "sourceKind": "gwt-step",
           "sourceRef": "step.record-claim",
           "reason": "Derived from a product-visible GWT step."
+        },
+        {
+          "sourceKind": "manual-decision",
+          "sourceRef": "step.record-claim",
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -5498,6 +5787,7 @@
           "object.molecule"
         ],
         "interactionIds": [
+          "interaction.answer-through-adapter",
           "interaction.record-what-a-step-found"
         ],
         "boundaryIds": [
@@ -5558,7 +5848,7 @@
         {
           "sourceKind": "manual-decision",
           "sourceRef": "step.read-run",
-          "reason": "Reads a run's claims and fills its means."
+          "reason": "Explicit operation contract declared in the governed source model."
         }
       ],
       "externalCalls": [
@@ -15985,376 +16275,6 @@
       ]
     },
     {
-      "typeId": "type.artifact-not-found-error",
-      "name": "ArtifactNotFoundError",
-      "kind": "error",
-      "description": "ArtifactNotFoundError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.schema-validation-error",
-      "name": "SchemaValidationError",
-      "kind": "error",
-      "description": "SchemaValidationError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.conformance-failed-error",
-      "name": "ConformanceFailedError",
-      "kind": "error",
-      "description": "ConformanceFailedError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.open-question-blocked-error",
-      "name": "OpenQuestionBlockedError",
-      "kind": "error",
-      "description": "OpenQuestionBlockedError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.projection-failed-error",
-      "name": "ProjectionFailedError",
-      "kind": "error",
-      "description": "ProjectionFailedError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.invalid-cli-usage-error",
-      "name": "InvalidCliUsageError",
-      "kind": "error",
-      "description": "InvalidCliUsageError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.unsupported-command-error",
-      "name": "UnsupportedCommandError",
-      "kind": "error",
-      "description": "UnsupportedCommandError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.write-not-allowed-error",
-      "name": "WriteNotAllowedError",
-      "kind": "error",
-      "description": "WriteNotAllowedError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.drift-detected-error",
-      "name": "DriftDetectedError",
-      "kind": "error",
-      "description": "DriftDetectedError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
-      "typeId": "type.migration-required-error",
-      "name": "MigrationRequiredError",
-      "kind": "error",
-      "description": "MigrationRequiredError emitted by POA operations.",
-      "errorSemantics": "The operation could not complete under the product model constraints.",
-      "fields": [
-        {
-          "name": "message",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "string"
-          },
-          "required": true
-        },
-        {
-          "name": "targetRefs",
-          "valueType": {
-            "kind": "list",
-            "itemType": {
-              "kind": "scalar",
-              "scalar": "string"
-            }
-          },
-          "required": false,
-          "cardinality": "many"
-        },
-        {
-          "name": "blocking",
-          "valueType": {
-            "kind": "scalar",
-            "scalar": "boolean"
-          },
-          "required": true
-        }
-      ]
-    },
-    {
       "typeId": "type.formula-provider",
       "name": "FormulaProvider",
       "kind": "record",
@@ -17645,291 +17565,379 @@
           "summary": "What failed, when it did."
         }
       ]
+    },
+    {
+      "typeId": "type.artifact-not-found-error",
+      "name": "ArtifactNotFoundError",
+      "kind": "error",
+      "description": "ArtifactNotFoundError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.schema-validation-error",
+      "name": "SchemaValidationError",
+      "kind": "error",
+      "description": "SchemaValidationError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.conformance-failed-error",
+      "name": "ConformanceFailedError",
+      "kind": "error",
+      "description": "ConformanceFailedError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.open-question-blocked-error",
+      "name": "OpenQuestionBlockedError",
+      "kind": "error",
+      "description": "OpenQuestionBlockedError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.projection-failed-error",
+      "name": "ProjectionFailedError",
+      "kind": "error",
+      "description": "ProjectionFailedError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.invalid-cli-usage-error",
+      "name": "InvalidCliUsageError",
+      "kind": "error",
+      "description": "InvalidCliUsageError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.unsupported-command-error",
+      "name": "UnsupportedCommandError",
+      "kind": "error",
+      "description": "UnsupportedCommandError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.write-not-allowed-error",
+      "name": "WriteNotAllowedError",
+      "kind": "error",
+      "description": "WriteNotAllowedError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.drift-detected-error",
+      "name": "DriftDetectedError",
+      "kind": "error",
+      "description": "DriftDetectedError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "typeId": "type.migration-required-error",
+      "name": "MigrationRequiredError",
+      "kind": "error",
+      "description": "MigrationRequiredError emitted by POA operations.",
+      "errorSemantics": "The operation could not complete under the product model constraints.",
+      "fields": [
+        {
+          "name": "message",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "targetRefs",
+          "valueType": {
+            "kind": "list",
+            "itemType": {
+              "kind": "scalar",
+              "scalar": "string"
+            }
+          },
+          "required": false,
+          "cardinality": "many"
+        },
+        {
+          "name": "blocking",
+          "valueType": {
+            "kind": "scalar",
+            "scalar": "boolean"
+          },
+          "required": true
+        }
+      ]
     }
   ],
   "operationCallGraph": [
-    {
-      "fromOperationId": "operation.start-named-work",
-      "toOperationId": "operation.name-the-work",
-      "callKind": "synchronous",
-      "reason": "Compose operation.name-the-work as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.start-named-work",
-      "toOperationId": "operation.declare-conventions",
-      "callKind": "synchronous",
-      "reason": "Re-declare the conventions after the create, because the tracker rewrites the files agents read on setup, doctor --fix and upgrades."
-    },
-    {
-      "fromOperationId": "operation.start-named-work",
-      "toOperationId": "operation.index-the-project",
-      "callKind": "synchronous",
-      "reason": "Index the project once and hand the index to the match and the check, so a create indexes once."
-    },
-    {
-      "fromOperationId": "operation.start-named-work",
-      "toOperationId": "operation.match-formulas",
-      "callKind": "synchronous",
-      "reason": "Compose operation.match-formulas as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.start-named-work",
-      "toOperationId": "operation.describe-and-check",
-      "callKind": "synchronous",
-      "reason": "Run the conventions check quietly after every create, printing the first three problems and the handmade notice."
-    },
-    {
-      "fromOperationId": "operation.start-named-work",
-      "toOperationId": "operation.pour-procedure",
-      "callKind": "synchronous",
-      "reason": "Compose operation.pour-procedure as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.write-a-procedure-down",
-      "toOperationId": "operation.index-the-project",
-      "callKind": "asynchronous",
-      "reason": "Index the project once for the notice and the check."
-    },
-    {
-      "fromOperationId": "operation.write-a-procedure-down",
-      "toOperationId": "operation.notice-handmade-procedures",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.notice-handmade-procedures as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.write-a-procedure-down",
-      "toOperationId": "operation.nudge-towards-a-formula",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.nudge-towards-a-formula as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.write-a-procedure-down",
-      "toOperationId": "operation.write-formula",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.write-formula as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.write-a-procedure-down",
-      "toOperationId": "operation.describe-and-check",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.describe-and-check as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.write-a-procedure-down",
-      "toOperationId": "operation.commit-formula",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.commit-formula as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.adopt-a-repository",
-      "toOperationId": "operation.turn-metrics-off",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.turn-metrics-off as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.adopt-a-repository",
-      "toOperationId": "operation.undo-earlier-adoption",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.undo-earlier-adoption as a governed journey step, with apply, before the checkout is adopted: what an earlier version left is put right by init alone."
-    },
-    {
-      "fromOperationId": "operation.adopt-a-repository",
-      "toOperationId": "operation.adopt-repository",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.adopt-repository as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.adopt-a-repository",
-      "toOperationId": "operation.declare-conventions",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.declare-conventions as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.adopt-a-repository",
-      "toOperationId": "operation.report-what-is-yours-to-commit",
-      "callKind": "asynchronous",
-      "reason": "Compose operation.report-what-is-yours-to-commit as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.run-a-tracker-command",
-      "toOperationId": "operation.resolve-formula",
-      "callKind": "synchronous",
-      "reason": "For cook, resolve the formula id to the file it lives in before the tracker sees the command."
-    },
-    {
-      "fromOperationId": "operation.run-a-tracker-command",
-      "toOperationId": "operation.forward-to-the-tracker",
-      "callKind": "synchronous",
-      "reason": "Compose operation.forward-to-the-tracker as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.run-a-tracker-command",
-      "toOperationId": "operation.describe-and-check",
-      "callKind": "synchronous",
-      "reason": "After doctor or lint, print the project's convention problems and the handmade notice under the tracker's report."
-    },
-    {
-      "fromOperationId": "operation.run-a-tracker-command",
-      "toOperationId": "operation.nudge-towards-a-formula",
-      "callKind": "synchronous",
-      "reason": "After remember, say so when the remembered text reads like a procedure."
-    },
-    {
-      "fromOperationId": "operation.find-a-held-procedure",
-      "toOperationId": "operation.index-the-project",
-      "callKind": "synchronous",
-      "reason": "Compose operation.index-the-project as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.find-a-held-procedure",
-      "toOperationId": "operation.list-formulas",
-      "callKind": "synchronous",
-      "reason": "Compose operation.list-formulas as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.find-a-held-procedure",
-      "toOperationId": "operation.show-formula",
-      "callKind": "synchronous",
-      "reason": "Compose operation.show-formula as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.find-a-held-procedure",
-      "toOperationId": "operation.resolve-formula",
-      "callKind": "synchronous",
-      "reason": "Compose operation.resolve-formula as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.learn-the-conventions",
-      "toOperationId": "operation.teach-the-conventions",
-      "callKind": "synchronous",
-      "reason": "Compose operation.teach-the-conventions as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.open-tracker",
-      "callKind": "synchronous",
-      "reason": "Compose operation.open-tracker as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.describe-tracker",
-      "callKind": "synchronous",
-      "reason": "Compose operation.describe-tracker as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.create-item",
-      "callKind": "synchronous",
-      "reason": "Compose operation.create-item as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.add-need",
-      "callKind": "synchronous",
-      "reason": "Compose operation.add-need as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.pour-steps",
-      "callKind": "synchronous",
-      "reason": "Compose operation.pour-steps as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.close-item",
-      "callKind": "synchronous",
-      "reason": "Compose operation.close-item as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.show-item",
-      "callKind": "synchronous",
-      "reason": "Compose operation.show-item as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.list-items",
-      "callKind": "synchronous",
-      "reason": "Compose operation.list-items as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.update-item",
-      "callKind": "synchronous",
-      "reason": "Compose operation.update-item as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.ready-items",
-      "callKind": "synchronous",
-      "reason": "Compose operation.ready-items as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-the-tracker",
-      "toOperationId": "operation.record-values",
-      "callKind": "synchronous",
-      "reason": "Compose operation.record-values as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.choose-a-tracker",
-      "toOperationId": "operation.list-trackers",
-      "callKind": "synchronous",
-      "reason": "Compose operation.list-trackers as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.choose-a-tracker",
-      "toOperationId": "operation.use-tracker",
-      "callKind": "synchronous",
-      "reason": "Compose operation.use-tracker as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.choose-a-tracker",
-      "toOperationId": "operation.check-tracker",
-      "callKind": "synchronous",
-      "reason": "Compose operation.check-tracker as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.move-a-workspace",
-      "toOperationId": "operation.migrate-workspace",
-      "callKind": "synchronous",
-      "reason": "Compose operation.migrate-workspace as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.ship-a-tracker",
-      "toOperationId": "operation.write-tracker",
-      "callKind": "synchronous",
-      "reason": "Compose operation.write-tracker as a governed journey step."
-    },
-    {
-      "fromOperationId": "operation.answer-through-a-formula-provider",
-      "toOperationId": "operation.register-provider",
-      "callKind": "synchronous",
-      "reason": "Register a provider, for the register action."
-    },
-    {
-      "fromOperationId": "operation.answer-through-a-formula-provider",
-      "toOperationId": "operation.remove-provider",
-      "callKind": "synchronous",
-      "reason": "Remove a provider, for the remove action."
-    },
-    {
-      "fromOperationId": "operation.answer-through-a-formula-provider",
-      "toOperationId": "operation.describe-provider",
-      "callKind": "synchronous",
-      "reason": "Describe every registered provider, for the list action."
-    },
-    {
-      "fromOperationId": "operation.record-what-a-step-found",
-      "toOperationId": "operation.record-claim",
-      "callKind": "synchronous",
-      "reason": "Compose operation.record-claim as a governed journey step, when values are given."
-    },
-    {
-      "fromOperationId": "operation.record-what-a-step-found",
-      "toOperationId": "operation.read-run",
-      "callKind": "synchronous",
-      "reason": "Compose operation.read-run as a governed journey step."
-    },
     {
       "fromOperationId": "operation.name-the-work",
       "toOperationId": "operation.create-item",
@@ -18319,6 +18327,288 @@
       "toOperationId": "operation.list-items",
       "callKind": "synchronous",
       "reason": "The steps poured in the run, wherever each stands now, each with its step, claim and values."
+    },
+    {
+      "fromOperationId": "operation.start-named-work",
+      "toOperationId": "operation.name-the-work",
+      "callKind": "synchronous",
+      "reason": "Compose operation.name-the-work as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.start-named-work",
+      "toOperationId": "operation.declare-conventions",
+      "callKind": "synchronous",
+      "reason": "Re-declare the conventions after the create, because the tracker rewrites the files agents read on setup, doctor --fix and upgrades."
+    },
+    {
+      "fromOperationId": "operation.start-named-work",
+      "toOperationId": "operation.index-the-project",
+      "callKind": "synchronous",
+      "reason": "Index the project once and hand the index to the match and the check, so a create indexes once."
+    },
+    {
+      "fromOperationId": "operation.start-named-work",
+      "toOperationId": "operation.match-formulas",
+      "callKind": "synchronous",
+      "reason": "Compose operation.match-formulas as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.start-named-work",
+      "toOperationId": "operation.describe-and-check",
+      "callKind": "synchronous",
+      "reason": "Run the conventions check quietly after every create, printing the first three problems and the handmade notice."
+    },
+    {
+      "fromOperationId": "operation.start-named-work",
+      "toOperationId": "operation.pour-procedure",
+      "callKind": "synchronous",
+      "reason": "Compose operation.pour-procedure as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.write-a-procedure-down",
+      "toOperationId": "operation.index-the-project",
+      "callKind": "asynchronous",
+      "reason": "Index the project once for the notice and the check."
+    },
+    {
+      "fromOperationId": "operation.write-a-procedure-down",
+      "toOperationId": "operation.notice-handmade-procedures",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.notice-handmade-procedures as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.write-a-procedure-down",
+      "toOperationId": "operation.nudge-towards-a-formula",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.nudge-towards-a-formula as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.write-a-procedure-down",
+      "toOperationId": "operation.write-formula",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.write-formula as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.write-a-procedure-down",
+      "toOperationId": "operation.describe-and-check",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.describe-and-check as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.write-a-procedure-down",
+      "toOperationId": "operation.commit-formula",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.commit-formula as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.adopt-a-repository",
+      "toOperationId": "operation.turn-metrics-off",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.turn-metrics-off as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.adopt-a-repository",
+      "toOperationId": "operation.undo-earlier-adoption",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.undo-earlier-adoption as a governed journey step, with apply, before the checkout is adopted: what an earlier version left is put right by init alone."
+    },
+    {
+      "fromOperationId": "operation.adopt-a-repository",
+      "toOperationId": "operation.adopt-repository",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.adopt-repository as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.adopt-a-repository",
+      "toOperationId": "operation.declare-conventions",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.declare-conventions as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.adopt-a-repository",
+      "toOperationId": "operation.report-what-is-yours-to-commit",
+      "callKind": "asynchronous",
+      "reason": "Compose operation.report-what-is-yours-to-commit as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.run-a-tracker-command",
+      "toOperationId": "operation.resolve-formula",
+      "callKind": "synchronous",
+      "reason": "For cook, resolve the formula id to the file it lives in before the tracker sees the command."
+    },
+    {
+      "fromOperationId": "operation.run-a-tracker-command",
+      "toOperationId": "operation.forward-to-the-tracker",
+      "callKind": "synchronous",
+      "reason": "Compose operation.forward-to-the-tracker as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.run-a-tracker-command",
+      "toOperationId": "operation.describe-and-check",
+      "callKind": "synchronous",
+      "reason": "After doctor or lint, print the project's convention problems and the handmade notice under the tracker's report."
+    },
+    {
+      "fromOperationId": "operation.run-a-tracker-command",
+      "toOperationId": "operation.nudge-towards-a-formula",
+      "callKind": "synchronous",
+      "reason": "After remember, say so when the remembered text reads like a procedure."
+    },
+    {
+      "fromOperationId": "operation.find-a-held-procedure",
+      "toOperationId": "operation.index-the-project",
+      "callKind": "synchronous",
+      "reason": "Compose operation.index-the-project as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.find-a-held-procedure",
+      "toOperationId": "operation.list-formulas",
+      "callKind": "synchronous",
+      "reason": "Compose operation.list-formulas as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.find-a-held-procedure",
+      "toOperationId": "operation.show-formula",
+      "callKind": "synchronous",
+      "reason": "Compose operation.show-formula as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.find-a-held-procedure",
+      "toOperationId": "operation.resolve-formula",
+      "callKind": "synchronous",
+      "reason": "Compose operation.resolve-formula as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.learn-the-conventions",
+      "toOperationId": "operation.teach-the-conventions",
+      "callKind": "synchronous",
+      "reason": "Compose operation.teach-the-conventions as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.open-tracker",
+      "callKind": "synchronous",
+      "reason": "Compose operation.open-tracker as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.describe-tracker",
+      "callKind": "synchronous",
+      "reason": "Compose operation.describe-tracker as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.create-item",
+      "callKind": "synchronous",
+      "reason": "Compose operation.create-item as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.add-need",
+      "callKind": "synchronous",
+      "reason": "Compose operation.add-need as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.pour-steps",
+      "callKind": "synchronous",
+      "reason": "Compose operation.pour-steps as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.close-item",
+      "callKind": "synchronous",
+      "reason": "Compose operation.close-item as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.show-item",
+      "callKind": "synchronous",
+      "reason": "Compose operation.show-item as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.list-items",
+      "callKind": "synchronous",
+      "reason": "Compose operation.list-items as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.update-item",
+      "callKind": "synchronous",
+      "reason": "Compose operation.update-item as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.ready-items",
+      "callKind": "synchronous",
+      "reason": "Compose operation.ready-items as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-the-tracker",
+      "toOperationId": "operation.record-values",
+      "callKind": "synchronous",
+      "reason": "Compose operation.record-values as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.choose-a-tracker",
+      "toOperationId": "operation.list-trackers",
+      "callKind": "synchronous",
+      "reason": "Compose operation.list-trackers as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.choose-a-tracker",
+      "toOperationId": "operation.use-tracker",
+      "callKind": "synchronous",
+      "reason": "Compose operation.use-tracker as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.choose-a-tracker",
+      "toOperationId": "operation.check-tracker",
+      "callKind": "synchronous",
+      "reason": "Compose operation.check-tracker as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.move-a-workspace",
+      "toOperationId": "operation.migrate-workspace",
+      "callKind": "synchronous",
+      "reason": "Compose operation.migrate-workspace as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.ship-a-tracker",
+      "toOperationId": "operation.write-tracker",
+      "callKind": "synchronous",
+      "reason": "Compose operation.write-tracker as a governed journey step."
+    },
+    {
+      "fromOperationId": "operation.answer-through-a-formula-provider",
+      "toOperationId": "operation.register-provider",
+      "callKind": "synchronous",
+      "reason": "Register a provider, for the register action."
+    },
+    {
+      "fromOperationId": "operation.answer-through-a-formula-provider",
+      "toOperationId": "operation.remove-provider",
+      "callKind": "synchronous",
+      "reason": "Remove a provider, for the remove action."
+    },
+    {
+      "fromOperationId": "operation.answer-through-a-formula-provider",
+      "toOperationId": "operation.describe-provider",
+      "callKind": "synchronous",
+      "reason": "Describe every registered provider, for the list action."
+    },
+    {
+      "fromOperationId": "operation.record-what-a-step-found",
+      "toOperationId": "operation.record-claim",
+      "callKind": "synchronous",
+      "reason": "Compose operation.record-claim as a governed journey step, when values are given."
+    },
+    {
+      "fromOperationId": "operation.record-what-a-step-found",
+      "toOperationId": "operation.read-run",
+      "callKind": "synchronous",
+      "reason": "Compose operation.read-run as a governed journey step."
     }
   ],
   "boundaries": [
@@ -18422,7 +18712,7 @@
       "boundaryId": "boundary.provider-to-answer",
       "name": "Provider to answer",
       "description": "A registered provider lists its formulas, asked once per process, and shows one when it is shown or poured.",
-      "interactionId": "interaction.find-procedure",
+      "interactionId": "interaction.answer-through-formula-provider",
       "realWorldProcess": "A file system or an API endpoint answers list and show.",
       "realWorldLatencyClass": "mixed",
       "separationAllowed": false,
@@ -20062,8 +20352,8 @@
         "dependency": "buf.build/bufbuild/protovalidate",
         "import": "buf/validate/validate.proto"
       },
-      "generator": "poa generate grpc writes the proto into gitignored gen/ on a machine with Buf, and poa conform grpc-signatures checks it there. dotdiw serve serves it: the descriptor is built at run time from the door's types, numbered as the IDL orders each type's fields, and test_promise.py holds it to the generated proto wherever gen/ exists",
-      "notes": "Every operation with a body that is not internal-only is served; the tracker interface never is. An RPC turns the message into the operation's request, asks the door, and turns the response into the message: changed-since-read answers ABORTED, as AIP-154 has it; not-an-etag or a required field missing, INVALID_ARGUMENT, a field left at its default being one not given -- except, in a record within the request, a field the record requires, which it cannot lack, so that an empty text removing a claim's value is given; any other DoorError or exception, INTERNAL; every other answer is the response, its status inside. Each request reads the checkout's choice of tracker afresh, and is timed from when the server began to answer it. gRPC's fork handlers are off, since every child dotdiw forks runs git or bd at once. grpcio and protobuf are imported by dotdiw serve alone."
+      "generator": "poa generate grpc writes the proto into gitignored gen/ on a machine with Buf, using poa/grpc-field-number-registry.json and the explicit --json-list-map type.forward-to-the-tracker-response:answers selection. test_promise.py compiles it with Buf and holds the actual server's descriptor to it: every served message, method and field number. The server's descriptor is built from the door's types in IDL field order",
+      "notes": "Every operation with a body that is not internal-only is served; the tracker interface never is. An RPC turns the message into the operation's request, asks the door, and turns the response into the message: changed-since-read answers ABORTED, as AIP-154 has it; not-an-etag or a required field missing, INVALID_ARGUMENT, a field left at its default being one not given -- except, in a record within the request, a field the record requires, which it cannot lack, so that an empty text removing a claim's value is given; any other DoorError or exception, INTERNAL; every other answer is the response, its status inside. Each request reads the checkout's choice of tracker afresh, and is timed from when the server began to answer it. gRPC's fork handlers are off, since every child dotdiw forks runs git or bd at once. grpcio and protobuf are imported by dotdiw serve alone. The selected answers field keeps its released repeated-JSON-string representation; native metadata retains its canonical list-of-maps type. The server and clients encode and decode it; projection metadata does not enforce the domain at run time."
     },
     {
       "projectionId": "projection.cli",
@@ -20077,7 +20367,7 @@
       "projectionKind": "python-dispatcher",
       "status": "generated",
       "outputPath": "dotdiw",
-      "generator": "poa/complete-idl.py writes the door's table into dotdiw between markers, from operation-idl.json: for every operation, the body's name and the fields of its request and its response, the required ones named. invoke, DoorError and witness_from beside it are hand-written",
+      "generator": "poa/generate-project.py writes the door's table into dotdiw between markers, from operation-idl.json: for every operation, the body's name and the fields of its request and its response, the required ones named. invoke, DoorError and witness_from beside it are hand-written",
       "notes": "The one way an operation is invoked, by id and with a request dict. The request is held to its type on the way in and the response to its own on the way out; a key outside either raises DoorError naming the operation and the key. The witness log is appended from the response, and the response is shown by the presenter the interface installs, so every transport runs the same bodies. test_promise.py regenerates the table and fails on any difference."
     },
     {
@@ -20085,7 +20375,7 @@
       "projectionKind": "python-protocol",
       "status": "generated",
       "outputPath": "dotdiw",
-      "generator": "poa/complete-idl.py writes the inner door's table into dotdiw between its own markers, from operation-idl.json: for every operation of the tracker interface, the fields of its request and its response, the required ones named. invoke_tracker, register_tracker and load_tracker beside it are hand-written",
+      "generator": "poa/generate-project.py writes the inner door's table into dotdiw between its own markers, from operation-idl.json: for every operation of the tracker interface, the fields of its request and its response, the required ones named. invoke_tracker, register_tracker and load_tracker beside it are hand-written",
       "notes": "The tracker interface as a protocol every adapter implements: a table from operation id to one callable of one request. The registry holds adapters by name; the door resolves the adapter from the request, the workspace's key, or the shipped default, holds both sides to their types, and returns the adapter's records. test_promise.py regenerates the table and fails on any difference."
     }
   ],
@@ -20142,6 +20432,34 @@
       "question": "create-item takes no kind, so tracker migrate moves a root as a task, and the notice about procedures built by hand can then name it. How does migrate bring a root across as a root?\n",
       "blocksChange": false,
       "neededFrom": "product-owner",
+      "decisionNeeded": [
+        "other"
+      ],
+      "candidateResolutions": [],
+      "recommendedDefault": null
+    },
+    {
+      "questionId": "question.external-beads",
+      "targetRefs": [
+        "dependency.beads"
+      ],
+      "question": "Verify external operation targets for dependency.beads; no external IDL was supplied.",
+      "blocksChange": false,
+      "neededFrom": "External product owner",
+      "decisionNeeded": [
+        "other"
+      ],
+      "candidateResolutions": [],
+      "recommendedDefault": null
+    },
+    {
+      "questionId": "question.external-git",
+      "targetRefs": [
+        "dependency.git"
+      ],
+      "question": "Verify external operation targets for dependency.git; no external IDL was supplied.",
+      "blocksChange": false,
+      "neededFrom": "External product owner",
       "decisionNeeded": [
         "other"
       ],
@@ -20503,6 +20821,21 @@
       "reason": "A step calls a formula.",
       "compatibility": "additive",
       "createdAt": "2026-11-19T00:00:00+08:00",
+      "approvalStatus": "draft"
+    },
+    {
+      "changeId": "change.native-operation-contracts",
+      "changeType": "model-update",
+      "targetRefs": [
+        "model.dotdiw",
+        "idl.dotdiw",
+        "projection.door",
+        "projection.grpc"
+      ],
+      "summary": "Author operation semantics with native POA operationContracts and operationContractTypes; declare actual step and journey participation and preserve the released JSON-list-map projection explicitly.",
+      "reason": "POA now derives the fields, calls, dependencies, classification and provenance that the former completion stage supplied. Historical classification and trace overrides are superseded by native contracts and source scopes. Query-only idempotency and the observing check lifecycle are corrected; provider and tracker calls have their existing mixed timing represented. The tool-never-commits invariant and the refusal body remain unchanged.",
+      "compatibility": "corrective",
+      "createdAt": "2026-11-23T08:48:05+08:00",
       "approvalStatus": "draft"
     }
   ],

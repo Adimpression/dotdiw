@@ -1,5 +1,5 @@
 formula = "mol-check-promise-artifacts"
-description = "Re-derive and check the files that write dotdiw's promise down and bind the program to them: validate the thin Product with pd, the Praxis against its schema, and the POA source model; derive operation-idl.json and complete it from the governed source with poa/complete-idl.py, which writes the doors and the record types into dotdiw; validate and check the IDL; check the witness contract and replay its golden and anti-golden traces; sweep the journeys; format, lint and type-check the tree with ruff and mypy through uv; run the test suites, fast and poa, and all of them when a pull request is raised; run the gRPC conformance harness with Buf. Use when product.yaml, praxis.yaml, poa/product-model.yaml, a binding manifest, the contract's bindings, a contract, a fixture or dotdiw itself changes, when a release changes what dotdiw does or promises, or when poa check, a replay, the sweep, conform or a test fails."
+description = "Re-derive and check the files that write dotdiw's promise down and bind the program to them: validate Product, Praxis and the POA source; derive native operation contracts; attach application manifests and generate Python artifacts without changing native semantics; check the IDL, witness contract, replays and sweep; format, lint and type-check; run the relevant test suites and compare the generated gRPC contract with the server and released field numbers. Use when product.yaml, praxis.yaml, poa/product-model.yaml, a binding manifest, contract, fixture, generator or dotdiw changes, or a promise check fails."
 examples = [
   "Re-derive the operation IDL",
   "Check the promise artifacts",
@@ -10,55 +10,30 @@ examples = [
   "Run the gRPC conformance harness",
   "Lint and type-check the tree",
   "mypy fails",
+  "Native POA contracts changed",
 ]
 verify-using = [
-  "run:~/poa check --idl operation-idl.json --product-model poa/product-model.yaml",
-  "run:~/poa sweep --product-model poa/product-model.yaml --idl operation-idl.json --include-cesc --cesc contracts/named-work-found-its-procedure.cesc.yaml --source poa/product-model.yaml",
-  "run:python3 -I test_promise.py",
+  'run:"${DOTDIW_POA:-$HOME/poa}" check --idl operation-idl.json --product-model poa/product-model.yaml',
+  'run:"${DOTDIW_POA:-$HOME/poa}" sweep --product-model poa/product-model.yaml --idl operation-idl.json --include-cesc --cesc contracts/named-work-found-its-procedure.cesc.yaml --source poa/product-model.yaml',
+  "run:python3 -I test_promise.py TheDoor NativeOperationContracts TheGrpcProjection",
 ]
-version = 7
+version = 8
 type = "workflow"
 
-# Written after running this sequence twice by hand on 2026-11-01, and again
-# after binding the program on the same day. The tools are the This-Ness
-# binaries at ~/pd, ~/px and ~/poa; nothing here is on PATH. derive rewrites
-# operation-idl.json from scratch from poa/product-model.yaml and leaves out
-# what each operation takes, returns and calls, which the model declares in
-# each step's and journey's operation block; poa/complete-idl.py writes it in
-# from the model and the files POA keeps beside the IDL -- forget that step and
-# poa check fails on the generated bindings while the sweep loses the
-# contract.
+# Earlier versions completed POA's inferred operation semantics locally. Native
+# operationContracts and scoped participation now replace that authoring path.
+# generate-project.py attaches only governed application manifests, projection
+# descriptions and change records, and generates Python from the native IDL.
+# NativeOperationContracts compares every other section with a fresh derivation.
 #
-# Two things about conform are not guessable. POA's frozen interpreter bundles
-# protobuf runtime 7.35.1, and Buf's current python plugin generates for a
-# newer one, so the plugin is pinned with POA_PROTOBUF_VERSION=v35.1. And that
-# interpreter has no sqlite3 and no pty, so dotdiw itself cannot be imported
-# inside it: promise_bindings.py resolves the operation names without loading
-# dotdiw until a body is called, and is copied into the generated Python root,
-# which is the one directory conform puts on its import path.
-#
-# Version 4: the tree is typed from the IDL and linted. The record types are
-# written into dotdiw beside the doors, so a derive that changes a type
-# changes the classes the bodies are checked against; ruff and mypy run from the
-# locked dev group through uv, and a tree that does not pass them is not one to
-# commit.
-#
-# Version 5: the formula names the means to prove its run under verify-using.
-# Whoever closes the root runs them again: the IDL's checks against the model,
-# the sweep through the contract, and the promise tests that hold the program
-# to the IDL. dotdiw shows them after the pour and keeps them on the root.
-#
-# Version 6: every fact the IDL carries comes from the governed source. What
-# poa/idl-patches.json and poa/idl-additions.json held is in the model -- each
-# operation's facts in the operation block of its step or journey, the shared
-# records, the dependencies, the projections, the IDL's change records under
-# idlRecord -- and in the files POA keeps beside the IDL: the command-line and
-# implementation bindings, and the witness contract's sections. The model is
-# YAML, so the completing step runs through uv, with PyYAML from the dev group.
-#
-# Version 7: the tests run in suites, by what they run beyond Python and git
-# (suites.py): fast, bd and poa. This sequence runs fast and poa; raising a
-# pull request runs all three, and a review runs only those its fixes touch.
+# DOTDIW_POA selects the POA binary; otherwise the commands use ~/poa. Read that
+# build's learn packet first. It must support native contracts, journey scope,
+# field-number registries and --json-list-map. The last option deliberately keeps
+# the released repeated-JSON-string encoding of one list-of-maps field. It never
+# changes its domain IDL. The native conform command does not forward this
+# projection selection; the gRPC proof here uses native generate plus Buf and a
+# comparison with the actual server descriptor. Protobuf is required for that
+# proof and grpcio for the live server tests; skipped checks do not prove them.
 
 [[steps]]
 id = "product"
@@ -66,63 +41,63 @@ title = "Validate the thin Product: `~/pd validate model --product product.yaml 
 
 [[steps]]
 id = "praxis"
-title = "Validate praxis.yaml against the Praxis schema: extract praxis.schema.json from `~/px learn`, then `~/poa validate --idl praxis.yaml --schema <that file>`"
+title = "Extract the Praxis schema from `~/px learn`, then validate praxis.yaml against it with the selected POA; confirm source-side lifecycle bindings match their POA mirror"
 
 [[steps]]
 id = "model"
-title = "Validate the POA source model: `~/poa validate --model poa/product-model.yaml`"
+title = 'Validate the native source: `"${DOTDIW_POA:-$HOME/poa}" validate --model poa/product-model.yaml`; resolve scope, lifecycle, kind and timing errors in the source without waivers'
 
 [[steps]]
 id = "derive"
-title = "Derive the IDL from the model: `~/poa derive --product-model poa/product-model.yaml --out operation-idl.json --write`, and confirm every operation state transition came back bound to a lifecycle contract"
+title = 'Derive natively: `"${DOTDIW_POA:-$HOME/poa}" derive --product-model poa/product-model.yaml --out operation-idl.json --write`; retain lawful lifecycle bindings and actual participation'
 needs = ["model"]
 
 [[steps]]
-id = "complete"
-title = "Complete what derive leaves out, from the governed source: `uv run python poa/complete-idl.py` -- drops the poa-invoke placeholders; writes each operation's block from poa/product-model.yaml with the model's shared records, dependencies, projections and change records, the bindings from interface-bindings.cli.json and implementation-bindings.json, and the contract's sections; then rebuilds the call graph and writes the doors and the types into dotdiw"
+id = "generate"
+title = "Run `uv run python poa/generate-project.py`: attach application manifests and generate Python records, doors and adapter starter; native operations, types, calls, dependencies and provenance remain unchanged"
 needs = ["derive"]
 
 [[steps]]
 id = "idl"
-title = "Validate and check the IDL: `~/poa validate --idl operation-idl.json`, then `~/poa check --idl operation-idl.json --product-model poa/product-model.yaml`, fourteen checks passing with no drift and operationsWithoutInterfaceBinding empty"
-needs = ["complete"]
+title = 'Run the selected POA `validate --idl operation-idl.json` and `check --idl operation-idl.json --product-model poa/product-model.yaml`; every check passes, no drift, and no missing interface binding'
+needs = ["generate"]
 
 [[steps]]
 id = "contract"
-title = "Validate and check the witness contract: `~/poa validate cesc --contract contracts/<story>.cesc.yaml`, then `~/poa check cesc --contract <same> --idl operation-idl.json --source poa/product-model.yaml`"
-needs = ["complete"]
+title = "Validate the witness contract with POA, then check it against operation-idl.json and poa/product-model.yaml; include the governed source artifacts its semantic references require"
+needs = ["generate"]
 
 [[steps]]
 id = "replay"
-title = "Replay every trace the contract expects: `~/poa replay trace --contract <contract> --trace <id>` for each traceExpectation; the golden ones valid, the anti-golden ones rejected with the status the contract names"
+title = "Replay every traceExpectation with POA: each golden trace is valid, and every anti-golden trace has the rejected, incomplete or caveated status its contract declares"
 needs = ["contract"]
 
 [[steps]]
 id = "sweep"
-title = "Sweep journeys through operations, bindings and the contract: `~/poa sweep --product-model poa/product-model.yaml --idl operation-idl.json --include-cesc --cesc <contract> --source poa/product-model.yaml`, no gaps and no guardrail findings"
+title = "Sweep the model through operation-idl.json with --include-cesc, the witness contract and its source; no gaps or guardrail findings"
 needs = ["idl", "contract"]
 
 [[steps]]
 id = "lint"
-title = "Format and lint the tree: `uv run ruff format --check .` then `uv run ruff check .`, nothing reported; the generated regions of dotdiw are kept out of the formatter and left as complete-idl.py wrote them"
-needs = ["complete"]
+title = "Run `uv run ruff format --check .` and `uv run ruff check .`; the generated regions remain exactly what generate-project.py writes"
+needs = ["generate"]
 
 [[steps]]
 id = "types"
-title = "Type-check the tree: `uv run mypy`, no issues in every file pyproject.toml names; a body that answers with a field or a reason the IDL does not declare fails here before it fails the door"
-needs = ["complete"]
+title = "Run `uv run mypy`; every file pyproject.toml names passes against the IDL-generated record types"
+needs = ["generate"]
 
 [[steps]]
 id = "promise"
-title = "Hold the program to the IDL: `python3 -I suites.py fast` (among them the sort of every definition, the calls and external calls against the bodies, and the bindings), then `python3 -I suites.py poa` (a real run with the witness log on that the contract calls valid); when a pull request is raised, `python3 -I suites.py all`"
+title = "Run `python3 -I suites.py fast` and `python3 -I suites.py poa` with DOTDIW_POA set; a pull request runs all suites; a review also runs the adapter and live gRPC tests its changes affect"
 needs = ["idl"]
 
 [[steps]]
 id = "conform"
-title = "Run the gRPC conformance harness, on a machine with Buf: `rm -rf gen && mkdir -p gen/gen/python && cp promise_bindings.py gen/gen/python/ && POA_PROTOBUF_VERSION=v35.1 ~/poa conform grpc-signatures --idl operation-idl.json --out gen --write`; every generated method, descriptor and binding callable passes. gen/ is gitignored"
+title = "With Buf and protobuf, run `python3 -I test_promise.py TheGrpcProjection`: native generation uses the released registry and explicit JSON field selection; every served message, method and released field number agrees"
 needs = ["idl"]
 
 [[steps]]
 id = "readme"
-title = "If the counts or the file list changed, fix the README section 'The promise, written down' so it still says what is true"
+title = "Update README counts and workflow descriptions where needed, then re-derive and regenerate once more; no tracked artifact drifts"
 needs = ["sweep", "replay", "promise", "conform", "product", "praxis", "lint", "types"]

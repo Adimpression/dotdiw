@@ -653,7 +653,7 @@ class TheHostedAdapter(unittest.TestCase):
             out,
             r"(?m)^  jira\s+0\.1, site 1001\.0\.0-stub\s+loaded, from .*/\.dotdiw/trackers/jira\.py$",
         )
-        self.assertRegex(out, r"(?m)^  local\s+4\.2\.0\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(out, r"(?m)^  local\s+4\.2\.1\s+shipped\s+\(this checkout\)$")
         code, out = self.home.dotdiw("tracker", "check", "jira")
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 11, out)

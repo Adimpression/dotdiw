@@ -13,7 +13,7 @@ examples = [
   "Recheck the six step claims review findings",
   "The full check found a bug in the pull request",
 ]
-version = 1
+version = 2
 type = "workflow"
 
 # Written after answering seven reviews of the step claims for 4.0.0 by hand,
@@ -42,7 +42,7 @@ needs = ["fix"]
 
 [[steps]]
 id = "idl"
-title = "If the POA model, a binding or the witness contract changed, run the IDL and contract steps of mol-check-promise-artifacts -- validate, derive, complete, check, replay, sweep -- without its test step"
+title = "If the POA model, a binding or the witness contract changed, run the IDL and contract steps of mol-check-promise-artifacts -- validate, derive, generate, check, replay, sweep -- without its test step"
 needs = ["fix"]
 
 [[steps]]
