@@ -331,10 +331,31 @@ MUTATIONS = [
     ),
     (
         "the interface's digest is not held",
-        "poa/complete-idl.py",
+        "poa/generate-project.py",
         '    if digest == held["digest"]:\n',
         "    if True:\n",
         ["test_promise.py", "TheDoor.test_the_interface_number_moves_by_decision"],
+    ),
+    (
+        "native contract semantics may be changed by application attachments",
+        "poa/generate-project.py",
+        "    if json.dumps({k: v for k, v in idl.items() if k not in ATTACHMENTS}, sort_keys=True) != native:\n",
+        "    if False:\n",
+        ["test_promise.py", "TheDoor.test_application_attachments_cannot_change_native_sections"],
+    ),
+    (
+        "native contract legacy annotations are accepted",
+        "poa/generate-project.py",
+        '    if "operationTypes" in model or any(\n        "operation" in entry for key in ("journeys", "steps") for entry in model.get(key) or []\n    ):\n',
+        "    if False:\n",
+        ["test_promise.py", "TheDoor.test_legacy_operation_annotations_are_refused"],
+    ),
+    (
+        "native contract types become an application attachment",
+        "poa/generate-project.py",
+        'ATTACHMENTS = frozenset((*ID_FIELDS, "implementationBindings"))\n',
+        'ATTACHMENTS = frozenset((*ID_FIELDS, "implementationBindings", "types"))\n',
+        ["test_promise.py", "TheDoor.test_application_attachments_cannot_change_native_sections"],
     ),
     (
         "a check by path leaves bytecode beside the file",
@@ -8705,7 +8726,7 @@ MUTATIONS = [
 ]
 
 
-POA = os.path.expanduser("~/poa")
+POA = os.path.expanduser(os.environ.get("DOTDIW_POA", "~/poa"))
 CONTRACT = os.path.join("contracts", "named-work-found-its-procedure.cesc.yaml")
 
 

@@ -3,7 +3,7 @@
 
     fast  nothing more
     bd    the beads tracker's own binary, bd
-    poa   POA, at ~/poa
+    poa   POA, at DOTDIW_POA or ~/poa
     all   all three
 
     python3 -I suites.py fast

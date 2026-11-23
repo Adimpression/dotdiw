@@ -490,9 +490,6 @@ praxisModel:
           - operationId: operation.write-formula
             transitionIds:
               - transition.formula-repeated-to-written
-          - operationId: operation.describe-and-check
-            transitionIds:
-              - transition.formula-written-to-findable
           - operationId: operation.commit-formula
             transitionIds:
               - transition.formula-findable-to-held
@@ -544,7 +541,7 @@ praxisModel:
         status: draft
 metadata:
   createdAt: "2026-11-01"
-  updatedAt: "2026-11-13"
+  updatedAt: "2026-11-23"
   authors:
     - The dotdiw maintainers
     - The agent working in this repository on 2026-11-01, as bearer

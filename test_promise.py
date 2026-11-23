@@ -65,9 +65,23 @@ SCRIPT = os.path.join(HERE, "dotdiw")
 IDL = os.path.join(HERE, "operation-idl.json")
 BINDINGS = os.path.join(HERE, "promise_bindings.py")
 CONTRACT = os.path.join(HERE, "contracts", "named-work-found-its-procedure.cesc.yaml")
-COMPLETE = os.path.join(HERE, "poa", "complete-idl.py")
+ARTIFACTS = os.path.join(HERE, "poa", "generate-project.py")
 WATERMARKS = os.path.join(HERE, "events", "source-watermarks.yaml")
-POA = os.path.expanduser("~/poa")
+POA = os.path.expanduser(os.environ.get("DOTDIW_POA", "~/poa"))
+
+# This is the project's permitted binding surface, independently of the generator.
+APPLICATION_ATTACHMENTS = frozenset(
+    {
+        "interfaceBindings",
+        "implementationBindings",
+        "eventStructureContracts",
+        "observabilityBindings",
+        "reportBindings",
+        "storySummaryBindings",
+        "projections",
+        "updates",
+    }
+)
 
 # Shared by any body and deciding nothing about the product: how to run git,
 # resolving the checkout's workspace under the home and the adapter it chose,
@@ -405,12 +419,12 @@ def load_module(name, path):
     return module
 
 
-COMPLETER = load_module("complete_idl_for_sorts", COMPLETE)
+GENERATOR = load_module("complete_idl_for_sorts", ARTIFACTS)
 
 
 def inner_ids(idl):
     """The tracker interface's operations: an adapter answers, no body."""
-    return {o["operationId"] for o in COMPLETER.inner_operations(idl)}
+    return {o["operationId"] for o in GENERATOR.inner_operations(idl)}
 
 
 def pending_ids(idl):
@@ -1019,15 +1033,15 @@ class TheDoor(unittest.TestCase):
         cls.operations = bodies_of(cls.idl)
 
     def test_the_interface_number_moves_by_decision(self):
-        """A change to what a module has to answer stops poa/complete-idl.py until
+        """A change to what a module has to answer stops poa/generate-project.py until
         someone has decided whether to raise the number. A change to the words
         does not, and neither does a change outside the interface."""
-        complete = load_module("complete_idl_under_test", COMPLETE)
+        complete = load_module("complete_idl_under_test", ARTIFACTS)
         manifest = complete.load(complete.IMPLEMENTATION)
         self.assertEqual(
             complete.interface_digest(self.idl),
             manifest["trackerInterface"]["digest"],
-            "the interface's types changed; run uv run python poa/complete-idl.py and decide",
+            "the interface's types changed; run uv run python poa/generate-project.py and decide",
         )
         self.assertIsNone(complete.interface_changed(self.idl, manifest))
 
@@ -1068,8 +1082,8 @@ class TheDoor(unittest.TestCase):
                 self.assertIn("interface %d" % manifest["trackerInterface"]["number"], said)
 
     def test_the_table_is_a_fresh_generation_from_the_idl(self):
-        """The region between the markers is what complete-idl writes today."""
-        complete = load_module("complete_idl_under_test", COMPLETE)
+        """The region between the markers is what the artifact generator writes today."""
+        complete = load_module("complete_idl_under_test", ARTIFACTS)
         with open(SCRIPT, encoding="utf-8") as fh:
             text = fh.read()
         self.assertEqual(text.count(complete.DOOR_OPEN), 1)
@@ -1080,7 +1094,7 @@ class TheDoor(unittest.TestCase):
             text[start:end],
             complete.door_source(self.idl),
             "the door's table is not what operation-idl.json generates; "
-            "run uv run python poa/complete-idl.py",
+            "run uv run python poa/generate-project.py",
         )
         self.assertEqual(text.count(complete.SKELETON_OPEN), 1)
         self.assertEqual(text.count(complete.SKELETON_CLOSE), 1)
@@ -1090,7 +1104,7 @@ class TheDoor(unittest.TestCase):
             text[start:end],
             complete.skeleton_source(self.idl),
             "the file a tracker starts from is not what operation-idl.json generates; "
-            "run uv run python poa/complete-idl.py",
+            "run uv run python poa/generate-project.py",
         )
         self.assertEqual(text.count(complete.TRACKER_OPEN), 1)
         self.assertEqual(text.count(complete.TRACKER_CLOSE), 1)
@@ -1100,7 +1114,7 @@ class TheDoor(unittest.TestCase):
             text[start:end],
             complete.tracker_door_source(self.idl),
             "the tracker door's table is not what operation-idl.json generates; "
-            "run uv run python poa/complete-idl.py",
+            "run uv run python poa/generate-project.py",
         )
         self.assertEqual(text.count(complete.TYPES_OPEN), 1)
         self.assertEqual(text.count(complete.TYPES_CLOSE), 1)
@@ -1109,7 +1123,7 @@ class TheDoor(unittest.TestCase):
         self.assertEqual(
             text[start:end],
             complete.types_source(self.idl),
-            "the types are not what operation-idl.json generates; run uv run python poa/complete-idl.py",
+            "the types are not what operation-idl.json generates; run uv run python poa/generate-project.py",
         )
         # And the tables the program runs are the ones in the file.
         module = load_module("dotdiw_door_table", SCRIPT)
@@ -1125,6 +1139,45 @@ class TheDoor(unittest.TestCase):
             self.assertEqual(
                 cls.__required_keys__, {f["name"] for f in t["fields"] if f["required"]}
             )
+
+    def test_legacy_operation_annotations_are_refused(self):
+        generator = load_module("project_artifacts_legacy_test", ARTIFACTS)
+        cli = generator.load(generator.CLI_BINDINGS)
+        manifest = generator.load(generator.IMPLEMENTATION)
+        contract = generator.load(generator.CONTRACT_BINDINGS)
+        models: tuple[dict[str, Any], ...] = (
+            {"operationTypes": []},
+            {"steps": [{"operation": {}}]},
+        )
+        for model in models:
+            with self.subTest(model=model):
+                with self.assertRaisesRegex(ValueError, "legacy operation annotations"):
+                    generator.bind_artifacts(
+                        copy.deepcopy(self.idl), model, cli, manifest, contract
+                    )
+
+    def test_application_attachments_cannot_change_native_sections(self):
+        generator = load_module("project_artifacts_guard_test", ARTIFACTS)
+        self.assertEqual(generator.ATTACHMENTS, APPLICATION_ATTACHMENTS)
+        cli = generator.load(generator.CLI_BINDINGS)
+        manifest = generator.load(generator.IMPLEMENTATION)
+        contract = generator.load(generator.CONTRACT_BINDINGS)
+        model: dict[str, Any] = {"updates": [], "operationProjections": []}
+        before = copy.deepcopy(self.idl)
+        attached = generator.bind_artifacts(copy.deepcopy(self.idl), model, cli, manifest, contract)
+        for key in before:
+            if key not in APPLICATION_ATTACHMENTS:
+                self.assertEqual(attached[key], before[key], key)
+
+        merge = generator.merge_list
+
+        def corrupt(idl, key, values):
+            merge(idl, key, values)
+            idl["operations"][0]["kind"] = "not-a-native-operation-kind"
+
+        with mock.patch.object(generator, "merge_list", side_effect=corrupt):
+            with self.assertRaisesRegex(ValueError, "changed native"):
+                generator.bind_artifacts(copy.deepcopy(self.idl), model, cli, manifest, contract)
 
     def test_a_body_is_reached_only_through_the_door(self):
         """No definition names a body. The door reaches one by the name in its
@@ -2628,6 +2681,40 @@ def uses(*binaries):
     return mark
 
 
+@uses("poa")
+@unittest.skipUnless(os.path.exists(POA), "Set DOTDIW_POA to a native-contract POA binary")
+class NativeOperationContracts(unittest.TestCase):
+    def test_native_derivation_supplies_every_semantic_section(self):
+        """Application binding and generation must never complete an operation contract."""
+        with tempfile.TemporaryDirectory(prefix="dotdiw-native-poa-") as directory:
+            path = os.path.join(directory, "native-idl.json")
+            result = subprocess.run(
+                [
+                    POA,
+                    "derive",
+                    "--product-model",
+                    "poa/product-model.yaml",
+                    "--out",
+                    path,
+                    "--write",
+                    "--json",
+                ],
+                cwd=HERE,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            with open(path, encoding="utf-8") as fh:
+                native = json.load(fh)
+        attached = load_idl()
+        self.assertEqual(
+            set(native) - APPLICATION_ATTACHMENTS, set(attached) - APPLICATION_ATTACHMENTS
+        )
+        for key in native:
+            if key not in APPLICATION_ATTACHMENTS:
+                self.assertEqual(attached[key], native[key], key)
+
+
 FORMULA = """formula = "mol-release-through-tap"
 description = "Release a tagged version of the tool through the Homebrew tap: bump the formula, check the sha, install cleanly, and announce. Use when shipping a version to users."
 examples = ["Release v0.2.1 through the tap", "Ship the next version through brew", "Cut a release and update the tap"]
@@ -3192,7 +3279,7 @@ class TheGrpcProjection(unittest.TestCase):
                 self.assertEqual(now[message][: len(fields)], fields)
 
     @uses("poa")
-    @unittest.skipUnless(os.path.exists(POA), "POA is not at ~/poa")
+    @unittest.skipUnless(os.path.exists(POA), "Set DOTDIW_POA to a native-contract POA binary")
     @unittest.skipUnless(shutil.which("buf"), "Buf is not installed")
     @unittest.skipUnless(have_protobuf(), "protobuf is not installed")
     def test_the_descriptor_served_is_the_one_poa_generates(self):
@@ -3214,6 +3301,10 @@ class TheGrpcProjection(unittest.TestCase):
                 out,
                 "--language",
                 "python",
+                "--field-number-registry",
+                os.path.join(HERE, "poa", "grpc-field-number-registry.json"),
+                "--json-list-map",
+                "type.forward-to-the-tracker-response:answers",
                 "--write",
             ],
             ["buf", "dep", "update"],
