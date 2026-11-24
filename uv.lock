@@ -72,7 +72,7 @@ wheels = [
 
 [[package]]
 name = "dotdiw"
-version = "4.2.1"
+version = "4.2.2"
 source = { virtual = "." }
 
 [package.dev-dependencies]

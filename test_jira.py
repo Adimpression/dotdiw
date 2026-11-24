@@ -34,6 +34,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import tomllib
 import unittest
 import urllib.parse
 from typing import TYPE_CHECKING, Any
@@ -199,6 +200,12 @@ class StubJira:
         if parts[:3] != ["rest", "api", "3"]:
             return 404, {"errorMessages": ["no such resource"]}
         rest = parts[3:]
+        if (rest == ["issue"] and method == "POST") or (
+            rest[:1] == ["issue"] and len(rest) == 2 and method == "PUT"
+        ):
+            summary = ((body or {}).get("fields") or {}).get("summary", "")
+            if len(summary) > 255:
+                return 400, {"errors": {"summary": "Summary must be at most 255 characters."}}
         if rest[:1] == ["issue"] and len(rest) > 1 and rest[1] not in self.issues:
             # Jira reads an issue's key in any case, and answers with the issue's own.
             rest = (
@@ -548,6 +555,35 @@ def load_adapter():
     return module
 
 
+class ThePromiseFormula(unittest.TestCase):
+    def test_the_whole_promise_procedure_pours_with_jiras_summary_limit(self):
+        site = Site()
+        self.addCleanup(site.close)
+        home = Home(site)
+        self.addCleanup(home.close)
+        code, text = home.dotdiw("init", "--tracker", "jira", "--prefix", "CHK")
+        self.assertEqual(code, 0, text)
+        path = os.path.join(HERE, "check-promise-artifacts.formula.toml")
+        with open(path, "rb") as fh:
+            formula = tomllib.load(fh)
+        shutil.copyfile(path, os.path.join(home.path, os.path.basename(path)))
+        code, text = home.dotdiw("formula", "pour", os.path.basename(path), "--json")
+        self.assertEqual(code, 0, "%d issues made; %s" % (len(site.stub.issues), text))
+        poured = json.loads(text)
+        self.assertEqual(len(poured["stepIds"]), len(formula["steps"]))
+        self.assertEqual(len(site.stub.issues), len(formula["steps"]) + 1)
+        self.assertEqual(
+            {site.stub.issues[ident]["summary"] for ident in poured["stepIds"]},
+            {step["title"] for step in formula["steps"]},
+        )
+        code, text = home.dotdiw("show", poured["rootId"], "--json")
+        self.assertEqual(code, 0, text)
+        root = json.loads(text)
+        if isinstance(root, list):
+            root = root[0]
+        self.assertEqual(root["verifyUsing"], formula["verify-using"])
+
+
 class TheTable(unittest.TestCase):
     def test_it_says_which_interface_it_was_written_for(self):
         self.assertEqual(load_adapter().TRACKER["info"]["interface"], 4)
@@ -653,7 +689,7 @@ class TheHostedAdapter(unittest.TestCase):
             out,
             r"(?m)^  jira\s+0\.1, site 1001\.0\.0-stub\s+loaded, from .*/\.dotdiw/trackers/jira\.py$",
         )
-        self.assertRegex(out, r"(?m)^  local\s+4\.2\.1\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(out, r"(?m)^  local\s+4\.2\.2\s+shipped\s+\(this checkout\)$")
         code, out = self.home.dotdiw("tracker", "check", "jira")
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 11, out)

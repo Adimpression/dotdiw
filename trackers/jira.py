@@ -51,12 +51,28 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterable, Sequence
-from typing import Any
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, TypeVar
 
 Request = dict[str, Any]
 Response = dict[str, Any]
 Record = dict[str, Any]
+
+JourneyFunction = TypeVar("JourneyFunction", bound=Callable[..., Any])
+
+
+def journey(journey_id: str) -> Callable[[JourneyFunction], JourneyFunction]:
+    """Record source journey metadata while preserving the callable itself."""
+
+    def annotate(function: JourneyFunction) -> JourneyFunction:
+        function.__dict__["__journey_ids__"] = (
+            *getattr(function, "__journey_ids__", ()),
+            journey_id,
+        )
+        return function
+
+    return annotate
+
 
 VERSION = "0.1"
 STORE = "jira.json"
@@ -823,6 +839,7 @@ def opened(root: str | None) -> tuple[str | None, Response | None]:
     return project, (None if project else dict(NO_WORKSPACE))
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_open(request: Request) -> Response:
     """open-tracker: the project a checkout's work goes to, recorded under the
     workspace; the prefix is the project key, else JIRA_PROJECT."""
@@ -896,6 +913,7 @@ def acting_as() -> Record | None:
     return {"name": mine.get("displayName") or ident, "id": ident, "verified": True}
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_describe(request: Request) -> Response:
     cfg = config()
     version = VERSION
@@ -997,6 +1015,7 @@ def make(request: Request, root: bool = False) -> tuple[Response, str | None]:
     }, key
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_create(request: Request) -> Response:
     """create-item: one issue, under its parent and in its run where they are
     issues of the checkout's project, and nothing made where either is not:
@@ -1143,6 +1162,7 @@ def reaches(
     return False
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_need(request: Request) -> Response:
     """add-need: the issue waits on the one it needs, a Blocks link, where
     that closes no cycle."""
@@ -1202,6 +1222,7 @@ def linked_to(request: Request, fresh: bool) -> Response:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_pour(request: Request) -> Response:
     steps = list(request.get("steps") or [])
     if not steps:
@@ -1779,6 +1800,7 @@ def above_in_the_wake(
     return shut
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_close(request: Request) -> Response:
     if config() is None:
         return dict(NOT_CONFIGURED)
@@ -1872,6 +1894,7 @@ def jira_close(request: Request) -> Response:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_show(request: Request) -> Response:
     if config() is None:
         return dict(NOT_CONFIGURED)
@@ -1919,6 +1942,7 @@ def jira_show(request: Request) -> Response:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_list(request: Request) -> Response:
     if config() is None:
         return dict(NOT_CONFIGURED)
@@ -1966,6 +1990,7 @@ def jira_list(request: Request) -> Response:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_update(request: Request) -> Response:
     if request.get("status") == "closed":
         return {
@@ -2182,6 +2207,7 @@ def jira_update(request: Request) -> Response:
     return {"status": "completed", "summary": "Updated %s." % key, "item": item, "exitCode": 0}
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_record_values(request: Request) -> Response:
     """operation.record-values: the values given, kept whole in one issue
     property named after every write the issue holds, so that a write is
@@ -2226,6 +2252,7 @@ def jira_record_values(request: Request) -> Response:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def jira_ready(request: Request) -> Response:
     if config() is None:
         return dict(NOT_CONFIGURED)

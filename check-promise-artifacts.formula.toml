@@ -11,13 +11,16 @@ examples = [
   "Lint and type-check the tree",
   "mypy fails",
   "Native POA contracts changed",
+  "Tag the code with POA journey IDs",
 ]
 verify-using = [
+  "run:python3 -I test_promise.py TheDoor.test_the_table_is_a_fresh_generation_from_the_idl JourneyAnnotations.test_binding_declarations_are_a_fresh_generation",
   'run:"${DOTDIW_POA:-$HOME/poa}" check --idl operation-idl.json --product-model poa/product-model.yaml',
+  'run:"${DOTDIW_POA:-$HOME/poa}" conform journeys --idl operation-idl.json --source poa/product-model.yaml --root . --implementation-bindings poa/journey-bindings.json --json',
   'run:"${DOTDIW_POA:-$HOME/poa}" sweep --product-model poa/product-model.yaml --idl operation-idl.json --include-cesc --cesc contracts/named-work-found-its-procedure.cesc.yaml --source poa/product-model.yaml',
-  "run:python3 -I test_promise.py TheDoor NativeOperationContracts TheGrpcProjection",
+  "run:uv run --locked --with grpcio --with protobuf python -I test_promise.py TheDoor JourneyAnnotations NativeJourneyAnnotations NativeOperationContracts TheGrpcProjection",
 ]
-version = 8
+version = 12
 type = "workflow"
 
 # Earlier versions completed POA's inferred operation semantics locally. Native
@@ -25,10 +28,16 @@ type = "workflow"
 # generate-project.py attaches only governed application manifests, projection
 # descriptions and change records, and generates Python from the native IDL.
 # NativeOperationContracts compares every other section with a fresh derivation.
+# Root verification checks the submitted artifacts without regenerating them;
+# regeneration belongs to the generate step below.
+# The final root command uses uv's project dev environment for PyYAML, adding
+# grpcio and protobuf for the wire checks. No shell activation is required.
 #
 # DOTDIW_POA selects the POA binary; otherwise the commands use ~/poa. Read that
 # build's learn packet first. It must support native contracts, journey scope,
-# field-number registries and --json-list-map. The last option deliberately keeps
+# journey-annotation conformance, field-number registries and --json-list-map.
+# Journey annotations declare lineage, not behavioral fulfillment or CESC evidence.
+# The last option deliberately keeps
 # the released repeated-JSON-string encoding of one list-of-maps field. It never
 # changes its domain IDL. The native conform command does not forward this
 # projection selection; the gRPC proof here uses native generate plus Buf and a
@@ -54,8 +63,13 @@ needs = ["model"]
 
 [[steps]]
 id = "generate"
-title = "Run `uv run python poa/generate-project.py`: attach application manifests and generate Python records, doors and adapter starter; native operations, types, calls, dependencies and provenance remain unchanged"
+title = "Regenerate application artifacts and journey-tagged bindings: `uv run python poa/generate-project.py`; preserve native operation semantics"
 needs = ["derive"]
+
+[[steps]]
+id = "journeys"
+title = "Check journey tags on governed bindings, standalone bodies and adapter entry points; reject missing or wrong tags"
+needs = ["generate"]
 
 [[steps]]
 id = "idl"
@@ -89,15 +103,15 @@ needs = ["generate"]
 
 [[steps]]
 id = "promise"
-title = "Run `python3 -I suites.py fast` and `python3 -I suites.py poa` with DOTDIW_POA set; a pull request runs all suites; a review also runs the adapter and live gRPC tests its changes affect"
+title = "With DOTDIW_POA set, run `uv run --locked --with grpcio --with protobuf python -I suites.py fast`, then replace `fast` with `poa`; a pull request runs all suites; a review runs affected adapter and live gRPC tests"
 needs = ["idl"]
 
 [[steps]]
 id = "conform"
-title = "With Buf and protobuf, run `python3 -I test_promise.py TheGrpcProjection`: native generation uses the released registry and explicit JSON field selection; every served message, method and released field number agrees"
+title = "With Buf, run `uv run --locked --with grpcio --with protobuf python -I test_promise.py TheGrpcProjection`; compare native generation, the server descriptor and released field numbers using the registry and JSON field selection"
 needs = ["idl"]
 
 [[steps]]
 id = "readme"
 title = "Update README counts and workflow descriptions where needed, then re-derive and regenerate once more; no tracked artifact drifts"
-needs = ["sweep", "replay", "promise", "conform", "product", "praxis", "lint", "types"]
+needs = ["sweep", "replay", "promise", "conform", "product", "praxis", "lint", "types", "journeys"]

@@ -33,6 +33,133 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 # (name, file, the text as it stands, the text that breaks the rule, the test that must fail)
 MUTATIONS = [
     (
+        "journey tags: helper method loses its tag",
+        "dotdiw",
+        '    @journey("journey.write-a-procedure-down")\n    def echoes(',
+        "    def echoes(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys",
+        ],
+    ),
+    (
+        "journey tags: operation loses its tag",
+        "dotdiw",
+        '@journey("journey.start-named-work")\ndef NameTheWork(',
+        "def NameTheWork(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys",
+        ],
+    ),
+    (
+        "journey tags: operation names another known journey",
+        "dotdiw",
+        '@journey("journey.start-named-work")\ndef NameTheWork(',
+        '@journey("journey.adopt-a-repository")\ndef NameTheWork(',
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys",
+        ],
+    ),
+    (
+        "journey tags: local entry point loses its tag",
+        "dotdiw",
+        '@journey("journey.answer-through-the-tracker")\ndef local_create(',
+        "def local_create(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys",
+        ],
+    ),
+    (
+        "journey tags: beads entry point loses its tag",
+        "dotdiw",
+        '@journey("journey.answer-through-the-tracker")\ndef beads_pour(',
+        "def beads_pour(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys",
+        ],
+    ),
+    (
+        "journey tags: provider entry point loses its tag",
+        "dotdiw",
+        '@journey("journey.answer-through-a-formula-provider")\ndef directory_show(',
+        "def directory_show(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys",
+        ],
+    ),
+    (
+        "journey tags: helper loses its tag",
+        "dotdiw",
+        '@journey("journey.write-a-procedure-down")\ndef slug(',
+        "def slug(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys",
+        ],
+    ),
+    (
+        "journey tags: presenter loses its tag",
+        "dotdiw",
+        '@journey("journey.start-named-work")\ndef show_name(',
+        "def show_name(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys",
+        ],
+    ),
+    (
+        "journey tags: Jira entry point loses its tag",
+        "trackers/jira.py",
+        '@journey("journey.answer-through-the-tracker")\ndef jira_create(',
+        "def jira_create(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_jira_tags_and_native_bindings_cover_its_actual_exported_operations",
+        ],
+    ),
+    (
+        "journey tags: binding loses its tag",
+        "promise_bindings.py",
+        '@journey("journey.start-named-work")\ndef NameTheWork(',
+        "def NameTheWork(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_every_binding_keeps_its_journeys_and_dispatches_to_its_exact_operation",
+        ],
+    ),
+    (
+        "journey tags: binding calls the wrong operation in the same journey",
+        "promise_bindings.py",
+        'def NameTheWork(request: Any) -> Any:\n    return load_dotdiw().invoke("operation.name-the-work", request)',
+        'def NameTheWork(request: Any) -> Any:\n    return load_dotdiw().invoke("operation.match-formulas", request)',
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_every_binding_keeps_its_journeys_and_dispatches_to_its_exact_operation",
+        ],
+    ),
+    (
+        "journey tags: adapter starter loses its tag",
+        "dotdiw",
+        '@journey("journey.answer-through-the-tracker")\ndef open_tracker(',
+        "def open_tracker(",
+        [
+            "test_promise.py",
+            "JourneyAnnotations.test_tracker_starters_keep_journeys_and_still_refuse_unimplemented_operations",
+        ],
+    ),
+    (
+        "journey tags: regeneration drops literal declarations",
+        "poa/generate-project.py",
+        'return "".join(\'@journey("%s")\\n\' % ident for ident in operation["tracesTo"]["journeyIds"])',
+        'return ""',
+        ["test_promise.py", "JourneyAnnotations.test_binding_declarations_are_a_fresh_generation"],
+    ),
+    (
         "local closes a blocked item",
         "dotdiw",
         "            blocked = local_blockers(conn, ident)\n            if blocked:\n",
@@ -4347,8 +4474,8 @@ MUTATIONS = [
     (
         "a bound name runs its body outside a request",
         "promise_bindings.py",
-        "        return dotdiw.invoke(asked, request)\n",
-        "        return getattr(dotdiw, name)(request)\n",
+        'def MatchFormulas(request: Any) -> Any:\n    return load_dotdiw().invoke("operation.match-formulas", request)\n',
+        "def MatchFormulas(request: Any) -> Any:\n    return load_dotdiw().MatchFormulas(request)\n",
         ["test_promise.py", "TheDoor.test_a_bound_name_is_a_request_of_its_own"],
     ),
     (

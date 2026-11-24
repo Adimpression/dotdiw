@@ -1712,6 +1712,22 @@ Operation: TypeAlias = Callable[[Any], Any]
 R = TypeVar("R", bound=Mapping[str, object])
 
 
+JourneyFunction = TypeVar("JourneyFunction", bound=Callable[..., Any])
+
+
+def journey(journey_id: str) -> Callable[[JourneyFunction], JourneyFunction]:
+    """Record source journey metadata while preserving the callable itself."""
+
+    def annotate(function: JourneyFunction) -> JourneyFunction:
+        function.__dict__["__journey_ids__"] = (
+            *getattr(function, "__journey_ids__", ()),
+            journey_id,
+        )
+        return function
+
+    return annotate
+
+
 def failed_as(shape: type[R], reason: str | None, summary: str, exit_code: int = 1) -> R:
     """A failed response in the shape the caller answers with: status, reason,
     exitCode and summary are fields of every response type. The reason is one
@@ -1762,7 +1778,7 @@ PROG = "dotdiw"
 # Its own, not the version of the tool it wraps. `--version` used to forward to
 # bd, whose answer then had bd's name rewritten to this one -- so the tool
 # reported another tool's version as its own.
-VERSION = "4.2.1"
+VERSION = "4.2.2"
 
 TOP_N = 3
 
@@ -3347,6 +3363,7 @@ def witnessed(ws: str | None) -> list[dict[str, Any]]:
 # --------------------------------------------- duty.teach-without-a-project
 
 
+@journey("journey.learn-the-conventions")
 def TeachTheConventions(request: TeachTheConventionsRequest) -> TeachTheConventionsResponse:
     """step.teach-the-conventions: the four things and the two conventions."""
     return {
@@ -3357,6 +3374,7 @@ def TeachTheConventions(request: TeachTheConventionsRequest) -> TeachTheConventi
     }
 
 
+@journey("journey.learn-the-conventions")
 def LearnTheConventions(request: LearnTheConventionsRequest) -> LearnTheConventionsResponse:
     """journey.learn-the-conventions."""
     # Another operation's response, answered as this one's: the door holds it
@@ -3367,6 +3385,7 @@ def LearnTheConventions(request: LearnTheConventionsRequest) -> LearnTheConventi
 # ------------------------------------------- duty.keep-procedures-findable
 
 
+@journey("journey.find-a-held-procedure")
 def IndexTheProject(request: IndexTheProjectRequest) -> IndexTheProjectResponse:
     """step.index-the-project: the formulas in local storage, indexed with the project's own text.
 
@@ -3465,6 +3484,7 @@ def IndexTheProject(request: IndexTheProjectRequest) -> IndexTheProjectResponse:
     }
 
 
+@journey("journey.find-a-held-procedure")
 def ResolveFormula(request: ResolveFormulaRequest) -> ResolveFormulaResponse:
     """step.resolve-formula: a formula by its id, its file name, or its path."""
     root = request["root"]
@@ -3577,6 +3597,7 @@ def ResolveFormula(request: ResolveFormulaRequest) -> ResolveFormulaResponse:
     }
 
 
+@journey("journey.find-a-held-procedure")
 def ListFormulas(request: ListFormulasRequest) -> ListFormulasResponse:
     """step.list-formulas: what this project holds.
 
@@ -3600,6 +3621,7 @@ def ListFormulas(request: ListFormulasRequest) -> ListFormulasResponse:
     }
 
 
+@journey("journey.find-a-held-procedure")
 def ShowFormula(request: ShowFormulaRequest) -> ShowFormulaResponse:
     """step.show-formula: the formula as it is written, from where it is written."""
     root = request["root"]
@@ -3652,6 +3674,7 @@ def ShowFormula(request: ShowFormulaRequest) -> ShowFormulaResponse:
     }
 
 
+@journey("journey.find-a-held-procedure")
 def FindAHeldProcedure(request: FindAHeldProcedureRequest) -> FindAHeldProcedureResponse:
     """journey.find-a-held-procedure: list, show or resolve, by what is asked."""
     root = request["root"]
@@ -3671,6 +3694,7 @@ def FindAHeldProcedure(request: FindAHeldProcedureRequest) -> FindAHeldProcedure
     return cast(FindAHeldProcedureResponse, found)
 
 
+@journey("journey.answer-through-a-formula-provider")
 def DescribeProvider(request: DescribeProviderRequest) -> DescribeProviderResponse:
     """step.describe-provider: which of list, show and create a provider answers,
     a registered one by its name or a module before it is registered."""
@@ -3736,6 +3760,7 @@ def DescribeProvider(request: DescribeProviderRequest) -> DescribeProviderRespon
     }
 
 
+@journey("journey.answer-through-a-formula-provider")
 def RegisterProvider(request: RegisterProviderRequest) -> RegisterProviderResponse:
     """step.register-provider: a provider under a name of letters and digits,
     lawful once no local formula of this checkout reads like one of its
@@ -3827,6 +3852,7 @@ def RegisterProvider(request: RegisterProviderRequest) -> RegisterProviderRespon
     }
 
 
+@journey("journey.answer-through-a-formula-provider")
 def ListProviderFormulas(request: ListProviderFormulasRequest) -> ListProviderFormulasResponse:
     """step.list-provider-formulas: every formula a provider holds, each under
     its suffixed id."""
@@ -3938,6 +3964,7 @@ def step_told(text: Any) -> dict[str, Any]:
     return told
 
 
+@journey("journey.answer-through-a-formula-provider")
 def formula_body(said: Any) -> FormulaBody:
     """ShowProviderFormula's: a provider's answer to show held to its shape --
     a formula with a description, its means to prove, and steps each with an
@@ -3991,6 +4018,7 @@ def formula_body(said: Any) -> FormulaBody:
     return answer
 
 
+@journey("journey.answer-through-a-formula-provider")
 def ShowProviderFormula(request: ShowProviderFormulaRequest) -> ShowProviderFormulaResponse:
     """step.show-provider-formula: a provider's formula, as data, under its
     suffixed id: its description, its means to prove and its steps, held to
@@ -4041,6 +4069,7 @@ def ShowProviderFormula(request: ShowProviderFormulaRequest) -> ShowProviderForm
     }
 
 
+@journey("journey.answer-through-a-formula-provider")
 def RemoveProvider(request: RemoveProviderRequest) -> RemoveProviderResponse:
     """step.remove-provider: the registration gone, the package left installed."""
     name = request["name"]
@@ -4069,6 +4098,7 @@ def RemoveProvider(request: RemoveProviderRequest) -> RemoveProviderResponse:
     }
 
 
+@journey("journey.answer-through-a-formula-provider")
 def AnswerThroughAFormulaProvider(
     request: AnswerThroughAFormulaProviderRequest,
 ) -> AnswerThroughAFormulaProviderResponse:
@@ -4127,6 +4157,7 @@ def AnswerThroughAFormulaProvider(
     }
 
 
+@journey("journey.record-what-a-step-found")
 def RecordWhatAStepFound(
     request: RecordWhatAStepFoundRequest,
 ) -> RecordWhatAStepFoundResponse:
@@ -4158,6 +4189,7 @@ def RecordWhatAStepFound(
     return out
 
 
+@journey("journey.record-what-a-step-found")
 def RecordClaim(request: RecordClaimRequest) -> RecordClaimResponse:
     """step.record-claim: the values recorded on an open claimed step through
     the tracker that holds it; a label that is not lowercase kebab-case, an
@@ -4277,6 +4309,7 @@ def filled(
     return pattern.sub(one, text), left
 
 
+@journey("journey.record-what-a-step-found")
 def ReadRun(request: ReadRunRequest) -> ReadRunResponse:
     """step.read-run: the run of the item named -- the root it names, when the
     item is a poured step, whatever parent it stands under now -- read from
@@ -4395,6 +4428,7 @@ def ReadRun(request: ReadRunRequest) -> ReadRunResponse:
     }
 
 
+@journey("journey.run-a-tracker-command")
 def CompareWhatWasRead(request: CompareWhatWasReadRequest) -> CompareWhatWasReadResponse:
     """step.compare-what-was-read: each ETag given, its item or its run read
     again through the tracker door and compared, so that a write goes ahead
@@ -4470,6 +4504,7 @@ def CompareWhatWasRead(request: CompareWhatWasReadRequest) -> CompareWhatWasRead
     }
 
 
+@journey("journey.start-named-work")
 def MatchFormulas(request: MatchFormulasRequest) -> MatchFormulasResponse:
     """step.match-formulas: the procedures that apply to a title.
 
@@ -4539,6 +4574,7 @@ def MatchFormulas(request: MatchFormulasRequest) -> MatchFormulasResponse:
     }
 
 
+@journey("journey.write-a-procedure-down")
 def NoticeHandmadeProcedures(
     request: NoticeHandmadeProceduresRequest,
 ) -> NoticeHandmadeProceduresResponse:
@@ -4587,6 +4623,7 @@ def NoticeHandmadeProcedures(
     }
 
 
+@journey("journey.write-a-procedure-down")
 def NudgeTowardsAFormula(request: NudgeTowardsAFormulaRequest) -> NudgeTowardsAFormulaResponse:
     """step.nudge-towards-a-formula: a memory that reads like a procedure.
 
@@ -4624,6 +4661,7 @@ class Titles:
     does there, and this table holds nothing but the titles.
     """
 
+    @journey("journey.write-a-procedure-down")
     def __init__(self, titles: list[str], idx: Index) -> None:
         self.titles = titles
         self.idx = idx
@@ -4635,6 +4673,7 @@ class Titles:
         self.db.executemany("INSERT INTO t VALUES (?)", [(t,) for t in titles])
         self._held: dict[str, frozenset[int]] = {}
 
+    @journey("journey.write-a-procedure-down")
     def holders(self, word: str) -> frozenset[int]:
         if word not in self._held:
             self._held[word] = frozenset(
@@ -4643,6 +4682,7 @@ class Titles:
             )
         return self._held[word]
 
+    @journey("journey.write-a-procedure-down")
     def echoes(self, text: str) -> list[tuple[float, str]]:
         """Earlier titles that look like this one, for seeding examples."""
         words = toks(text)
@@ -4660,11 +4700,13 @@ class Titles:
         return out
 
 
+@journey("journey.write-a-procedure-down")
 def slug(title: str, limit: int = 4) -> str:
     words = [w for w in re.findall(r"[a-z0-9]+", title.lower()) if len(w) >= 2 and w not in STOP]
     return "-".join(words[:limit]) or "procedure"
 
 
+@journey("journey.write-a-procedure-down")
 def past_titles(root: str, tracker: str | None, drop: str | None = None) -> list[str]:
     """The top-level work this project has named before.
 
@@ -4693,6 +4735,7 @@ def past_titles(root: str, tracker: str | None, drop: str | None = None) -> list
     return titles
 
 
+@journey("journey.write-a-procedure-down")
 def steps_from(root: str, tracker: str | None, ident: str) -> str | None:
     """An issue's children as steps, with its blocks edges as `needs`.
 
@@ -4744,6 +4787,7 @@ def steps_from(root: str, tracker: str | None, ident: str) -> str | None:
     return "\n".join(out)
 
 
+@journey("journey.write-a-procedure-down")
 def WriteFormula(request: WriteFormulaRequest) -> WriteFormulaResponse:
     """step.write-formula: a formula for work the project keeps doing.
 
@@ -4820,6 +4864,7 @@ def WriteFormula(request: WriteFormulaRequest) -> WriteFormulaResponse:
     }
 
 
+@journey("journey.write-a-procedure-down")
 def DescribeAndCheck(request: DescribeAndCheckRequest) -> DescribeAndCheckResponse:
     """step.describe-and-check: the two conventions, checked rather than hoped for.
 
@@ -4995,6 +5040,7 @@ def DescribeAndCheck(request: DescribeAndCheckRequest) -> DescribeAndCheckRespon
     }
 
 
+@journey("journey.write-a-procedure-down")
 def CommitFormula(request: CommitFormulaRequest) -> CommitFormulaResponse:
     """step.commit-formula: the one step dotdiw never performs.
 
@@ -5015,6 +5061,7 @@ def CommitFormula(request: CommitFormulaRequest) -> CommitFormulaResponse:
     }
 
 
+@journey("journey.write-a-procedure-down")
 def WriteAProcedureDown(request: WriteAProcedureDownRequest) -> WriteAProcedureDownResponse:
     """journey.write-a-procedure-down, as one executable: notice, nudge, write, check, and
     stop at the commit."""
@@ -5065,6 +5112,7 @@ def WriteAProcedureDown(request: WriteAProcedureDownRequest) -> WriteAProcedureD
 # ------------------------------------------- duty.put-all-four-under-one-name
 
 
+@journey("journey.run-a-tracker-command")
 def ForwardToTheTracker(request: ForwardToTheTrackerRequest) -> ForwardToTheTrackerResponse:
     """step.forward-to-the-tracker: the command as typed, through the chosen adapter.
 
@@ -5263,6 +5311,7 @@ def ForwardToTheTracker(request: ForwardToTheTrackerRequest) -> ForwardToTheTrac
     return answered(verb, operation, answers, closed)
 
 
+@journey("journey.run-a-tracker-command")
 def ready_in_records(common: Request, locked: bool = False) -> ForwardToTheTrackerResponse:
     """dotdiw's ready, as records: what the tracker gives as ready, save what
     a move into it made and has not finished (made_by_a_stopped_move), which
@@ -5287,6 +5336,7 @@ def ready_in_records(common: Request, locked: bool = False) -> ForwardToTheTrack
     return answered("ready", "operation.ready-items", [answer], [])
 
 
+@journey("journey.run-a-tracker-command")
 def answered(
     verb: str, operation: str, answers: list[Response], closed: list[str]
 ) -> ForwardToTheTrackerResponse:
@@ -5322,6 +5372,7 @@ def answered(
     }
 
 
+@journey("journey.run-a-tracker-command")
 def refusal(operation: str | None, refused: list[Response]) -> ForwardToTheTrackerResponse:
     """What dotdiw refused before the tracker ran anything, as the presenter
     shows it: a command it does not run, or a write whose ETags no longer
@@ -5343,6 +5394,7 @@ def refusal(operation: str | None, refused: list[Response]) -> ForwardToTheTrack
     }
 
 
+@journey("journey.run-a-tracker-command")
 def named_in(answer: Any) -> set[str]:
     """Every item a tracker's JSON answer names: of a list of items, each
     one's id, and that of any item it holds within it; of any other answer
@@ -5378,6 +5430,7 @@ def named_in(answer: Any) -> set[str]:
     return out
 
 
+@journey("journey.run-a-tracker-command")
 def ready_the_tracker_may_give(common: Request, argv: list[str]) -> Response | None:
     """The tracker's own ready, as argv spells it, while a pour is held
     (pours_held): a refusal to answer in its place, or the answer to give,
@@ -5473,6 +5526,7 @@ def ready_the_tracker_may_give(common: Request, argv: list[str]) -> Response | N
     return given or dict(ran, output=_BD_WORD.sub(PROG, text), printed=False)
 
 
+@journey("journey.run-a-tracker-command")
 def through_the_pass_through(
     common: Request, argv: list[str], etags: list[str], terminal: bool
 ) -> ForwardToTheTrackerResponse:
@@ -5748,6 +5802,7 @@ def through_the_pass_through(
     return forwarded(argv, out, closed, notes)
 
 
+@journey("journey.run-a-tracker-command")
 def forwarded(
     argv: list[str], out: Response, closed: list[str], notes: list[Response]
 ) -> ForwardToTheTrackerResponse:
@@ -6326,6 +6381,7 @@ TRACKER_BUSY: Response = {
 }
 
 
+@journey("journey.run-a-tracker-command")
 def tracker_command_at_sight(argv: list[str]) -> str:
     """What dotdiw does with a pass-through's command from its first word
     alone, where that is enough: as-it-is, refused:<word>, or read, for one
@@ -6344,6 +6400,7 @@ def tracker_command_at_sight(argv: list[str]) -> str:
     return "read"
 
 
+@journey("journey.run-a-tracker-command")
 def what_the_command_asks(
     reading: Response,
 ) -> tuple[str, list[str] | None, list[tuple[str, str, str]], list[str]]:
@@ -6418,6 +6475,7 @@ def what_the_command_asks(
     return "refused:%s" % said, None, [], []
 
 
+@journey("journey.run-a-tracker-command")
 def edge_pairs(first: str, second: str, kind: Any) -> list[tuple[str, str, str]]:
     """The pair an edge of the given type makes: a need's item waits on what
     it needs, a parent-child edge puts its first under its second, and the
@@ -6515,6 +6573,7 @@ def held_at(path: str, until_logged: bool = True) -> Iterator[bool]:
         os.close(fh)
 
 
+@journey("journey.run-a-tracker-command")
 def command_words(argv: list[str]) -> tuple[list[str], dict[str, str | bool]]:
     """One of dotdiw's own commands, under an adapter without a pass-through:
     its words after its verb, and its options; a value is never taken for a
@@ -6553,6 +6612,7 @@ COMMAND_VALUE_FLAGS = (
 )
 
 
+@journey("journey.run-a-tracker-command")
 def read_in_records(argv: list[str]) -> bool:
     """Whether a command is one of dotdiw's own reads as dotdiw spells them --
     list with --all or --parent, ready, show with one id, each perhaps with
@@ -6650,6 +6710,7 @@ def made_by_a_stopped_move(
     return out
 
 
+@journey("journey.run-a-tracker-command")
 def stopped_here(common: Request) -> dict[str, tuple[str, str, str]]:
     """What a stopped move into the request's tracker made and has not
     finished (made_by_a_stopped_move), the tracker asked where it keeps the
@@ -6662,6 +6723,7 @@ def stopped_here(common: Request) -> dict[str, tuple[str, str, str]]:
     return made_by_a_stopped_move(common, kept)
 
 
+@journey("journey.run-a-tracker-command")
 def held_at_the_command_line(
     common: Request,
     closing_words: list[str] | None,
@@ -6975,6 +7037,7 @@ def held_at_the_command_line(
     return out, closing
 
 
+@journey("journey.run-a-tracker-command")
 def closes_that_follow(
     common: Request,
     closed: list[str],
@@ -7077,6 +7140,7 @@ def closes_that_follow(
     return answers
 
 
+@journey("journey.run-a-tracker-command")
 def what_the_close_closed(
     common: Request,
     named: list[str],
@@ -7185,6 +7249,7 @@ def what_the_close_closed(
     return closed, notes
 
 
+@journey("journey.run-a-tracker-command")
 def RunATrackerCommand(request: RunATrackerCommandRequest) -> RunATrackerCommandResponse:
     """journey.run-a-tracker-command: forward, with what rides along on cook, doctor, lint
     and remember. What the command answered comes back for a caller that
@@ -7232,6 +7297,7 @@ def RunATrackerCommand(request: RunATrackerCommandRequest) -> RunATrackerCommand
 # --------------------------------- duty.surface-procedures-when-work-starts
 
 
+@journey("journey.start-named-work")
 def parent_a_guard(
     root: str, tracker: str | None, parent: str | None
 ) -> NameTheWorkResponse | None:
@@ -7288,6 +7354,7 @@ def parent_a_guard(
     }
 
 
+@journey("journey.start-named-work")
 def NameTheWork(request: NameTheWorkRequest) -> NameTheWorkResponse:
     """step.name-the-work: the work item, created under the title given.
 
@@ -7354,6 +7421,7 @@ def NameTheWork(request: NameTheWorkRequest) -> NameTheWorkResponse:
     }
 
 
+@journey("journey.start-named-work")
 def PourProcedure(request: PourProcedureRequest) -> PourProcedureResponse:
     """step.pour-procedure: a surfaced formula becomes tracked, ordered steps.
 
@@ -7588,6 +7656,7 @@ CallRefused = Literal[
 ]
 
 
+@journey("journey.start-named-work")
 def formula_identity(resolved: Mapping[str, Any]) -> str:
     """Which formula a lookup resolved, whatever id it declares: a file's by
     its path, a provider's by its id, which names that provider's alone. Two
@@ -7597,6 +7666,7 @@ def formula_identity(resolved: Mapping[str, Any]) -> str:
     return "provider:%s" % resolved.get("formulaRef")
 
 
+@journey("journey.start-named-work")
 def planned_calls(
     root: str, ref: str, steps: list[Any], path: list[tuple[str, str]]
 ) -> tuple[list[dict[str, Any]], tuple[CallRefused, str] | None]:
@@ -7691,6 +7761,7 @@ def step_key(path: list[str]) -> str:
     return json.dumps(path, ensure_ascii=False, separators=(",", ":"))
 
 
+@journey("journey.start-named-work")
 def planned_steps(steps: list[Any], calls: list[dict[str, Any]]) -> list[TrackerStep]:
     """Every step of a pour that calls a formula, as the tracker is handed
     it, in the order it makes them: each level's steps after what they
@@ -7742,6 +7813,7 @@ def planned_steps(steps: list[Any], calls: list[dict[str, Any]]) -> list[Tracker
     return plan
 
 
+@journey("journey.start-named-work")
 def poured_within(
     steps: list[Any],
     calls: list[dict[str, Any]],
@@ -7790,6 +7862,7 @@ def poured_within(
     return claims, poured
 
 
+@journey("journey.start-named-work")
 def claimed_steps(steps: list[Any], made: dict[str, str]) -> list[ClaimedStep]:
     """Each claimed step a pour made, so that whoever does it knows what to
     record: its statement and slots, every placeholder still open."""
@@ -7813,6 +7886,7 @@ def claimed_steps(steps: list[Any], made: dict[str, str]) -> list[ClaimedStep]:
     return claims
 
 
+@journey("journey.start-named-work")
 def StartNamedWork(request: StartNamedWorkRequest) -> StartNamedWorkResponse:
     """journey.start-named-work: name it, read what applies, and -- when asked -- pour."""
     root = request["root"]
@@ -7892,6 +7966,7 @@ def StartNamedWork(request: StartNamedWorkRequest) -> StartNamedWorkResponse:
 # ------------------------------------------ duty.adopt-without-reaching-outside
 
 
+@journey("journey.adopt-a-repository")
 def TurnMetricsOff(request: TurnMetricsOffRequest) -> TurnMetricsOffResponse:
     """step.turn-metrics-off: the tracker's usage metrics off for this machine, and say so once.
 
@@ -7925,6 +8000,7 @@ def TurnMetricsOff(request: TurnMetricsOffRequest) -> TurnMetricsOffResponse:
     }
 
 
+@journey("journey.adopt-a-repository")
 def UndoEarlierAdoption(request: UndoEarlierAdoptionRequest) -> UndoEarlierAdoptionResponse:
     """step.undo-earlier-adoption: what an earlier version let bd do to a repository, said,
     and put right when init asks.
@@ -8106,6 +8182,7 @@ def UndoEarlierAdoption(request: UndoEarlierAdoptionRequest) -> UndoEarlierAdopt
     }
 
 
+@journey("journey.adopt-a-repository")
 def DeclareConventions(request: DeclareConventionsRequest) -> DeclareConventionsResponse:
     """step.declare-conventions: the files agents read say where work starts, and name dotdiw.
 
@@ -8194,6 +8271,7 @@ def DeclareConventions(request: DeclareConventionsRequest) -> DeclareConventions
     }
 
 
+@journey("journey.adopt-a-repository")
 def ReportWhatIsYoursToCommit(
     request: ReportWhatIsYoursToCommitRequest,
 ) -> ReportWhatIsYoursToCommitResponse:
@@ -8217,6 +8295,7 @@ def ReportWhatIsYoursToCommit(
     }
 
 
+@journey("journey.adopt-a-repository")
 def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
     """step.adopt-repository: the tracker made under the home, keyed to this checkout.
 
@@ -8328,6 +8407,7 @@ def AdoptRepository(request: AdoptRepositoryRequest) -> AdoptRepositoryResponse:
     }
 
 
+@journey("journey.adopt-a-repository")
 def AdoptARepository(request: AdoptARepositoryRequest) -> AdoptARepositoryResponse:
     """journey.adopt-a-repository: one command; the tracker under the home, the declaration
     in the tree."""
@@ -9556,9 +9636,24 @@ alone; a star marks a required field. A module runs in dotdiw's own interpreter,
 so it may import the standard library and nothing else.
 """
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 Record = dict[str, Any]
+
+
+JourneyFunction = TypeVar("JourneyFunction", bound=Callable[..., Any])
+
+
+def journey(journey_id: str) -> Callable[[JourneyFunction], JourneyFunction]:
+    """Record source journey metadata while preserving the callable itself."""
+    def annotate(function: JourneyFunction) -> JourneyFunction:
+        function.__dict__["__journey_ids__"] = (
+            *getattr(function, "__journey_ids__", ()), journey_id
+        )
+        return function
+
+    return annotate
 
 
 # A tracker with a title and a description and nothing more keeps the means to
@@ -9601,6 +9696,7 @@ def read_verify_using(text: str | None) -> tuple[str | None, list[str]]:
     return description, [line[2:] for line in lines[1:]]
 
 
+@journey("journey.answer-through-the-tracker")
 def open_tracker(request: Record) -> Record:
     """Open the workspace's tracker. The adapter has a store for this checkout
     and answers for it.
@@ -9613,6 +9709,7 @@ def open_tracker(request: Record) -> Record:
     raise NotImplementedError("open_tracker")
 
 
+@journey("journey.answer-through-the-tracker")
 def describe_tracker(request: Record) -> Record:
     """Describe an adapter. Its name, version, capabilities and check target come
     back as a record.
@@ -9624,6 +9721,7 @@ def describe_tracker(request: Record) -> Record:
     raise NotImplementedError("describe_tracker")
 
 
+@journey("journey.answer-through-the-tracker")
 def create_item(request: Record) -> Record:
     """Create an item. The item exists, open, with an id, and comes back as a
     record.
@@ -9637,6 +9735,7 @@ def create_item(request: Record) -> Record:
     raise NotImplementedError("create_item")
 
 
+@journey("journey.answer-through-the-tracker")
 def add_need(request: Record) -> Record:
     """Add a need between items. The edge exists and shows on both items.
 
@@ -9648,6 +9747,7 @@ def add_need(request: Record) -> Record:
     raise NotImplementedError("add_need")
 
 
+@journey("journey.answer-through-the-tracker")
 def pour_steps(request: Record) -> Record:
     """Pour steps under a root. A root of kind root names the formula and carries
     its description and its verify-using, and one item of kind task per step
@@ -9661,6 +9761,7 @@ def pour_steps(request: Record) -> Record:
     raise NotImplementedError("pour_steps")
 
 
+@journey("journey.answer-through-the-tracker")
 def close_item(request: Record) -> Record:
     """Close an item with a reason. The item is closed and keeps the reason.
 
@@ -9672,6 +9773,7 @@ def close_item(request: Record) -> Record:
     raise NotImplementedError("close_item")
 
 
+@journey("journey.answer-through-the-tracker")
 def show_item(request: Record) -> Record:
     """Show one item. The record comes back with its needs, its children, its
     reason if closed, and its description and verify-using as given.
@@ -9684,6 +9786,7 @@ def show_item(request: Record) -> Record:
     raise NotImplementedError("show_item")
 
 
+@journey("journey.answer-through-the-tracker")
 def list_items(request: Record) -> Record:
     """List items. The records come back, open first, newest last.
 
@@ -9694,6 +9797,7 @@ def list_items(request: Record) -> Record:
     raise NotImplementedError("list_items")
 
 
+@journey("journey.answer-through-the-tracker")
 def update_item(request: Record) -> Record:
     """Update an item's fields. The fields are changed and the record comes back.
 
@@ -9707,6 +9811,7 @@ def update_item(request: Record) -> Record:
     raise NotImplementedError("update_item")
 
 
+@journey("journey.answer-through-the-tracker")
 def ready_items(request: Record) -> Record:
     """The ready set. The open items with no open need come back.
 
@@ -9717,6 +9822,7 @@ def ready_items(request: Record) -> Record:
     raise NotImplementedError("ready_items")
 
 
+@journey("journey.answer-through-the-tracker")
 def record_values(request: Record) -> Record:
     """Record a claim's values. Each label given has its value, and the record
     comes back.
@@ -10023,6 +10129,7 @@ def directory_store(location: str | None) -> str:
     return location
 
 
+@journey("journey.answer-through-a-formula-provider")
 def directory_describe(request: dict[str, Any]) -> dict[str, Any]:
     """The directory provider answers list and show, for a directory that is
     there, recorded by its absolute path so that it names one store from every
@@ -10032,6 +10139,7 @@ def directory_describe(request: dict[str, Any]) -> dict[str, Any]:
     return {"answers": ["list", "show"], "location": directory_store(absolute)}
 
 
+@journey("journey.answer-through-a-formula-provider")
 def directory_list(request: dict[str, Any]) -> dict[str, Any]:
     """Every formula in the directory: its id, description and examples."""
     store = directory_store(request.get("location"))
@@ -10046,6 +10154,7 @@ def directory_list(request: dict[str, Any]) -> dict[str, Any]:
     return {"formulas": formulas}
 
 
+@journey("journey.answer-through-a-formula-provider")
 def directory_show(request: dict[str, Any]) -> dict[str, Any]:
     """One formula by its id, as data, from its file in the directory: the
     file the last listing found it in, or, when there was none, the first that
@@ -10503,6 +10612,7 @@ def asked_of_an_extra(extra: str, request: Request) -> Response:
     return response
 
 
+@journey("journey.answer-through-the-tracker")
 def AnswerThroughTheTracker(
     request: AnswerThroughTheTrackerRequest,
 ) -> AnswerThroughTheTrackerResponse:
@@ -10535,6 +10645,7 @@ def AnswerThroughTheTracker(
 # ------------------------------------------- duty.put-all-four-under-one-name, the choosing
 
 
+@journey("journey.choose-a-tracker")
 def ListTrackers(request: ListTrackersRequest) -> ListTrackersResponse:
     """step.list-trackers: every adapter registered or in tracker_dirs, each
     described through the tracker door, and the one this checkout uses."""
@@ -10583,6 +10694,7 @@ def ListTrackers(request: ListTrackersRequest) -> ListTrackersResponse:
     }
 
 
+@journey("journey.choose-a-tracker")
 def UseTracker(request: UseTrackerRequest) -> UseTrackerResponse:
     """step.use-tracker: dotdiw.tracker names the adapter in the checkout's
     config and its store is open, through the adoption step, quietly; an
@@ -10631,6 +10743,7 @@ def UseTracker(request: UseTrackerRequest) -> UseTrackerResponse:
     }
 
 
+@journey("journey.choose-a-tracker")
 def conformance_scenario(
     answering: Callable[..., Response], prefix: str = "chk"
 ) -> list[TrackerCheckResult]:
@@ -11245,6 +11358,7 @@ def conformance_scenario(
 
 
 @contextlib.contextmanager
+@journey("journey.choose-a-tracker")
 def candidate_registered(name: str) -> Iterator[None]:
     """The length of a check by path: what the file registers under this stem lasts
     that long. After it the adapter of that name and its module are back, a file that
@@ -11270,6 +11384,7 @@ def candidate_registered(name: str) -> Iterator[None]:
                 table[key] = value
 
 
+@journey("journey.choose-a-tracker")
 def CheckTracker(request: CheckTrackerRequest) -> CheckTrackerResponse:
     """step.check-tracker: the conformance scenario against the adapter's
     declared check target, one result per operation; never against live
@@ -11361,6 +11476,7 @@ def CheckTracker(request: CheckTrackerRequest) -> CheckTrackerResponse:
         }
 
 
+@journey("journey.move-a-workspace")
 def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceResponse:
     """step.migrate-workspace: everything the source holds, written into the
     target -- open items first, then closed ones with their reasons, then
@@ -12924,6 +13040,7 @@ def MigrateWorkspace(request: MigrateWorkspaceRequest) -> MigrateWorkspaceRespon
             }
 
 
+@journey("journey.choose-a-tracker")
 def ChooseATracker(request: ChooseATrackerRequest) -> ChooseATrackerResponse:
     """journey.choose-a-tracker: list, use or check, one step each."""
     root, action, name = request.get("root"), request["action"], request.get("name")
@@ -12959,6 +13076,7 @@ def ChooseATracker(request: ChooseATrackerRequest) -> ChooseATrackerResponse:
     }
 
 
+@journey("journey.ship-a-tracker")
 def ShipATracker(request: ShipATrackerRequest) -> ShipATrackerResponse:
     """journey.ship-a-tracker: one step, the file."""
     out = invoke(
@@ -12974,6 +13092,7 @@ def ShipATracker(request: ShipATrackerRequest) -> ShipATrackerResponse:
     }
 
 
+@journey("journey.ship-a-tracker")
 def WriteTracker(request: WriteTrackerRequest) -> WriteTrackerResponse:
     """step.write-tracker: the file a tracker starts from, in the directory
     given or the current one. Nothing else is written, and a file that exists is
@@ -12996,6 +13115,7 @@ def WriteTracker(request: WriteTrackerRequest) -> WriteTrackerResponse:
     return {"status": "completed", "summary": "Wrote %s." % path, "path": path, "exitCode": 0}
 
 
+@journey("journey.move-a-workspace")
 def MoveAWorkspace(request: MoveAWorkspaceRequest) -> MoveAWorkspaceResponse:
     """journey.move-a-workspace: one step, the move; given no checkout, it
     moves nothing and says so."""
@@ -13551,6 +13671,7 @@ def beads_failed(
     return failed_as(shape, reason, first)
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_open(request: OpenTrackerRequest) -> OpenTrackerResponse:
     """operation.open-tracker: bd init in its stealth mode, under the key.
 
@@ -13638,6 +13759,7 @@ def beads_typed(args: list[str], root: str | None) -> tuple[list[str], str | Non
     return out, None
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
     """operation.describe-tracker: what this adapter is, and bd's own version."""
     if not beads_find():
@@ -13663,6 +13785,7 @@ def beads_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_create(request: CreateItemRequest) -> CreateItemResponse:
     """operation.create-item: bd create, from the fields given, and bd's JSON
     answer read as the record. One made in a run carries the label of every
@@ -13719,6 +13842,7 @@ def beads_create(request: CreateItemRequest) -> CreateItemResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_need(request: AddNeedRequest) -> AddNeedResponse:
     """operation.add-need: a blocks edge, written through bd's batch, which
     reads both ids whole (beads_batch): bd's dep add reads an id it holds
@@ -13743,6 +13867,7 @@ def beads_need(request: AddNeedRequest) -> AddNeedResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_pour(request: PourStepsRequest) -> PourStepsResponse:
     """operation.pour-steps: a root and one issue per step, each made with bd
     create in the order the needs allow and blocked by the steps it needs, as
@@ -14005,6 +14130,7 @@ def beads_pour_guarded(
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_close(request: CloseItemRequest) -> CloseItemResponse:
     """operation.close-item: bd close with the reason, held to the run rule
     before it runs and after it (held_to_the_run).
@@ -14284,6 +14410,7 @@ def beads_close(request: CloseItemRequest) -> CloseItemResponse:
     return answer
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_show(request: ShowItemRequest) -> ShowItemResponse:
     """operation.show-item: the record and its children, the id read as bd
     reads it, a short one as the full one, for both. The children are a
@@ -14317,6 +14444,7 @@ def beads_show(request: ShowItemRequest) -> ShowItemResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_list(request: ListItemsRequest) -> ListItemsResponse:
     """operation.list-items: the open items, or all of them, perhaps under a
     parent or in a run -- every row, those bd's list leaves out unless asked
@@ -14385,6 +14513,7 @@ def beads_to_status(ident: str, status: str, root: str | None) -> tuple[int, str
     return beads_batch([["update", ident, "status=" + status]], root)
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_update(request: UpdateItemRequest) -> UpdateItemResponse:
     """operation.update-item: bd update; a close is close-item's, not this.
 
@@ -14508,6 +14637,7 @@ def beads_update(request: UpdateItemRequest) -> UpdateItemResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_record_values(request: RecordValuesRequest) -> RecordValuesResponse:
     """operation.record-values: the claim's values merged in, each label given
     replacing its value, a label given empty removed, every other kept
@@ -14590,6 +14720,7 @@ def beads_record_values(request: RecordValuesRequest) -> RecordValuesResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def beads_ready(request: ReadyItemsRequest) -> ReadyItemsResponse:
     """operation.ready-items: the unblocked open set, bd ready, without the
     steps of a cooked formula that bd lists among them. What bd prints that
@@ -14640,6 +14771,7 @@ def beads_moved(store: str) -> None:
         fh.write("The means to prove each run are kept in the issue's metadata.\n")
 
 
+@journey("journey.adopt-a-repository")
 def beads_upgrade(request: Request) -> Response:
     """The upgrade extra: a workspace poured into before 3.0.0 keeps the means
     to prove a run as the last section of an issue's description. Asked
@@ -14873,6 +15005,7 @@ def beads_take(
     return j + 1
 
 
+@journey("journey.run-a-tracker-command")
 def beads_read(request: Request) -> Response:
     """The read extra: a command as bd itself will read it -- its command
     path, its words, and its options by their long names, each value as bd
@@ -15068,6 +15201,7 @@ def beads_label_kept(reading: Response, root: str | None) -> str | None:
     return None
 
 
+@journey("journey.run-a-tracker-command")
 def beads_forward(request: Request) -> Response:
     """The pass-through, an extra: the command as typed, with the worker's
     terminal where the request says one is there (terminal) and quietly,
@@ -15162,6 +15296,7 @@ def beads_forward(request: Request) -> Response:
     return answer
 
 
+@journey("journey.adopt-a-repository")
 def beads_metrics_off(request: Request) -> Response:
     """Metrics off for this machine, an extra: read bd's config rather than
     ask bd, and say whether it was this call that turned them off."""
@@ -15518,6 +15653,7 @@ def local_closing(
     return closed
 
 
+@journey("journey.answer-through-the-tracker")
 def local_open(request: OpenTrackerRequest) -> OpenTrackerResponse:
     """operation.open-tracker: the file and its schema under the key; a second
     open changes nothing. The prefix is the one given, else the checkout's
@@ -15568,6 +15704,7 @@ def local_columns(conn: sqlite3.Connection) -> set[str]:
     return {r["name"] for r in conn.execute("PRAGMA table_info(items)")}
 
 
+@journey("journey.adopt-a-repository")
 def local_upgrade(request: Request) -> Response:
     """The upgrade extra: a store made before 3.0.0, at schema 1, keeps the
     means to prove a run as the last section of a description, and one made
@@ -15624,6 +15761,7 @@ def local_upgrade(request: Request) -> Response:
     return dict(nothing, summary="Brought the store up to date.", done=done)
 
 
+@journey("journey.answer-through-the-tracker")
 def local_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
     """operation.describe-tracker: what this adapter is."""
     store = local_store(request.get("root"))
@@ -15644,6 +15782,7 @@ def local_describe(request: DescribeTrackerRequest) -> DescribeTrackerResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def local_create(request: CreateItemRequest) -> CreateItemResponse:
     """operation.create-item: one row, open, under the parent given."""
     conn = local_connect(request.get("root"))
@@ -15711,6 +15850,7 @@ def local_create(request: CreateItemRequest) -> CreateItemResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def local_need(request: AddNeedRequest) -> AddNeedResponse:
     """operation.add-need: a blocks edge, refused where what it needs waits
     on it to close, through needs, children or a run; checked under the
@@ -15753,6 +15893,7 @@ def local_need(request: AddNeedRequest) -> AddNeedResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def local_pour(request: PourStepsRequest) -> PourStepsResponse:
     """operation.pour-steps: a root named after the formula, keeping its
     description and the means to prove its run, and one item per step under
@@ -15862,6 +16003,7 @@ def local_pour(request: PourStepsRequest) -> PourStepsResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def local_close(request: CloseItemRequest) -> CloseItemResponse:
     """operation.close-item: closed with the reason, unless an open need or an
     open child stands in the way, in which case they are named."""
@@ -15918,6 +16060,7 @@ def local_close(request: CloseItemRequest) -> CloseItemResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def local_show(request: ShowItemRequest) -> ShowItemResponse:
     """operation.show-item: the record and its children."""
     conn = local_connect(request.get("root"))
@@ -15950,6 +16093,7 @@ def local_show(request: ShowItemRequest) -> ShowItemResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def local_list(request: ListItemsRequest) -> ListItemsResponse:
     """operation.list-items: open items, or all of them, perhaps under a parent
     or in a run; open first, newest last."""
@@ -15982,6 +16126,7 @@ def local_list(request: ListItemsRequest) -> ListItemsResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def local_update(request: UpdateItemRequest) -> UpdateItemResponse:
     """operation.update-item: title, status, priority, parent or assignee,
     and each need given to take off (dropNeeds) taken off; a close is
@@ -16089,6 +16234,7 @@ def local_update(request: UpdateItemRequest) -> UpdateItemResponse:
     return {"status": "completed", "summary": "Updated %s." % ident, "item": item, "exitCode": 0}
 
 
+@journey("journey.answer-through-the-tracker")
 def local_record_values(request: RecordValuesRequest) -> RecordValuesResponse:
     """operation.record-values: the claim's values merged in, each label given
     replacing its value, a label given empty removed, every other kept."""
@@ -16126,6 +16272,7 @@ def local_record_values(request: RecordValuesRequest) -> RecordValuesResponse:
     }
 
 
+@journey("journey.answer-through-the-tracker")
 def local_ready(request: ReadyItemsRequest) -> ReadyItemsResponse:
     """operation.ready-items: the open items with no open need, save a
     calling step while an item poured within it is open."""
@@ -16207,10 +16354,12 @@ register_tracker("local", LOCAL)
 # request, never from anywhere else.
 
 
+@journey("journey.learn-the-conventions")
 def show_teach(request: Request, response: Response) -> None:
     sys.stdout.write(response["text"])
 
 
+@journey("journey.find-a-held-procedure")
 def show_index(request: Request, response: Response) -> None:
     for line in response.get("providersLeftOut") or []:
         sys.stderr.write("%s: %s It is left out of this run.\n" % (PROG, line))
@@ -16225,6 +16374,7 @@ def show_index(request: Request, response: Response) -> None:
         )
 
 
+@journey("journey.answer-through-a-formula-provider")
 def show_providers(request: Request, response: Response) -> None:
     if response["status"] != "completed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
@@ -16245,6 +16395,7 @@ def show_providers(request: Request, response: Response) -> None:
         print("  %-12s %-12s %s%s" % (p["name"], p["module"], what, where))
 
 
+@journey("journey.find-a-held-procedure")
 def show_list(request: Request, response: Response) -> None:
     if response["status"] != "completed":
         return
@@ -16284,6 +16435,7 @@ def show_list(request: Request, response: Response) -> None:
         print("\nRun one: %s formula pour <id>" % PROG)
 
 
+@journey("journey.find-a-held-procedure")
 def show_show(request: Request, response: Response) -> None:
     if response["status"] == "completed":
         sys.stdout.write(response["text"])
@@ -16293,6 +16445,7 @@ def show_show(request: Request, response: Response) -> None:
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
 
 
+@journey("journey.start-named-work")
 def show_match(request: Request, response: Response) -> None:
     top = response.get("surfaced") or []
     if not top or not request.get("surface", True):
@@ -16341,6 +16494,7 @@ def show_notice(found: list[dict[str, Any]]) -> None:
         print("    ... and %d more" % (len(found) - TOP_N), file=sys.stderr)
 
 
+@journey("journey.write-a-procedure-down")
 def show_check(request: Request, response: Response) -> None:
     if response["status"] == "failed":  # the index said why
         return
@@ -16387,6 +16541,7 @@ def show_check(request: Request, response: Response) -> None:
         show_notice(undeclared)
 
 
+@journey("journey.write-a-procedure-down")
 def show_nudge(request: Request, response: Response) -> None:
     if response["nudged"]:
         print(
@@ -16398,6 +16553,7 @@ def show_nudge(request: Request, response: Response) -> None:
         print("   Write it as one:  %s" % response["command"], file=sys.stderr)
 
 
+@journey("journey.write-a-procedure-down")
 def show_write(request: Request, response: Response) -> None:
     reason = response.get("reason")
     if reason == "no-title":
@@ -16427,6 +16583,7 @@ def show_write(request: Request, response: Response) -> None:
     print("         %s check" % PROG)
 
 
+@journey("journey.adopt-a-repository")
 def show_metrics(request: Request, response: Response) -> None:
     if response["turnedOff"]:
         sys.stderr.write(
@@ -16437,6 +16594,7 @@ def show_metrics(request: Request, response: Response) -> None:
         )
 
 
+@journey("journey.adopt-a-repository")
 def show_undo(request: Request, response: Response) -> None:
     if response["status"] in ("blocked", "failed"):
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
@@ -16466,6 +16624,7 @@ def show_undo(request: Request, response: Response) -> None:
         out.write("\n    Nothing was deleted and no history was rewritten.\n\n")
 
 
+@journey("journey.adopt-a-repository")
 def show_declare(request: Request, response: Response) -> None:
     renamed, declared = response["renamed"], response["declared"]
     if request.get("announce") == "init":
@@ -16489,6 +16648,7 @@ def show_declare(request: Request, response: Response) -> None:
         )
 
 
+@journey("journey.adopt-a-repository")
 def show_report(request: Request, response: Response) -> None:
     yours = response["yours"]
     if yours:
@@ -16508,6 +16668,7 @@ def show_actor(response: Response) -> None:
         print("  Acting as %s." % actor["name"])
 
 
+@journey("journey.adopt-a-repository")
 def show_adopt(request: Request, response: Response) -> None:
     if request.get("quiet"):
         return  # whoever asked quietly says what it has to say
@@ -16535,6 +16696,7 @@ def show_adopt(request: Request, response: Response) -> None:
         show_actor(response)
 
 
+@journey("journey.start-named-work")
 def show_name(request: Request, response: Response) -> None:
     if response.get("reason") == "not-installed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
@@ -16555,6 +16717,7 @@ def show_name(request: Request, response: Response) -> None:
         print("  Status: %s" % (item.get("status") or "open"))
 
 
+@journey("journey.start-named-work")
 def show_pour(request: Request, response: Response) -> None:
     called = response.get("calls") or []
     if request.get("json") and response.get("moleculeRef"):
@@ -16620,6 +16783,7 @@ def show_pour(request: Request, response: Response) -> None:
         )
 
 
+@journey("journey.record-what-a-step-found")
 def show_claim(request: Request, response: Response) -> None:
     """dotdiw claim: the run, its claims filled from their values and its
     means filled from them, or what refused; --json prints the run as data."""
@@ -16668,6 +16832,7 @@ def show_claim(request: Request, response: Response) -> None:
         proven(c["verifyUsing"], c["open"], "  ")
 
 
+@journey("journey.run-a-tracker-command")
 def show_forward(request: Request, response: Response) -> None:
     """The pass-through showed itself; a command answered in records is
     shown here, in the shape the tracker underneath used to print."""
@@ -16827,6 +16992,7 @@ def show_forward(request: Request, response: Response) -> None:
         print(json.dumps(written, indent=2, ensure_ascii=False))
 
 
+@journey("journey.choose-a-tracker")
 def show_trackers(request: Request, response: Response) -> None:
     if response["status"] != "completed":
         return
@@ -16845,6 +17011,7 @@ def show_trackers(request: Request, response: Response) -> None:
         )
 
 
+@journey("journey.choose-a-tracker")
 def show_use(request: Request, response: Response) -> None:
     if response["status"] != "completed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
@@ -16858,6 +17025,7 @@ def show_use(request: Request, response: Response) -> None:
         )
 
 
+@journey("journey.choose-a-tracker")
 def show_check_tracker(request: Request, response: Response) -> None:
     if response.get("reason"):
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
@@ -16874,6 +17042,7 @@ def show_check_tracker(request: Request, response: Response) -> None:
     print("%s %s" % ("\u2713" if response.get("passed") else "\u2717", response["summary"]))
 
 
+@journey("journey.move-a-workspace")
 def show_migrate(request: Request, response: Response) -> None:
     if response["status"] != "completed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
@@ -16896,6 +17065,7 @@ def show_migrate(request: Request, response: Response) -> None:
         )
 
 
+@journey("journey.ship-a-tracker")
 def show_new_tracker(request: Request, response: Response) -> None:
     if response["status"] != "completed":
         sys.stderr.write("%s: %s\n" % (PROG, response["summary"]))
