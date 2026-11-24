@@ -1,0 +1,81 @@
+{
+  "implementationBindings": [
+    {
+      "bindingId": "impl.jira-open-tracker",
+      "operationId": "operation.open-tracker",
+      "implementationUnit": "trackers/jira.py::jira_open",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-describe-tracker",
+      "operationId": "operation.describe-tracker",
+      "implementationUnit": "trackers/jira.py::jira_describe",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-create-item",
+      "operationId": "operation.create-item",
+      "implementationUnit": "trackers/jira.py::jira_create",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-add-need",
+      "operationId": "operation.add-need",
+      "implementationUnit": "trackers/jira.py::jira_need",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-pour-steps",
+      "operationId": "operation.pour-steps",
+      "implementationUnit": "trackers/jira.py::jira_pour",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-close-item",
+      "operationId": "operation.close-item",
+      "implementationUnit": "trackers/jira.py::jira_close",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-show-item",
+      "operationId": "operation.show-item",
+      "implementationUnit": "trackers/jira.py::jira_show",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-list-items",
+      "operationId": "operation.list-items",
+      "implementationUnit": "trackers/jira.py::jira_list",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-update-item",
+      "operationId": "operation.update-item",
+      "implementationUnit": "trackers/jira.py::jira_update",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-ready-items",
+      "operationId": "operation.ready-items",
+      "implementationUnit": "trackers/jira.py::jira_ready",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    },
+    {
+      "bindingId": "impl.jira-record-values",
+      "operationId": "operation.record-values",
+      "implementationUnit": "trackers/jira.py::jira_record_values",
+      "implementationMode": "external-product-call-only",
+      "privateHelpersUsed": false
+    }
+  ]
+}

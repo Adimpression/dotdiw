@@ -495,7 +495,8 @@ owns only what is its own.
   governed CLI, implementation and witness manifests, projection descriptions
   and change records, and refuses to change the native operation definitions,
   types, call graph or any other section outside those attachments. It writes
-  both doors, the adapter starter and the Python record types into `dotdiw`.
+  both doors, the adapter starter and the Python record types into `dotdiw`,
+  and explicit callable declarations into `promise_bindings.py`.
   The released `ForwardToTheTrackerResponse.answers` wire field remains repeated
   JSON strings through POA's explicit `--json-list-map` selection; its canonical
   IDL remains a list of maps. The generated metadata describes the encoding;
@@ -512,6 +513,15 @@ owns only what is its own.
   the file to that from its source alone, both doors and the types
   regenerated and compared; `test_tracker.py` runs the one scenario that defines an adapter
   against every adapter present.
+- Literal `@journey("journey.start-named-work")` annotations connect the operation bodies,
+  adapters, formula-provider entry points, operation-specific helpers and
+  presenters to their source journeys. The marker records metadata on the
+  original callable and preserves its signature. Generated bindings and adapter
+  starters take their annotations from the native IDL. POA checks the governed
+  bindings and Jira's entry points through `poa/journey-bindings.json`;
+  `JourneyAnnotations` also checks the actual bodies in the extensionless
+  `dotdiw` script, which POA's Python source locator cannot resolve. These tags
+  declare lineage; behavioral tests and CESC evidence establish different facts.
 - `contracts/`, `events/` -- the witness contract: which observed events are
   allowed to count as "work was named and its procedure surfaced", proved
   against this tool's own 0.2.1 release, a run recorded with the witness log
@@ -896,14 +906,37 @@ the time: the whole `bd` suite ran in 24 minutes instead of 36.
 `DOTDIW_TEST_ON_DISK=1` keeps them on the disk, as does a machine that offers
 no RAM disk.
 
+For verification, select the project dev environment, which includes PyYAML,
+and add the optional gRPC test packages explicitly:
+
+```sh
+uv run --locked --with grpcio --with protobuf python -I suites.py fast
+uv run --locked --with grpcio --with protobuf python -I suites.py poa
+```
+
+The formula's final root verification command uses the same environment.
+`uv` selects its Python without requiring shell activation; `--locked` keeps
+the project dependency lock unchanged. The gRPC packages are test dependencies
+supplied by `--with`, not dependencies of the standalone CLI.
+
 Use a POA build whose `learn` packet documents native operation contracts,
-journey participation, field-number registries and `--json-list-map`. Set
+journey participation, journey-annotation conformance, field-number registries
+and `--json-list-map`. Set
 `DOTDIW_POA=/absolute/path/to/poa` to select it for the tests; otherwise they
 use `~/poa`. The gRPC contract test generates through POA with the released
 registry and explicit JSON field selection, compiles with Buf, and compares the
 served messages and methods with the generated descriptor. It requires Buf and
 protobuf; live server tests also require grpcio. A skipped check is not evidence
 that the released wire contract was verified.
+
+Check the journey annotations with the selected build:
+
+```sh
+"${DOTDIW_POA:-$HOME/poa}" conform journeys --idl operation-idl.json \
+  --source poa/product-model.yaml --root . \
+  --implementation-bindings poa/journey-bindings.json --json
+uv run --locked --with grpcio --with protobuf python -I test_promise.py JourneyAnnotations NativeJourneyAnnotations
+```
 
 ## The name
 

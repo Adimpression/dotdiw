@@ -6,7 +6,9 @@ POA owns the operation contracts: fields, types, calls, external dependencies,
 classification and provenance. This script never supplies or overrides them.
 It attaches the separately governed CLI, implementation and witness manifests,
 the projection descriptions and change records, then generates the Python
-records, doors and adapter starter that dotdiw holds between markers.
+records, doors and adapter starter that dotdiw holds between markers, and the
+explicit implementation callables in promise_bindings.py. Generated journey
+annotations come directly from each native operation's traceability.
 
 Every native IDL section outside those application attachments is preserved
 exactly as JSON data. Legacy per-step operation blocks and operationTypes are
@@ -36,6 +38,11 @@ GENERATED_BINDING = "binding.cli-invoke-"
 BINDING_MODULE = "promise_bindings"
 
 DOTDIW = os.path.join(ROOT, "dotdiw")
+BINDINGS_PATH = os.path.join(ROOT, "promise_bindings.py")
+BINDINGS_OPEN = (
+    "# >>> bindings generated from operation-idl.json by poa/generate-project.py; do not edit\n"
+)
+BINDINGS_CLOSE = "# <<< end bindings\n"
 DOOR_OPEN = "# >>> generated from operation-idl.json by poa/generate-project.py; do not edit\n"
 DOOR_CLOSE = "# <<< end generated\n"
 TRACKER_OPEN = (
@@ -389,6 +396,53 @@ def read_verify_using(text: str | None) -> tuple[str | None, list[str]]:
 '''
 
 
+JOURNEY_DECORATOR = '''
+
+JourneyFunction = TypeVar("JourneyFunction", bound=Callable[..., Any])
+
+
+def journey(journey_id: str) -> Callable[[JourneyFunction], JourneyFunction]:
+    """Record source journey metadata while preserving the callable itself."""
+    def annotate(function: JourneyFunction) -> JourneyFunction:
+        function.__dict__["__journey_ids__"] = (
+            *getattr(function, "__journey_ids__", ()), journey_id
+        )
+        return function
+
+    return annotate
+'''
+
+
+def journey_annotations(operation: dict[str, Any]) -> str:
+    """Literal declarations from the native operation's source journeys."""
+    return "".join('@journey("%s")\n' % ident for ident in operation["tracesTo"]["journeyIds"])
+
+
+def bindings_source(idl: Idl) -> str:
+    """Explicit, statically inspectable callables for the existing binding names.
+
+    Loading dotdiw stays lazy: POA's frozen interpreter can inspect these names
+    and signatures without importing the standalone program and its sqlite3.
+    """
+    inner = {op["operationId"] for op in inner_operations(idl)}
+    out = BINDINGS_OPEN
+    for operation in idl["operations"]:
+        name, ident = operation["name"], operation["operationId"]
+        out += "\n\n" + journey_annotations(operation)
+        out += "def %s(request: Any) -> Any:\n" % name
+        door = "invoke_tracker" if ident in inner else "invoke"
+        out += '    return load_dotdiw().%s("%s", request)\n' % (door, ident)
+        if ident in inner:
+            for adapter in ("beads", "local"):
+                out += "\n\n" + journey_annotations(operation)
+                out += "def %s%s(request: Any) -> Any:\n" % (adapter.capitalize(), name)
+                out += '    return load_dotdiw().invoke_adapter("%s", "%s", request)\n' % (
+                    adapter,
+                    ident,
+                )
+    return out + BINDINGS_CLOSE
+
+
 def skeleton_source(idl: Idl) -> str:
     """What `dotdiw tracker new` writes, as text dotdiw holds between its own
     markers: the eleven operations raising until they are filled, each saying the
@@ -418,7 +472,9 @@ def skeleton_source(idl: Idl) -> str:
     body += "dict and returns one. Read the fields its docstring names and answer with those\n"
     body += "alone; a star marks a required field. A module runs in dotdiw's own interpreter,\n"
     body += 'so it may import the standard library and nothing else.\n"""\n\n'
-    body += "from typing import Any\n\nRecord = dict[str, Any]\n"
+    body += "from collections.abc import Callable\nfrom typing import Any, TypeVar\n"
+    body += "\nRecord = dict[str, Any]\n"
+    body += JOURNEY_DECORATOR
     body += VERIFY_HELPER
     for op in operations:
         slug = op["operationId"].split(".", 1)[1].replace("-", "_")
@@ -427,7 +483,8 @@ def skeleton_source(idl: Idl) -> str:
             for f in types[op["responseType"]]["fields"]
             if f["name"] == "reason"
         ]
-        body += "\n\ndef %s(request: Record) -> Record:\n" % slug
+        body += "\n\n" + journey_annotations(op)
+        body += "def %s(request: Record) -> Record:\n" % slug
         summary = " ".join(op["summary"].split()).replace(": ", ". ", 1)
         lines = textwrap.wrap(summary, width=74, break_long_words=False, break_on_hyphens=False)
         body += '    """%s\n' % lines[0]
@@ -568,6 +625,18 @@ def write_door(idl: Idl, path: str = DOTDIW) -> bool:
     return True
 
 
+def write_bindings(idl: Idl, path: str = BINDINGS_PATH) -> bool:
+    """Regenerate the declarations POA inspects, keeping the lazy loader."""
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+    after = replace_region(text, BINDINGS_OPEN, BINDINGS_CLOSE, bindings_source(idl), path)
+    if after == text:
+        return False
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(after)
+    return True
+
+
 def main(argv: list[str]) -> int:
     path = argv[1] if len(argv) > 1 else IDL
     manifest = load(IMPLEMENTATION)
@@ -595,6 +664,8 @@ def main(argv: list[str]) -> int:
         )
     )
     changed = write_door(idl)
+    changed_bindings = write_bindings(idl)
+    print("implementation declarations: %s" % ("rewritten" if changed_bindings else "unchanged"))
     inner = {op["operationId"] for op in inner_operations(idl)}
     pending = {
         b["operationId"]

@@ -3,9 +3,9 @@
 
 operation-idl.json names the operations, what each calls, and which tracker
 and git commands each crosses the product boundary with. POA checks that file
-against the governed source model; nothing in POA checks it against the
-program except the gRPC conformance harness, which needs Buf. These tests
-hold the program to the file without any of that, from the source alone.
+against the governed source model and checks journey declarations on the
+binding callables. These tests also hold the actual standalone program to
+the file from its source, with a separate Buf-based gRPC conformance harness.
 
     python3 -I test_promise.py
 
@@ -92,6 +92,7 @@ APPLICATION_ATTACHMENTS = frozenset(
 # an item shown is held to the id it was asked by, one held whole or a word a
 # person gave, which the bodies, the pass-through and an adapter share.
 INFRASTRUCTURE = {
+    "journey",
     "verify_unread",
     "read_claim",
     "step_told",
@@ -2681,11 +2682,423 @@ def uses(*binaries):
     return mark
 
 
+class JourneyAnnotations(unittest.TestCase):
+    """Source declarations and runtime metadata agree with the governed journeys.
+
+    The standalone dotdiw filename has no .py suffix, which POA's source locator
+    does not support. Inspect its actual bodies here, alongside the bindings
+    POA checks natively, so a correctly tagged binding cannot hide an untagged
+    body or adapter. Shared infrastructure does not enact a journey of its own.
+    """
+
+    idl: dict[str, Any]
+    module: Any
+    source: Source
+    operations: dict[str, Any]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.idl = load_idl()
+        cls.module = load_module("dotdiw_journey_annotations", SCRIPT)
+        cls.source = Source()
+        cls.operations = {o["operationId"]: o for o in cls.idl["operations"]}
+
+    def assert_journeys(self, node, expected):
+        annotations = []
+        for decorator in node.decorator_list:
+            name = decorator.func if isinstance(decorator, ast.Call) else decorator
+            if isinstance(name, ast.Name) and name.id == "journey":
+                annotations.append(decorator)
+        actual = []
+        for annotation in annotations:
+            self.assertIsInstance(annotation, ast.Call, node.name)
+            assert isinstance(annotation, ast.Call)
+            self.assertEqual(len(annotation.args), 1, node.name)
+            self.assertFalse(annotation.keywords, node.name)
+            self.assertIsInstance(annotation.args[0], ast.Constant, node.name)
+            actual.append(ast.literal_eval(annotation.args[0]))
+        self.assertEqual(len(actual), len(set(actual)), node.name)
+        self.assertEqual(set(actual), set(expected), node.name)
+
+    def test_actual_bodies_helpers_presenters_and_adapters_have_exact_journeys(self):
+        expected = {
+            name: set(op["tracesTo"]["journeyIds"]) for name, op in bodies_of(self.idl).items()
+        }
+        for adapter in self.module.TRACKERS.values():
+            for ident, function in adapter["operations"].items():
+                expected[function.__name__] = set(self.operations[ident]["tracesTo"]["journeyIds"])
+            for extra, function in adapter["extras"].items():
+                expected[function.__name__] = set(
+                    self.operations[EXTRAS[extra]]["tracesTo"]["journeyIds"]
+                )
+        for name in ("directory_describe", "directory_list", "directory_show"):
+            expected[name] = {"journey.answer-through-a-formula-provider"}
+        for ident, function in self.module.SHOW.items():
+            expected.setdefault(function.__name__, set()).update(
+                self.operations[ident]["tracesTo"]["journeyIds"]
+            )
+        for owner, helpers in HELPERS.items():
+            for name in helpers:
+                if isinstance(self.source.defs[name], ast.FunctionDef):
+                    expected[name] = set(bodies_of(self.idl)[owner]["tracesTo"]["journeyIds"])
+                else:
+                    cls = self.source.defs[name]
+                    for method in cls.body:
+                        if isinstance(method, ast.FunctionDef):
+                            journeys = set(bodies_of(self.idl)[owner]["tracesTo"]["journeyIds"])
+                            self.assert_journeys(method, journeys)
+                            function = getattr(getattr(self.module, name), method.name)
+                            self.assertEqual(set(function.__journey_ids__), journeys)
+        for name, node in self.source.defs.items():
+            if isinstance(node, ast.FunctionDef):
+                with self.subTest(name=name):
+                    self.assert_journeys(node, expected.get(name, set()))
+                    function = getattr(self.module, name)
+                    self.assertEqual(
+                        set(getattr(function, "__journey_ids__", ())), expected.get(name, set())
+                    )
+
+    def test_every_binding_keeps_its_journeys_and_dispatches_to_its_exact_operation(self):
+        bindings = load_module("promise_bindings_journey_annotations", BINDINGS)
+        nodes = Source(BINDINGS).defs
+        inner = inner_ids(self.idl)
+        for ident, op in self.operations.items():
+            names: list[tuple[str, str | None]] = [(op["name"], None)]
+            if ident in inner:
+                names += [(adapter.capitalize() + op["name"], adapter) for adapter in ADAPTERS]
+            for name, adapter in names:
+                with self.subTest(name=name):
+                    self.assert_journeys(nodes[name], op["tracesTo"]["journeyIds"])
+                    function = getattr(bindings, name)
+                    self.assertEqual(
+                        set(function.__journey_ids__), set(op["tracesTo"]["journeyIds"])
+                    )
+                    request = {"a request": object()}
+                    door = mock.Mock()
+                    with mock.patch.object(bindings, "load_dotdiw", return_value=door):
+                        answer = function(request)
+                    if adapter is not None:
+                        door.invoke_adapter.assert_called_once_with(adapter, ident, request)
+                        self.assertIs(answer, door.invoke_adapter.return_value)
+                    elif ident in inner:
+                        door.invoke_tracker.assert_called_once_with(ident, request)
+                        self.assertIs(answer, door.invoke_tracker.return_value)
+                    else:
+                        door.invoke.assert_called_once_with(ident, request)
+                        self.assertIs(answer, door.invoke.return_value)
+
+    def test_binding_declarations_are_a_fresh_generation(self):
+        with open(BINDINGS, encoding="utf-8") as fh:
+            text = fh.read()
+        start = text.index(GENERATOR.BINDINGS_OPEN)
+        stop = text.index(GENERATOR.BINDINGS_CLOSE, start) + len(GENERATOR.BINDINGS_CLOSE)
+        self.assertEqual(text[start:stop], GENERATOR.bindings_source(self.idl))
+
+    def test_the_root_verification_checks_the_actual_standalone_tags(self):
+        with open(os.path.join(HERE, "check-promise-artifacts.formula.toml"), "rb") as fh:
+            formula = tomllib.load(fh)
+        commands = [
+            shlex.split(value[4:]) for value in formula["verify-using"] if value.startswith("run:")
+        ]
+        self.assertTrue(
+            any(
+                "test_promise.py" in command and "JourneyAnnotations" in command
+                for command in commands
+            ),
+            "The root must check the standalone bodies as well as the bound declarations.",
+        )
+
+    def test_root_freshness_verification_rejects_stale_bindings_without_repairing_them(self):
+        with open(os.path.join(HERE, "check-promise-artifacts.formula.toml"), "rb") as fh:
+            formula = tomllib.load(fh)
+        command = shlex.split(formula["verify-using"][0].removeprefix("run:"))
+        if command[0] in ("python", "python3"):
+            command[0] = sys.executable
+        with tempfile.TemporaryDirectory(prefix="dotdiw-root-freshness-") as root:
+            for name in (
+                "dotdiw",
+                "promise_bindings.py",
+                "operation-idl.json",
+                "test_promise.py",
+                "implementation-bindings.json",
+                "interface-bindings.cli.json",
+            ):
+                shutil.copyfile(os.path.join(HERE, name), os.path.join(root, name))
+            for name in ("poa", "contracts"):
+                shutil.copytree(
+                    os.path.join(HERE, name),
+                    os.path.join(root, name),
+                    ignore=shutil.ignore_patterns("__pycache__"),
+                )
+            environment = dict(
+                os.environ,
+                UV_PYTHON=sys.executable,
+                UV_NO_SYNC="1",
+                UV_CACHE_DIR=os.path.join(root, "uv-cache"),
+                UV_OFFLINE="1",
+            )
+            clean = subprocess.run(
+                command, cwd=root, env=environment, capture_output=True, text=True, timeout=30
+            )
+            self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+            path = os.path.join(root, "promise_bindings.py")
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+            original = '@journey("journey.start-named-work")\ndef NameTheWork('
+            self.assertEqual(text.count(original), 1)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text.replace(original, "def NameTheWork("))
+            artifacts = ("operation-idl.json", "dotdiw", "promise_bindings.py")
+            before = {}
+            for name in artifacts:
+                with open(os.path.join(root, name), "rb") as fh:
+                    before[name] = fh.read()
+            stale = subprocess.run(
+                command, cwd=root, env=environment, capture_output=True, text=True, timeout=30
+            )
+            for name in artifacts:
+                with open(os.path.join(root, name), "rb") as fh:
+                    self.assertEqual(fh.read(), before[name], "Root verification rewrote " + name)
+            self.assertNotEqual(stale.returncode, 0, stale.stdout + stale.stderr)
+            self.assertIn("test_binding_declarations_are_a_fresh_generation", stale.stderr)
+
+    def test_native_rejections_cannot_come_from_other_bindings_or_other_journeys(self):
+        checker = NativeJourneyAnnotations(
+            "test_missing_wrong_and_unknown_tags_fail_native_conformance"
+        )
+        cases = (
+            ("promise_bindings::Other", "operation.name-the-work", "journey.start-named-work"),
+            ("promise_bindings::NameTheWork", "operation.other", "journey.start-named-work"),
+            (
+                "promise_bindings::NameTheWork",
+                "operation.name-the-work",
+                "journey.not-the-missing-journey",
+            ),
+        )
+        for unit, operation, missing in cases:
+            issues = [
+                {
+                    "implementationUnit": unit,
+                    "operationId": operation,
+                    "code": code,
+                    "message": message,
+                }
+                for code, message in (
+                    ("missing-journey", "Implementation has no valid journey annotation."),
+                    ("missing-annotation", "IDL journey is not annotated: " + missing),
+                    (
+                        "unexpected-annotation",
+                        "Annotated journey is not traced by the operation: journey.record-what-a-step-found",
+                    ),
+                    (
+                        "unknown-journey",
+                        "Journey ID does not exist in the source: journey.not-in-the-model",
+                    ),
+                )
+            ]
+            with (
+                self.subTest(unit=unit, missing=missing),
+                mock.patch.object(checker, "check_journeys", return_value=(2, {"issues": issues})),
+                self.assertRaises(AssertionError),
+            ):
+                checker.test_missing_wrong_and_unknown_tags_fail_native_conformance()
+        # Correctly scoped diagnostics with the actual missing/extra IDs pass.
+        rejections: list[list[tuple[str, str | None]]] = [
+            [("missing-journey", None), ("missing-annotation", "journey.start-named-work")],
+            [
+                ("missing-annotation", "journey.start-named-work"),
+                ("unexpected-annotation", "journey.adopt-a-repository"),
+            ],
+            [
+                ("missing-annotation", "journey.start-named-work"),
+                ("unexpected-annotation", "journey.record-what-a-step-found"),
+            ],
+            [
+                ("missing-annotation", "journey.start-named-work"),
+                ("unexpected-annotation", "journey.not-in-the-model"),
+                ("unknown-journey", "journey.not-in-the-model"),
+            ],
+        ]
+        reports = [
+            (
+                2,
+                {
+                    "issues": [
+                        {
+                            "implementationUnit": "promise_bindings::NameTheWork",
+                            "operationId": "operation.name-the-work",
+                            "code": code,
+                            "message": "Diagnostic" + (": " + journey_id if journey_id else ""),
+                        }
+                        for code, journey_id in rejection
+                    ]
+                },
+            )
+            for rejection in rejections
+        ]
+        with mock.patch.object(checker, "check_journeys", side_effect=reports):
+            checker.test_missing_wrong_and_unknown_tags_fail_native_conformance()
+
+    def test_jira_tags_and_native_bindings_cover_its_actual_exported_operations(self):
+        path = os.path.join(HERE, "trackers", "jira.py")
+        jira = load_module("jira_journey_annotations", path)
+        nodes = Source(path).defs
+        with open(os.path.join(HERE, "poa", "journey-bindings.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)["implementationBindings"]
+        self.assertEqual(len(manifest), len(jira.TRACKER["operations"]))
+        self.assertEqual(
+            {b["operationId"]: b["implementationUnit"] for b in manifest},
+            {
+                ident: "trackers/jira.py::" + fn.__name__
+                for ident, fn in jira.TRACKER["operations"].items()
+            },
+        )
+        for ident, fn in jira.TRACKER["operations"].items():
+            self.assert_journeys(
+                nodes[fn.__name__], self.operations[ident]["tracesTo"]["journeyIds"]
+            )
+            self.assertEqual(
+                set(fn.__journey_ids__), set(self.operations[ident]["tracesTo"]["journeyIds"])
+            )
+
+    def test_tracker_starters_keep_journeys_and_still_refuse_unimplemented_operations(self):
+        namespace: dict[str, Any] = {}
+        source = self.module.TRACKER_SKELETON.replace("<NAME>", "example")
+        exec(compile(source, "example.py", "exec"), namespace)
+        nodes = {
+            node.name: node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef)
+        }
+        for ident, fn in namespace["TRACKER"]["operations"].items():
+            self.assert_journeys(
+                nodes[fn.__name__], self.operations[ident]["tracesTo"]["journeyIds"]
+            )
+            self.assertEqual(
+                set(fn.__journey_ids__), set(self.operations[ident]["tracesTo"]["journeyIds"])
+            )
+            with self.assertRaises(NotImplementedError):
+                fn({})
+
+    def test_markers_preserve_callable_identity_signature_and_result(self):
+        bindings = load_module("promise_bindings_journey_marker", BINDINGS)
+        jira = load_module("jira_journey_marker", os.path.join(HERE, "trackers", "jira.py"))
+        for module in (self.module, bindings, jira):
+
+            def function(value: int, *, extra: int = 1) -> int:
+                return value + extra
+
+            before = inspect.signature(function)
+            marked = module.journey("journey.start-named-work")(function)
+            marked = module.journey("journey.write-a-procedure-down")(marked)
+            self.assertIs(marked, function)
+            self.assertEqual(inspect.signature(marked), before)
+            self.assertEqual(marked(2, extra=3), 5)
+            self.assertEqual(
+                marked.__journey_ids__,
+                ("journey.start-named-work", "journey.write-a-procedure-down"),
+            )
+
+
+@uses("poa")
+@unittest.skipUnless(os.path.exists(POA), "Set DOTDIW_POA to a journey-annotation POA binary")
+class NativeJourneyAnnotations(unittest.TestCase):
+    def check_journeys(self, root):
+        result = subprocess.run(
+            [
+                POA,
+                "conform",
+                "journeys",
+                "--idl",
+                IDL,
+                "--source",
+                os.path.join(HERE, "poa", "product-model.yaml"),
+                "--root",
+                root,
+                "--implementation-bindings",
+                os.path.join(HERE, "poa", "journey-bindings.json"),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertIn(result.returncode, (0, 2), result.stdout + result.stderr)
+        return result.returncode, json.loads(result.stdout)
+
+    def test_native_poa_checks_every_governed_binding_and_the_jira_adapter(self):
+        code, report = self.check_journeys(HERE)
+        self.assertEqual(code, 0, report.get("issues", [])[:4])
+        self.assertEqual(report["status"], "pass", report)
+        with open(os.path.join(HERE, "poa", "journey-bindings.json"), encoding="utf-8") as fh:
+            additional = json.load(fh)["implementationBindings"]
+        self.assertEqual(
+            {c["implementationUnit"] for c in report["checked"]},
+            {b["implementationUnit"] for b in load_idl()["implementationBindings"] + additional},
+        )
+
+    def test_missing_wrong_and_unknown_tags_fail_native_conformance(self):
+        original = '@journey("journey.start-named-work")\ndef NameTheWork('
+        cases: tuple[tuple[str, set[tuple[str, str | None]]], ...] = (
+            (
+                "def NameTheWork(",
+                {("missing-journey", None), ("missing-annotation", "journey.start-named-work")},
+            ),
+            (
+                '@journey("journey.adopt-a-repository")\ndef NameTheWork(',
+                {
+                    ("unexpected-annotation", "journey.adopt-a-repository"),
+                    ("missing-annotation", "journey.start-named-work"),
+                },
+            ),
+            (
+                '@journey("journey.record-what-a-step-found")\ndef NameTheWork(',
+                {
+                    ("unexpected-annotation", "journey.record-what-a-step-found"),
+                    ("missing-annotation", "journey.start-named-work"),
+                },
+            ),
+            (
+                '@journey("journey.not-in-the-model")\ndef NameTheWork(',
+                {
+                    ("unknown-journey", "journey.not-in-the-model"),
+                    ("unexpected-annotation", "journey.not-in-the-model"),
+                    ("missing-annotation", "journey.start-named-work"),
+                },
+            ),
+        )
+        for replacement, expected in cases:
+            with self.subTest(replacement=replacement), tempfile.TemporaryDirectory() as root:
+                os.mkdir(os.path.join(root, "trackers"))
+                shutil.copyfile(
+                    os.path.join(HERE, "trackers", "jira.py"),
+                    os.path.join(root, "trackers", "jira.py"),
+                )
+                with open(BINDINGS, encoding="utf-8") as fh:
+                    text = fh.read()
+                self.assertEqual(text.count(original), 1)
+                with open(os.path.join(root, "promise_bindings.py"), "w", encoding="utf-8") as fh:
+                    fh.write(text.replace(original, replacement))
+                code, report = self.check_journeys(root)
+                self.assertEqual(code, 2, report)
+                issues = [
+                    issue
+                    for issue in report["issues"]
+                    if issue.get("implementationUnit") == "promise_bindings::NameTheWork"
+                    and issue.get("operationId") == "operation.name-the-work"
+                ]
+                actual = {
+                    (issue["code"], journey_id)
+                    for issue in issues
+                    for journey_id in (
+                        re.findall(r"journey\.[a-z0-9]+(?:-[a-z0-9]+)*", issue["message"]) or [None]
+                    )
+                }
+                self.assertTrue(expected <= actual, {"expected": expected, "issues": issues})
+
+
 @uses("poa")
 @unittest.skipUnless(os.path.exists(POA), "Set DOTDIW_POA to a native-contract POA binary")
 class NativeOperationContracts(unittest.TestCase):
     def test_native_derivation_supplies_every_semantic_section(self):
-        """Application binding and generation must never complete an operation contract."""
+        """Native semantics stay intact; manifests account for every application attachment."""
         with tempfile.TemporaryDirectory(prefix="dotdiw-native-poa-") as directory:
             path = os.path.join(directory, "native-idl.json")
             result = subprocess.run(
@@ -2713,6 +3126,19 @@ class NativeOperationContracts(unittest.TestCase):
         for key in native:
             if key not in APPLICATION_ATTACHMENTS:
                 self.assertEqual(attached[key], native[key], key)
+        expected = GENERATOR.bind_artifacts(
+            copy.deepcopy(native),
+            GENERATOR.load_model(),
+            GENERATOR.load(GENERATOR.CLI_BINDINGS),
+            GENERATOR.load(GENERATOR.IMPLEMENTATION),
+            GENERATOR.load(GENERATOR.CONTRACT_BINDINGS),
+        )
+        self.assertEqual(
+            attached,
+            expected,
+            "operation-idl.json must match native derivation plus the project manifests; "
+            "regenerate it in the generate step.",
+        )
 
 
 FORMULA = """formula = "mol-release-through-tap"

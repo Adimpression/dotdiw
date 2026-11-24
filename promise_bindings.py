@@ -18,14 +18,19 @@ sqlite3 and no pty, so dotdiw cannot be imported there at all; each name here
 is therefore a thin callable that loads dotdiw the first time it is called,
 and conform proves the names and signatures while test_promise.py proves the
 bodies behind them.
+
+The callable declarations and their literal journey tags are generated from
+the native IDL. They remain explicit so POA can inspect them without executing
+the module. Journey markers attach metadata and return the same callable.
 """
 
 import importlib.machinery
 import importlib.util
 import os
 import sys
+from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Protocol, cast
+from typing import Any, Protocol, TypeVar, cast
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "dotdiw")
@@ -120,8 +125,25 @@ class Binding(Protocol):
     __name__: str
     body: str | None
     adapter: str
+    __journey_ids__: tuple[str, ...]
 
     def __call__(self, request: Any) -> Any: ...
+
+
+JourneyFunction = TypeVar("JourneyFunction", bound=Callable[..., Any])
+
+
+def journey(journey_id: str) -> Callable[[JourneyFunction], JourneyFunction]:
+    """Record source journey metadata while preserving the callable itself."""
+
+    def annotate(function: JourneyFunction) -> JourneyFunction:
+        function.__dict__["__journey_ids__"] = (
+            *getattr(function, "__journey_ids__", ()),
+            journey_id,
+        )
+        return function
+
+    return annotate
 
 
 def load_dotdiw(path: str = SCRIPT) -> ModuleType:
@@ -138,52 +160,403 @@ def load_dotdiw(path: str = SCRIPT) -> ModuleType:
     return module
 
 
-def _bind(name: str) -> Binding:
-    def operation(request: Any) -> Any:
-        dotdiw = load_dotdiw()
-        asked = next(op for op, spec in dotdiw.DOOR.items() if spec["body"] == name)
-        return dotdiw.invoke(asked, request)
-
-    operation.__name__ = operation.__qualname__ = name
-    operation.__doc__ = "%s: the operation that body answers, through dotdiw's door." % name
-    bound = cast(Binding, operation)
-    bound.body = name
-    return bound
+# fmt: off
+# >>> bindings generated from operation-idl.json by poa/generate-project.py; do not edit
 
 
-def _bind_interface(name: str, operation_id: str) -> Binding:
-    def operation(request: Any) -> Any:
-        return load_dotdiw().invoke_tracker(operation_id, request)
-
-    operation.__name__ = operation.__qualname__ = name
-    operation.__doc__ = "%s: %s through the tracker door." % (name, operation_id)
-    bound = cast(Binding, operation)
-    bound.body = None
-    return bound
+@journey("journey.start-named-work")
+def StartNamedWork(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.start-named-work", request)
 
 
-def _bind_adapter(adapter: str, name: str, operation_id: str) -> Binding:
-    def operation(request: Any) -> Any:
-        return load_dotdiw().invoke_adapter(adapter, operation_id, request)
+@journey("journey.write-a-procedure-down")
+def WriteAProcedureDown(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.write-a-procedure-down", request)
 
-    operation.__name__ = operation.__qualname__ = adapter.capitalize() + name
-    operation.__doc__ = "%s: the %s adapter's callable for %s." % (
-        operation.__name__,
-        adapter,
-        operation_id,
-    )
-    bound = cast(Binding, operation)
-    bound.body = None
-    bound.adapter = adapter
-    return bound
+
+@journey("journey.adopt-a-repository")
+def AdoptARepository(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.adopt-a-repository", request)
+
+
+@journey("journey.run-a-tracker-command")
+def RunATrackerCommand(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.run-a-tracker-command", request)
+
+
+@journey("journey.find-a-held-procedure")
+def FindAHeldProcedure(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.find-a-held-procedure", request)
+
+
+@journey("journey.learn-the-conventions")
+def LearnTheConventions(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.learn-the-conventions", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def AnswerThroughTheTracker(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.answer-through-the-tracker", request)
+
+
+@journey("journey.choose-a-tracker")
+def ChooseATracker(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.choose-a-tracker", request)
+
+
+@journey("journey.move-a-workspace")
+def MoveAWorkspace(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.move-a-workspace", request)
+
+
+@journey("journey.ship-a-tracker")
+def ShipATracker(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.ship-a-tracker", request)
+
+
+@journey("journey.answer-through-a-formula-provider")
+def AnswerThroughAFormulaProvider(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.answer-through-a-formula-provider", request)
+
+
+@journey("journey.record-what-a-step-found")
+def RecordWhatAStepFound(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.record-what-a-step-found", request)
+
+
+@journey("journey.start-named-work")
+def NameTheWork(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.name-the-work", request)
+
+
+@journey("journey.start-named-work")
+def MatchFormulas(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.match-formulas", request)
+
+
+@journey("journey.start-named-work")
+def PourProcedure(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.pour-procedure", request)
+
+
+@journey("journey.write-a-procedure-down")
+def NoticeHandmadeProcedures(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.notice-handmade-procedures", request)
+
+
+@journey("journey.write-a-procedure-down")
+def NudgeTowardsAFormula(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.nudge-towards-a-formula", request)
+
+
+@journey("journey.write-a-procedure-down")
+def WriteFormula(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.write-formula", request)
+
+
+@journey("journey.write-a-procedure-down")
+def DescribeAndCheck(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.describe-and-check", request)
+
+
+@journey("journey.write-a-procedure-down")
+def CommitFormula(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.commit-formula", request)
+
+
+@journey("journey.adopt-a-repository")
+def AdoptRepository(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.adopt-repository", request)
+
+
+@journey("journey.adopt-a-repository")
+def DeclareConventions(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.declare-conventions", request)
+
+
+@journey("journey.adopt-a-repository")
+def ReportWhatIsYoursToCommit(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.report-what-is-yours-to-commit", request)
+
+
+@journey("journey.adopt-a-repository")
+def UndoEarlierAdoption(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.undo-earlier-adoption", request)
+
+
+@journey("journey.adopt-a-repository")
+def TurnMetricsOff(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.turn-metrics-off", request)
+
+
+@journey("journey.run-a-tracker-command")
+def ForwardToTheTracker(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.forward-to-the-tracker", request)
+
+
+@journey("journey.run-a-tracker-command")
+def CompareWhatWasRead(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.compare-what-was-read", request)
+
+
+@journey("journey.find-a-held-procedure")
+def IndexTheProject(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.index-the-project", request)
+
+
+@journey("journey.find-a-held-procedure")
+def ListFormulas(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.list-formulas", request)
+
+
+@journey("journey.find-a-held-procedure")
+def ShowFormula(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.show-formula", request)
+
+
+@journey("journey.find-a-held-procedure")
+def ResolveFormula(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.resolve-formula", request)
+
+
+@journey("journey.learn-the-conventions")
+def TeachTheConventions(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.teach-the-conventions", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def OpenTracker(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.open-tracker", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsOpenTracker(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.open-tracker", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalOpenTracker(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.open-tracker", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def DescribeTracker(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.describe-tracker", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsDescribeTracker(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.describe-tracker", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalDescribeTracker(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.describe-tracker", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def CreateItem(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.create-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsCreateItem(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.create-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalCreateItem(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.create-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def AddNeed(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.add-need", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsAddNeed(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.add-need", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalAddNeed(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.add-need", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def PourSteps(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.pour-steps", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsPourSteps(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.pour-steps", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalPourSteps(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.pour-steps", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def CloseItem(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.close-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsCloseItem(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.close-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalCloseItem(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.close-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def ShowItem(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.show-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsShowItem(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.show-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalShowItem(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.show-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def ListItems(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.list-items", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsListItems(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.list-items", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalListItems(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.list-items", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def UpdateItem(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.update-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsUpdateItem(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.update-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalUpdateItem(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.update-item", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def ReadyItems(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.ready-items", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsReadyItems(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.ready-items", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalReadyItems(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.ready-items", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def RecordValues(request: Any) -> Any:
+    return load_dotdiw().invoke_tracker("operation.record-values", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def BeadsRecordValues(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("beads", "operation.record-values", request)
+
+
+@journey("journey.answer-through-the-tracker")
+def LocalRecordValues(request: Any) -> Any:
+    return load_dotdiw().invoke_adapter("local", "operation.record-values", request)
+
+
+@journey("journey.choose-a-tracker")
+def ListTrackers(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.list-trackers", request)
+
+
+@journey("journey.choose-a-tracker")
+def UseTracker(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.use-tracker", request)
+
+
+@journey("journey.choose-a-tracker")
+def CheckTracker(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.check-tracker", request)
+
+
+@journey("journey.move-a-workspace")
+def MigrateWorkspace(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.migrate-workspace", request)
+
+
+@journey("journey.ship-a-tracker")
+def WriteTracker(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.write-tracker", request)
+
+
+@journey("journey.answer-through-a-formula-provider")
+def RegisterProvider(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.register-provider", request)
+
+
+@journey("journey.answer-through-a-formula-provider")
+def DescribeProvider(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.describe-provider", request)
+
+
+@journey("journey.answer-through-a-formula-provider")
+def ListProviderFormulas(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.list-provider-formulas", request)
+
+
+@journey("journey.answer-through-a-formula-provider")
+def ShowProviderFormula(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.show-provider-formula", request)
+
+
+@journey("journey.answer-through-a-formula-provider")
+def RemoveProvider(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.remove-provider", request)
+
+
+@journey("journey.record-what-a-step-found")
+def RecordClaim(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.record-claim", request)
+
+
+@journey("journey.record-what-a-step-found")
+def ReadRun(request: Any) -> Any:
+    return load_dotdiw().invoke("operation.read-run", request)
+# <<< end bindings
+# fmt: on
 
 
 for _name in BINDINGS:
+    _bound = cast(Binding, globals()[_name])
+    _bound.body = None if _name in INTERFACE else _name
     if _name in INTERFACE:
-        globals()[_name] = _bind_interface(_name, INTERFACE[_name])
         for _adapter in ADAPTERS:
-            _bound = _bind_adapter(_adapter, _name, INTERFACE[_name])
-            globals()[_bound.__name__] = _bound
-    else:
-        globals()[_name] = _bind(_name)
+            _bound = cast(Binding, globals()[_adapter.capitalize() + _name])
+            _bound.body = None
+            _bound.adapter = _adapter
 __all__ = sorted(BINDINGS) + sorted(a.capitalize() + n for a in ADAPTERS for n in INTERFACE)

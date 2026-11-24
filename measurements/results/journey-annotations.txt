@@ -1,0 +1,62 @@
+Journey annotations -- dotdiw 4.2.2
+
+Scope
+- All 55 governed operations retain their native IDs and 12 source journeys.
+- 128 declarations in dotdiw carry literal journey tags: operation bodies,
+  registered adapter operations and extras, provider entry points, dedicated
+  helpers (including class methods), and operation presenters.
+- promise_bindings.py contains 77 explicit generated callables. Their public
+  names, request signatures, lazy loading, operation routes and body/adapter
+  metadata are retained. Each marker returns the original callable.
+- All 11 Jira operations and 11 generated tracker-starter operations carry
+  their native journey IDs. Shared infrastructure acquires no invented journey.
+- Native conformance checks the 66 canonical implementation bindings and the
+  11 direct Jira bindings in poa/journey-bindings.json: 77 declarations total.
+- Tags declare lineage. Behavioral tests and CESC evidence establish separate
+  facts; a tagged starter still refuses an unimplemented operation.
+
+Toolchain
+- POA's fresh learn packet was read before adoption. Validation uses the
+  corrected, unmodified binary with SHA-256:
+  823936d8df7d25419c09c8573157fa5950e2ad6c26388292073ee4c07a4bdf7f
+- The earlier binary compared every binding with the final operation's journey.
+  The corrected binary resolves each binding's own operation. Both orders of
+  an independent two-operation account example pass; missing, wrong and unknown
+  tags fail for their own implementation locator and operation.
+- Select this build with DOTDIW_POA. Python verification uses the project's
+  locked dev environment (including PyYAML) plus the optional wire packages:
+  uv run --locked --with grpcio --with protobuf python -I suites.py all
+
+Verification boundaries
+- Native POA derivation supplies every operation semantic section unchanged.
+  The existing derivation test then applies all project manifests in memory
+  and compares the complete result with the submitted operation-idl.json.
+- Generated tables, record types, starter text and binding declarations are
+  compared with the submitted IDL without rewriting the checkout. Regeneration
+  belongs to the formula's generate step, not its root verification commands.
+- Disposable stale-manifest and stale-IDL fixtures fail the full comparison.
+  Removing NameTheWork's binding tag fails freshness without repairing it.
+  Submitted-file digests remain unchanged through each verification.
+- Negative native annotation tests require the exact implementation locator,
+  operation ID, diagnostic code and journey ID. Unrelated diagnostics cannot
+  satisfy them; the former last-operation-tag false positive is covered.
+- The promise formula pours all 15 steps under Jira's 255-character summary
+  limit and retains every verification instruction on the root. The stub
+  enforces the limit for issue creation and field updates.
+- The existing request-boundary mutation targets the explicit MatchFormulas
+  binding. Thirteen additional mutations cover tags and declaration generation.
+  There are 964 mutations in the complete table.
+
+PR validation
+- The complete suite passed all 817 tests, with no skips, in 2927.303 seconds.
+  This includes real Beads, the Jira stub and live gRPC paths.
+- All 964 mutations were caught. Four disjoint groups ran the unchanged
+  checked-in runner, including its unbroken controls. Their combined results
+  cover every table entry exactly once in the original order.
+- All 19 artifact checks passed, including 77 native journey declarations and
+  all eight trace replays. Fresh generation matches the submitted artifacts.
+- Ruff formatting, Ruff lint, strict mypy, diff whitespace and dotdiw's
+  convention checks passed. No frozen source or configuration changed during
+  the complete suite and mutation run.
+- Tracker-starter fixtures preserve the decorators on the generated entry
+  point; CLI and Jira fixtures expect patch version 4.2.2.

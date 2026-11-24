@@ -64,6 +64,13 @@ it takes and answers, and the table at the end. Keep that shape: one function
 per operation, the table at the end, nothing printed anywhere. `jira.py` is a
 whole adapter to read beside it.
 
+The starter also declares each operation's source journey with a literal
+`@journey("journey.answer-through-the-tracker")` annotation. Keep those tags
+when filling the functions. The included decorator only attaches metadata;
+it returns the same callable. POA can check those declarations from source,
+while `tracker check` checks the adapter's behavior. A tag on a starter that
+still raises `NotImplementedError` does not establish an implementation.
+
 **2. Fill the table.**
 
     TRACKER = {

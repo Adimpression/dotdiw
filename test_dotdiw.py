@@ -32,6 +32,7 @@ suite is slower than a unit test and that is the price of testing the thing
 itself.
 """
 
+import ast
 import contextlib
 import datetime
 import fcntl
@@ -1228,7 +1229,7 @@ class TheName(unittest.TestCase):
         lines = p.stdout.strip().split("\n")
         self.assertEqual(len(lines), 2, p.stdout)
         self.assertRegex(lines[1], r"^  tracker beads \d+(\.\d+)+$")
-        self.assertNotIn("4.2.1", lines[1], "the tracker underneath, not this tool")
+        self.assertNotIn("4.2.2", lines[1], "the tracker underneath, not this tool")
 
     def test_without_the_tracker_the_message_is_the_install_command(self):
         """Nothing on PATH but the system: one line, the command for the tracker
@@ -4505,7 +4506,7 @@ title = "The first step"
         self.assertIn("this repository is adopted; its tracker is", out)
 
         code, out = self.dotdiw("--version")
-        self.assertEqual(out.strip().split("\n")[1], "  tracker local 4.2.1", out)
+        self.assertEqual(out.strip().split("\n")[1], "  tracker local 4.2.2", out)
 
         code, out = self.dotdiw("create", "Release v0.3.0 through the tap")
         self.assertEqual(code, 0, out)
@@ -5614,7 +5615,7 @@ class TheTrackerCommands(unittest.TestCase):
         lines = [line for line in out.splitlines() if line.strip()]
         self.assertEqual(len(lines), 2, out)
         self.assertRegex(lines[0], r"^  beads\s+not installed\s+shipped$")
-        self.assertRegex(lines[1], r"^  local\s+4\.2\.1\s+shipped\s+\(this checkout\)$")
+        self.assertRegex(lines[1], r"^  local\s+4\.2\.2\s+shipped\s+\(this checkout\)$")
         code, out = self.repo.dotdiw("tracker", "check", "local", env=env)
         self.assertEqual(code, 0, out)
         self.assertEqual(out.count("  pass  operation."), 11, out)
@@ -5705,7 +5706,7 @@ class TheTrackerCommands(unittest.TestCase):
         # A root moves as a task until question.how-migrate-copies-a-root is settled.
         self.assertEqual(moved[root]["kind"], "task")
         self.assertEqual(
-            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 4.2.1"
+            repo.dotdiw("--version")[1].strip().split("\n")[1], "  tracker local 4.2.2"
         )
 
         code, out = repo.dotdiw("tracker", "migrate", "beads", "local")
@@ -6866,8 +6867,14 @@ class TheFileATrackerStartsFrom(PrefixCase):
             raising = 'raise NotImplementedError("%s")' % name
             self.assertEqual(text.count(raising), 1, name)
             text = text.replace(raising, "return impl_%s(request)" % name)
-        first = text.index("def open_tracker")
-        filled = text[:first] + ACME_BODIES + text[first:]
+        declaration = next(
+            node
+            for node in ast.parse(text).body
+            if isinstance(node, ast.FunctionDef) and node.name == "open_tracker"
+        )
+        first = min([declaration.lineno] + [d.lineno for d in declaration.decorator_list]) - 1
+        lines = text.splitlines(keepends=True)
+        filled = "".join(lines[:first]) + ACME_BODIES + "".join(lines[first:])
         with open(os.path.join(self.repo, "acme.py"), "w", encoding="utf-8") as fh:
             fh.write(filled)
         code, out = self.run_tool("tracker", "check", "./acme.py")
